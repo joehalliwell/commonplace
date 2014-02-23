@@ -30,8 +30,8 @@ class CommonplaceLinkCommand(sublime_plugin.TextCommand):
 
     def run(self, edit):        
         # Find our current directory
-        directory = os.path.split(self.view.file_name())[0]
-        (filename, extension) = os.path.split(self.view.file_name())[1]
+        (directory, filename) = os.path.split(self.view.file_name())
+        (filename, extension) = os.path.splitext(filename)
         # Find our current window
         window = self.view.window()
         # Find the cursor
@@ -40,8 +40,10 @@ class CommonplaceLinkCommand(sublime_plugin.TextCommand):
         # Find the link text under the cursor
         link = self.view.substr(self.view.extract_scope(location.a))
         
-        if "markup.underline.link" not in self.view.scope_name(location.a):
-            sublime.status_message("Can only handle links!")
+        # markup.underline.link is common, but e.g. the Markdown plugin
+        # doesn't apply it to internal links!
+        if "link" not in self.view.scope_name(location.a):
+            sublime.status_message("Not a link")
             return
 
         if (self.pat_url.match(link)):
@@ -51,7 +53,8 @@ class CommonplaceLinkCommand(sublime_plugin.TextCommand):
 
         if (self.pat_email.match(link)):
             sublime.status_message("Trying to mail " + link)
-            sublime.active_window().run_command('open_url', {"url": "mailto:"+link})
+            sublime.active_window().run_command('open_url', {"url": "mailto:" + link})
+            return 
 
         # TODO: Make a safe filename
         # TODO: Select the extension based on scope
@@ -59,13 +62,11 @@ class CommonplaceLinkCommand(sublime_plugin.TextCommand):
         new_file = os.path.join(directory, new_filename)
 
         # Debug section: uncomment to write to the console
-        if False:
+        if True:
             print("Location: %d" % location.a)
-            print("Selected word is '%s'" % word)
+            print("Selected word is '%s'" % link)
             print("Full file path: %s" % new_file)
             print("Selected word link is '%s'" % self.view.scope_name(location.a))
-            if internalLink in self.view.scope_name(location.a):
-                print("this is an internal link")
         
         if os.path.exists(new_file):
             # Open the already-created page.
