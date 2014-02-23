@@ -1,0 +1,31 @@
+= Commonplace
+
+Commonplace is a personal wiki plugin for [[http://www.sublimetext.com/|SublimeText]].
+
+It's intended to work with a variety of lightweight markup languages including Markdown, and 
+Textile, but it has a certain bias towards [[http://en.wikipedia.org/wiki/Creole_(markup)|Creole]] for historical reasons.
+
+== Installation
+
+To install SublimeLinter via [[https://sublime.wbond.net/installation|Package Control]], follow these steps:
+
+# Open the Command Palette (cmd+shift+p on Mac OS X, ctrl+shift+p on Linux/Windows).
+# Type install and select Package Control: Install Package from the Command Palette. There will be a pause of a few seconds while Package Control finds the available packages.
+# When the list of available packages appears, type {{{commonplace}} and select Commonplace. ter”.
+# After a few seconds Commonplace will be installed and loaded.
+
+== Basic usage
+
+# Create a file called {{{Home.creole}}}
+# Position the cursor on {{{[[an internal link]]}}} and hit ctrl-enter.
+
+== TODO
+
+* Subdirectories
+* Tomboy style renaming of wiki-pages
+* Git integration?
+
+== Credits
+
+Commonplace is heavily based on [[https://sublime.wbond.net/packages/Wiki|SublimeWiki]]
+

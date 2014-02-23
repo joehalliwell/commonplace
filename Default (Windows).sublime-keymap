@@ -1,0 +1,20 @@
+[
+{  	"keys": ["ctrl+enter"],
+	"command": "commonplace_link", 
+	"context": [
+		{	"key": "selector",
+			"operator": "equal",
+			"operand": "text.html.creole"
+		}
+	]
+},
+{  	"keys": ["ctrl+enter"],
+	"command": "commonplace_link", 
+	"context": [
+		{	"key": "selector",
+			"operator": "equal",
+			"operand": "source.Wiki"
+		}
+	]
+}
+]
