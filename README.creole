@@ -24,6 +24,7 @@ To install SublimeLinter via [[https://sublime.wbond.net/installation|Package Co
 * Subdirectories
 * Tomboy style renaming of wiki-pages
 * Git integration?
+* [[http://en.wikipedia.org/wiki/Org-mode|orgmode]] style checkboxen
 
 == Credits
 
