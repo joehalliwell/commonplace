@@ -1,3 +1,6 @@
 import logging
+from commonplace._config import Config
 
-logger = logging.getLogger("melange")
+LOGGER = logging.getLogger("melange")
+
+CONFIG = Config()  # type: ignore

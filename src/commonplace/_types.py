@@ -1,9 +1,16 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
+from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
+
+
+class Role(Enum):
+    SYSTEM = auto()
+    USER = auto()
+    ASSISTANT = auto()
 
 
 class Message(BaseModel):
@@ -11,7 +18,7 @@ class Message(BaseModel):
     Represents a single message or turn in a conversation.
     """
 
-    sender: str = Field(description="The name or role of the sender.")
+    sender: Role = Field(description="The name or role of the sender.")
     content: str = Field(description="The content of the message, can be Markdown.")
     created: datetime = Field(
         description="The timestamp of when the message was sent or created.",

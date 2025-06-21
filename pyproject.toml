@@ -16,6 +16,7 @@ dependencies = [
     "python-dotenv >=1.0.0",
     "tqdm >=4.66.0",
     "typer >=0.9.0",
+    "pydantic-settings>=2.10.0",
 ]
 
 [dependency-groups]

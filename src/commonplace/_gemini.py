@@ -11,11 +11,12 @@ from bs4.element import PageElement, Tag
 from html_to_markdown import convert_to_markdown
 from rich.progress import track
 
-from commonplace import logger
-from commonplace._types import ActivityLog, Importer, Message
+from commonplace import LOGGER
+from commonplace._types import ActivityLog, Importer, Message, Role
 
 
 _PROMPT_PREFIX = "Prompted"
+_HTML_PATH = "Takeout/My Activity/Gemini Apps/My Activity.html"
 
 
 class GeminiImporter(Importer):
@@ -38,9 +39,9 @@ class GeminiImporter(Importer):
         try:
             with closing(ZipFile(path, "r")) as zip_file:
                 # Check if the expected path exists in the zip file
-                return "Takeout/My Activity/Gemini Apps/My Activity.html" in zip_file.namelist()
+                return _HTML_PATH in zip_file.namelist()
         except Exception as e:
-            logger.info(
+            LOGGER.info(
                 f"{path} failed Gemini importability check: {e}",
                 exc_info=True,
             )
@@ -50,7 +51,7 @@ class GeminiImporter(Importer):
         """Import activity logs from the Gemini file."""
         with ZipFile(path, "r") as zip_file:
             # Read the HTML file from the zip
-            with zip_file.open("Takeout/My Activity/Gemini Apps/My Activity.html") as file:
+            with zip_file.open(_HTML_PATH) as file:
                 content = file.read().decode("utf-8")
                 return self._parse_gemini_html(content)
 
@@ -60,13 +61,13 @@ class GeminiImporter(Importer):
         TURN_CONTAINER_SELECTOR = "div.content-cell:not(.mdl-typography--caption)"
         all_content_cells = soup.select(TURN_CONTAINER_SELECTOR)
 
-        logger.info(f"Found {len(all_content_cells)} candidate content cells in the HTML")
+        LOGGER.info(f"Found {len(all_content_cells)} candidate content cells in the HTML")
 
         # Get all mesages
         messages = []
         for cell in track(all_content_cells):
             messages.extend(self._parse_cell(cell))
-        logger.info(f"Parsed {len(messages)} messages")
+        LOGGER.info(f"Parsed {len(messages)} messages")
 
         # Sort and group messages into day logs
         logs_by_date = defaultdict(list)
@@ -82,10 +83,10 @@ class GeminiImporter(Importer):
                 created=messages[0].created,
                 messages=messages,
             )
-            logger.debug(f"Created log for {date}: {log}")
+            LOGGER.debug(f"Created log for {date}: {log}")
             results.append(log)
 
-        logger.info(f"Created {len(results)} day logs")
+        LOGGER.info(f"Created {len(results)} day logs")
         return results
 
     def _to_markdown(self, elements: Iterable[PageElement]) -> str:
@@ -127,7 +128,7 @@ class GeminiImporter(Importer):
             user_bits.append(child)
 
         if timestamp_match is None:
-            logger.debug(f"Failed to parse cell {cell})")
+            LOGGER.debug(f"Failed to parse cell {cell})")
             return []
 
         timestamp = self._parse_timestamp(timestamp_match.group(0))
@@ -138,22 +139,22 @@ class GeminiImporter(Importer):
         ai_response = self._to_markdown(ai_bits)
 
         if not user_prompt.startswith(_PROMPT_PREFIX):
-            logger.debug(f"Skipping cell with no user prompt: {user_prompt} (in {cell}   )")
+            LOGGER.debug(f"Skipping cell with no user prompt: {user_prompt} (in {cell}   )")
             return []
         user_prompt = user_prompt[len(_PROMPT_PREFIX) :].strip()
 
         if not ai_response:
-            logger.debug(f"Skipping cell with no AI repsonse {ai_response} (in {cell})")
+            LOGGER.debug(f"Skipping cell with no AI repsonse {ai_response} (in {cell})")
             return []
 
         user_message = Message(
-            sender="User",
+            sender=Role.USER,
             content=user_prompt,
             created=timestamp,
         )
 
         ai_message = Message(
-            sender="Assistant",
+            sender=Role.ASSISTANT,
             content=ai_response,
             created=timestamp,
         )

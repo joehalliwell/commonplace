@@ -6,8 +6,8 @@ from typing import Optional
 import mdformat
 from pydantic import BaseModel, Field
 
-from commonplace import logger
-from commonplace._types import ActivityLog
+from commonplace import LOGGER
+from commonplace._types import ActivityLog, Role
 
 
 class JSONSerializer(BaseModel):
@@ -48,9 +48,11 @@ class MarkdownSerializer(BaseModel):
         self._add_header(lines, title, created=log.created.isoformat())
 
         for message in log.messages:
+            sender = "Joe" if message.sender == Role.USER else log.source.title()
+
             self._add_header(
                 lines,
-                message.sender,
+                sender,
                 level=2,
                 created=message.created.isoformat(),
             )
@@ -126,7 +128,7 @@ class ActivityLogDirectoryStore(BaseModel):
         """
         path = self.path(log.source, log.created, log.title)
         path.parent.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"Writing log to {path}")
+        LOGGER.debug(f"Writing log to {path}")
         with open(path, "w", encoding="utf-8") as f:
             f.write(self.serializer.serialize(log))
 
@@ -152,11 +154,11 @@ class ActivityLogDirectoryStore(BaseModel):
             if not source_dir.is_dir():
                 continue
             if sources is not None and source_dir not in sources:
-                logger.info(f"Skipping source {source_dir} not in {sources}")
+                LOGGER.info(f"Skipping source {source_dir} not in {sources}")
                 continue
             for log_file in source_dir.glob("*.md"):
                 log_date = datetime.strptime(log_file.stem[:8], "%Y%m%d")
                 if start <= log_date <= end:
                     logs.append(self._fetch(log_file))
-        logger.info(f"Fetched {len(logs)} logs from {self.root} between {start} and {end}")
+        LOGGER.info(f"Fetched {len(logs)} logs from {self.root} between {start} and {end}")
         return logs
