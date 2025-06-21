@@ -1,0 +1,43 @@
+[project]
+name = "commonplace"
+version = "0.0.1"
+description = "A personal knowledge management tool"
+readme = "README.md"
+authors = [{ name = "Joe Halliwell", email = "joe.halliwell@gmail.com" }]
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.13.4",
+    "lxml>=5.4.0",
+    "html-to-markdown>=1.3.3",
+    "mdformat>=0.7.22",
+    "mdformat-frontmatter>=2.0.8",
+    "mdformat-gfm>=0.4.1",
+    "pydantic >=2.0.0",
+    "python-dotenv >=1.0.0",
+    "tqdm >=4.66.0",
+    "typer >=0.9.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest >=8.1.1",
+    "pytest-cov >=4.1.0",
+    "black >=24.2.0",
+    "ruff >=0.2.0",
+    "mypy >=1.8.0",
+]
+
+[project.scripts]
+commonplace = "commonplace.__main__:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
