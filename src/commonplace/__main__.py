@@ -5,7 +5,7 @@ import typer
 from rich.logging import RichHandler
 from rich.progress import track
 
-from commonplace import LOGGER, CONFIG
+from commonplace import CONFIG, LOGGER
 from commonplace._claude import ClaudeImporter
 from commonplace._gemini import GeminiImporter
 from commonplace._store import ActivityLogDirectoryStore, MarkdownSerializer

@@ -1,6 +1,6 @@
 [project]
 name = "commonplace"
-version = "0.0.1"
+dynamic = ["version"]
 description = "A personal knowledge management tool"
 readme = "README.md"
 authors = [{ name = "Joe Halliwell", email = "joe.halliwell@gmail.com" }]
@@ -32,7 +32,7 @@ dev = [
 commonplace = "commonplace.__main__:app"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "versioningit"]
 build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
@@ -42,3 +42,6 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 120
+
+[tool.hatch.version]
+source = "versioningit"

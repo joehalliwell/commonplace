@@ -14,7 +14,6 @@ from rich.progress import track
 from commonplace import LOGGER
 from commonplace._types import ActivityLog, Importer, Message, Role
 
-
 _PROMPT_PREFIX = "Prompted"
 _HTML_PATH = "Takeout/My Activity/Gemini Apps/My Activity.html"
 
