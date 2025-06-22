@@ -1,4 +1,3 @@
-import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -8,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from commonplace import LOGGER
 from commonplace._types import ActivityLog, Role
+from commonplace._utils import slugify
 
 
 class JSONSerializer(BaseModel):
@@ -37,6 +37,10 @@ class MarkdownSerializer(BaseModel):
     A simple Markdown serializer for ActivityLog objects.
     """
 
+    timespec: str = Field(default="seconds", description="Timespec for isoformat used in titles")
+    human: str = Field(default="Human", description="Name to use for the human interlocutor")
+    assistant: str = Field(default="Assistant", description="Name to use for the AI assistant")
+
     def serialize(self, log: ActivityLog) -> str:
         """
         Serializes an ActivityLog object to a Markdown string.
@@ -45,16 +49,20 @@ class MarkdownSerializer(BaseModel):
         self._add_metadata(lines, log.metadata)
 
         title = log.title or "Conversation"
-        self._add_header(lines, title, created=log.created.isoformat())
+        self._add_header(
+            lines,
+            title,
+            created=log.created.isoformat(timespec=self.timespec),
+        )
 
         for message in log.messages:
-            sender = "Joe" if message.sender == Role.USER else log.source.title()
+            sender = self.human if message.sender == Role.USER else self.assistant
 
             self._add_header(
                 lines,
                 sender,
                 level=2,
-                created=message.created.isoformat(),
+                created=message.created.isoformat(timespec=self.timespec),
             )
             self._add_metadata(lines, message.metadata)
 
@@ -68,7 +76,7 @@ class MarkdownSerializer(BaseModel):
                 "frontmatter",
                 "gfm",
             ],  # TODO: Check these can be enabled!
-            options={"wrap": 80},
+            options={"wrap": 80, "number": True, "validate": True},
         )
         return formatted
 
@@ -113,7 +121,7 @@ class ActivityLogDirectoryStore(BaseModel):
         """
         slug = ""
         if title:
-            slug = "-" + re.sub("[^a-z0-9-]", "", title.lower().replace(" ", "-"))
+            slug = "-" + slugify(title)
         return (
             self.root
             / source

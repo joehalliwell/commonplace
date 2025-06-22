@@ -7,6 +7,7 @@ from rich.progress import track
 
 from commonplace import LOGGER
 from commonplace._types import ActivityLog, Importer, Message, Role
+from commonplace._utils import truncate
 
 
 class ClaudeImporter(Importer):
@@ -69,7 +70,7 @@ class ClaudeImporter(Importer):
             if type_ == "text":
                 lines.append(content["text"])
             else:
-                LOGGER.debug(f"Skipping content block {content}")
+                LOGGER.debug(f"Skipping {type_} content block {truncate(str(content))}")
                 lines.extend(["> [!NOTE]", f"> Skipped content of type {type_}"])
 
         text = "\n".join(lines)

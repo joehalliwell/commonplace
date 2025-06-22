@@ -8,7 +8,7 @@ from rich.progress import track
 from commonplace import LOGGER, CONFIG
 from commonplace._claude import ClaudeImporter
 from commonplace._gemini import GeminiImporter
-from commonplace._store import ActivityLogDirectoryStore
+from commonplace._store import ActivityLogDirectoryStore, MarkdownSerializer
 
 app = typer.Typer(
     help="commonplace: AI-powered journaling tool",
@@ -43,7 +43,10 @@ def import_(path: Path):
     logs = importer.import_(path)
     LOGGER.info(f"Imported {len(logs)} activity logs from {path}.")
 
-    store = ActivityLogDirectoryStore(root=CONFIG.root / "chats")
+    store = ActivityLogDirectoryStore(
+        root=CONFIG.root / "chats",
+        serializer=MarkdownSerializer(human="Joe", assistant=importer.source.title()),
+    )
     for log in track(logs):
         store.store(log)
 
