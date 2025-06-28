@@ -17,6 +17,7 @@ dependencies = [
     "tqdm >=4.66.0",
     "typer >=0.9.0",
     "pydantic-settings>=2.10.0",
+    "pygit2>=1.15.0",
 ]
 
 [dependency-groups]
