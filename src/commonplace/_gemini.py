@@ -11,7 +11,7 @@ from bs4.element import PageElement, Tag
 from html_to_markdown import convert_to_markdown
 from rich.progress import track
 
-from commonplace import LOGGER
+from commonplace import logger
 from commonplace._types import ActivityLog, Importer, Message, Role
 
 _PROMPT_PREFIX = "Prompted"
@@ -40,7 +40,7 @@ class GeminiImporter(Importer):
                 # Check if the expected path exists in the zip file
                 return _HTML_PATH in zip_file.namelist()
         except Exception as e:
-            LOGGER.info(
+            logger.info(
                 f"{path} failed Gemini importability check: {e}",
                 exc_info=True,
             )
@@ -60,13 +60,13 @@ class GeminiImporter(Importer):
         TURN_CONTAINER_SELECTOR = "div.content-cell:not(.mdl-typography--caption)"
         all_content_cells = soup.select(TURN_CONTAINER_SELECTOR)
 
-        LOGGER.info(f"Found {len(all_content_cells)} candidate content cells in the HTML")
+        logger.info(f"Found {len(all_content_cells)} candidate content cells in the HTML")
 
         # Get all mesages
         messages = []
         for cell in track(all_content_cells):
             messages.extend(self._parse_cell(cell))
-        LOGGER.info(f"Parsed {len(messages)} messages")
+        logger.info(f"Parsed {len(messages)} messages")
 
         # Sort and group messages into day logs
         logs_by_date = defaultdict(list)
@@ -82,10 +82,10 @@ class GeminiImporter(Importer):
                 created=messages[0].created,
                 messages=messages,
             )
-            LOGGER.debug(f"Created log for {date}: {log}")
+            logger.debug(f"Created log for {date}: {log}")
             results.append(log)
 
-        LOGGER.info(f"Created {len(results)} day logs")
+        logger.info(f"Created {len(results)} day logs")
         return results
 
     def _to_markdown(self, elements: Iterable[PageElement]) -> str:
@@ -127,7 +127,7 @@ class GeminiImporter(Importer):
             user_bits.append(child)
 
         if timestamp_match is None:
-            LOGGER.debug(f"Failed to parse cell {cell})")
+            logger.debug(f"Failed to parse cell {cell})")
             return []
 
         timestamp = self._parse_timestamp(timestamp_match.group(0))
@@ -138,12 +138,12 @@ class GeminiImporter(Importer):
         ai_response = self._to_markdown(ai_bits)
 
         if not user_prompt.startswith(_PROMPT_PREFIX):
-            LOGGER.debug(f"Skipping cell with no user prompt: {user_prompt} (in {cell}   )")
+            logger.debug(f"Skipping cell with no user prompt: {user_prompt} (in {cell}   )")
             return []
         user_prompt = user_prompt[len(_PROMPT_PREFIX) :].strip()
 
         if not ai_response:
-            LOGGER.debug(f"Skipping cell with no AI repsonse {ai_response} (in {cell})")
+            logger.debug(f"Skipping cell with no AI repsonse {ai_response} (in {cell})")
             return []
 
         user_message = Message(

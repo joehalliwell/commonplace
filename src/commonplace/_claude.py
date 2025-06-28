@@ -5,7 +5,7 @@ from zipfile import ZipFile
 
 from rich.progress import track
 
-from commonplace import LOGGER
+from commonplace import logger
 from typing import Any
 
 from commonplace._types import ActivityLog, Importer, Message, Role
@@ -31,7 +31,7 @@ class ClaudeImporter(Importer):
                 return "conversations.json" in files and "users.json" in files
 
         except Exception as e:
-            LOGGER.info(
+            logger.info(
                 f"{path} failed Gemini importability check: {e}",
                 exc_info=True,
             )
@@ -72,7 +72,7 @@ class ClaudeImporter(Importer):
             if type_ == "text":
                 lines.append(content["text"])
             else:
-                LOGGER.debug(f"Skipping {type_} content block {truncate(str(content))}")
+                logger.debug(f"Skipping {type_} content block {truncate(str(content))}")
                 lines.extend(["> [!NOTE]", f"> Skipped content of type {type_}"])
 
         text = "\n".join(lines)
