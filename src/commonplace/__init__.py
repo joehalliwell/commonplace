@@ -15,4 +15,11 @@ LOGGER = logging.getLogger("commonplace")
 @lru_cache(maxsize=1)
 def get_config() -> Config:
     """Get the global config instance, cached."""
-    return Config()
+    try:
+        return Config()
+    except Exception as e:
+        LOGGER.error(
+            "Failed to load configuration. Please ensure COMMONPLACE_ROOT is set to a valid directory path.\n"
+            "Example: export COMMONPLACE_ROOT=/home/user/commonplace"
+        )
+        raise SystemExit(1) from e

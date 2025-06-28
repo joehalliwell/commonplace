@@ -5,7 +5,7 @@ Defines the Config class for handling application settings from
 environment variables, .env files, and direct instantiation.
 """
 
-from pydantic import DirectoryPath, Field
+from pydantic import DirectoryPath, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,3 +36,10 @@ class Config(BaseSettings):
 
     root: DirectoryPath = Field(description="The root directory for storing commonplace data")
     wrap: int = Field(default=80, description="Target characters per line for text wrapping")
+
+    @field_validator("root", mode="before")
+    @classmethod
+    def validate_root_not_empty(cls, v):
+        if isinstance(v, str) and v.strip() == "":
+            raise ValueError("Root path cannot be empty")
+        return v
