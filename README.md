@@ -16,17 +16,21 @@ Commonplace transforms your scattered AI chat exports into an organized, searcha
 - **Date-based organization** in a clear directory structure:
   ```
   ~/commonplace/
-  ├── claude/2024/06/2024-06-28-conversation-title.md
-  ├── gemini/2024/06/2024-06-28-gemini-conversations.md
-  └── ...
+  ├── chats/                    # AI conversations (imported by tool)
+  │   ├── claude/2024/06/2024-06-28-conversation-title.md
+  │   ├── gemini/2024/06/2024-06-28-gemini-conversations.md
+  │   └── ...
+  ├── journal/                  # Manual journal entries
+  └── notes/                    # Manual notes and thoughts
   ```
 - **Rich markdown format** with frontmatter, timestamps, and proper formatting
+- **Git integration** for change tracking and automatic commits when importing conversations
 
 ### Planned Features
 - Interactive curation tools (move, rename, label)
 - Conversation summarization and synthesis
 - Cross-conversation search and analysis
-- Journal generation from conversation insights
+- Journal generation from conversation insights across both imported chats and manual content
 
 ## Installation
 
@@ -37,12 +41,19 @@ uv tool install commonplace
 
 ## Setup
 
-Set your storage location:
+1. Set your storage location:
 ```bash
 export COMMONPLACE_ROOT=/path/to/your/commonplace
 # or create a .env file with:
 # COMMONPLACE_ROOT=/path/to/your/commonplace
 ```
+
+2. Initialize your commonplace as a git repository (recommended):
+```bash
+commonplace init
+```
+
+This creates a git repository for change tracking and enables automatic commits when importing conversations.
 
 ## Usage
 
@@ -100,3 +111,5 @@ uv run mypy src/
 ## Philosophy
 
 In the age of AI assistance, our conversations with AI systems often contain valuable insights, creative ideas, and learning moments. Commonplace ensures these digital dialogues don't disappear into the ether, but instead become part of your growing personal knowledge base—ready to be searched, referenced, and built upon.
+
+The tool is designed to complement rather than replace manual journaling and note-taking. While it automates the import and organization of AI conversations into the `/chats` folder, you maintain full control over your manual `/journal` and `/notes` content. This creates a unified knowledge repository where automated and manual content coexist, enabling future features to synthesize insights across your entire intellectual history.
