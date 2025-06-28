@@ -7,7 +7,7 @@ Provides classes for serializing ActivityLog objects to various formats
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any, Optional
 
 import mdformat
 from pydantic import BaseModel, Field
@@ -132,6 +132,10 @@ class ActivityLogDirectoryStore(BaseModel):
     root: Path = Field(description="Root directory for the activity log store.")
     serializer: MarkdownSerializer = MarkdownSerializer()
 
+    def model_post_init(self, __context) -> None:
+        """Ensure the root directory exists after initialization."""
+        self.root.mkdir(parents=True, exist_ok=True)
+
     def path(self, source: str, date: datetime, title: Optional[str]) -> Path:
         """
         Generate the file path for storing an activity log.
@@ -183,9 +187,9 @@ class ActivityLogDirectoryStore(BaseModel):
         start: datetime,
         end: datetime,
         sources: Optional[list[str]] = None,
-    ) -> list[ActivityLog]:
+    ) -> list[Path]:
         """
-        Fetch activity logs within a date range.
+        Fetch file paths within a date range.
 
         Args:
             start: Start date (inclusive)
@@ -193,21 +197,24 @@ class ActivityLogDirectoryStore(BaseModel):
             sources: Optional list of source names to filter by
 
         Returns:
-            List of ActivityLog objects in the date range
-
-        Note:
-            Currently has implementation issues with deserialization.
+            List of file paths in the date range
         """
-        logs = []
+        files = []
         for source_dir in self.root.iterdir():
             if not source_dir.is_dir():
                 continue
             if sources is not None and source_dir.name not in sources:
-                logger.info(f"Skipping source {source_dir} not in {sources}")
+                logger.debug(f"Skipping source {source_dir.name} not in {sources}")
                 continue
-            for log_file in source_dir.glob("*.md"):
-                log_date = datetime.strptime(log_file.stem[:8], "%Y%m%d")
+            for log_file in source_dir.rglob("*.md"):
+                # Parse date from filename format: YYYY-MM-DD-title.md
+                try:
+                    log_date = datetime.strptime(log_file.stem[:10], "%Y-%m-%d")
+                except ValueError:
+                    # Skip files that don't match expected naming pattern
+                    logger.debug(f"Skipping file with unexpected name format: {log_file}")
+                    continue
                 if start <= log_date <= end:
-                    logs.append(self._fetch(log_file))
-        logger.info(f"Fetched {len(logs)} logs from {self.root} between {start} and {end}")
-        return logs
+                    files.append(log_file)
+        logger.info(f"Found {len(files)} files from {self.root} between {start} and {end}")
+        return files

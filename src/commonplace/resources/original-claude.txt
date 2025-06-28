@@ -1,0 +1,8 @@
+Based on these AI conversation topics from the last {days} days, provide a brief summary of the main themes and interests:
+
+{content}
+
+Please identify:
+1. The major themes/currents in the thought
+2. Opportunities to improve
+2. Other things that emerge that could be useful for Joe to reflect upon

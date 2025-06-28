@@ -1,13 +1,12 @@
 import json
 from contextlib import closing
 from pathlib import Path
+from typing import Any
 from zipfile import ZipFile
 
 from rich.progress import track
 
 from commonplace import logger
-from typing import Any
-
 from commonplace._types import ActivityLog, Importer, Message, Role
 from commonplace._utils import truncate
 

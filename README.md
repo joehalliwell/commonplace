@@ -26,11 +26,13 @@ Commonplace transforms your scattered AI chat exports into an organized, searcha
 - **Rich markdown format** with frontmatter, timestamps, and proper formatting
 - **Git integration** for change tracking and automatic commits when importing conversations
 
-### Planned Features
+### Current Features
+- **Journal generation** - Analyze and summarize recent conversations with AI insights
+
+### Planned Features  
 - Interactive curation tools (move, rename, label)
-- Conversation summarization and synthesis
 - Cross-conversation search and analysis
-- Journal generation from conversation insights across both imported chats and manual content
+- Advanced synthesis across both imported chats and manual content
 
 ## Installation
 
@@ -55,6 +57,17 @@ commonplace init
 
 This creates a git repository for change tracking and enables automatic commits when importing conversations.
 
+3. Configure an LLM for journal generation (optional):
+```bash
+# Install and configure OpenAI (or other providers)
+llm install llm-openai
+llm keys set openai
+# Enter your API key when prompted
+
+# Or use local models
+llm install llm-gpt4all
+```
+
 ## Usage
 
 ### Import Claude conversations
@@ -69,6 +82,19 @@ commonplace import path/to/claude-export.zip
 2. Import the ZIP file:
 ```bash
 commonplace import path/to/takeout-export.zip
+```
+
+### Generate journal insights
+Analyze and summarize your recent conversations:
+```bash
+# Basic summary of last 7 days
+commonplace journal
+
+# Analyze last 30 days with specific model  
+commonplace journal --days 30 --model claude-3-sonnet
+
+# Just show statistics without AI summary
+commonplace journal --stats-only
 ```
 
 ## Output Format

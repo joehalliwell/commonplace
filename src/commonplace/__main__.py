@@ -9,6 +9,8 @@ from commonplace import get_config, logger
 from commonplace._claude import ClaudeImporter
 from commonplace._gemini import GeminiImporter
 from commonplace._git import GitRepo
+from commonplace._journal import JournalGenerator
+from commonplace._llm import get_model
 from commonplace._store import ActivityLogDirectoryStore, MarkdownSerializer
 
 app = typer.Typer(
@@ -99,8 +101,29 @@ def init():
 
 
 @app.command()
-def journal():
-    """Generate insights and summaries from your conversation archive (coming soon)."""
-    logger.info(
-        "Journal command is not yet implemented. This will analyze your conversation archive to generate insights and summaries."
-    )
+def journal(
+    days: int = typer.Option(7, "--days", "-d", help="Number of days to analyze"),
+    model_name: str = typer.Option("gemini/gemini-2.5-pro", "--model", "-m", help="LLM model to use for summaries"),
+    stats_only: bool = typer.Option(False, "--stats-only", help="Show only statistics, no AI summary"),
+):
+    """Generate insights and summaries from your conversation archive."""
+    config = get_config()
+    llm_ = get_model(model_name)
+
+    # Create store for reading conversations
+    store = ActivityLogDirectoryStore(root=config.root / "chats")
+
+    # Just show statistics
+    journal_gen = JournalGenerator(store, llm_)
+    stats = journal_gen.conversation_stats(days)
+
+    print(f"\\n📊 Conversation Statistics ({days} days)")
+    print(f"Total conversations: {stats['total_conversations']}")
+
+    # Generate full summary with AI insights
+    try:
+        summary = journal_gen.recent_conversations_summary(days)
+        print(summary)
+    except Exception as e:
+        logger.exception(f"Failed to generate journal: {e}")
+        raise typer.Exit(code=1)
