@@ -1,6 +1,13 @@
+"""
+Storage and serialization utilities for activity logs.
+
+Provides classes for serializing ActivityLog objects to various formats
+(JSON, Markdown) and storing them in organized directory structures.
+"""
+
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 
 import mdformat
 from pydantic import BaseModel, Field
@@ -12,9 +19,10 @@ from commonplace._utils import slugify
 
 class JSONSerializer(BaseModel):
     """
-    A simple JSON serializer for ActivityLog objects.
+    A JSON serializer for ActivityLog objects.
 
-    TODO: Add more human-readable markdown option as described in docs/import-format.md
+    Provides methods to serialize ActivityLog objects to JSON strings
+    and deserialize JSON strings back to ActivityLog objects.
     """
 
     indent: int = Field(default=2, description="Indentation level for JSON serialization")
@@ -34,7 +42,11 @@ class JSONSerializer(BaseModel):
 
 class MarkdownSerializer(BaseModel):
     """
-    A simple Markdown serializer for ActivityLog objects.
+    A Markdown serializer for ActivityLog objects.
+
+    Converts ActivityLog objects into formatted markdown files with
+    frontmatter metadata, headers for each speaker, and proper
+    timestamp annotations.
     """
 
     timespec: str = Field(default="seconds", description="Timespec for isoformat used in titles")
@@ -87,7 +99,7 @@ class MarkdownSerializer(BaseModel):
         """
         raise NotImplementedError("Markdown deserialization is not implemented.")
 
-    def _add_metadata(self, lines: list[str], metadata: dict, frontmatter=True):
+    def _add_metadata(self, lines: list[str], metadata: dict[str, Any], frontmatter: bool = True) -> None:
         if not metadata:
             return
         start, end = ("---", "---") if frontmatter else ("```yaml", "```")
@@ -97,7 +109,7 @@ class MarkdownSerializer(BaseModel):
         lines.append(end)
         lines.append("")
 
-    def _add_header(self, lines: list[str], text, level: int = 1, **kwargs):
+    def _add_header(self, lines: list[str], text: str, level: int = 1, **kwargs) -> None:
         bits = [
             "#" * level,
             text,
@@ -109,7 +121,12 @@ class MarkdownSerializer(BaseModel):
 
 class ActivityLogDirectoryStore(BaseModel):
     """
-    Abstract base class for activity log stores.
+    A file-based store for activity logs organized by date and source.
+
+    Stores logs in a directory structure like:
+    root/source/YYYY/MM/YYYY-MM-DD-title-slug.md
+
+    Each log is serialized to markdown format with frontmatter metadata.
     """
 
     root: Path = Field(description="Root directory for the activity log store.")
@@ -117,7 +134,15 @@ class ActivityLogDirectoryStore(BaseModel):
 
     def path(self, source: str, date: datetime, title: Optional[str]) -> Path:
         """
-        Returns the last part of the path to the source file or log.
+        Generate the file path for storing an activity log.
+
+        Args:
+            source: The source system (e.g., 'claude', 'gemini')
+            date: The creation date of the log
+            title: Optional title to include in filename
+
+        Returns:
+            Path where the log should be stored
         """
         slug = ""
         if title:
@@ -132,7 +157,13 @@ class ActivityLogDirectoryStore(BaseModel):
 
     def store(self, log: ActivityLog) -> None:
         """
-        Writes the activity log to the store.
+        Store an activity log to the filesystem.
+
+        Args:
+            log: The ActivityLog to store
+
+        Raises:
+            OSError: If there are filesystem permission or space issues
         """
         path = self.path(log.source, log.created, log.title)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -154,14 +185,24 @@ class ActivityLogDirectoryStore(BaseModel):
         sources: Optional[list[str]] = None,
     ) -> list[ActivityLog]:
         """
-        Returns a list of activity logs in the specified date range. Unusually
-        end is inclusive. If no logs are found, returns an empty list.
+        Fetch activity logs within a date range.
+
+        Args:
+            start: Start date (inclusive)
+            end: End date (inclusive)
+            sources: Optional list of source names to filter by
+
+        Returns:
+            List of ActivityLog objects in the date range
+
+        Note:
+            Currently has implementation issues with deserialization.
         """
         logs = []
         for source_dir in self.root.iterdir():
             if not source_dir.is_dir():
                 continue
-            if sources is not None and source_dir not in sources:
+            if sources is not None and source_dir.name not in sources:
                 LOGGER.info(f"Skipping source {source_dir} not in {sources}")
                 continue
             for log_file in source_dir.glob("*.md"):

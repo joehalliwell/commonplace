@@ -6,6 +6,8 @@ from zipfile import ZipFile
 from rich.progress import track
 
 from commonplace import LOGGER
+from typing import Any
+
 from commonplace._types import ActivityLog, Importer, Message, Role
 from commonplace._utils import truncate
 
@@ -44,7 +46,7 @@ class ClaudeImporter(Importer):
             # users = json.loads(zf.read("users.json"))
         return [self._to_log(thread) for thread in track(threads)]
 
-    def _to_log(self, thread: dict) -> ActivityLog:
+    def _to_log(self, thread: dict[str, Any]) -> ActivityLog:
         """
         Convert a thread dictionary to an ActivityLog object.
         """
@@ -60,7 +62,7 @@ class ClaudeImporter(Importer):
             metadata={"uuid": thread["uuid"]},
         )
 
-    def _to_message(self, message: dict) -> Message:
+    def _to_message(self, message: dict[str, Any]) -> Message:
         sender = Role.USER if message["sender"] == "human" else Role.ASSISTANT
         contents = message["content"]
         created = message["created_at"]
