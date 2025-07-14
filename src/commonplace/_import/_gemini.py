@@ -7,7 +7,7 @@ from typing import Iterable
 from zipfile import ZipFile
 
 from bs4 import BeautifulSoup
-from bs4.element import PageElement, Tag
+from bs4.element import PageElement, Tag, NavigableString
 from html_to_markdown import convert_to_markdown
 from rich.progress import track
 
@@ -62,8 +62,8 @@ class GeminiImporter(Importer):
 
         logger.info(f"Found {len(all_content_cells)} candidate content cells in the HTML")
 
-        # Get all mesages
-        messages = []
+        # Get all messages
+        messages: list[Message] = []
         for cell in track(all_content_cells):
             messages.extend(self._parse_cell(cell))
         logger.info(f"Parsed {len(messages)} messages")
@@ -120,7 +120,7 @@ class GeminiImporter(Importer):
         timestamp_match = None
         user_bits = []
         for child in children:
-            if child.string:
+            if isinstance(child, NavigableString):
                 timestamp_match = re.match(r"\d{1,2} \w+ \d{4}, \d{2}:\d{2}:\d{2} \w+", child.string)
                 if timestamp_match is not None:
                     break
