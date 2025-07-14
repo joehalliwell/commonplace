@@ -4,8 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from zipfile import ZipFile
 
-from commonplace._claude import ClaudeImporter
-from commonplace._types import Role
+from commonplace._import._claude import ClaudeImporter
+from commonplace._import.Role import Role
 
 
 class TestClaudeImporter:
@@ -21,7 +21,14 @@ class TestClaudeImporter:
         return Path(temp_file.name)
 
     def test_can_import_valid_claude_zip(self):
-        conversations = [{"uuid": "123", "name": "Test", "created_at": "2024-01-01T12:00:00Z", "chat_messages": []}]
+        conversations = [
+            {
+                "uuid": "123",
+                "name": "Test",
+                "created_at": "2024-01-01T12:00:00Z",
+                "chat_messages": [],
+            }
+        ]
         zip_path = self.create_test_zipfile(conversations)
 
         try:

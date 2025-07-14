@@ -5,8 +5,15 @@ Defines the Config class for handling application settings from
 environment variables, .env files, and direct instantiation.
 """
 
-from pydantic import DirectoryPath, Field, field_validator
+import getpass
+from pathlib import Path
+
+from platformdirs import user_config_dir
+from pydantic import DirectoryPath, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEFAULT_CONFIG = Path(user_config_dir("commonplace")) / "commonplace.toml"
+DEFAULT_NAME = getpass.getuser().title()  # Get the current user's name for default human-readable name
 
 
 class Config(BaseSettings):
@@ -32,9 +39,11 @@ class Config(BaseSettings):
         env_file_encoding="utf-8",
         env_nested_delimiter="_",
         env_prefix="COMMONPLACE_",
+        toml_file=DEFAULT_CONFIG,
     )
 
     root: DirectoryPath = Field(description="The root directory for storing commonplace data")
+    user: str = Field(default=DEFAULT_NAME, description="Human-readable name for the user e.g., Joe")
     wrap: int = Field(default=80, description="Target characters per line for text wrapping")
 
     @field_validator("root", mode="before")
@@ -43,3 +52,15 @@ class Config(BaseSettings):
         if isinstance(v, str) and v.strip() == "":
             raise ValueError("Root path cannot be empty")
         return v
+
+    @model_validator(mode="before")
+    def defaults_based_on_root(cls, values):
+        """
+        Set default values based on the root directory.
+        If root is a string, convert it to a Path object.
+        """
+        return values
+
+
+if __name__ == "__main__":
+    print(Config.model_validate({}))

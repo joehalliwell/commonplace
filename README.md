@@ -9,6 +9,7 @@ Commonplace transforms your scattered AI chat exports into an organized, searcha
 ## Features
 
 ### Current Capabilities
+
 - **Import conversations** from multiple AI providers:
   - Claude (via ZIP export from claude.ai)
   - Gemini (via Google Takeout HTML export)
@@ -26,10 +27,8 @@ Commonplace transforms your scattered AI chat exports into an organized, searcha
 - **Rich markdown format** with frontmatter, timestamps, and proper formatting
 - **Git integration** for change tracking and automatic commits when importing conversations
 
-### Current Features
-- **Journal generation** - Analyze and summarize recent conversations with AI insights
+### Planned Features
 
-### Planned Features  
 - Interactive curation tools (move, rename, label)
 - Cross-conversation search and analysis
 - Advanced synthesis across both imported chats and manual content

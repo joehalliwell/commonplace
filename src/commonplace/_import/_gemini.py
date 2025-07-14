@@ -12,7 +12,7 @@ from html_to_markdown import convert_to_markdown
 from rich.progress import track
 
 from commonplace import logger
-from commonplace._types import ActivityLog, Importer, Message, Role
+from commonplace._import._types import ActivityLog, Importer, Message, Role
 
 _PROMPT_PREFIX = "Prompted"
 _HTML_PATH = "Takeout/My Activity/Gemini Apps/My Activity.html"

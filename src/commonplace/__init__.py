@@ -23,10 +23,7 @@ logger = logging.getLogger("commonplace")
 def get_config() -> Config:
     """Get the global config instance, cached."""
     try:
-        return Config()
+        return Config.model_validate({})
     except Exception as e:
-        logger.error(
-            "Failed to load configuration. Please ensure COMMONPLACE_ROOT is set to a valid directory path.\n"
-            "Example: export COMMONPLACE_ROOT=/home/user/commonplace"
-        )
+        logger.error("Failed to load configuration. Please ensure COMMONPLACE_ROOT is set to a valid directory path.")
         raise SystemExit(1) from e
