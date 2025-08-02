@@ -118,6 +118,9 @@ def import_path(source: str, date: datetime, title: Optional[str], prefix="chats
 
 
 def import_(path: Path, repo: Commonplace, user: str, prefix="chats"):
+    """
+    Import chats from a supported provider into the repository.
+    """
     importer = next((importer for importer in IMPORTERS if importer.can_import(path)), None)
     if importer is None:
         logger.error(f"The file {path} is not supported by any available importer")
@@ -139,3 +142,5 @@ def import_(path: Path, repo: Commonplace, user: str, prefix="chats"):
         )
         repo.save(note)
         logger.info(f"Stored log '{log.title}' at '{path}'")
+
+    repo.commit(f"Import from {path} using {importer.source} importer")

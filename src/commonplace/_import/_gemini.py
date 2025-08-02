@@ -7,7 +7,7 @@ from typing import Iterable
 from zipfile import ZipFile
 
 from bs4 import BeautifulSoup
-from bs4.element import PageElement, Tag, NavigableString
+from bs4.element import NavigableString, PageElement, Tag
 from html_to_markdown import convert_to_markdown
 from rich.progress import track
 

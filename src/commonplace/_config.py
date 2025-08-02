@@ -42,7 +42,9 @@ class Config(BaseSettings):
         toml_file=DEFAULT_CONFIG,
     )
 
-    root: DirectoryPath = Field(description="The root directory for storing commonplace data")
+    root: DirectoryPath = Field(
+        description="The root directory for storing commonplace data",
+    )
     user: str = Field(default=DEFAULT_NAME, description="Human-readable name for the user e.g., Joe")
     wrap: int = Field(default=80, description="Target characters per line for text wrapping")
 

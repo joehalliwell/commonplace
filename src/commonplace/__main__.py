@@ -30,6 +30,6 @@ def import_(path: Path):
 
 @app.command()
 def init():
-    """Initialize the commonplace directory as a git repository."""
+    """Initialize a commonplace working directory."""
     config = get_config()
     Commonplace.init(config.root)

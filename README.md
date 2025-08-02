@@ -1,10 +1,15 @@
 # Commonplace
 
-A personal knowledge management tool for archiving and organizing your AI conversations into a searchable digital commonplace book.
+A personal knowledge management tool for archiving and organizing your AI
+conversations into a searchable digital commonplace book.
 
 ## What is Commonplace?
 
-Commonplace transforms your scattered AI chat exports into an organized, searchable personal knowledge repository. Just like the traditional [commonplace books](https://en.wikipedia.org/wiki/Commonplace_book) used by scholars and thinkers throughout history, this tool helps you preserve and revisit your most valuable AI conversations.
+Commonplace transforms your scattered AI chat exports into an organized,
+searchable personal knowledge repository. Just like the traditional [commonplace
+books](https://en.wikipedia.org/wiki/Commonplace_book) used by scholars and
+thinkers throughout history, this tool helps you preserve and revisit your most
+valuable AI conversations.
 
 ## Features
 
@@ -99,6 +104,7 @@ commonplace journal --stats-only
 ## Output Format
 
 Each conversation is stored as a markdown file with:
+
 - **Frontmatter metadata** (source, timestamps, IDs)
 - **Structured headers** for each speaker
 - **Preserved formatting** and content
@@ -135,6 +141,15 @@ uv run mypy src/
 
 ## Philosophy
 
-In the age of AI assistance, our conversations with AI systems often contain valuable insights, creative ideas, and learning moments. Commonplace ensures these digital dialogues don't disappear into the ether, but instead become part of your growing personal knowledge base—ready to be searched, referenced, and built upon.
+In the age of AI assistance, our conversations with AI systems often contain
+valuable insights, creative ideas, and learning moments. Commonplace ensures
+these digital dialogues don't disappear into the ether, but instead become part
+of your growing personal knowledge base—ready to be searched, referenced, and
+built upon.
 
-The tool is designed to complement rather than replace manual journaling and note-taking. While it automates the import and organization of AI conversations into the `/chats` folder, you maintain full control over your manual `/journal` and `/notes` content. This creates a unified knowledge repository where automated and manual content coexist, enabling future features to synthesize insights across your entire intellectual history.
+The tool is designed to complement rather than replace manual journaling and
+note-taking. While it automates the import and organization of AI conversations
+into the `/chats` folder, you maintain full control over your manual `/journal`
+and `/notes` content. This creates a unified knowledge repository where
+automated and manual content coexist, enabling future features to synthesize
+insights across your entire intellectual history.

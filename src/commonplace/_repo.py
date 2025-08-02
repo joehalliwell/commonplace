@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
-import frontmatter
-from pygit2 import init_repository
+import frontmatter  # type:ignore
+from pygit2 import init_repository, Signature
 from pygit2.enums import FileStatus
 from pygit2.repository import Repository
 
@@ -118,6 +118,24 @@ class Commonplace:
             frontmatter.dump(post, fd)
             fd.write(b"\n")
         self.git.index.add(self._rel_path(note.path))
+
+    def commit(self, message: str) -> None:
+        """Commit staged changes to the repository."""
+        if self.git.index.diff_to_workdir().stats.files_changed == 0:
+            logger.info("No changes to commit")
+            return
+        author = Signature("Commonplace Bot", "commonplace@joehalliwell.com")
+        committer = author
+        tree = self.git.index.write_tree()
+        self.git.create_commit(
+            "HEAD",
+            author,
+            committer,
+            message,
+            tree,
+            [],
+        )
+        logger.info(f"Committed changes with message: {message}")
 
 
 if __name__ == "__main__":
