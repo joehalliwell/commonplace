@@ -3,13 +3,13 @@
 id: 038fd537-ef57-4f71-8ce1-8e27aa2c61bb
 ---
 
-# Big Numbers Summed [created:: 2024-02-27T13:35:45]
+# Big Numbers Summed [created:: 2024-02-27T13:35:45+00:00]
 
-## Human [created:: 2024-02-27T13:35:45]
+## Human [created:: 2024-02-27T13:35:45+00:00]
 
 What's 6372525838482625 + 374382874474927?
 
-## Chatgpt [created:: 2024-02-27T13:35:54]
+## Chatgpt [created:: 2024-02-27T13:35:54+00:00]
 
 The sum of 6,372,525,838,482,625 and 374,382,874,474,927 is
 6,746,908,712,957,552. In the grand scheme of things, it's a reminder that even
@@ -22,24 +22,24 @@ astronomically correct!
 id: 2cd72c1e-7631-44c7-b072-5273f45af955
 ---
 
-# Conventual Life for Nuns [created:: 2024-03-06T07:47:29]
+# Conventual Life for Nuns [created:: 2024-03-06T07:47:29+00:00]
 
-## Human [created:: 2024-03-06T07:47:29]
+## Human [created:: 2024-03-06T07:47:29+00:00]
 
 What's the equivalent of "monastic" for nuns?
 
-## Chatgpt [created:: 2024-03-06T07:47:34]
+## Chatgpt [created:: 2024-03-06T07:47:34+00:00]
 
 The equivalent term for "monastic" specifically for nuns is "conventual,"
 pertaining to a convent. Like monks in monasteries, nuns follow a conventual
 life in convents. Both terms reflect a devoted, community-based religious life,
 but the settings differ: monasteries for monks and convents for nuns.
 
-## Human [created:: 2024-03-06T07:47:43]
+## Human [created:: 2024-03-06T07:47:43+00:00]
 
 Is there another word?
 
-## Chatgpt [created:: 2024-03-06T07:47:51]
+## Chatgpt [created:: 2024-03-06T07:47:51+00:00]
 
 Yes, another term closely aligned with "monastic" when referring to nuns is
 "cloistered." This term emphasizes the aspect of seclusion and living in a
@@ -48,20 +48,20 @@ enclosed space of the convent). It underscores the nuns' commitment to a life of
 prayer and separation from the secular world, akin to the monastic life of
 monks.
 
-## Human [created:: 2024-03-06T07:48:03]
+## Human [created:: 2024-03-06T07:48:03+00:00]
 
 A word that means "relating to nuns"
 
-## Chatgpt [created:: 2024-03-06T07:48:07]
+## Chatgpt [created:: 2024-03-06T07:48:07+00:00]
 
 The word you're looking for is "nunlike" or "nunnish," both of which directly
 mean "relating to nuns" or characteristic of nuns.
 
-## Human [created:: 2024-03-06T07:48:33]
+## Human [created:: 2024-03-06T07:48:33+00:00]
 
 What does vestal mean?
 
-## Chatgpt [created:: 2024-03-06T07:48:44]
+## Chatgpt [created:: 2024-03-06T07:48:44+00:00]
 
 "Vestal" has a rich tapestry of meanings, primarily rooted in ancient Roman
 religion and culture. Initially, it refers to the Vestal Virgins, a group of
@@ -80,9 +80,9 @@ broader notions of purity and dedication.
 id: 67eb115c-ee28-8001-adbb-d8986cb6793b
 ---
 
-# Ghibli-style Illustration Request [created:: 2025-03-31T23:04:13]
+# Ghibli-style Illustration Request [created:: 2025-03-31T22:04:13+00:00]
 
-## Human [created:: 2025-03-31T23:04:13]
+## Human [created:: 2025-03-31T22:04:13+00:00]
 
 ```json
 {
@@ -110,7 +110,7 @@ id: 67eb115c-ee28-8001-adbb-d8986cb6793b
 
 Can you studio ghiblify this please?
 
-## Chatgpt [created:: 2025-03-31T23:04:13]
+## Chatgpt [created:: 2025-03-31T22:04:13+00:00]
 
 {"prompt":"A Studio Ghibli-style illustration of a bearded man with glasses
 wearing a green and white striped shirt, sitting in a cozy, warmly lit
@@ -118,7 +118,7 @@ wooden-paneled room. The art should have soft, painterly textures, expressive
 character design, and a slightly whimsical
 atmosphere.","size":"1024x1024","referenced_image_ids":["file-BDjH9x1gsKsi8552HJ97ay"]}
 
-## Chatgpt [created:: 2025-03-31T23:04:37]
+## Chatgpt [created:: 2025-03-31T22:04:37+00:00]
 
 ```json
 {
@@ -160,23 +160,23 @@ atmosphere.","size":"1024x1024","referenced_image_ids":["file-BDjH9x1gsKsi8552HJ
 }
 ```
 
-## Human [created:: 2025-03-31T23:09:23]
+## Human [created:: 2025-03-31T22:09:23+00:00]
 
 Is that it?
 
-## Chatgpt [created:: 2025-03-31T23:09:24]
+## Chatgpt [created:: 2025-03-31T22:09:24+00:00]
 
 It looks like the generated image didn’t capture what you were expecting. Let me
 try again to create a Studio Ghibli-style version of your original image.
 
-## Chatgpt [created:: 2025-03-31T23:09:25]
+## Chatgpt [created:: 2025-03-31T22:09:25+00:00]
 
 {"prompt":"A 2D hand-drawn anime-style illustration of a middle-aged man with
 glasses, a beard, and a striped green and white shirt, in the style of Studio
 Ghibli. The background features warm wooden panels and soft lighting, evoking a
 cozy and nostalgic atmosphere.","size":"1024x1024","n":1}
 
-## Chatgpt [created:: 2025-03-31T23:09:44]
+## Chatgpt [created:: 2025-03-31T22:09:44+00:00]
 
 ```json
 {

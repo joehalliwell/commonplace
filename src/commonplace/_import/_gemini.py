@@ -1,7 +1,7 @@
 import re
 from collections import defaultdict
 from contextlib import closing
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 from zipfile import ZipFile
@@ -102,7 +102,8 @@ class GeminiImporter(Importer):
         18 Sept 2024, 00:12:50 BST
         """
         timestamp = timestamp.lower().replace("sept", "sep")
-        return datetime.strptime(timestamp, "%d %b %Y, %H:%M:%S %Z")
+        dt = datetime.strptime(timestamp, "%d %b %Y, %H:%M:%S %Z")
+        return dt.astimezone(timezone.utc)
 
     def _parse_cell(self, cell: Tag) -> Iterable[Message]:
         """

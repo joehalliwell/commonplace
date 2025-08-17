@@ -6,9 +6,9 @@ from zipfile import ZipFile
 from commonplace._import._types import ActivityLog, Importer, Message, Role
 
 from commonplace._utils import logger
-from datetime import datetime
+from datetime import datetime, timezone
 
-DEFAULT_TIME = datetime.fromtimestamp(0)  # Default time if not provided
+DEFAULT_TIME = datetime.fromtimestamp(0, tz=timezone.utc)  # Default time if not provided
 
 
 class ChatGptImporter(Importer):
@@ -43,8 +43,7 @@ class ChatGptImporter(Importer):
         """Convert a conversation dictionary to an ActivityLog object."""
         metadata = {"id": conversation["id"]}
         title = conversation["title"]
-        created = datetime.fromtimestamp(conversation["create_time"])
-
+        created = self._timestamp(conversation.get("create_time"))
         messages = list(self._messages(conversation))
 
         return ActivityLog(
@@ -89,7 +88,7 @@ class ChatGptImporter(Importer):
         #     return None
 
         id_ = msg["id"]
-        created = datetime.fromtimestamp(msg.get("create_time", 0)) if msg.get("create_time") else DEFAULT_TIME
+        created = self._timestamp(msg.get("create_time"))
 
         role = msg["author"]["role"]
         content = msg["content"]
@@ -118,3 +117,8 @@ class ChatGptImporter(Importer):
 
         json_ = json.dumps(part, indent=2)
         return f"```json\n{json_}\n```"
+
+    def _timestamp(self, ts: Optional[float]) -> datetime:
+        if ts is None:
+            return DEFAULT_TIME
+        return datetime.fromtimestamp(ts, tz=timezone.utc)

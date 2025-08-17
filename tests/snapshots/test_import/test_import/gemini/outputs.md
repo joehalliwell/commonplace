@@ -1,11 +1,11 @@
 <!-- Contents of chats/gemini/2025/06/2025-06-08-gemini-conversations-from-2025-06-08.md -->
-# Gemini conversations from 2025-06-08 [created:: 2025-06-08T13:37:50]
+# Gemini conversations from 2025-06-08 [created:: 2025-06-08T12:37:50+00:00]
 
-## Human [created:: 2025-06-08T13:37:50]
+## Human [created:: 2025-06-08T12:37:50+00:00]
 
 I don't think it's there, unless this is combined with "Messages"?
 
-## Gemini [created:: 2025-06-08T13:37:50]
+## Gemini [created:: 2025-06-08T12:37:50+00:00]
 
 That's a very logical question to ask when an option is missing. It's common for
 Google to bundle related services in Takeout.
