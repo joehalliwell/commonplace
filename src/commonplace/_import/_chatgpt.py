@@ -77,7 +77,8 @@ class ChatGptImporter(Importer):
             if len(children) == 0:
                 break
             # Get the first child node
-            assert len(children) == 1, "Expected exactly one child node"
+            if len(children) > 1:
+                logger.warning(f"Multiple children found for node {current_id}, using the first one")
             current_id = children[0]
 
     def _to_message(self, node: dict[str, Any]) -> Optional[Message]:
@@ -95,7 +96,7 @@ class ChatGptImporter(Importer):
         content_type = content["content_type"]
 
         if content_type not in ("text", "multimodal_text"):
-            logger.info("Skipping {content_type} message")
+            logger.info(f"Skipping {content_type} message {id_}")
             return None
 
         parts = content["parts"]
