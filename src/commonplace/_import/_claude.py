@@ -31,7 +31,7 @@ class ClaudeImporter(Importer):
 
         except Exception as e:
             logger.info(
-                f"{path} failed Gemini importability check: {e}",
+                f"{path} failed Claude importability check: {e}",
                 exc_info=True,
             )
             return False

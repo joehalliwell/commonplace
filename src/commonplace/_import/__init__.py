@@ -8,6 +8,7 @@ import mdformat
 from pydantic import BaseModel, Field
 
 from commonplace import logger
+from commonplace._import._chatgpt import ChatGptImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._gemini import GeminiImporter
 from commonplace._import._types import ActivityLog, Importer, Role
@@ -15,7 +16,7 @@ from commonplace._repo import Commonplace
 from commonplace._types import Note
 from commonplace._utils import slugify
 
-IMPORTERS: list[Importer] = [GeminiImporter(), ClaudeImporter()]
+IMPORTERS: list[Importer] = [GeminiImporter(), ClaudeImporter(), ChatGptImporter()]
 
 
 class MarkdownSerializer(BaseModel):
@@ -32,7 +33,7 @@ class MarkdownSerializer(BaseModel):
     timespec: str = Field(default="seconds", description="Timespec for isoformat used in titles")
     wrap: int = Field(default=80, description="Target characters per line for text wrapping")
 
-    def serialize(self, log: ActivityLog, include_frontmatter=False) -> str:
+    def serialize(self, log: ActivityLog, include_frontmatter=True) -> str:
         """
         Serializes an ActivityLog object to a Markdown string.
         """
@@ -57,7 +58,7 @@ class MarkdownSerializer(BaseModel):
                 level=2,
                 created=message.created.isoformat(timespec=self.timespec),
             )
-            self._add_metadata(lines, message.metadata)
+            self._add_metadata(lines, message.metadata, frontmatter=False)
 
             lines.append(message.content)
             lines.append("")

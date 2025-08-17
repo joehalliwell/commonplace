@@ -1,0 +1,1150 @@
+[
+  {
+    "title": "Ghibli-style Illustration Request",
+    "create_time": 1743458653.22789,
+    "update_time": 1743459018.3734,
+    "mapping": {
+      "bbb23d4f-8837-4a65-804a-64aa21c2e145": {
+        "id": "bbb23d4f-8837-4a65-804a-64aa21c2e145",
+        "message": null,
+        "parent": null,
+        "children": ["fded810a-c568-4e0c-929a-e0b016f30c7c"]
+      },
+      "fded810a-c568-4e0c-929a-e0b016f30c7c": {
+        "id": "fded810a-c568-4e0c-929a-e0b016f30c7c",
+        "message": {
+          "id": "fded810a-c568-4e0c-929a-e0b016f30c7c",
+          "author": {
+            "role": "system",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": null,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [""]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 0,
+          "metadata": {
+            "is_visually_hidden_from_conversation": true
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "bbb23d4f-8837-4a65-804a-64aa21c2e145",
+        "children": ["e31266e7-e743-4b93-a17d-f9b1e04e3e92"]
+      },
+      "e31266e7-e743-4b93-a17d-f9b1e04e3e92": {
+        "id": "e31266e7-e743-4b93-a17d-f9b1e04e3e92",
+        "message": {
+          "id": "e31266e7-e743-4b93-a17d-f9b1e04e3e92",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": null,
+          "update_time": null,
+          "content": {
+            "content_type": "user_editable_context",
+            "user_profile": "REDACTED",
+            "user_instructions": "REDACTED"
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "is_visually_hidden_from_conversation": true,
+            "user_context_message_data": {
+              "about_user_message": "REDACTED",
+              "about_model_message": "REDACTED"
+            },
+            "is_user_system_message": true
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "fded810a-c568-4e0c-929a-e0b016f30c7c",
+        "children": ["bbb21929-05c9-41a0-82a6-92c90e8b3e83"]
+      },
+      "bbb21929-05c9-41a0-82a6-92c90e8b3e83": {
+        "id": "bbb21929-05c9-41a0-82a6-92c90e8b3e83",
+        "message": {
+          "id": "bbb21929-05c9-41a0-82a6-92c90e8b3e83",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1743458653.58503,
+          "update_time": null,
+          "content": {
+            "content_type": "multimodal_text",
+            "parts": [
+              {
+                "content_type": "image_asset_pointer",
+                "asset_pointer": "file-service://file-BDjH9x1gsKsi8552HJ97ay",
+                "size_bytes": 485796,
+                "width": 1152,
+                "height": 1536,
+                "fovea": null,
+                "metadata": {
+                  "dalle": null,
+                  "gizmo": null,
+                  "generation": null,
+                  "container_pixel_height": null,
+                  "container_pixel_width": null,
+                  "emu_omit_glimpse_image": null,
+                  "emu_patches_override": null,
+                  "lpe_keep_patch_ijhw": null,
+                  "sanitized": true,
+                  "asset_pointer_link": null,
+                  "watermarked_asset_pointer": null
+                }
+              },
+              "Can you studio ghiblify this please?"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "content_references": [],
+            "search_result_groups": [],
+            "image_results": [],
+            "attachments": [
+              {
+                "name": "file-BDjH9x1gsKsi8552HJ97ay",
+                "id": "file-BDjH9x1gsKsi8552HJ97ay",
+                "size": 485796,
+                "mime_type": "image/jpeg"
+              }
+            ],
+            "real_time_audio_has_video": false,
+            "dictation": false,
+            "request_id": "929324243ff3eb11-MAN",
+            "message_source": null,
+            "timestamp_": "absolute",
+            "message_type": null
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "e31266e7-e743-4b93-a17d-f9b1e04e3e92",
+        "children": ["08446a36-f0d8-463c-a4ba-018e05c4947c"]
+      },
+      "08446a36-f0d8-463c-a4ba-018e05c4947c": {
+        "id": "08446a36-f0d8-463c-a4ba-018e05c4947c",
+        "message": {
+          "id": "08446a36-f0d8-463c-a4ba-018e05c4947c",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1743458653.62367,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "{\"prompt\":\"A Studio Ghibli-style illustration of a bearded man with glasses wearing a green and white striped shirt, sitting in a cozy, warmly lit wooden-paneled room. The art should have soft, painterly textures, expressive character design, and a slightly whimsical atmosphere.\",\"size\":\"1024x1024\",\"referenced_image_ids\":[\"file-BDjH9x1gsKsi8552HJ97ay\"]}"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": false,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "stop",
+              "stop_tokens": [200007]
+            },
+            "is_complete": true,
+            "citations": [],
+            "content_references": [],
+            "message_type": null,
+            "model_slug": "gpt-4o",
+            "default_model_slug": "auto",
+            "parent_id": "bbb21929-05c9-41a0-82a6-92c90e8b3e83",
+            "request_id": "929324243ff3eb11-MAN",
+            "timestamp_": "absolute"
+          },
+          "recipient": "t2uay3k.sj1i4kz",
+          "channel": null
+        },
+        "parent": "bbb21929-05c9-41a0-82a6-92c90e8b3e83",
+        "children": ["ad69f545-e858-4b76-b30a-6ba35d57071a"]
+      },
+      "ad69f545-e858-4b76-b30a-6ba35d57071a": {
+        "id": "ad69f545-e858-4b76-b30a-6ba35d57071a",
+        "message": {
+          "id": "ad69f545-e858-4b76-b30a-6ba35d57071a",
+          "author": {
+            "role": "tool",
+            "name": "t2uay3k.sj1i4kz",
+            "metadata": {}
+          },
+          "create_time": 1743458677.92761,
+          "update_time": null,
+          "content": {
+            "content_type": "multimodal_text",
+            "parts": [
+              {
+                "content_type": "image_asset_pointer",
+                "asset_pointer": "sediment://file_00000000f72851f7918544c523ff05ae",
+                "size_bytes": 89017,
+                "width": 1024,
+                "height": 1536,
+                "fovea": null,
+                "metadata": {
+                  "dalle": {
+                    "gen_id": "e5ced58b-9c2d-4c01-8197-eebc9afcda48",
+                    "prompt": "",
+                    "seed": null,
+                    "parent_gen_id": null,
+                    "edit_op": null,
+                    "serialization_title": "DALL-E generation metadata"
+                  },
+                  "gizmo": null,
+                  "generation": {
+                    "gen_id": "e5ced58b-9c2d-4c01-8197-eebc9afcda48",
+                    "gen_size": "xlimage",
+                    "seed": null,
+                    "parent_gen_id": null,
+                    "height": 16,
+                    "width": 1024,
+                    "transparent_background": false,
+                    "serialization_title": "Image Generation metadata"
+                  },
+                  "container_pixel_height": 1536,
+                  "container_pixel_width": 1024,
+                  "emu_omit_glimpse_image": null,
+                  "emu_patches_override": null,
+                  "lpe_keep_patch_ijhw": null,
+                  "sanitized": false,
+                  "asset_pointer_link": null,
+                  "watermarked_asset_pointer": null
+                }
+              }
+            ]
+          },
+          "status": "in_progress",
+          "end_turn": null,
+          "weight": 0,
+          "metadata": {
+            "message_type": null,
+            "model_slug": "gpt-4o",
+            "default_model_slug": "auto",
+            "parent_id": "08446a36-f0d8-463c-a4ba-018e05c4947c",
+            "finish_details": {
+              "type": "interrupted"
+            },
+            "request_id": "929324243ff3eb11-MAN",
+            "timestamp_": "absolute"
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "08446a36-f0d8-463c-a4ba-018e05c4947c",
+        "children": ["bbb21670-cfe6-465a-8314-d8186f5840fe"]
+      },
+      "bbb21670-cfe6-465a-8314-d8186f5840fe": {
+        "id": "bbb21670-cfe6-465a-8314-d8186f5840fe",
+        "message": {
+          "id": "bbb21670-cfe6-465a-8314-d8186f5840fe",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1743458963.98,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": ["Is that it?"]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "content_references": [],
+            "search_result_groups": [],
+            "image_results": [],
+            "real_time_audio_has_video": false,
+            "dictation": false,
+            "request_id": "92932bbb1eebeb18-MAN",
+            "message_source": null,
+            "timestamp_": "absolute",
+            "message_type": null
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "ad69f545-e858-4b76-b30a-6ba35d57071a",
+        "children": ["53b6e651-1bf0-42cc-8185-2bed838e41ad"]
+      },
+      "53b6e651-1bf0-42cc-8185-2bed838e41ad": {
+        "id": "53b6e651-1bf0-42cc-8185-2bed838e41ad",
+        "message": {
+          "id": "53b6e651-1bf0-42cc-8185-2bed838e41ad",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1743458964.02885,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "It looks like the generated image didn’t capture what you were expecting. Let me try again to create a Studio Ghibli-style version of your original image."
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": false,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "stop",
+              "stop_tokens": [200007]
+            },
+            "is_complete": true,
+            "citations": [],
+            "content_references": [],
+            "message_type": null,
+            "model_slug": "gpt-4o",
+            "default_model_slug": "auto",
+            "parent_id": "bbb21670-cfe6-465a-8314-d8186f5840fe",
+            "request_id": "92932bbb1eebeb18-MAN",
+            "timestamp_": "absolute"
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "bbb21670-cfe6-465a-8314-d8186f5840fe",
+        "children": ["dcd72985-9f0e-4c2d-bcd2-b3ac6ce2b011"]
+      },
+      "dcd72985-9f0e-4c2d-bcd2-b3ac6ce2b011": {
+        "id": "dcd72985-9f0e-4c2d-bcd2-b3ac6ce2b011",
+        "message": {
+          "id": "dcd72985-9f0e-4c2d-bcd2-b3ac6ce2b011",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1743458965.67875,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "{\"prompt\":\"A 2D hand-drawn anime-style illustration of a middle-aged man with glasses, a beard, and a striped green and white shirt, in the style of Studio Ghibli. The background features warm wooden panels and soft lighting, evoking a cozy and nostalgic atmosphere.\",\"size\":\"1024x1024\",\"n\":1}"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": false,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "stop",
+              "stop_tokens": [200007]
+            },
+            "is_complete": true,
+            "citations": [],
+            "content_references": [],
+            "message_type": null,
+            "model_slug": "gpt-4o",
+            "default_model_slug": "auto",
+            "parent_id": "53b6e651-1bf0-42cc-8185-2bed838e41ad",
+            "request_id": "92932bbb1eebeb18-MAN",
+            "timestamp_": "absolute"
+          },
+          "recipient": "t2uay3k.sj1i4kz",
+          "channel": null
+        },
+        "parent": "53b6e651-1bf0-42cc-8185-2bed838e41ad",
+        "children": ["f07e1cd3-a796-4214-bf9e-a5d5e3d2bb11"]
+      },
+      "f07e1cd3-a796-4214-bf9e-a5d5e3d2bb11": {
+        "id": "f07e1cd3-a796-4214-bf9e-a5d5e3d2bb11",
+        "message": {
+          "id": "f07e1cd3-a796-4214-bf9e-a5d5e3d2bb11",
+          "author": {
+            "role": "tool",
+            "name": "t2uay3k.sj1i4kz",
+            "metadata": {}
+          },
+          "create_time": 1743458984.39662,
+          "update_time": null,
+          "content": {
+            "content_type": "multimodal_text",
+            "parts": [
+              {
+                "content_type": "image_asset_pointer",
+                "asset_pointer": "sediment://file_000000000a5851f7b798e29530d18063",
+                "size_bytes": 90928,
+                "width": 1024,
+                "height": 1536,
+                "fovea": null,
+                "metadata": {
+                  "dalle": {
+                    "gen_id": "4b69891a-cba9-45bd-b2ed-9bd3b43eeec0",
+                    "prompt": "",
+                    "seed": null,
+                    "parent_gen_id": null,
+                    "edit_op": null,
+                    "serialization_title": "DALL-E generation metadata"
+                  },
+                  "gizmo": null,
+                  "generation": {
+                    "gen_id": "4b69891a-cba9-45bd-b2ed-9bd3b43eeec0",
+                    "gen_size": "xlimage",
+                    "seed": null,
+                    "parent_gen_id": null,
+                    "height": 16,
+                    "width": 1024,
+                    "transparent_background": false,
+                    "serialization_title": "Image Generation metadata"
+                  },
+                  "container_pixel_height": 1536,
+                  "container_pixel_width": 1024,
+                  "emu_omit_glimpse_image": null,
+                  "emu_patches_override": null,
+                  "lpe_keep_patch_ijhw": null,
+                  "sanitized": false,
+                  "asset_pointer_link": null,
+                  "watermarked_asset_pointer": null
+                }
+              }
+            ]
+          },
+          "status": "in_progress",
+          "end_turn": null,
+          "weight": 0,
+          "metadata": {
+            "message_type": null,
+            "model_slug": "gpt-4o",
+            "default_model_slug": "auto",
+            "parent_id": "dcd72985-9f0e-4c2d-bcd2-b3ac6ce2b011",
+            "request_id": "92932bbb1eebeb18-MAN",
+            "timestamp_": "absolute"
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "dcd72985-9f0e-4c2d-bcd2-b3ac6ce2b011",
+        "children": []
+      }
+    },
+    "moderation_results": [],
+    "current_node": "f07e1cd3-a796-4214-bf9e-a5d5e3d2bb11",
+    "plugin_ids": null,
+    "conversation_id": "67eb115c-ee28-8001-adbb-d8986cb6793b",
+    "conversation_template_id": null,
+    "gizmo_id": null,
+    "gizmo_type": null,
+    "is_archived": false,
+    "is_starred": null,
+    "safe_urls": [],
+    "blocked_urls": [],
+    "default_model_slug": "auto",
+    "conversation_origin": null,
+    "voice": null,
+    "async_status": null,
+    "disabled_tool_ids": [],
+    "is_do_not_remember": null,
+    "memory_scope": "global_enabled",
+    "sugar_item_id": null,
+    "sugar_item_visible": false,
+    "is_study_mode": false,
+    "owner": null,
+    "id": "67eb115c-ee28-8001-adbb-d8986cb6793b"
+  },
+  {
+    "title": "Conventual Life for Nuns",
+    "create_time": 1709711249.82551,
+    "update_time": 1709711325.04672,
+    "mapping": {
+      "6c085232-040b-4143-a45c-640b3b7cfdc1": {
+        "id": "6c085232-040b-4143-a45c-640b3b7cfdc1",
+        "message": {
+          "id": "6c085232-040b-4143-a45c-640b3b7cfdc1",
+          "author": {
+            "role": "system",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": null,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [""]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 0,
+          "metadata": {
+            "is_visually_hidden_from_conversation": true
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "bbb23058-f545-4b72-a7e3-bb215f50c62f",
+        "children": ["b8295fa9-6ed3-4b49-a7cd-16d76d130c49"]
+      },
+      "bbb23058-f545-4b72-a7e3-bb215f50c62f": {
+        "id": "bbb23058-f545-4b72-a7e3-bb215f50c62f",
+        "message": null,
+        "parent": null,
+        "children": ["6c085232-040b-4143-a45c-640b3b7cfdc1"]
+      },
+      "b8295fa9-6ed3-4b49-a7cd-16d76d130c49": {
+        "id": "b8295fa9-6ed3-4b49-a7cd-16d76d130c49",
+        "message": {
+          "id": "b8295fa9-6ed3-4b49-a7cd-16d76d130c49",
+          "author": {
+            "role": "system",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": null,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [""]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "is_user_system_message": true,
+            "user_context_message_data": {
+              "about_user_message": "REDACTED",
+              "about_model_message": "REDACTED"
+            },
+            "is_visually_hidden_from_conversation": true
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "6c085232-040b-4143-a45c-640b3b7cfdc1",
+        "children": ["bbb21c3a-7d83-47a2-b4d4-20cad3d0449c"]
+      },
+      "bbb21c3a-7d83-47a2-b4d4-20cad3d0449c": {
+        "id": "bbb21c3a-7d83-47a2-b4d4-20cad3d0449c",
+        "message": {
+          "id": "bbb21c3a-7d83-47a2-b4d4-20cad3d0449c",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1709711249.82624,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": ["What's the equivalent of \"monastic\" for nuns?"]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "unknown"
+            },
+            "citations": [],
+            "voice_mode_message": false,
+            "request_id": "8600bcee5d596a3e-MAN",
+            "timestamp_": "absolute",
+            "message_type": null
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "b8295fa9-6ed3-4b49-a7cd-16d76d130c49",
+        "children": ["d1d431b2-1581-4e17-b8a9-70ba119b6719"]
+      },
+      "d1d431b2-1581-4e17-b8a9-70ba119b6719": {
+        "id": "d1d431b2-1581-4e17-b8a9-70ba119b6719",
+        "message": {
+          "id": "d1d431b2-1581-4e17-b8a9-70ba119b6719",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1709711254.7227,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "The equivalent term for \"monastic\" specifically for nuns is \"conventual,\" pertaining to a convent. Like monks in monasteries, nuns follow a conventual life in convents. Both terms reflect a devoted, community-based religious life, but the settings differ: monasteries for monks and convents for nuns."
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "stop",
+              "stop_tokens": [100260]
+            },
+            "citations": [],
+            "gizmo_id": null,
+            "is_complete": true,
+            "message_type": null,
+            "model_slug": "gpt-4",
+            "parent_id": "bbb21c3a-7d83-47a2-b4d4-20cad3d0449c",
+            "request_id": "8600bcee5d596a3e-MAN",
+            "timestamp_": "absolute"
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "bbb21c3a-7d83-47a2-b4d4-20cad3d0449c",
+        "children": ["bbb21456-44a0-4e79-87ea-40adca0309d2"]
+      },
+      "bbb21456-44a0-4e79-87ea-40adca0309d2": {
+        "id": "bbb21456-44a0-4e79-87ea-40adca0309d2",
+        "message": {
+          "id": "bbb21456-44a0-4e79-87ea-40adca0309d2",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1709711263.95225,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": ["Is there another word?"]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "unknown"
+            },
+            "citations": [],
+            "voice_mode_message": false,
+            "request_id": "8600bd46a8da6a3e-MAN",
+            "timestamp_": "absolute",
+            "message_type": null
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "d1d431b2-1581-4e17-b8a9-70ba119b6719",
+        "children": ["f2bb020e-dd7e-4ba8-986b-9f3520e2b47c"]
+      },
+      "f2bb020e-dd7e-4ba8-986b-9f3520e2b47c": {
+        "id": "f2bb020e-dd7e-4ba8-986b-9f3520e2b47c",
+        "message": {
+          "id": "f2bb020e-dd7e-4ba8-986b-9f3520e2b47c",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1709711271.97485,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "Yes, another term closely aligned with \"monastic\" when referring to nuns is \"cloistered.\" This term emphasizes the aspect of seclusion and living in a religious community, often with a vow of staying within the cloister (the enclosed space of the convent). It underscores the nuns' commitment to a life of prayer and separation from the secular world, akin to the monastic life of monks."
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "stop",
+              "stop_tokens": [100260]
+            },
+            "citations": [],
+            "gizmo_id": null,
+            "is_complete": true,
+            "message_type": null,
+            "model_slug": "gpt-4",
+            "parent_id": "bbb21456-44a0-4e79-87ea-40adca0309d2",
+            "request_id": "8600bd46a8da6a3e-MAN",
+            "timestamp_": "absolute"
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "bbb21456-44a0-4e79-87ea-40adca0309d2",
+        "children": ["bbb21906-f14f-437e-a3f7-3453a62d60e2"]
+      },
+      "bbb21906-f14f-437e-a3f7-3453a62d60e2": {
+        "id": "bbb21906-f14f-437e-a3f7-3453a62d60e2",
+        "message": {
+          "id": "bbb21906-f14f-437e-a3f7-3453a62d60e2",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1709711283.51001,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": ["A word that means \"relating to nuns\""]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "unknown"
+            },
+            "citations": [],
+            "voice_mode_message": false,
+            "request_id": "8600bdc10edf6a3e-MAN",
+            "timestamp_": "absolute",
+            "message_type": null
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "f2bb020e-dd7e-4ba8-986b-9f3520e2b47c",
+        "children": ["a67e2f0d-44a5-4681-82bc-46f59d17a88d"]
+      },
+      "a67e2f0d-44a5-4681-82bc-46f59d17a88d": {
+        "id": "a67e2f0d-44a5-4681-82bc-46f59d17a88d",
+        "message": {
+          "id": "a67e2f0d-44a5-4681-82bc-46f59d17a88d",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1709711287.19465,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "The word you're looking for is \"nunlike\" or \"nunnish,\" both of which directly mean \"relating to nuns\" or characteristic of nuns."
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "stop",
+              "stop_tokens": [100260]
+            },
+            "citations": [],
+            "gizmo_id": null,
+            "is_complete": true,
+            "message_type": null,
+            "model_slug": "gpt-4",
+            "parent_id": "bbb21906-f14f-437e-a3f7-3453a62d60e2",
+            "request_id": "8600bdc10edf6a3e-MAN",
+            "timestamp_": "absolute"
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "bbb21906-f14f-437e-a3f7-3453a62d60e2",
+        "children": ["bbb21db2-a3b8-442a-97f0-eb617f9ed601"]
+      },
+      "bbb21db2-a3b8-442a-97f0-eb617f9ed601": {
+        "id": "bbb21db2-a3b8-442a-97f0-eb617f9ed601",
+        "message": {
+          "id": "bbb21db2-a3b8-442a-97f0-eb617f9ed601",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1709711313.77408,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": ["What does vestal mean?"]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "unknown"
+            },
+            "citations": [],
+            "voice_mode_message": false,
+            "request_id": "8600be7e0e0d6a3e-MAN",
+            "timestamp_": "absolute",
+            "message_type": null
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "a67e2f0d-44a5-4681-82bc-46f59d17a88d",
+        "children": ["9ff8611f-dfad-4f65-b9bb-d770a314bd09"]
+      },
+      "9ff8611f-dfad-4f65-b9bb-d770a314bd09": {
+        "id": "9ff8611f-dfad-4f65-b9bb-d770a314bd09",
+        "message": {
+          "id": "9ff8611f-dfad-4f65-b9bb-d770a314bd09",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1709711324.96511,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "\"Vestal\" has a rich tapestry of meanings, primarily rooted in ancient Roman religion and culture. Initially, it refers to the Vestal Virgins, a group of priestesses dedicated to Vesta, the goddess of the hearth, home, and family in Roman mythology. These women were tasked with maintaining the sacred fire within the Temple of Vesta and took vows of chastity during their service, which could last up to 30 years.\n\nOver time, \"vestal\" has evolved to connote purity, chastity, and untouched or unsullied characteristics, often used metaphorically to describe something as pure or pristine. The term encapsulates both a specific historical role and broader notions of purity and dedication."
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "stop",
+              "stop_tokens": [100260]
+            },
+            "citations": [],
+            "gizmo_id": null,
+            "is_complete": true,
+            "message_type": null,
+            "model_slug": "gpt-4",
+            "parent_id": "bbb21db2-a3b8-442a-97f0-eb617f9ed601",
+            "request_id": "8600be7e0e0d6a3e-MAN",
+            "timestamp_": "absolute"
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "bbb21db2-a3b8-442a-97f0-eb617f9ed601",
+        "children": []
+      }
+    },
+    "moderation_results": [],
+    "current_node": "9ff8611f-dfad-4f65-b9bb-d770a314bd09",
+    "plugin_ids": null,
+    "conversation_id": "2cd72c1e-7631-44c7-b072-5273f45af955",
+    "conversation_template_id": null,
+    "gizmo_id": null,
+    "gizmo_type": null,
+    "is_archived": false,
+    "is_starred": null,
+    "safe_urls": [],
+    "blocked_urls": [],
+    "default_model_slug": null,
+    "conversation_origin": null,
+    "voice": null,
+    "async_status": null,
+    "disabled_tool_ids": [],
+    "is_do_not_remember": null,
+    "memory_scope": "global_enabled",
+    "sugar_item_id": null,
+    "sugar_item_visible": false,
+    "is_study_mode": false,
+    "owner": null,
+    "id": "2cd72c1e-7631-44c7-b072-5273f45af955"
+  },
+  {
+    "title": "Big Numbers Summed",
+    "create_time": 1709040945.29871,
+    "update_time": 1709666660.66905,
+    "mapping": {
+      "0c65d6b4-6723-4b1b-bf77-fbb4958e30a4": {
+        "id": "0c65d6b4-6723-4b1b-bf77-fbb4958e30a4",
+        "message": {
+          "id": "0c65d6b4-6723-4b1b-bf77-fbb4958e30a4",
+          "author": {
+            "role": "system",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": null,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [""]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 0,
+          "metadata": {
+            "is_visually_hidden_from_conversation": true
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "bbb230f4-49c7-4dff-a02e-5bcc6b749421",
+        "children": ["794e54b0-9f6b-4891-b097-964973cb4d0b"]
+      },
+      "bbb230f4-49c7-4dff-a02e-5bcc6b749421": {
+        "id": "bbb230f4-49c7-4dff-a02e-5bcc6b749421",
+        "message": null,
+        "parent": null,
+        "children": ["0c65d6b4-6723-4b1b-bf77-fbb4958e30a4"]
+      },
+      "794e54b0-9f6b-4891-b097-964973cb4d0b": {
+        "id": "794e54b0-9f6b-4891-b097-964973cb4d0b",
+        "message": {
+          "id": "794e54b0-9f6b-4891-b097-964973cb4d0b",
+          "author": {
+            "role": "system",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": null,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [""]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "is_user_system_message": true,
+            "user_context_message_data": {
+              "about_user_message": "REDACTED",
+              "about_model_message": "REDACTED"
+            },
+            "is_visually_hidden_from_conversation": true
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "0c65d6b4-6723-4b1b-bf77-fbb4958e30a4",
+        "children": ["bbb21ca1-3314-448c-a66c-4f724b67003b"]
+      },
+      "bbb21ca1-3314-448c-a66c-4f724b67003b": {
+        "id": "bbb21ca1-3314-448c-a66c-4f724b67003b",
+        "message": {
+          "id": "bbb21ca1-3314-448c-a66c-4f724b67003b",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1709040945.30057,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": ["What's 6372525838482625 + 374382874474927?"]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "unknown"
+            },
+            "citations": [],
+            "voice_mode_message": false,
+            "request_id": "85c0d0129f7b2dd8-MAN",
+            "timestamp_": "absolute",
+            "message_type": null
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "794e54b0-9f6b-4891-b097-964973cb4d0b",
+        "children": ["50cf9a66-1375-4bd0-ba66-3fcf138bdac9"]
+      },
+      "50cf9a66-1375-4bd0-ba66-3fcf138bdac9": {
+        "id": "50cf9a66-1375-4bd0-ba66-3fcf138bdac9",
+        "message": {
+          "id": "50cf9a66-1375-4bd0-ba66-3fcf138bdac9",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1709040954.69007,
+          "update_time": null,
+          "content": {
+            "content_type": "code",
+            "language": "unknown",
+            "response_format_name": null,
+            "text": "# Calculate the sum of the two numbers provided.\nresult = 6372525838482625 + 374382874474927\nresult"
+          },
+          "status": "finished_successfully",
+          "end_turn": false,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "stop",
+              "stop_tokens": [100265]
+            },
+            "gizmo_id": null,
+            "is_complete": true,
+            "message_type": null,
+            "model_slug": "gpt-4",
+            "parent_id": "bbb21ca1-3314-448c-a66c-4f724b67003b",
+            "request_id": "85c0d0129f7b2dd8-MAN",
+            "timestamp_": "absolute"
+          },
+          "recipient": "python",
+          "channel": null
+        },
+        "parent": "bbb21ca1-3314-448c-a66c-4f724b67003b",
+        "children": ["ad0907df-edb8-4a6b-9f66-b4cb6c984bd5"]
+      },
+      "ad0907df-edb8-4a6b-9f66-b4cb6c984bd5": {
+        "id": "ad0907df-edb8-4a6b-9f66-b4cb6c984bd5",
+        "message": {
+          "id": "ad0907df-edb8-4a6b-9f66-b4cb6c984bd5",
+          "author": {
+            "role": "tool",
+            "name": "python",
+            "metadata": {}
+          },
+          "create_time": 1709040954.69289,
+          "update_time": 1709040949.08307,
+          "content": {
+            "content_type": "execution_output",
+            "text": "6746908712957552"
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "is_complete": true,
+            "aggregate_result": {
+              "status": "success",
+              "run_id": "d0863413-4d28-4d2c-8200-0496032b2ec0",
+              "start_time": 1709040948.67707,
+              "update_time": 1709040949.08307,
+              "code": "# Calculate the sum of the two numbers provided.\nresult = 6372525838482625 + 374382874474927\nresult",
+              "end_time": 1709040949.08307,
+              "final_expression_output": "6746908712957552",
+              "in_kernel_exception": null,
+              "system_exception": null,
+              "messages": [],
+              "jupyter_messages": [
+                {
+                  "msg_type": "status",
+                  "parent_header": {
+                    "msg_id": "3f936d73-0d08f579d5a8cad1adec20e4_3_1",
+                    "version": "5.3"
+                  },
+                  "content": {
+                    "execution_state": "busy"
+                  }
+                },
+                {
+                  "msg_type": "execute_input",
+                  "parent_header": {
+                    "msg_id": "3f936d73-0d08f579d5a8cad1adec20e4_3_1",
+                    "version": "5.3"
+                  }
+                },
+                {
+                  "parent_header": {
+                    "msg_id": "3f936d73-0d08f579d5a8cad1adec20e4_3_1",
+                    "version": "5.3"
+                  },
+                  "msg_type": "execute_result",
+                  "content": {
+                    "data": {
+                      "text/plain": "6746908712957552"
+                    }
+                  }
+                },
+                {
+                  "msg_type": "status",
+                  "parent_header": {
+                    "msg_id": "3f936d73-0d08f579d5a8cad1adec20e4_3_1",
+                    "version": "5.3"
+                  },
+                  "content": {
+                    "execution_state": "idle"
+                  }
+                }
+              ],
+              "timeout_triggered": null
+            },
+            "message_type": null,
+            "model_slug": "gpt-4",
+            "parent_id": "50cf9a66-1375-4bd0-ba66-3fcf138bdac9",
+            "request_id": "85c0d0129f7b2dd8-MAN",
+            "timestamp_": "absolute"
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "50cf9a66-1375-4bd0-ba66-3fcf138bdac9",
+        "children": ["4854aea1-9920-41dc-ab1b-b2a5b49d405d"]
+      },
+      "4854aea1-9920-41dc-ab1b-b2a5b49d405d": {
+        "id": "4854aea1-9920-41dc-ab1b-b2a5b49d405d",
+        "message": {
+          "id": "4854aea1-9920-41dc-ab1b-b2a5b49d405d",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1709040954.69321,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "The sum of 6,372,525,838,482,625 and 374,382,874,474,927 is 6,746,908,712,957,552. In the grand scheme of things, it's a reminder that even in the vast universe of numbers, every digit has its place, much like stars in the cosmos—each one significant, no matter how small. Fact checked, and it's astronomically correct!"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {
+            "finish_details": {
+              "type": "stop",
+              "stop_tokens": [100260]
+            },
+            "citations": [],
+            "gizmo_id": null,
+            "is_complete": true,
+            "message_type": null,
+            "model_slug": "gpt-4",
+            "parent_id": "ad0907df-edb8-4a6b-9f66-b4cb6c984bd5",
+            "request_id": "85c0d0129f7b2dd8-MAN",
+            "timestamp_": "absolute"
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "ad0907df-edb8-4a6b-9f66-b4cb6c984bd5",
+        "children": []
+      }
+    },
+    "moderation_results": [],
+    "current_node": "4854aea1-9920-41dc-ab1b-b2a5b49d405d",
+    "plugin_ids": null,
+    "conversation_id": "038fd537-ef57-4f71-8ce1-8e27aa2c61bb",
+    "conversation_template_id": null,
+    "gizmo_id": null,
+    "gizmo_type": null,
+    "is_archived": false,
+    "is_starred": null,
+    "safe_urls": [],
+    "blocked_urls": [],
+    "default_model_slug": null,
+    "conversation_origin": null,
+    "voice": null,
+    "async_status": null,
+    "disabled_tool_ids": [],
+    "is_do_not_remember": null,
+    "memory_scope": "global_enabled",
+    "sugar_item_id": null,
+    "sugar_item_visible": false,
+    "is_study_mode": false,
+    "owner": null,
+    "id": "038fd537-ef57-4f71-8ce1-8e27aa2c61bb"
+  }
+]

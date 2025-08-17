@@ -82,8 +82,9 @@ commonplace import path/to/claude-export.zip
 ```
 
 ### Import Gemini conversations  
-1. Request your data from [Google Takeout](https://takeout.google.com) (select "Gemini Apps")
-2. Import the ZIP file:
+1. Request your data from [Google Takeout](https://takeout.google.com)
+2. Select "My Activity" and "Assistant"
+3. Import the ZIP file:
 ```bash
 commonplace import path/to/takeout-export.zip
 ```
@@ -138,18 +139,3 @@ uv run ruff format .
 # Type check
 uv run mypy src/
 ```
-
-## Philosophy
-
-In the age of AI assistance, our conversations with AI systems often contain
-valuable insights, creative ideas, and learning moments. Commonplace ensures
-these digital dialogues don't disappear into the ether, but instead become part
-of your growing personal knowledge base—ready to be searched, referenced, and
-built upon.
-
-The tool is designed to complement rather than replace manual journaling and
-note-taking. While it automates the import and organization of AI conversations
-into the `/chats` folder, you maintain full control over your manual `/journal`
-and `/notes` content. This creates a unified knowledge repository where
-automated and manual content coexist, enabling future features to synthesize
-insights across your entire intellectual history.

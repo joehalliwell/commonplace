@@ -14,6 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_CONFIG = Path(user_config_dir("commonplace")) / "commonplace.toml"
 DEFAULT_NAME = getpass.getuser().title()  # Get the current user's name for default human-readable name
+DEFAULT_EDITOR = "vim"
 
 
 class Config(BaseSettings):
@@ -47,6 +48,7 @@ class Config(BaseSettings):
     )
     user: str = Field(default=DEFAULT_NAME, description="Human-readable name for the user e.g., Joe")
     wrap: int = Field(default=80, description="Target characters per line for text wrapping")
+    editor: str = Field(default=DEFAULT_EDITOR, description="Default editor for opening notes")
 
     @field_validator("root", mode="before")
     @classmethod

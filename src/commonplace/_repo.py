@@ -36,6 +36,11 @@ class Commonplace:
         os.makedirs(root / ".commonplace", exist_ok=True)
         os.makedirs(root / ".commonplace" / "cache", exist_ok=True)
 
+    @property
+    def root(self) -> Path:
+        """Get the root path of the repository."""
+        return Path(self.git.workdir)
+
     def notes(self) -> Iterator[Note]:
         """Get an iterator over all notes in the repository."""
         for root, dirs, files in os.walk(self.git.workdir):
@@ -113,15 +118,18 @@ class Commonplace:
 
     def save(self, note: Note) -> None:
         """Save a note and add it to git staging"""
-        with open(self._abs_path(note.path), "wb") as fd:
-            post = frontmatter.Post(note.content, **note.metadata)
-            frontmatter.dump(post, fd)
-            fd.write(b"\n")
+        abs_path = self._abs_path(note.path)
+        abs_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(abs_path, "wb") as fd:
+            # post = frontmatter.Post(note.content, **note.metadata)
+            # frontmatter.dump(post, fd)
+            fd.write(note.content.encode("utf-8"))
         self.git.index.add(self._rel_path(note.path))
 
     def commit(self, message: str) -> None:
         """Commit staged changes to the repository."""
-        if self.git.index.diff_to_workdir().stats.files_changed == 0:
+        # FIXME: This doesn't work!
+        if len(self.git.index) == 0:
             logger.info("No changes to commit")
             return
         author = Signature("Commonplace Bot", "commonplace@joehalliwell.com")
@@ -133,8 +141,9 @@ class Commonplace:
             committer,
             message,
             tree,
-            [],
+            [self.git.head.target] if not self.git.head_is_unborn else [],
         )
+        self.git.index.clear()
         logger.info(f"Committed changes with message: {message}")
 
 

@@ -19,7 +19,7 @@ class Note(BaseModel):
     content: str
     metadata: Metadata = Field(
         default_factory=dict,
-        description="Metadata associated with this note, conventionally in YAML frontmatter",
+        description="Metadata associated with this note",
     )
 
 
