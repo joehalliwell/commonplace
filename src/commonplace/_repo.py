@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
-import frontmatter  # type:ignore
 from pygit2 import init_repository, Signature
 from pygit2.enums import FileStatus
 from pygit2.repository import Repository
@@ -84,8 +83,8 @@ class Commonplace:
     def _read_note(self, path: Pathlike) -> Note:
         logger.debug(f"Reading {path}")
         with open(Path(self.git.workdir) / path) as fd:
-            post = frontmatter.load(fd)
-            return Note(path=path, content=post.content, metadata=post.metadata)  # type:ignore
+            content = fd.read()
+            return Note(path=path, content=content)
 
     def _rel_path(self, path: Pathlike) -> Path:
         """
@@ -120,10 +119,8 @@ class Commonplace:
         """Save a note and add it to git staging"""
         abs_path = self._abs_path(note.path)
         abs_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(abs_path, "wb") as fd:
-            # post = frontmatter.Post(note.content, **note.metadata)
-            # frontmatter.dump(post, fd)
-            fd.write(note.content.encode("utf-8"))
+        with open(abs_path, "w") as fd:
+            fd.write(note.content)
         self.git.index.add(self._rel_path(note.path))
 
     def commit(self, message: str) -> None:

@@ -17,10 +17,6 @@ Pathlike: TypeAlias = str | Path
 class Note(BaseModel):
     path: Path
     content: str
-    metadata: Metadata = Field(
-        default_factory=dict,
-        description="Metadata associated with this note",
-    )
 
 
 class Link(BaseModel):

@@ -139,7 +139,6 @@ def import_(path: Path, repo: Commonplace, user: str, prefix="chats"):
         note = Note(
             path=path,
             content=serializer.serialize(log),
-            metadata=log.metadata,
         )
         repo.save(note)
         logger.info(f"Stored log '{log.title}' at '{path}'")
