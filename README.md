@@ -18,6 +18,7 @@ valuable AI conversations.
 - **Import conversations** from multiple AI providers:
   - Claude (via ZIP export from claude.ai)
   - Gemini (via Google Takeout HTML export)
+  - ChatGPT (via ZIP export)
 - **Standardized storage** as organized markdown files with metadata
 - **Date-based organization** in a clear directory structure:
   ```
@@ -31,11 +32,12 @@ valuable AI conversations.
   ```
 - **Rich markdown format** with frontmatter, timestamps, and proper formatting
 - **Git integration** for change tracking and automatic commits when importing conversations
+- **Semantic search** using vector embeddings to find relevant conversations by meaning
+- **Full-text search** and **hybrid search** combining semantic and keyword matching
 
 ### Planned Features
 
 - Interactive curation tools (move, rename, label)
-- Cross-conversation search and analysis
 - Advanced synthesis across both imported chats and manual content
 
 ## Installation
@@ -81,7 +83,7 @@ llm install llm-gpt4all
 commonplace import path/to/claude-export.zip
 ```
 
-### Import Gemini conversations  
+### Import Gemini conversations
 1. Request your data from [Google Takeout](https://takeout.google.com)
 2. Select "My Activity" and "Assistant"
 3. Import the ZIP file:
@@ -89,17 +91,33 @@ commonplace import path/to/claude-export.zip
 commonplace import path/to/takeout-export.zip
 ```
 
-### Generate journal insights
-Analyze and summarize your recent conversations:
+### Import ChatGPT conversations
+1. Export your data from ChatGPT (Settings > Data Controls > Export)
+2. Import the ZIP file:
 ```bash
-# Basic summary of last 7 days
-commonplace journal
+commonplace import path/to/chatgpt-export.zip
+```
 
-# Analyze last 30 days with specific model  
-commonplace journal --days 30 --model claude-3-sonnet
+### Search your conversations
+Build a search index and query your conversations:
+```bash
+# Build the search index (run once, or after importing new conversations)
+commonplace index
 
-# Just show statistics without AI summary
-commonplace journal --stats-only
+# Semantic search - finds content by meaning
+commonplace search "explain neural networks"
+
+# Full-text search - keyword matching only
+commonplace search "explain neural networks" --method fts
+
+# Hybrid search - combines both approaches (default)
+commonplace search "explain neural networks" --method hybrid
+
+# Limit number of results
+commonplace search "machine learning" --limit 5
+
+# Rebuild index from scratch
+commonplace index --rebuild
 ```
 
 ## Output Format
