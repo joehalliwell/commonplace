@@ -1,20 +1,16 @@
 """Tests for the index and search commands."""
 
 from pathlib import Path
-from unittest.mock import patch
 
-from typer.testing import CliRunner
+import pytest
 
-from commonplace.__main__ import app
+from commonplace import _search
 from commonplace._repo import Commonplace
 from commonplace._types import Note
 
-runner = CliRunner()
-
 
 def test_index_rebuild(tmp_path):
-    """Test the index command with --rebuild flag."""
-    # Create a temporary commonplace repo
+    """Test the index function with rebuild flag."""
     repo_path = tmp_path / "commonplace"
     repo_path.mkdir()
     Commonplace.init(repo_path)
@@ -30,26 +26,19 @@ Some content here.
     )
     repo.save(note)
 
-    # Mock the config
-    mock_config = type("Config", (), {"root": repo_path, "user": "Test User"})()
-
-    with patch("commonplace.__main__.get_config", return_value=mock_config):
-        # Index first time
-        result = runner.invoke(app, ["index"])
-        assert result.exit_code == 0
-
-        # Rebuild
-        result = runner.invoke(app, ["index", "--rebuild"])
-        assert result.exit_code == 0
-
-    # Verify the index exists
     db_path = repo_path / ".commonplace" / "embeddings.db"
+
+    # Index first time
+    _search.index(repo, db_path, rebuild=False)
+    assert db_path.exists()
+
+    # Rebuild
+    _search.index(repo, db_path, rebuild=True)
     assert db_path.exists()
 
 
 def test_search(tmp_path):
-    """Test the search command."""
-    # Create a temporary commonplace repo
+    """Test the search function."""
     repo_path = tmp_path / "commonplace"
     repo_path.mkdir()
     Commonplace.init(repo_path)
@@ -80,40 +69,30 @@ Baking bread requires flour, water, and yeast.
     repo.save(note2)
     repo.commit("Add test notes")
 
-    # Mock the config
-    mock_config = type("Config", (), {"root": repo_path, "user": "Test User"})()
+    db_path = repo_path / ".commonplace" / "embeddings.db"
 
-    with patch("commonplace.__main__.get_config", return_value=mock_config):
-        # Index the notes
-        result = runner.invoke(app, ["index"])
-        assert result.exit_code == 0
+    # Index the notes
+    _search.index(repo, db_path)
 
-        # Search for ML-related content
-        result = runner.invoke(app, ["search", "artificial intelligence"])
-        assert result.exit_code == 0
-        assert "ml.md" in result.stdout
-        assert "Machine Learning" in result.stdout or "neural networks" in result.stdout
+    # Search for ML-related content
+    results = _search.search(db_path, "artificial intelligence", limit=10)
+    assert len(results) > 0
+    # Should find the ML note
+    assert any("ml.md" in str(hit.chunk.path) for hit in results)
 
 
 def test_search_no_index(tmp_path):
-    """Test search command fails when index doesn't exist."""
-    # Create a temporary commonplace repo without indexing
+    """Test search raises error when index doesn't exist."""
     repo_path = tmp_path / "commonplace"
     repo_path.mkdir()
-    Commonplace.init(repo_path)
+    db_path = repo_path / ".commonplace" / "embeddings.db"
 
-    # Mock the config
-    mock_config = type("Config", (), {"root": repo_path, "user": "Test User"})()
-
-    with patch("commonplace.__main__.get_config", return_value=mock_config):
-        result = runner.invoke(app, ["search", "test query"])
-        assert result.exit_code == 1
-        assert "Index not found" in result.stdout
+    with pytest.raises(FileNotFoundError, match="Index not found"):
+        _search.search(db_path, "test query")
 
 
 def test_search_with_limit(tmp_path):
-    """Test search command with --limit flag."""
-    # Create a temporary commonplace repo
+    """Test search with limit parameter."""
     repo_path = tmp_path / "commonplace"
     repo_path.mkdir()
     Commonplace.init(repo_path)
@@ -130,17 +109,74 @@ Content for note {i}.
         )
         repo.save(note)
 
-    # Mock the config
-    mock_config = type("Config", (), {"root": repo_path, "user": "Test User"})()
+    db_path = repo_path / ".commonplace" / "embeddings.db"
 
-    with patch("commonplace.__main__.get_config", return_value=mock_config):
-        # Index
-        result = runner.invoke(app, ["index"])
-        assert result.exit_code == 0
+    # Index
+    _search.index(repo, db_path)
 
-        # Search with limit
-        result = runner.invoke(app, ["search", "content", "--limit", "3"])
-        assert result.exit_code == 0
-        # Count the number of results (each starts with a number)
-        result_count = sum(1 for line in result.stdout.split("\n") if line.startswith(("1.", "2.", "3.", "4.", "5.")))
-        assert result_count <= 3
+    # Search with limit
+    results = _search.search(db_path, "content", limit=3)
+    assert len(results) <= 3
+
+
+def test_index_incremental(tmp_path):
+    """Test that index only indexes new notes when not rebuilding."""
+    repo_path = tmp_path / "commonplace"
+    repo_path.mkdir()
+    Commonplace.init(repo_path)
+    repo = Commonplace.open(repo_path)
+
+    # Add first note
+    note1 = Note(
+        path=Path("first.md"),
+        content="""# First Note
+
+Initial content.
+""",
+    )
+    repo.save(note1)
+    repo.commit("Add first note")
+
+    db_path = repo_path / ".commonplace" / "embeddings.db"
+
+    # Index first time
+    _search.index(repo, db_path, rebuild=False)
+
+    # Verify first note is indexed
+    from commonplace._search._store import SQLiteVectorStore
+
+    store = SQLiteVectorStore(db_path)
+    indexed_paths = store.get_indexed_paths()
+    assert "first.md" in indexed_paths
+    initial_count = len(indexed_paths)
+    store.close()
+
+    # Add second note
+    note2 = Note(
+        path=Path("second.md"),
+        content="""# Second Note
+
+More content.
+""",
+    )
+    repo.save(note2)
+    repo.commit("Add second note")
+
+    # Index again without --rebuild (should only index the new note)
+    _search.index(repo, db_path, rebuild=False)
+
+    # Verify both notes are indexed
+    store = SQLiteVectorStore(db_path)
+    indexed_paths = store.get_indexed_paths()
+    assert "first.md" in indexed_paths
+    assert "second.md" in indexed_paths
+    assert len(indexed_paths) == initial_count + 1
+    store.close()
+
+    # Run index again with no new notes - should be idempotent
+    _search.index(repo, db_path, rebuild=False)
+
+    store = SQLiteVectorStore(db_path)
+    indexed_paths = store.get_indexed_paths()
+    assert len(indexed_paths) == 2
+    store.close()

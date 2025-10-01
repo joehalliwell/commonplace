@@ -132,3 +132,26 @@ def test_cosine_similarity():
     assert similarities[1] == pytest.approx(0.0, abs=1e-5)
     assert similarities[2] == pytest.approx(-1.0, abs=1e-5)
     assert similarities[3] == pytest.approx(0.707, abs=1e-2)
+
+
+def test_get_indexed_paths(store):
+    """Test retrieving indexed paths."""
+    # Empty store should return empty set
+    paths = store.get_indexed_paths()
+    assert len(paths) == 0
+
+    # Add chunks from different paths
+    chunk1 = Chunk(path=Path("note1.md"), section="Section", text="Text 1", offset=0)
+    chunk2 = Chunk(path=Path("note1.md"), section="Section", text="Text 2", offset=10)
+    chunk3 = Chunk(path=Path("note2.md"), section="Section", text="Text 3", offset=0)
+
+    emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    store.add(chunk1, emb)
+    store.add(chunk2, emb)
+    store.add(chunk3, emb)
+
+    # Should return unique paths
+    paths = store.get_indexed_paths()
+    assert len(paths) == 2
+    assert "note1.md" in paths
+    assert "note2.md" in paths

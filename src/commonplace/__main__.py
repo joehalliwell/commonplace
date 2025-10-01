@@ -4,12 +4,8 @@ from pathlib import Path
 import typer
 from rich.logging import RichHandler
 
-from commonplace import _import, get_config, logger
+from commonplace import _import, _search, get_config, logger
 from commonplace._repo import Commonplace
-from commonplace._search._chunker import MarkdownChunker
-from commonplace._search._embedder import SentenceTransformersEmbedder
-from commonplace._search._store import SQLiteVectorStore
-from commonplace._utils import progress_track
 
 app = typer.Typer(
     help="Commonplace: Personal knowledge management",
@@ -47,43 +43,9 @@ def index(
     """Build or rebuild the search index for semantic search."""
     config = get_config()
     repo = Commonplace.open(config.root)
-
-    # Set up components
     db_path = config.root / ".commonplace" / "embeddings.db"
-    db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    store = SQLiteVectorStore(db_path)
-    chunker = MarkdownChunker()
-    embedder = SentenceTransformersEmbedder()
-
-    if rebuild:
-        logger.info("Clearing existing index")
-        store.clear()
-
-    # Collect all notes and chunks
-    notes = list(repo.notes())
-    logger.info(f"Chunking {len(notes)} notes")
-
-    all_chunks = []
-    for note in progress_track(notes, "Chunking notes"):
-        chunks = list(chunker.chunk(note))
-        all_chunks.extend(chunks)
-
-    logger.info(f"Embedding {len(all_chunks)} chunks in batches of {batch_size}")
-
-    # Process chunks in batches
-    num_batches = (len(all_chunks) + batch_size - 1) // batch_size
-    for i in progress_track(range(0, len(all_chunks), batch_size), "Embedding chunks", total=num_batches):
-        batch = all_chunks[i : i + batch_size]
-        texts = [chunk.text for chunk in batch]
-        embeddings = embedder.embed_batch(texts)
-
-        # Store each chunk with its embedding
-        for chunk, embedding in zip(batch, embeddings):
-            store.add(chunk, embedding)
-
-    store.close()
-    logger.info("Indexing complete")
+    _search.index(repo, db_path, rebuild=rebuild, batch_size=batch_size)
 
 
 @app.command()
@@ -94,33 +56,19 @@ def search(
 ):
     """Search for semantically similar content in your commonplace."""
     config = get_config()
-
-    # Set up components
     db_path = config.root / ".commonplace" / "embeddings.db"
-    if not db_path.exists():
-        logger.error("Index not found. Run 'commonplace index' first.")
+
+    try:
+        results = _search.search(db_path, query, limit=limit, method=method)
+    except FileNotFoundError as e:
+        logger.error(str(e))
         raise typer.Exit(1)
-
-    store = SQLiteVectorStore(db_path)
-
-    # Search based on method
-    if method == "fts":
-        results = store.search_fts(query, limit=limit)
-    elif method == "semantic":
-        embedder = SentenceTransformersEmbedder()
-        query_embedding = embedder.embed(query)
-        results = store.search(query_embedding, limit=limit)
-    elif method == "hybrid":
-        embedder = SentenceTransformersEmbedder()
-        query_embedding = embedder.embed(query)
-        results = store.search_hybrid(query, query_embedding, limit=limit)
-    else:
-        logger.error(f"Unknown search method: {method}")
+    except ValueError as e:
+        logger.error(str(e))
         raise typer.Exit(1)
 
     if not results:
         logger.info("No results found")
-        store.close()
         return
 
     # Display results
@@ -129,5 +77,3 @@ def search(
         print(f"   Section: {hit.chunk.section}")
         print(f"   Score: {hit.score:.3f}")
         print(f"   {hit.chunk.text[:200]}{'...' if len(hit.chunk.text) > 200 else ''}")
-
-    store.close()

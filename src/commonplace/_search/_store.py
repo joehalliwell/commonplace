@@ -223,6 +223,17 @@ class SQLiteVectorStore:
 
         return results
 
+    def get_indexed_paths(self) -> set[str]:
+        """
+        Get all unique paths that have been indexed.
+
+        Returns:
+            Set of path strings that are present in the index
+        """
+        cursor = self._conn.execute("SELECT DISTINCT path FROM chunks")
+        rows = cursor.fetchall()
+        return {row[0] for row in rows}
+
     def clear(self) -> None:
         """Remove all chunks from the store."""
         self._conn.execute("DELETE FROM chunks")
