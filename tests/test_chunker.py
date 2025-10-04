@@ -5,12 +5,11 @@ from pathlib import Path
 from commonplace._search._chunker import MarkdownChunker
 
 
-class TestMarkdownChunker:
-    def test_basic_chunking(self, make_note):
-        """Test chunking a simple markdown document."""
-        note = make_note(
-            path="test.md",
-            content="""# Main Title
+def test_basic_chunking(make_note):
+    """Test chunking a simple markdown document."""
+    note = make_note(
+        path="test.md",
+        content="""# Main Title
 
 Some intro text.
 
@@ -26,49 +25,51 @@ Content for section 2.
 
 Nested content.
 """,
-        )
+    )
 
-        chunker = MarkdownChunker()
-        chunks = list(chunker.chunk(note))
+    chunker = MarkdownChunker()
+    chunks = list(chunker.chunk(note))
 
-        assert len(chunks) == 4
+    assert len(chunks) == 4
 
-        # Check first chunk (intro)
-        assert chunks[0].section == "Main Title"
-        assert chunks[0].text == "Some intro text."
-        assert chunks[0].repo_path.path == Path("test.md")
+    # Check first chunk (intro)
+    assert chunks[0].section == "Main Title"
+    assert chunks[0].text == "Some intro text."
+    assert chunks[0].repo_path.path == Path("test.md")
 
-        # Check second chunk
-        assert chunks[1].section == "Main Title / Section 1"
-        assert chunks[1].text == "Content for section 1."
+    # Check second chunk
+    assert chunks[1].section == "Main Title / Section 1"
+    assert chunks[1].text == "Content for section 1."
 
-        # Check third chunk
-        assert chunks[2].section == "Main Title / Section 2"
-        assert chunks[2].text == "Content for section 2."
+    # Check third chunk
+    assert chunks[2].section == "Main Title / Section 2"
+    assert chunks[2].text == "Content for section 2."
 
-        # Check nested chunk
-        assert chunks[3].section == "Main Title / Section 2 / Subsection 2.1"
-        assert chunks[3].text == "Nested content."
+    # Check nested chunk
+    assert chunks[3].section == "Main Title / Section 2 / Subsection 2.1"
+    assert chunks[3].text == "Nested content."
 
-    def test_no_headers(self, make_note):
-        """Test chunking document without headers."""
-        note = make_note(
-            path="test.md",
-            content="Just some plain text without headers.",
-        )
 
-        chunker = MarkdownChunker()
-        chunks = list(chunker.chunk(note))
+def test_no_headers(make_note):
+    """Test chunking document without headers."""
+    note = make_note(
+        path="test.md",
+        content="Just some plain text without headers.",
+    )
 
-        assert len(chunks) == 1
-        assert chunks[0].section == "test"
-        assert chunks[0].text == "Just some plain text without headers."
+    chunker = MarkdownChunker()
+    chunks = list(chunker.chunk(note))
 
-    def test_empty_sections_skipped(self, make_note):
-        """Test that sections with no content are skipped."""
-        note = make_note(
-            path="test.md",
-            content="""# Title
+    assert len(chunks) == 1
+    assert chunks[0].section == "test"
+    assert chunks[0].text == "Just some plain text without headers."
+
+
+def test_empty_sections_skipped(make_note):
+    """Test that sections with no content are skipped."""
+    note = make_note(
+        path="test.md",
+        content="""# Title
 
 ## Empty Section
 
@@ -76,44 +77,46 @@ Nested content.
 
 Some text here.
 """,
-        )
+    )
 
-        chunker = MarkdownChunker()
-        chunks = list(chunker.chunk(note))
+    chunker = MarkdownChunker()
+    chunks = list(chunker.chunk(note))
 
-        assert len(chunks) == 1
-        assert chunks[0].section == "Title / Section with content"
+    assert len(chunks) == 1
+    assert chunks[0].section == "Title / Section with content"
 
-    def test_offset_calculation(self, make_note):
-        """Test that character offsets are calculated correctly."""
-        note = make_note(
-            path="test.md",
-            content="# Title\n\nFirst.\n\n## Section\n\nSecond.",
-        )
 
-        chunker = MarkdownChunker()
-        chunks = list(chunker.chunk(note))
+def test_offset_calculation(make_note):
+    """Test that character offsets are calculated correctly."""
+    note = make_note(
+        path="test.md",
+        content="# Title\n\nFirst.\n\n## Section\n\nSecond.",
+    )
 
-        # First chunk starts at "# Title"
-        assert chunks[0].offset == 0
-        assert note.content[chunks[0].offset :].startswith("# Title")
+    chunker = MarkdownChunker()
+    chunks = list(chunker.chunk(note))
 
-        # Second chunk starts at "## Section"
-        assert chunks[1].offset == 17
-        assert note.content[chunks[1].offset :].startswith("## Section")
+    # First chunk starts at "# Title"
+    assert chunks[0].offset == 0
+    assert note.content[chunks[0].offset :].startswith("# Title")
 
-    def test_header_with_metadata(self, make_note):
-        """Test that headers with metadata annotations are handled."""
-        note = make_note(
-            path="test.md",
-            content="""# Title [created:: 2024-01-01]
+    # Second chunk starts at "## Section"
+    assert chunks[1].offset == 17
+    assert note.content[chunks[1].offset :].startswith("## Section")
+
+
+def test_header_with_metadata(make_note):
+    """Test that headers with metadata annotations are handled."""
+    note = make_note(
+        path="test.md",
+        content="""# Title [created:: 2024-01-01]
 
 Content here.
 """,
-        )
+    )
 
-        chunker = MarkdownChunker()
-        chunks = list(chunker.chunk(note))
+    chunker = MarkdownChunker()
+    chunks = list(chunker.chunk(note))
 
-        assert len(chunks) == 1
-        assert chunks[0].section == "Title"
+    assert len(chunks) == 1
+    assert chunks[0].section == "Title"
