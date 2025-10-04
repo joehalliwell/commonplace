@@ -1,5 +1,4 @@
 import os
-import shelve
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -20,21 +19,20 @@ class Commonplace:
     """
 
     git: Repository
-    cache: shelve.Shelf
 
     @staticmethod
     def open(root: Path) -> "Commonplace":
         root = root.absolute()
         logger.info(f"Opening commonplace repository at {root}")
         git = Repository(root.as_posix())
-        cache = shelve.open(root / ".commonplace" / "cache" / "notes")
-        return Commonplace(git=git, cache=cache)
+        # Create .commonplace directory for embeddings and other data
+        (root / ".commonplace").mkdir(exist_ok=True)
+        return Commonplace(git=git)
 
     @staticmethod
     def init(root: Path):
         init_repository(root, bare=False)
-        os.makedirs(root / ".commonplace", exist_ok=True)
-        os.makedirs(root / ".commonplace" / "cache", exist_ok=True)
+        (root / ".commonplace").mkdir(exist_ok=True)
 
     @property
     def root(self) -> Path:
@@ -77,7 +75,7 @@ class Commonplace:
         return RepoPath(path=rel_path, ref=ref)
 
     @staticmethod
-    @lru_cache(maxsize=1024)
+    @lru_cache(maxsize=4096)
     def _find_last_commit_for_path(repo_dir: str, path_str: str, head_ref: str) -> str:
         """
         Find the last commit that modified a file.
@@ -86,7 +84,7 @@ class Commonplace:
         Static method to ensure cache doesn't hold references to self.
 
         Args:
-            repo_dir: Repository working directory path
+            repo_dir: Repository path
             path_str: Path as string (relative to repo root)
             head_ref: Current HEAD ref
 
@@ -160,21 +158,6 @@ class Commonplace:
             Note object with content
         """
         logger.debug(f"Fetching note at {repo_path}")
-
-        # Check if this path is clean at current HEAD
-        if repo_path.ref == self.head_ref:
-            flags = self.git.status_file(repo_path.path.as_posix())
-            if flags == FileStatus.CURRENT:
-                # Safe to cache - file is committed and unchanged
-                if repo_path not in self.cache:
-                    logger.info(f"No cache for {repo_path}")
-                    note = self._read_note(repo_path)
-                    self.cache[repo_path] = note
-                else:
-                    logger.debug(f"Cache hit for {repo_path}")
-                return self.cache[repo_path]
-
-        # Either modified or not at HEAD - read fresh
         return self._read_note(repo_path)
 
     def _read_note(self, repo_path: RepoPath) -> Note:
@@ -235,15 +218,3 @@ class Commonplace:
         )
         self.git.index.clear()
         logger.info(f"Committed changes with message: {message}")
-
-
-if __name__ == "__main__":
-    import logging
-
-    logging.basicConfig(level=logging.DEBUG)
-    root = "/home/joe/work/commonplace-private"
-    repo = Commonplace.open(Path(root))
-    count = 0
-    for note in repo.notes():
-        count += 1
-    logger.info(f"Read {count} notes")
