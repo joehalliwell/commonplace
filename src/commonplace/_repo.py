@@ -9,7 +9,7 @@ from pygit2.enums import FileStatus
 from pygit2.repository import Repository
 
 from commonplace import logger
-from commonplace._types import Note, Pathlike, RepoPath
+from commonplace._types import Note, Pathlike, RepoPath, RepoStats
 
 
 @dataclass
@@ -147,6 +147,15 @@ class Commonplace:
                 except Exception:
                     logger.warning(f"Can't parse {abs_path}")
 
+    def note_paths(self) -> Iterator[RepoPath]:
+        """Get an iterator over all note paths at current HEAD."""
+        for root, _, files in os.walk(self.git.workdir):
+            for f in files:
+                abs_path = Path(root) / f
+                if self.git.path_is_ignored(abs_path.as_posix()):
+                    continue
+                yield self.make_repo_path(abs_path)
+
     def get_note(self, repo_path: RepoPath) -> Note:
         """
         Fetch a note at a specific repository location.
@@ -218,3 +227,8 @@ class Commonplace:
         )
         self.git.index.clear()
         logger.info(f"Committed changes with message: {message}")
+
+    def stats(self) -> RepoStats:
+        """Get repository statistics."""
+        num_notes = sum(1 for _ in self.note_paths())
+        return RepoStats(num_notes=num_notes)

@@ -54,3 +54,8 @@ class Link(BaseModel):
         default_factory=dict,
         description="Metadata associated with this link",
     )
+
+
+@dataclass
+class RepoStats:
+    num_notes: int
