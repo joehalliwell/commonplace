@@ -6,11 +6,18 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
-from commonplace._search._types import Chunk, Embedder, SearchHit, SearchMethod
+from commonplace._search._types import (
+    Chunk,
+    Embedder,
+    SearchHit,
+    SearchMethod,
+    IndexStats,
+    SearchIndex,
+)
 from commonplace._types import RepoPath
 
 
-class SQLiteVectorStore:
+class SQLiteVectorStore(SearchIndex):
     """
     Vector store using SQLite with brute-force cosine similarity search.
 
@@ -341,3 +348,21 @@ class SQLiteVectorStore:
         similarities = np.dot(embeddings_norm, query_norm)
 
         return similarities
+
+    def stats(self) -> IndexStats:
+        """Get statistics about the vector store."""
+
+        cursor = self._conn.execute("SELECT COUNT(DISTINCT path) from chunks")
+        num_docs = cursor.fetchone()[0]
+
+        cursor = self._conn.execute("SELECT COUNT(*) FROM chunks")
+        num_chunks = cursor.fetchone()[0]
+
+        cursor = self._conn.execute("SELECT model_id, COUNT(*) FROM chunks GROUP BY model_id")
+        chunks_by_embedding_model = {row[0]: row[1] for row in cursor.fetchall()}
+
+        return IndexStats(
+            num_docs=num_docs,
+            num_chunks=num_chunks,
+            chunks_by_embedding_model=chunks_by_embedding_model,
+        )

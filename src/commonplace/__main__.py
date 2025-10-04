@@ -94,3 +94,24 @@ def search(
         print(f"   Section: {hit.chunk.section}")
         print(f"   Score: {hit.score:.3f}")
         print(f"   {hit.chunk.text[:200]}{'...' if len(hit.chunk.text) > 200 else ''}")
+
+
+@app.command()
+def stats():
+    """Show statistics about your commonplace and search index."""
+    config = get_config()
+    repo = Commonplace.open(config.root)
+
+    print("Repository statistics:")
+    repo_stats = repo.stats()
+    print(f"  Number of notes: {repo_stats.num_notes:,}")
+
+    from commonplace._search import get_store
+
+    store = get_store(config)
+    store_stats = store.stats()
+    print("Search index statistics:")
+    print(f"  Number of chunks: {store_stats.num_chunks:,}")
+    print("  Chunks by embedding model:")
+    for model_id, count in store_stats.chunks_by_embedding_model.items():
+        print(f"    {model_id}: {count:,}")

@@ -103,12 +103,26 @@ class Embedder(Protocol):
         ...
 
 
-class VectorStore(Protocol):
+@dataclass
+class IndexStats:
+    """Statistics about the a search index"""
+
+    num_docs: int
+    """Total number of documents (notes) indexed"""
+
+    num_chunks: int
+    """Total number of chunks stored"""
+
+    chunks_by_embedding_model: dict[str, int]
+    """Chunks per embeeding model id"""
+
+
+class SearchIndex(Protocol):
     """Protocol for storing and searching embeddings."""
 
-    def add(self, chunk: Chunk, embedding: NDArray[np.float32]) -> None:
+    def add_chunk(self, chunk: Chunk) -> None:
         """
-        Add a chunk and its embedding to the store.
+        Add a chunk of text to the store.
 
         Args:
             chunk: The chunk to store
@@ -116,7 +130,7 @@ class VectorStore(Protocol):
         """
         ...
 
-    def search(self, query_embedding: NDArray[np.float32], limit: int = 10) -> list[SearchHit]:
+    def search(self, query: str, limit: int = 10, method: SearchMethod = SearchMethod.HYBRID) -> list[SearchHit]:
         """
         Search for similar chunks.
 
@@ -131,4 +145,8 @@ class VectorStore(Protocol):
 
     def clear(self) -> None:
         """Remove all chunks from the store."""
+        ...
+
+    def stats(self) -> IndexStats:
+        """Get stats on this index"""
         ...
