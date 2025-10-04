@@ -12,6 +12,10 @@ class TestSentenceTransformersEmbedder:
         """Create an embedder instance."""
         return SentenceTransformersEmbedder()
 
+    def test_model_id(self, embedder):
+        """Test that model_id is correctly set."""
+        assert embedder.model_id == "sentence-transformers:all-MiniLM-L6-v2"
+
     def test_single_embedding(self, embedder):
         """Test embedding a single text."""
         text = "This is a test sentence."
