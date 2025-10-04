@@ -1,15 +1,12 @@
 """Tests for the index and search commands."""
 
-from pathlib import Path
-
 import pytest
 
 from commonplace import _search
 from commonplace._repo import Commonplace
-from commonplace._types import Note
 
 
-def test_index_rebuild(tmp_path):
+def test_index_rebuild(tmp_path, make_note):
     """Test the index function with rebuild flag."""
     repo_path = tmp_path / "commonplace"
     repo_path.mkdir()
@@ -17,8 +14,8 @@ def test_index_rebuild(tmp_path):
     repo = Commonplace.open(repo_path)
 
     # Add a test note
-    note = Note(
-        path=Path("test.md"),
+    note = make_note(
+        path="test.md",
         content="""# Test
 
 Some content here.
@@ -37,7 +34,7 @@ Some content here.
     assert db_path.exists()
 
 
-def test_search(tmp_path):
+def test_search(tmp_path, make_note):
     """Test the search function."""
     repo_path = tmp_path / "commonplace"
     repo_path.mkdir()
@@ -45,8 +42,8 @@ def test_search(tmp_path):
     repo = Commonplace.open(repo_path)
 
     # Add test notes with distinct content
-    note1 = Note(
-        path=Path("ml.md"),
+    note1 = make_note(
+        path="ml.md",
         content="""# Machine Learning
 
 ## Introduction
@@ -55,8 +52,8 @@ Machine learning and neural networks are fascinating topics in AI.
 """,
     )
 
-    note2 = Note(
-        path=Path("cooking.md"),
+    note2 = make_note(
+        path="cooking.md",
         content="""# Cooking
 
 ## Recipes
@@ -78,7 +75,7 @@ Baking bread requires flour, water, and yeast.
     results = _search.search(db_path, "artificial intelligence", limit=10)
     assert len(results) > 0
     # Should find the ML note
-    assert any("ml.md" in str(hit.chunk.path) for hit in results)
+    assert any("ml.md" in str(hit.chunk.repo_path.path) for hit in results)
 
 
 def test_search_no_index(tmp_path):
@@ -91,7 +88,7 @@ def test_search_no_index(tmp_path):
         _search.search(db_path, "test query")
 
 
-def test_search_with_limit(tmp_path):
+def test_search_with_limit(tmp_path, make_note):
     """Test search with limit parameter."""
     repo_path = tmp_path / "commonplace"
     repo_path.mkdir()
@@ -100,8 +97,8 @@ def test_search_with_limit(tmp_path):
 
     # Add multiple notes
     for i in range(5):
-        note = Note(
-            path=Path(f"note{i}.md"),
+        note = make_note(
+            path=f"note{i}.md",
             content=f"""# Note {i}
 
 Content for note {i}.
@@ -119,7 +116,7 @@ Content for note {i}.
     assert len(results) <= 3
 
 
-def test_index_incremental(tmp_path):
+def test_index_incremental(tmp_path, make_note):
     """Test that index only indexes new notes when not rebuilding."""
     repo_path = tmp_path / "commonplace"
     repo_path.mkdir()
@@ -127,8 +124,8 @@ def test_index_incremental(tmp_path):
     repo = Commonplace.open(repo_path)
 
     # Add first note
-    note1 = Note(
-        path=Path("first.md"),
+    note1 = make_note(
+        path="first.md",
         content="""# First Note
 
 Initial content.
@@ -152,8 +149,8 @@ Initial content.
     store.close()
 
     # Add second note
-    note2 = Note(
-        path=Path("second.md"),
+    note2 = make_note(
+        path="second.md",
         content="""# Second Note
 
 More content.

@@ -4,6 +4,13 @@ from pathlib import Path
 
 import pytest
 
+from commonplace._search._types import Chunk
+from commonplace._types import Note, RepoPath
+
+
+# Dummy ref for tests that don't care about git history
+TEST_REF = "0" * 40
+
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_environment():
@@ -22,3 +29,25 @@ def temp_commonplace_root():
     """Provide a fresh temporary directory for individual tests."""
     with tempfile.TemporaryDirectory() as temp_dir:
         yield Path(temp_dir)
+
+
+@pytest.fixture
+def make_note():
+    """Helper to create a Note with RepoPath for testing."""
+
+    def _make_note(path: str | Path, content: str, ref: str = TEST_REF) -> Note:
+        repo_path = RepoPath(path=Path(path), ref=ref)
+        return Note(repo_path=repo_path, content=content)
+
+    return _make_note
+
+
+@pytest.fixture
+def make_chunk():
+    """Helper to create a Chunk with RepoPath for testing."""
+
+    def _make_chunk(path: str | Path, section: str, text: str, offset: int, ref: str = TEST_REF) -> Chunk:
+        repo_path = RepoPath(path=Path(path), ref=ref)
+        return Chunk(repo_path=repo_path, section=section, text=text, offset=offset)
+
+    return _make_chunk

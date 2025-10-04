@@ -64,11 +64,11 @@ class MarkdownChunker:
     @staticmethod
     def _create_chunk(note: Note, section_stack: list[str], text_lines: list[str], start_offset: int) -> Chunk:
         """Create a chunk from accumulated text."""
-        section_path = " / ".join(section_stack) if section_stack else note.path.stem
+        section_path = " / ".join(section_stack) if section_stack else note.repo_path.path.stem
         chunk_text = "\n".join(text_lines).strip()
 
         return Chunk(
-            path=note.path,
+            repo_path=note.repo_path,
             text=chunk_text,
             section=section_path,
             offset=start_offset,

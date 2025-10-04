@@ -41,10 +41,20 @@ def index(
     if rebuild:
         notes_to_index = all_notes
     else:
-        indexed_paths = store.get_indexed_paths()
-        notes_to_index = [note for note in all_notes if str(note.path) not in indexed_paths]
+        # Check which notes need indexing based on (path, ref) pairs
+        indexed_refs = store.get_indexed_paths()
+        notes_to_index = []
+
+        for note in all_notes:
+            path_str = str(note.repo_path.path)
+            indexed_at = indexed_refs.get(path_str, set())
+
+            if note.repo_path.ref not in indexed_at:
+                # This (path, ref) pair hasn't been indexed
+                notes_to_index.append(note)
+
         if notes_to_index:
-            logger.info(f"Found {len(notes_to_index)} new notes to index (out of {len(all_notes)} total)")
+            logger.info(f"Found {len(notes_to_index)} notes to index (out of {len(all_notes)} total)")
         else:
             logger.info(f"All {len(all_notes)} notes are already indexed")
             store.close()

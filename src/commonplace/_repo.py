@@ -1,6 +1,7 @@
 import os
 import shelve
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Iterator
 
@@ -9,7 +10,7 @@ from pygit2.enums import FileStatus
 from pygit2.repository import Repository
 
 from commonplace import logger
-from commonplace._types import Note, Pathlike
+from commonplace._types import Note, Pathlike, RepoPath
 
 
 @dataclass
@@ -40,51 +41,154 @@ class Commonplace:
         """Get the root path of the repository."""
         return Path(self.git.workdir)
 
-    def notes(self) -> Iterator[Note]:
-        """Get an iterator over all notes in the repository."""
-        for root, dirs, files in os.walk(self.git.workdir):
-            for f in files:
-                path = Path(root) / f
-                if self.git.path_is_ignored(path.as_posix()):
-                    continue
-                if path.suffix != ".md":
-                    continue
-                try:
-                    yield self._get_note(path)
-                except Exception:
-                    logger.warning(f"Can't parse {path}")
+    @property
+    def head_ref(self) -> str:
+        """Get current HEAD tree SHA."""
+        if self.git.head_is_unborn:
+            # No commits yet - use a placeholder ref
+            return "0" * 40
+        return str(self.git.head.target)
 
-    def _get_note(self, path: Pathlike) -> Note:
+    def make_repo_path(self, path: Pathlike) -> RepoPath:
         """
-        Low-level method to fetch a note from the repository.
+        Create a RepoPath for a file with the commit that last modified it.
 
         Args:
-            path (Pathlike): Note path relative to the repository root.
+            path: Absolute or relative path
 
         Returns:
-            Note: Note object containing the content and metadata.
+            RepoPath with relative path and last-modified commit ref
         """
-        logger.debug(f"Fetching note at {path}")
-        path = self._rel_path(path)
-        flags = self.git.status_file(path.as_posix())
-        ref = self.git.head.target
-        if flags == FileStatus.CURRENT:  # Hence cacheable
-            key = f"{path}@{ref}"
-            if key not in self.cache:
-                logger.info(f"No cache for {path}")
-                note = self._read_note(path)
-                self.cache[key] = note
-            else:
-                logger.debug(f"Cache hit for {path}")
-            return self.cache[key]
-        else:
-            return self._read_note(path)
+        rel_path = self._rel_path(path)
 
-    def _read_note(self, path: Pathlike) -> Note:
-        logger.debug(f"Reading {path}")
-        with open(Path(self.git.workdir) / path) as fd:
+        # Check if file exists and get its status
+        try:
+            flags = self.git.status_file(rel_path.as_posix())
+        except KeyError:
+            # File doesn't exist yet (new file being created)
+            return RepoPath(path=rel_path, ref=self.head_ref)
+
+        if flags != FileStatus.CURRENT:
+            # File is modified/staged/new - not committed yet
+            return RepoPath(path=rel_path, ref=self.head_ref)
+
+        # File is clean - find last commit that modified it (cached)
+        ref = self._find_last_commit_for_path(self.git.workdir, rel_path.as_posix(), self.head_ref)
+        return RepoPath(path=rel_path, ref=ref)
+
+    @staticmethod
+    @lru_cache(maxsize=1024)
+    def _find_last_commit_for_path(repo_dir: str, path_str: str, head_ref: str) -> str:
+        """
+        Find the last commit that modified a file.
+
+        Cached by (repo_dir, path, head_ref) to avoid redundant history walks.
+        Static method to ensure cache doesn't hold references to self.
+
+        Args:
+            repo_dir: Repository working directory path
+            path_str: Path as string (relative to repo root)
+            head_ref: Current HEAD ref
+
+        Returns:
+            Commit SHA that last modified the file
+        """
+        # Reopen repository (cheap operation, just loads metadata)
+        git = Repository(repo_dir)
+
+        try:
+            last_commit = None
+
+            for commit in git.walk(git.head.target):
+                # Check if file was modified in this commit
+                if len(commit.parents) == 0:
+                    # Initial commit - check if file exists
+                    try:
+                        commit.tree[path_str]
+                        last_commit = commit
+                    except KeyError:
+                        pass
+                    break
+                else:
+                    # Check if this commit modified the file
+                    parent = commit.parents[0]
+                    try:
+                        current_entry = commit.tree[path_str]
+                        try:
+                            parent_entry = parent.tree[path_str]
+                            # File exists in both - check if content changed
+                            if current_entry.id != parent_entry.id:
+                                last_commit = commit
+                                break
+                        except KeyError:
+                            # File doesn't exist in parent - was added here
+                            last_commit = commit
+                            break
+                    except KeyError:
+                        # File doesn't exist in this commit - keep looking
+                        continue
+
+            return str(last_commit.id) if last_commit else head_ref
+        except Exception as e:
+            # Fallback to HEAD if we can't determine
+            logger.warning(f"Could not determine last commit for {path_str}: {e}, using HEAD")
+            return head_ref
+
+    def notes(self) -> Iterator[Note]:
+        """Get an iterator over all notes at current HEAD."""
+        for root, dirs, files in os.walk(self.git.workdir):
+            for f in files:
+                abs_path = Path(root) / f
+                if self.git.path_is_ignored(abs_path.as_posix()):
+                    continue
+                if abs_path.suffix != ".md":
+                    continue
+                try:
+                    repo_path = self.make_repo_path(abs_path)
+                    yield self.get_note(repo_path)
+                except Exception:
+                    logger.warning(f"Can't parse {abs_path}")
+
+    def get_note(self, repo_path: RepoPath) -> Note:
+        """
+        Fetch a note at a specific repository location.
+
+        Args:
+            repo_path: The repository path to fetch
+
+        Returns:
+            Note object with content
+        """
+        logger.debug(f"Fetching note at {repo_path}")
+
+        # Check if this path is clean at current HEAD
+        if repo_path.ref == self.head_ref:
+            flags = self.git.status_file(repo_path.path.as_posix())
+            if flags == FileStatus.CURRENT:
+                # Safe to cache - file is committed and unchanged
+                if repo_path not in self.cache:
+                    logger.info(f"No cache for {repo_path}")
+                    note = self._read_note(repo_path)
+                    self.cache[repo_path] = note
+                else:
+                    logger.debug(f"Cache hit for {repo_path}")
+                return self.cache[repo_path]
+
+        # Either modified or not at HEAD - read fresh
+        return self._read_note(repo_path)
+
+    def _read_note(self, repo_path: RepoPath) -> Note:
+        """
+        Read note from disk.
+
+        Currently only supports reading from working directory.
+        Future: could read from git object store for historical refs.
+        """
+        logger.debug(f"Reading {repo_path}")
+        abs_path = self.root / repo_path.path
+        with open(abs_path) as fd:
             content = fd.read()
-            return Note(path=path, content=content)
+        return Note(repo_path=repo_path, content=content)
 
     def _rel_path(self, path: Pathlike) -> Path:
         """
@@ -104,24 +208,13 @@ class Commonplace:
             return path.relative_to(self.git.workdir, walk_up=False)
         return path
 
-    def _abs_path(self, path: Pathlike) -> Path:
-        """
-        Returns an absolute path to the note within the repository.
-
-        Args:
-            path (Pathlike): Path to the note, can be absolute or relative.
-
-        """
-        path = self._rel_path(path)
-        return Path(self.git.workdir) / path
-
     def save(self, note: Note) -> None:
-        """Save a note and add it to git staging"""
-        abs_path = self._abs_path(note.path)
+        """Save a note to working directory and stage."""
+        abs_path = self.root / note.repo_path.path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         with open(abs_path, "w") as fd:
             fd.write(note.content)
-        self.git.index.add(self._rel_path(note.path))
+        self.git.index.add(note.repo_path.path.as_posix())
 
     def commit(self, message: str) -> None:
         """Commit staged changes to the repository."""

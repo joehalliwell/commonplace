@@ -73,7 +73,7 @@ def search(
 
     # Display results
     for i, hit in enumerate(results, 1):
-        print(f"\n{i}. {hit.chunk.path}:{hit.chunk.offset}")
+        print(f"\n{i}. {hit.chunk.repo_path.path}:{hit.chunk.offset}")
         print(f"   Section: {hit.chunk.section}")
         print(f"   Score: {hit.score:.3f}")
         print(f"   {hit.chunk.text[:200]}{'...' if len(hit.chunk.text) > 200 else ''}")

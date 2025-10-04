@@ -7,6 +7,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from commonplace._search._types import Chunk, SearchHit
+from commonplace._types import RepoPath
 
 
 class SQLiteVectorStore:
@@ -34,14 +35,16 @@ class SQLiteVectorStore:
             CREATE TABLE IF NOT EXISTS chunks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 path TEXT NOT NULL,
+                ref TEXT NOT NULL,
                 section TEXT NOT NULL,
                 text TEXT NOT NULL,
                 offset INTEGER NOT NULL,
-                embedding BLOB NOT NULL
+                embedding BLOB NOT NULL,
+                UNIQUE(path, ref, offset)
             )
             """
         )
-        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_path ON chunks(path)")
+        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_path_ref ON chunks(path, ref)")
 
         # Create FTS5 virtual table for full-text search
         self._conn.execute(
@@ -92,10 +95,17 @@ class SQLiteVectorStore:
         embedding_bytes = embedding.tobytes()
         self._conn.execute(
             """
-            INSERT INTO chunks (path, section, text, offset, embedding)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO chunks (path, ref, section, text, offset, embedding)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (str(chunk.path), chunk.section, chunk.text, chunk.offset, embedding_bytes),
+            (
+                str(chunk.repo_path.path),
+                chunk.repo_path.ref,
+                chunk.section,
+                chunk.text,
+                chunk.offset,
+                embedding_bytes,
+            ),
         )
         self._conn.commit()
 
@@ -110,7 +120,7 @@ class SQLiteVectorStore:
         Returns:
             List of search hits, ordered by descending similarity
         """
-        cursor = self._conn.execute("SELECT id, path, section, text, offset, embedding FROM chunks")
+        cursor = self._conn.execute("SELECT id, path, ref, section, text, offset, embedding FROM chunks")
         rows = cursor.fetchall()
 
         if not rows:
@@ -121,10 +131,12 @@ class SQLiteVectorStore:
         chunks = []
         chunk_ids = []
         for row in rows:
-            chunk_id, path, section, text, offset, embedding_bytes = row
+            chunk_id, path, ref_str, section, text, offset, embedding_bytes = row
             embedding = np.frombuffer(embedding_bytes, dtype=np.float32)
             embeddings.append(embedding)
-            chunks.append(Chunk(path=Path(path), section=section, text=text, offset=offset))
+
+            repo_path = RepoPath(path=Path(path), ref=ref_str)
+            chunks.append(Chunk(repo_path=repo_path, section=section, text=text, offset=offset))
             chunk_ids.append(chunk_id)
 
         # Compute cosine similarities
@@ -154,7 +166,7 @@ class SQLiteVectorStore:
         """
         cursor = self._conn.execute(
             """
-            SELECT c.id, c.path, c.section, c.text, c.offset, rank
+            SELECT c.id, c.path, c.ref, c.section, c.text, c.offset, rank
             FROM chunks_fts
             JOIN chunks c ON chunks_fts.rowid = c.id
             WHERE chunks_fts MATCH ?
@@ -167,8 +179,9 @@ class SQLiteVectorStore:
 
         results = []
         for row in rows:
-            chunk_id, path, section, text, offset, rank = row
-            chunk = Chunk(path=Path(path), section=section, text=text, offset=offset)
+            chunk_id, path, ref_str, section, text, offset, rank = row
+            repo_path = RepoPath(path=Path(path), ref=ref_str)
+            chunk = Chunk(repo_path=repo_path, section=section, text=text, offset=offset)
             # Convert BM25 rank (negative, lower is better) to positive score
             score = -float(rank)
             results.append(SearchHit(chunk=chunk, score=score))
@@ -196,7 +209,7 @@ class SQLiteVectorStore:
 
         # Build lookup by chunk identity (path + offset uniquely identifies a chunk)
         def chunk_key(chunk: Chunk) -> tuple:
-            return (str(chunk.path), chunk.offset)
+            return (str(chunk.repo_path.path), chunk.offset)
 
         # Compute RRF scores
         rrf_scores: dict[tuple, float] = {}
@@ -223,16 +236,20 @@ class SQLiteVectorStore:
 
         return results
 
-    def get_indexed_paths(self) -> set[str]:
+    def get_indexed_paths(self) -> dict[str, set[str]]:
         """
-        Get all unique paths that have been indexed.
+        Get mapping of paths to their indexed refs.
 
         Returns:
-            Set of path strings that are present in the index
+            Dict mapping path -> set of refs
         """
-        cursor = self._conn.execute("SELECT DISTINCT path FROM chunks")
-        rows = cursor.fetchall()
-        return {row[0] for row in rows}
+        cursor = self._conn.execute("SELECT DISTINCT path, ref FROM chunks")
+        result: dict[str, set[str]] = {}
+        for path, ref in cursor.fetchall():
+            if path not in result:
+                result[path] = set()
+            result[path].add(ref)
+        return result
 
     def clear(self) -> None:
         """Remove all chunks from the store."""

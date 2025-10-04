@@ -6,21 +6,20 @@ generating embeddings, and storing/searching vectors.
 """
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Iterator, Protocol
 
 import numpy as np
 from numpy.typing import NDArray
 
-from commonplace._types import Note
+from commonplace._types import Note, RepoPath
 
 
 @dataclass
 class Chunk:
     """A chunk of text extracted from a note."""
 
-    path: Path
-    """Path to the source note"""
+    repo_path: RepoPath
+    """Repository path to the source note"""
 
     text: str
     """The chunk text content"""
