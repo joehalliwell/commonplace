@@ -4,8 +4,9 @@ from pathlib import Path
 import typer
 from rich.logging import RichHandler
 
-from commonplace import _import, _search, get_config, logger
+from commonplace import get_config, logger
 from commonplace._repo import Commonplace
+from commonplace._search._types import SearchMethod
 
 app = typer.Typer(
     help="Commonplace: Personal knowledge management",
@@ -25,7 +26,10 @@ def import_(path: Path):
 
     config = get_config()
     repo = Commonplace.open(config.root)
-    _import.import_(path, repo, user=config.user, prefix="chats")
+
+    from commonplace._import._commands import import_
+
+    import_(path, repo, user=config.user, prefix="chats")
 
 
 @app.command()
@@ -45,16 +49,17 @@ def index(
     config = get_config()
     repo = Commonplace.open(config.root)
     db_path = config.root / ".commonplace" / "embeddings.db"
+    from commonplace._search._commands import index
 
-    _search.index(repo, db_path, rebuild=rebuild, batch_size=batch_size, model_id=model)
+    index(repo, db_path, rebuild=rebuild, batch_size=batch_size, model_id=model)
 
 
 @app.command()
 def search(
     query: str,
     limit: int = typer.Option(10, "--limit", "-n", help="Maximum number of results"),
-    method: _search.SearchMethod = typer.Option(
-        _search.SearchMethod.HYBRID, "--method", help="Search method: semantic, keyword, or hybrid"
+    method: SearchMethod = typer.Option(
+        SearchMethod.HYBRID, "--method", help="Search method: semantic, keyword, or hybrid"
     ),
     model: str = typer.Option("3-small", "--model", "-m", help="LLM embedding model ID"),
 ):
@@ -66,8 +71,10 @@ def search(
         logger.error("Index not found. Run 'commonplace index' first.")
         raise typer.Exit(1)
 
-    embedder = _search.LLMEmbedder(model_id=model)
-    store = _search.SQLiteVectorStore(db_path, embedder=embedder)
+    from commonplace._search import _commands
+
+    embedder = _commands.LLMEmbedder(model_id=model)
+    store = _commands.SQLiteVectorStore(db_path, embedder=embedder)
 
     try:
         results = store.search(query, limit=limit, method=method)
