@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
-from commonplace._search._types import Chunk, SearchHit
+from commonplace._search._types import Chunk, Embedder, SearchHit, SearchMethod
 from commonplace._types import RepoPath
 
 
@@ -18,14 +18,16 @@ class SQLiteVectorStore:
     in-memory similarity search using numpy.
     """
 
-    def __init__(self, db_path: Path):
+    def __init__(self, db_path: Path, embedder: Embedder):
         """
         Initialize the vector store.
 
         Args:
             db_path: Path to the SQLite database file
+            embedder: Embedder instance to use for generating embeddings
         """
         self._conn = sqlite3.connect(str(db_path))
+        self._embedder = embedder
         self._create_tables()
 
     def _create_tables(self) -> None:
@@ -34,17 +36,19 @@ class SQLiteVectorStore:
             """
             CREATE TABLE IF NOT EXISTS chunks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_id TEXT NOT NULL,
                 path TEXT NOT NULL,
                 ref TEXT NOT NULL,
                 section TEXT NOT NULL,
                 text TEXT NOT NULL,
                 offset INTEGER NOT NULL,
                 embedding BLOB NOT NULL,
-                UNIQUE(path, ref, offset)
+                UNIQUE(model_id, path, ref, offset)
             )
             """
         )
         self._conn.execute("CREATE INDEX IF NOT EXISTS idx_path_ref ON chunks(path, ref)")
+        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_model ON chunks(model_id)")
 
         # Create FTS5 virtual table for full-text search
         self._conn.execute(
@@ -84,9 +88,19 @@ class SQLiteVectorStore:
 
         self._conn.commit()
 
-    def add(self, chunk: Chunk, embedding: NDArray[np.float32]) -> None:
+    def add_chunk(self, chunk: Chunk) -> None:
         """
-        Add a chunk and its embedding to the store.
+        Embed and add a chunk to the store.
+
+        Args:
+            chunk: The chunk to store
+        """
+        embedding = self._embedder.embed(chunk.text)
+        self._add_with_embedding(chunk, embedding)
+
+    def _add_with_embedding(self, chunk: Chunk, embedding: NDArray[np.float32]) -> None:
+        """
+        Internal method to add a chunk with a pre-computed embedding.
 
         Args:
             chunk: The chunk to store
@@ -95,8 +109,8 @@ class SQLiteVectorStore:
         embedding_bytes = embedding.tobytes()
         self._conn.execute(
             """
-            INSERT OR REPLACE INTO chunks (path, ref, section, text, offset, embedding)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO chunks (path, ref, section, text, offset, embedding, model_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 str(chunk.repo_path.path),
@@ -105,13 +119,49 @@ class SQLiteVectorStore:
                 chunk.text,
                 chunk.offset,
                 embedding_bytes,
+                self._embedder.model_id,
             ),
         )
         self._conn.commit()
 
-    def search(self, query_embedding: NDArray[np.float32], limit: int = 10) -> list[SearchHit]:
+    def search(self, query: str, limit: int = 10, method: SearchMethod = SearchMethod.HYBRID) -> list[SearchHit]:
         """
-        Search for similar chunks using cosine similarity.
+        Search for matching chunks using the specified method.
+
+        Args:
+            query: The search query text
+            limit: Maximum number of results to return
+            method: Search method - semantic, keyword, or hybrid (default)
+
+        Returns:
+            List of search hits, ordered by relevance
+        """
+        if method == SearchMethod.SEMANTIC:
+            return self.search_semantic(query, limit=limit)
+        elif method == SearchMethod.KEYWORD:
+            return self.search_keyword(query, limit=limit)
+        elif method == SearchMethod.HYBRID:
+            return self.search_hybrid(query, limit=limit)
+        else:
+            raise ValueError(f"Unknown search method: {method}")
+
+    def search_semantic(self, query: str, limit: int = 10) -> list[SearchHit]:
+        """
+        Search for similar chunks using semantic similarity.
+
+        Args:
+            query: The search query text
+            limit: Maximum number of results to return
+
+        Returns:
+            List of search hits, ordered by descending similarity
+        """
+        query_embedding = self._embedder.embed(query)
+        return self._search_by_embedding(query_embedding, limit)
+
+    def _search_by_embedding(self, query_embedding: NDArray[np.float32], limit: int = 10) -> list[SearchHit]:
+        """
+        Internal method to search by embedding vector.
 
         Args:
             query_embedding: The query embedding vector
@@ -120,7 +170,10 @@ class SQLiteVectorStore:
         Returns:
             List of search hits, ordered by descending similarity
         """
-        cursor = self._conn.execute("SELECT id, path, ref, section, text, offset, embedding FROM chunks")
+        cursor = self._conn.execute(
+            "SELECT id, path, ref, section, text, offset, embedding FROM chunks WHERE model_id = ?",
+            (self._embedder.model_id,),
+        )
         rows = cursor.fetchall()
 
         if not rows:
@@ -153,9 +206,9 @@ class SQLiteVectorStore:
 
         return results
 
-    def search_fts(self, query: str, limit: int = 10) -> list[SearchHit]:
+    def search_keyword(self, query: str, limit: int = 10) -> list[SearchHit]:
         """
-        Search for chunks using full-text search.
+        Search for chunks using keyword (full-text) search.
 
         Args:
             query: The search query string
@@ -189,14 +242,16 @@ class SQLiteVectorStore:
         return results
 
     def search_hybrid(
-        self, query: str, query_embedding: NDArray[np.float32], limit: int = 10, k: int = 60
+        self,
+        query: str,
+        limit: int = 10,
+        k: int = 60,
     ) -> list[SearchHit]:
         """
-        Search using reciprocal rank fusion of FTS and semantic search.
+        Search using reciprocal rank fusion of keyword and semantic search.
 
         Args:
-            query: The search query string for FTS
-            query_embedding: The query embedding vector for semantic search
+            query: The search query string
             limit: Maximum number of results to return
             k: RRF constant (default 60, as recommended in literature)
 
@@ -204,8 +259,8 @@ class SQLiteVectorStore:
             List of search hits, ordered by fused score
         """
         # Get results from both methods
-        fts_results = self.search_fts(query, limit=limit * 2)
-        semantic_results = self.search(query_embedding, limit=limit * 2)
+        keyword_results = self.search_keyword(query, limit=limit * 2)
+        semantic_results = self.search_semantic(query, limit=limit * 2)
 
         # Build lookup by chunk identity (path + offset uniquely identifies a chunk)
         def chunk_key(chunk: Chunk) -> tuple:
@@ -215,8 +270,8 @@ class SQLiteVectorStore:
         rrf_scores: dict[tuple, float] = {}
         chunk_lookup: dict[tuple, Chunk] = {}
 
-        # Add FTS results
-        for rank, hit in enumerate(fts_results, 1):
+        # Add keyword results
+        for rank, hit in enumerate(keyword_results, 1):
             key = chunk_key(hit.chunk)
             rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (k + rank)
             chunk_lookup[key] = hit.chunk
@@ -238,12 +293,14 @@ class SQLiteVectorStore:
 
     def get_indexed_paths(self) -> dict[str, set[str]]:
         """
-        Get mapping of paths to their indexed refs.
+        Get mapping of paths to their indexed refs for this store's model.
 
         Returns:
             Dict mapping path -> set of refs
         """
-        cursor = self._conn.execute("SELECT DISTINCT path, ref FROM chunks")
+        cursor = self._conn.execute(
+            "SELECT DISTINCT path, ref FROM chunks WHERE model_id = ?", (self._embedder.model_id,)
+        )
         result: dict[str, set[str]] = {}
         for path, ref in cursor.fetchall():
             if path not in result:

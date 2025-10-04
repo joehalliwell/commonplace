@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 
+from commonplace._search._embedder import SentenceTransformersEmbedder
 from commonplace._search._store import SQLiteVectorStore
 
 
@@ -10,7 +11,8 @@ from commonplace._search._store import SQLiteVectorStore
 def store(tmp_path):
     """Create a temporary vector store."""
     db_path = tmp_path / "test.db"
-    store = SQLiteVectorStore(db_path)
+    embedder = SentenceTransformersEmbedder()
+    store = SQLiteVectorStore(db_path, embedder=embedder)
     yield store
     store.close()
 
@@ -43,13 +45,13 @@ def test_add_and_search(store, make_chunk):
     emb3 = np.array([0.9, 0.1, 0.0], dtype=np.float32)
 
     # Add chunks
-    store.add(chunk1, emb1)
-    store.add(chunk2, emb2)
-    store.add(chunk3, emb3)
+    store._add_with_embedding(chunk1, emb1)
+    store._add_with_embedding(chunk2, emb2)
+    store._add_with_embedding(chunk3, emb3)
 
     # Search for something similar to chunk1
     query = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-    results = store.search(query, limit=3)
+    results = store._search_by_embedding(query, limit=3)
 
     assert len(results) == 3
     # First result should be chunk1 (exact match)
@@ -64,7 +66,7 @@ def test_add_and_search(store, make_chunk):
 def test_search_empty_store(store):
     """Test searching in an empty store."""
     query = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-    results = store.search(query, limit=10)
+    results = store._search_by_embedding(query, limit=10)
     assert len(results) == 0
 
 
@@ -78,16 +80,16 @@ def test_clear(store, make_chunk):
     )
     emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
 
-    store.add(chunk, emb)
+    store._add_with_embedding(chunk, emb)
 
     # Verify it was added
     query = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-    results = store.search(query, limit=10)
+    results = store._search_by_embedding(query, limit=10)
     assert len(results) == 1
 
     # Clear and verify it's empty
     store.clear()
-    results = store.search(query, limit=10)
+    results = store._search_by_embedding(query, limit=10)
     assert len(results) == 0
 
 
@@ -102,11 +104,11 @@ def test_limit_results(store, make_chunk):
             offset=i * 10,
         )
         emb = np.random.rand(3).astype(np.float32)
-        store.add(chunk, emb)
+        store._add_with_embedding(chunk, emb)
 
     # Search with limit=3
     query = np.random.rand(3).astype(np.float32)
-    results = store.search(query, limit=3)
+    results = store._search_by_embedding(query, limit=3)
     assert len(results) == 3
 
 
@@ -143,9 +145,9 @@ def test_get_indexed_paths(store, make_chunk):
     chunk3 = make_chunk(path="note2.md", section="Section", text="Text 3", offset=0)
 
     emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-    store.add(chunk1, emb)
-    store.add(chunk2, emb)
-    store.add(chunk3, emb)
+    store._add_with_embedding(chunk1, emb)
+    store._add_with_embedding(chunk2, emb)
+    store._add_with_embedding(chunk3, emb)
 
     # Should return unique paths
     paths = store.get_indexed_paths()

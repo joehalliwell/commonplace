@@ -6,12 +6,21 @@ generating embeddings, and storing/searching vectors.
 """
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Iterator, Protocol
 
 import numpy as np
 from numpy.typing import NDArray
 
 from commonplace._types import Note, RepoPath
+
+
+class SearchMethod(str, Enum):
+    """Search method for finding relevant chunks."""
+
+    SEMANTIC = "semantic"
+    KEYWORD = "keyword"
+    HYBRID = "hybrid"
 
 
 @dataclass
@@ -58,6 +67,16 @@ class Chunker(Protocol):
 
 class Embedder(Protocol):
     """Protocol for generating embeddings from text."""
+
+    @property
+    def model_id(self) -> str:
+        """
+        Get the model identifier.
+
+        Returns:
+            Model ID string used to track which model generated embeddings
+        """
+        ...
 
     def embed(self, text: str) -> NDArray[np.float32]:
         """

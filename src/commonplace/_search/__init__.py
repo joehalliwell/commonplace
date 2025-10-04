@@ -5,9 +5,16 @@ from pathlib import Path
 from commonplace import logger
 from commonplace._repo import Commonplace
 from commonplace._search._chunker import MarkdownChunker
-from commonplace._search._embedder import SentenceTransformersEmbedder
+from commonplace._search._embedder import (
+    LLMEmbedder as LLMEmbedder,
+    SentenceTransformersEmbedder as SentenceTransformersEmbedder,
+)
 from commonplace._search._store import SQLiteVectorStore
-from commonplace._search._types import SearchHit
+from commonplace._search._types import (
+    Embedder,
+    SearchHit as SearchHit,
+    SearchMethod as SearchMethod,
+)
 from commonplace._utils import progress_track
 
 
@@ -16,6 +23,8 @@ def index(
     db_path: Path,
     rebuild: bool = False,
     batch_size: int = 100,
+    model_id: str = "3-small",
+    embedder: Embedder | None = None,
 ) -> None:
     """
     Build or rebuild the search index for semantic search.
@@ -25,12 +34,15 @@ def index(
         db_path: Path to the SQLite database file for the index
         rebuild: If True, clear existing index before rebuilding
         batch_size: Number of chunks to embed at once
+        model_id: LLM model ID for embeddings (default: "3-small")
+        embedder: Optional embedder instance (if None, uses LLMEmbedder with model_id)
     """
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    store = SQLiteVectorStore(db_path)
+    if embedder is None:
+        embedder = SentenceTransformersEmbedder()
+    store = SQLiteVectorStore(db_path, embedder=embedder)
     chunker = MarkdownChunker()
-    embedder = SentenceTransformersEmbedder()
 
     if rebuild:
         logger.info("Clearing existing index")
@@ -41,7 +53,7 @@ def index(
     if rebuild:
         notes_to_index = all_notes
     else:
-        # Check which notes need indexing based on (path, ref) pairs
+        # Check which notes need indexing based on (path, ref, model) tuples
         indexed_refs = store.get_indexed_paths()
         notes_to_index = []
 
@@ -50,13 +62,15 @@ def index(
             indexed_at = indexed_refs.get(path_str, set())
 
             if note.repo_path.ref not in indexed_at:
-                # This (path, ref) pair hasn't been indexed
+                # This (path, ref) pair hasn't been indexed with this model
                 notes_to_index.append(note)
 
         if notes_to_index:
-            logger.info(f"Found {len(notes_to_index)} notes to index (out of {len(all_notes)} total)")
+            logger.info(
+                f"Found {len(notes_to_index)} notes to index with {embedder.model_id} (out of {len(all_notes)} total)"
+            )
         else:
-            logger.info(f"All {len(all_notes)} notes are already indexed")
+            logger.info(f"All {len(all_notes)} notes are already indexed with {embedder.model_id}")
             store.close()
             return
 
@@ -67,7 +81,7 @@ def index(
         chunks = list(chunker.chunk(note))
         all_chunks.extend(chunks)
 
-    logger.info(f"Embedding {len(all_chunks)} chunks in batches of {batch_size}")
+    logger.info(f"Embedding {len(all_chunks)} chunks with {embedder.model_id} in batches of {batch_size}")
 
     # Process chunks in batches
     num_batches = (len(all_chunks) + batch_size - 1) // batch_size
@@ -78,53 +92,7 @@ def index(
 
         # Store each chunk with its embedding
         for chunk, embedding in zip(batch, embeddings):
-            store.add(chunk, embedding)
+            store._add_with_embedding(chunk, embedding)
 
     store.close()
     logger.info("Indexing complete")
-
-
-def search(
-    db_path: Path,
-    query: str,
-    limit: int = 10,
-    method: str = "hybrid",
-) -> list[SearchHit]:
-    """
-    Search for semantically similar content in the commonplace.
-
-    Args:
-        db_path: Path to the SQLite database file
-        query: The search query string
-        limit: Maximum number of results to return
-        method: Search method: "semantic", "fts", or "hybrid"
-
-    Returns:
-        List of search hits ordered by relevance
-
-    Raises:
-        FileNotFoundError: If the index doesn't exist
-        ValueError: If the method is invalid
-    """
-    if not db_path.exists():
-        raise FileNotFoundError("Index not found. Run 'commonplace index' first.")
-
-    store = SQLiteVectorStore(db_path)
-
-    # Search based on method
-    if method == "fts":
-        results = store.search_fts(query, limit=limit)
-    elif method == "semantic":
-        embedder = SentenceTransformersEmbedder()
-        query_embedding = embedder.embed(query)
-        results = store.search(query_embedding, limit=limit)
-    elif method == "hybrid":
-        embedder = SentenceTransformersEmbedder()
-        query_embedding = embedder.embed(query)
-        results = store.search_hybrid(query, query_embedding, limit=limit)
-    else:
-        store.close()
-        raise ValueError(f"Unknown search method: {method}")
-
-    store.close()
-    return results

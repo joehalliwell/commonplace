@@ -39,33 +39,43 @@ def init():
 def index(
     rebuild: bool = typer.Option(False, "--rebuild", help="Rebuild the index from scratch"),
     batch_size: int = typer.Option(100, "--batch-size", help="Number of chunks to embed at once"),
+    model: str = typer.Option("3-small", "--model", "-m", help="LLM embedding model ID"),
 ):
     """Build or rebuild the search index for semantic search."""
     config = get_config()
     repo = Commonplace.open(config.root)
     db_path = config.root / ".commonplace" / "embeddings.db"
 
-    _search.index(repo, db_path, rebuild=rebuild, batch_size=batch_size)
+    _search.index(repo, db_path, rebuild=rebuild, batch_size=batch_size, model_id=model)
 
 
 @app.command()
 def search(
     query: str,
     limit: int = typer.Option(10, "--limit", "-n", help="Maximum number of results"),
-    method: str = typer.Option("hybrid", "--method", "-m", help="Search method: semantic, fts, or hybrid"),
+    method: _search.SearchMethod = typer.Option(
+        _search.SearchMethod.HYBRID, "--method", help="Search method: semantic, keyword, or hybrid"
+    ),
+    model: str = typer.Option("3-small", "--model", "-m", help="LLM embedding model ID"),
 ):
     """Search for semantically similar content in your commonplace."""
     config = get_config()
     db_path = config.root / ".commonplace" / "embeddings.db"
 
-    try:
-        results = _search.search(db_path, query, limit=limit, method=method)
-    except FileNotFoundError as e:
-        logger.error(str(e))
+    if not db_path.exists():
+        logger.error("Index not found. Run 'commonplace index' first.")
         raise typer.Exit(1)
+
+    embedder = _search.LLMEmbedder(model_id=model)
+    store = _search.SQLiteVectorStore(db_path, embedder=embedder)
+
+    try:
+        results = store.search(query, limit=limit, method=method)
     except ValueError as e:
         logger.error(str(e))
         raise typer.Exit(1)
+    finally:
+        store.close()
 
     if not results:
         logger.info("No results found")
