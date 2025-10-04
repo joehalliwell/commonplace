@@ -130,17 +130,20 @@ def import_(path: Path, repo: Commonplace, user: str, prefix="chats"):
     serializer = MarkdownSerializer(human=user, assistant=importer.source.title())
 
     for log in importer.import_(path):
-        path = import_path(
+        rel_path = import_path(
             source=log.source,
             date=log.created,
             title=log.title,
         )
 
+        # Create RepoPath for the new note (will get proper ref after commit)
+        repo_path = repo.make_repo_path(rel_path)
+
         note = Note(
-            path=path,
+            repo_path=repo_path,
             content=serializer.serialize(log),
         )
         repo.save(note)
-        logger.info(f"Stored log '{log.title}' at '{path}'")
+        logger.info(f"Stored log '{log.title}' at '{rel_path}'")
 
     repo.commit(f"Import from {path} using {importer.source} importer")

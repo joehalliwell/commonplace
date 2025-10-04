@@ -1,12 +1,9 @@
 """Tests for vector storage."""
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 
 from commonplace._search._store import SQLiteVectorStore
-from commonplace._search._types import Chunk
 
 
 @pytest.fixture
@@ -18,27 +15,27 @@ def store(tmp_path):
     store.close()
 
 
-def test_add_and_search(store):
+def test_add_and_search(store, make_chunk):
     """Test adding chunks and searching for similar ones."""
     # Create some test chunks and embeddings
-    chunk1 = Chunk(
-        path=Path("test1.md"),
+    chunk1 = make_chunk(
+        path="test1.md",
         section="Section 1",
         text="The cat sat on the mat.",
         offset=0,
     )
     emb1 = np.array([1.0, 0.0, 0.0], dtype=np.float32)
 
-    chunk2 = Chunk(
-        path=Path("test2.md"),
+    chunk2 = make_chunk(
+        path="test2.md",
         section="Section 2",
         text="A dog played in the park.",
         offset=10,
     )
     emb2 = np.array([0.0, 1.0, 0.0], dtype=np.float32)
 
-    chunk3 = Chunk(
-        path=Path("test3.md"),
+    chunk3 = make_chunk(
+        path="test3.md",
         section="Section 3",
         text="The feline rested on the rug.",
         offset=20,
@@ -71,10 +68,10 @@ def test_search_empty_store(store):
     assert len(results) == 0
 
 
-def test_clear(store):
+def test_clear(store, make_chunk):
     """Test clearing the store."""
-    chunk = Chunk(
-        path=Path("test.md"),
+    chunk = make_chunk(
+        path="test.md",
         section="Section",
         text="Some text",
         offset=0,
@@ -94,12 +91,12 @@ def test_clear(store):
     assert len(results) == 0
 
 
-def test_limit_results(store):
+def test_limit_results(store, make_chunk):
     """Test that limit parameter works."""
     # Add 5 chunks
     for i in range(5):
-        chunk = Chunk(
-            path=Path(f"test{i}.md"),
+        chunk = make_chunk(
+            path=f"test{i}.md",
             section=f"Section {i}",
             text=f"Text {i}",
             offset=i * 10,
@@ -134,16 +131,16 @@ def test_cosine_similarity():
     assert similarities[3] == pytest.approx(0.707, abs=1e-2)
 
 
-def test_get_indexed_paths(store):
+def test_get_indexed_paths(store, make_chunk):
     """Test retrieving indexed paths."""
     # Empty store should return empty set
     paths = store.get_indexed_paths()
     assert len(paths) == 0
 
     # Add chunks from different paths
-    chunk1 = Chunk(path=Path("note1.md"), section="Section", text="Text 1", offset=0)
-    chunk2 = Chunk(path=Path("note1.md"), section="Section", text="Text 2", offset=10)
-    chunk3 = Chunk(path=Path("note2.md"), section="Section", text="Text 3", offset=0)
+    chunk1 = make_chunk(path="note1.md", section="Section", text="Text 1", offset=0)
+    chunk2 = make_chunk(path="note1.md", section="Section", text="Text 2", offset=10)
+    chunk3 = make_chunk(path="note2.md", section="Section", text="Text 3", offset=0)
 
     emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
     store.add(chunk1, emb)
