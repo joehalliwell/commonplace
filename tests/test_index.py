@@ -1,6 +1,7 @@
 """Tests for the index and search commands."""
 
-from commonplace import _search
+from commonplace._search import _commands
+
 from commonplace._repo import Commonplace
 from commonplace._search._embedder import SentenceTransformersEmbedder
 
@@ -26,11 +27,11 @@ Some content here.
     embedder = SentenceTransformersEmbedder()
 
     # Index first time
-    _search.index(repo, db_path, rebuild=False, embedder=embedder)
+    _commands.index(repo, db_path, rebuild=False, embedder=embedder)
     assert db_path.exists()
 
     # Rebuild
-    _search.index(repo, db_path, rebuild=True, embedder=embedder)
+    _commands.index(repo, db_path, rebuild=True, embedder=embedder)
     assert db_path.exists()
 
 
@@ -70,10 +71,10 @@ Baking bread requires flour, water, and yeast.
     embedder = SentenceTransformersEmbedder()
 
     # Index the notes
-    _search.index(repo, db_path, embedder=embedder)
+    _commands.index(repo, db_path, embedder=embedder)
 
     # Search for ML-related content
-    store = _search.SQLiteVectorStore(db_path, embedder=embedder)
+    store = _commands.SQLiteVectorStore(db_path, embedder=embedder)
     results = store.search("artificial intelligence", limit=10)
     store.close()
 
@@ -114,10 +115,10 @@ Content for note {i}.
     embedder = SentenceTransformersEmbedder()
 
     # Index
-    _search.index(repo, db_path, embedder=embedder)
+    _commands.index(repo, db_path, embedder=embedder)
 
     # Search with limit
-    store = _search.SQLiteVectorStore(db_path, embedder=embedder)
+    store = _commands.SQLiteVectorStore(db_path, embedder=embedder)
     results = store.search("content", limit=3)
     store.close()
 
@@ -146,7 +147,7 @@ Initial content.
     embedder = SentenceTransformersEmbedder()
 
     # Index first time
-    _search.index(repo, db_path, rebuild=False, embedder=embedder)
+    _commands.index(repo, db_path, rebuild=False, embedder=embedder)
 
     # Verify first note is indexed
     from commonplace._search._store import SQLiteVectorStore
@@ -169,7 +170,7 @@ More content.
     repo.commit("Add second note")
 
     # Index again without --rebuild (should only index the new note)
-    _search.index(repo, db_path, rebuild=False, embedder=embedder)
+    _commands.index(repo, db_path, rebuild=False, embedder=embedder)
 
     # Verify both notes are indexed
     store = SQLiteVectorStore(db_path, embedder=embedder)
@@ -180,7 +181,7 @@ More content.
     store.close()
 
     # Run index again with no new notes - should be idempotent
-    _search.index(repo, db_path, rebuild=False, embedder=embedder)
+    _commands.index(repo, db_path, rebuild=False, embedder=embedder)
 
     store = SQLiteVectorStore(db_path, embedder=embedder)
     indexed_paths = store.get_indexed_paths()

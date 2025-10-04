@@ -73,14 +73,16 @@ class SQLiteVectorStore:
         self._conn.execute(
             """
             CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
-                INSERT INTO chunks_fts(chunks_fts, rowid, text, section) VALUES('delete', old.id, old.text, old.section);
+                INSERT INTO chunks_fts(chunks_fts, rowid, text, section)
+                VALUES('delete', old.id, old.text, old.section);
             END
             """
         )
         self._conn.execute(
             """
             CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
-                INSERT INTO chunks_fts(chunks_fts, rowid, text, section) VALUES('delete', old.id, old.text, old.section);
+                INSERT INTO chunks_fts(chunks_fts, rowid, text, section)
+                VALUES('delete', old.id, old.text, old.section);
                 INSERT INTO chunks_fts(rowid, text, section) VALUES (new.id, new.text, new.section);
             END
             """
