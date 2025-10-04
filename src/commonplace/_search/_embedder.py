@@ -1,7 +1,5 @@
 """Embedding implementations for generating vector representations of text."""
 
-from pathlib import Path
-
 import numpy as np
 from numpy.typing import NDArray
 
@@ -14,19 +12,17 @@ class SentenceTransformersEmbedder:
     embeddings locally without network access.
     """
 
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2", cache_dir: Path | None = None):
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         """
         Initialize the embedder.
 
         Args:
             model_name: Name of the sentence-transformers model to use
-            cache_dir: Optional directory to cache models (defaults to ~/.cache/torch)
         """
         # Lazy import to avoid loading heavy dependencies at module import time
         from sentence_transformers import SentenceTransformer
 
-        cache_path = str(cache_dir) if cache_dir else None
-        self.model = SentenceTransformer(model_name, cache_folder=cache_path)
+        self.model = SentenceTransformer(model_name)
         self._model_id = f"sentence-transformers:{model_name}"
 
     @property
