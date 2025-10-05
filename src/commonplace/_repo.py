@@ -230,5 +230,56 @@ class Commonplace:
 
     def stats(self) -> RepoStats:
         """Get repository statistics."""
-        num_notes = sum(1 for _ in self.note_paths())
-        return RepoStats(num_notes=num_notes)
+        from datetime import datetime
+
+        num_notes = 0
+        total_size_bytes = 0
+        providers: dict[str, int] = {}
+        oldest_timestamp = 0
+        newest_timestamp = 0
+
+        for root, _, files in os.walk(self.git.workdir):
+            for f in files:
+                abs_path = Path(root) / f
+                if self.git.path_is_ignored(abs_path.as_posix()):
+                    continue
+                if abs_path.suffix != ".md":
+                    continue
+
+                num_notes += 1
+
+                # Get file size
+                try:
+                    total_size_bytes += abs_path.stat().st_size
+                except OSError:
+                    pass
+
+                # Extract provider from path (e.g., chats/claude/... -> "claude")
+                rel_path = abs_path.relative_to(self.git.workdir)
+                parts = rel_path.parts
+                if len(parts) >= 2 and parts[0] == "chats":
+                    provider = parts[1]
+                    providers[provider] = providers.get(provider, 0) + 1
+
+                # Extract timestamp from filename (YYYY-MM-DD-...)
+                filename = abs_path.stem
+                if len(filename) >= 10 and filename[4] == "-" and filename[7] == "-":
+                    try:
+                        date_str = filename[:10]
+                        dt = datetime.strptime(date_str, "%Y-%m-%d")
+                        timestamp = int(dt.timestamp())
+
+                        if oldest_timestamp == 0 or timestamp < oldest_timestamp:
+                            oldest_timestamp = timestamp
+                        if newest_timestamp == 0 or timestamp > newest_timestamp:
+                            newest_timestamp = timestamp
+                    except ValueError:
+                        pass
+
+        return RepoStats(
+            num_notes=num_notes,
+            total_size_bytes=total_size_bytes,
+            providers=providers,
+            oldest_timestamp=oldest_timestamp,
+            newest_timestamp=newest_timestamp,
+        )

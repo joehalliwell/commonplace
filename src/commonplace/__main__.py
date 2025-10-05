@@ -99,18 +99,35 @@ def search(
 @app.command()
 def stats():
     """Show statistics about your commonplace and search index."""
+    from datetime import datetime
+
+    import humanize
+
     config = get_config()
     repo = Commonplace.open(config.root)
 
     print("Repository statistics:")
     repo_stats = repo.stats()
     print(f"  Number of notes: {repo_stats.num_notes:,}")
+    print(f"  Total size: {humanize.naturalsize(repo_stats.total_size_bytes, binary=True)}")
+
+    # Show providers
+    if repo_stats.providers:
+        print("  Notes by provider:")
+        for provider, count in sorted(repo_stats.providers.items()):
+            print(f"    {provider}: {count:,}")
+
+    # Show date range
+    if repo_stats.oldest_timestamp > 0:
+        oldest = datetime.fromtimestamp(repo_stats.oldest_timestamp).strftime("%Y-%m-%d")
+        newest = datetime.fromtimestamp(repo_stats.newest_timestamp).strftime("%Y-%m-%d")
+        print(f"  Date range: {oldest} to {newest}")
 
     from commonplace._search import get_store
 
     store = get_store(config)
     store_stats = store.stats()
-    print("Search index statistics:")
+    print("\nSearch index statistics:")
     print(f"  Number of chunks: {store_stats.num_chunks:,}")
     print("  Chunks by embedding model:")
     for model_id, count in store_stats.chunks_by_embedding_model.items():

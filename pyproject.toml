@@ -24,6 +24,8 @@ dependencies = [
     "python-frontmatter>=1.1.0",
     "numpy>=1.24.0",
     "sentence-transformers>=2.2.0",
+    "humanize>=4.0.0",
+    "platformdirs>=4.0.0",
 ]
 
 [dependency-groups]
