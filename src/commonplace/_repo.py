@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Iterator
 
-from pygit2 import init_repository, Signature
+from pygit2 import Diff, init_repository, Signature, Commit
 from pygit2.enums import FileStatus
 from pygit2.repository import Repository
 
@@ -59,80 +59,89 @@ class Commonplace:
         Returns:
             RepoPath with relative path and last-modified commit ref
         """
-        rel_path = self._rel_path(path)
+
+        path = Path(path)
+        if path.is_absolute():
+            path = path.relative_to(self.git.workdir, walk_up=False)
 
         # Check if file exists and get its status
         try:
-            flags = self.git.status_file(rel_path.as_posix())
+            flags = self.git.status_file(path.as_posix())
         except KeyError:
             # File doesn't exist yet (new file being created)
-            return RepoPath(path=rel_path, ref=self.head_ref)
+            return RepoPath(path=path, ref=self.head_ref)
 
         if flags != FileStatus.CURRENT:
             # File is modified/staged/new - not committed yet
-            return RepoPath(path=rel_path, ref=self.head_ref)
+            return RepoPath(path=path, ref=self.head_ref)
 
         # File is clean - find last commit that modified it (cached)
-        ref = self._find_last_commit_for_path(self.git.workdir, rel_path.as_posix(), self.head_ref)
-        return RepoPath(path=rel_path, ref=ref)
+        path_map = self._build_path_commit_map(self.git.workdir)
+        ref = path_map.get(path.as_posix(), self.head_ref)
+        return RepoPath(path=path, ref=ref)
 
     @staticmethod
-    @lru_cache(maxsize=4096)
-    def _find_last_commit_for_path(repo_dir: str, path_str: str, head_ref: str) -> str:
+    @lru_cache(maxsize=1)
+    def _build_path_commit_map(repo_dir: str) -> dict[str, str]:
         """
-        Find the last commit that modified a file.
+        Build a map of all file paths to their last modifying commit.
 
-        Cached by (repo_dir, path, head_ref) to avoid redundant history walks.
-        Static method to ensure cache doesn't hold references to self.
+        Walks the commit history once and builds the entire mapping.
+        Cached by (repo_dir, head_ref) so we only walk once per HEAD state.
 
         Args:
             repo_dir: Repository path
-            path_str: Path as string (relative to repo root)
             head_ref: Current HEAD ref
 
         Returns:
-            Commit SHA that last modified the file
+            Dict mapping file paths to commit SHAs
         """
         # Reopen repository (cheap operation, just loads metadata)
         git = Repository(repo_dir)
+        path_to_commit: dict[str, str] = {}
 
-        try:
-            last_commit = None
+        if git.head_is_unborn:
+            return path_to_commit
 
-            for commit in git.walk(git.head.target):
-                # Check if file was modified in this commit
-                if len(commit.parents) == 0:
-                    # Initial commit - check if file exists
-                    try:
-                        commit.tree[path_str]
-                        last_commit = commit
-                    except KeyError:
-                        pass
-                    break
+        def walk_tree(tree, prefix=""):
+            """Recursively walk tree and yield all file paths."""
+            for entry in tree:
+                path = f"{prefix}{entry.name}" if prefix else entry.name
+                if entry.type_str == "tree":
+                    # Recurse into subdirectory
+                    yield from walk_tree(git[entry.id], f"{path}/")
                 else:
-                    # Check if this commit modified the file
-                    parent = commit.parents[0]
-                    try:
-                        current_entry = commit.tree[path_str]
-                        try:
-                            parent_entry = parent.tree[path_str]
-                            # File exists in both - check if content changed
-                            if current_entry.id != parent_entry.id:
-                                last_commit = commit
-                                break
-                        except KeyError:
-                            # File doesn't exist in parent - was added here
-                            last_commit = commit
-                            break
-                    except KeyError:
-                        # File doesn't exist in this commit - keep looking
-                        continue
+                    yield path
 
-            return str(last_commit.id) if last_commit else head_ref
-        except Exception as e:
-            # Fallback to HEAD if we can't determine
-            logger.warning(f"Could not determine last commit for {path_str}: {e}, using HEAD")
-            return head_ref
+        # Get all files at HEAD - this is what we need to find commits for
+        last_commit = git[git.head.target]
+        assert isinstance(last_commit, Commit)
+        remaining_files = set(walk_tree(last_commit.tree))
+
+        for commit in git.walk(git.head.target):
+            if not remaining_files:
+                # Found commits for all files, can stop early
+                break
+
+            if not commit.parents:
+                # Initial commit - record all remaining files
+                for path in remaining_files:
+                    path_to_commit[path] = str(commit.id)
+                break
+
+            # Get diff to find what files changed in this commit
+            parent = commit.parents[0]
+            diff = git.diff(parent, commit)
+            assert isinstance(diff, Diff)
+
+            # Record each changed file and remove from remaining set
+            for delta in diff.deltas:
+                path = delta.new_file.path
+                if path in remaining_files:
+                    path_to_commit[path] = str(commit.id)
+                    remaining_files.remove(path)
+
+        return path_to_commit
 
     def notes(self) -> Iterator[Note]:
         """Get an iterator over all notes at current HEAD."""
@@ -175,24 +184,6 @@ class Commonplace:
         with open(abs_path) as fd:
             content = fd.read()
         return Note(repo_path=repo_path, content=content)
-
-    def _rel_path(self, path: Pathlike) -> Path:
-        """
-        Returns a relative path to the note within the repository.
-
-        Args:
-            path (Pathlike): Path to the note, can be absolute or relative.
-
-        Returns:
-            Path: Path relative to the repository root.
-
-        Raises:
-            ValueError: If the path is not relative to the repository root.
-        """
-        path = Path(path)
-        if path.is_absolute():
-            return path.relative_to(self.git.workdir, walk_up=False)
-        return path
 
     def save(self, note: Note) -> None:
         """Save a note to working directory and stage."""
