@@ -3,21 +3,11 @@
 import numpy as np
 import pytest
 
-from commonplace._search._embedder import SentenceTransformersEmbedder
 from commonplace._search._store import SQLiteVectorStore
+from commonplace._search._types import IndexStats
 
 
-@pytest.fixture
-def store(tmp_path):
-    """Create a temporary vector store."""
-    db_path = tmp_path / "test.db"
-    embedder = SentenceTransformersEmbedder()
-    store = SQLiteVectorStore(db_path, embedder=embedder)
-    yield store
-    store.close()
-
-
-def test_add_and_search(store, make_chunk):
+def test_add_and_search(test_store, make_chunk):
     """Test adding chunks and searching for similar ones."""
     # Create some test chunks and embeddings
     chunk1 = make_chunk(
@@ -45,13 +35,13 @@ def test_add_and_search(store, make_chunk):
     emb3 = np.array([0.9, 0.1, 0.0], dtype=np.float32)
 
     # Add chunks
-    store._add_with_embedding(chunk1, emb1)
-    store._add_with_embedding(chunk2, emb2)
-    store._add_with_embedding(chunk3, emb3)
+    test_store._add_with_embedding(chunk1, emb1)
+    test_store._add_with_embedding(chunk2, emb2)
+    test_store._add_with_embedding(chunk3, emb3)
 
     # Search for something similar to chunk1
     query = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-    results = store._search_by_embedding(query, limit=3)
+    results = test_store._search_by_embedding(query, limit=3)
 
     assert len(results) == 3
     # First result should be chunk1 (exact match)
@@ -63,14 +53,14 @@ def test_add_and_search(store, make_chunk):
     assert results[2].chunk.text == chunk2.text
 
 
-def test_search_empty_store(store):
+def test_search_empty_store(test_store):
     """Test searching in an empty store."""
     query = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-    results = store._search_by_embedding(query, limit=10)
+    results = test_store._search_by_embedding(query, limit=10)
     assert len(results) == 0
 
 
-def test_clear(store, make_chunk):
+def test_clear(test_store, make_chunk):
     """Test clearing the store."""
     chunk = make_chunk(
         path="test.md",
@@ -80,20 +70,20 @@ def test_clear(store, make_chunk):
     )
     emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
 
-    store._add_with_embedding(chunk, emb)
+    test_store._add_with_embedding(chunk, emb)
 
     # Verify it was added
     query = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-    results = store._search_by_embedding(query, limit=10)
+    results = test_store._search_by_embedding(query, limit=10)
     assert len(results) == 1
 
     # Clear and verify it's empty
-    store.clear()
-    results = store._search_by_embedding(query, limit=10)
+    test_store.clear()
+    results = test_store._search_by_embedding(query, limit=10)
     assert len(results) == 0
 
 
-def test_limit_results(store, make_chunk):
+def test_limit_results(test_store, make_chunk):
     """Test that limit parameter works."""
     # Add 5 chunks
     for i in range(5):
@@ -104,11 +94,11 @@ def test_limit_results(store, make_chunk):
             offset=i * 10,
         )
         emb = np.random.rand(3).astype(np.float32)
-        store._add_with_embedding(chunk, emb)
+        test_store._add_with_embedding(chunk, emb)
 
     # Search with limit=3
     query = np.random.rand(3).astype(np.float32)
-    results = store._search_by_embedding(query, limit=3)
+    results = test_store._search_by_embedding(query, limit=3)
     assert len(results) == 3
 
 
@@ -133,10 +123,10 @@ def test_cosine_similarity():
     assert similarities[3] == pytest.approx(0.707, abs=1e-2)
 
 
-def test_get_indexed_paths(store, make_chunk):
+def test_get_indexed_paths(test_store, make_chunk):
     """Test retrieving indexed paths."""
     # Empty store should return empty set
-    paths = store.get_indexed_paths()
+    paths = set(test_store.get_indexed_paths())
     assert len(paths) == 0
 
     # Add chunks from different paths
@@ -145,12 +135,17 @@ def test_get_indexed_paths(store, make_chunk):
     chunk3 = make_chunk(path="note2.md", section="Section", text="Text 3", offset=0)
 
     emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-    store._add_with_embedding(chunk1, emb)
-    store._add_with_embedding(chunk2, emb)
-    store._add_with_embedding(chunk3, emb)
+    test_store._add_with_embedding(chunk1, emb)
+    test_store._add_with_embedding(chunk2, emb)
+    test_store._add_with_embedding(chunk3, emb)
 
     # Should return unique paths
-    paths = store.get_indexed_paths()
+    paths = set(test_store.get_indexed_paths())
     assert len(paths) == 2
-    assert "note1.md" in paths
-    assert "note2.md" in paths
+    assert chunk1.repo_path in paths
+    assert chunk2.repo_path in paths
+
+
+def test_stats(test_store):
+    stats = test_store.stats()
+    assert stats == IndexStats(num_docs=0, num_chunks=0, chunks_by_embedding_model={})

@@ -31,6 +31,10 @@ class Commonplace:
         (root / ".commonplace").mkdir(exist_ok=True)
         return Commonplace(git=git)
 
+    def close(self):
+        """Close this repo. Does nothing."""
+        ...
+
     @staticmethod
     def init(root: Path):
         init_repository(root, bare=False)

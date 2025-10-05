@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
+from typing import Iterable
 
 from commonplace._search._types import (
     Chunk,
@@ -300,7 +301,7 @@ class SQLiteVectorStore(SearchIndex):
 
         return results
 
-    def get_indexed_paths(self) -> dict[str, set[str]]:
+    def get_indexed_paths(self) -> Iterable[RepoPath]:
         """
         Get mapping of paths to their indexed refs for this store's model.
 
@@ -310,12 +311,8 @@ class SQLiteVectorStore(SearchIndex):
         cursor = self._conn.execute(
             "SELECT DISTINCT path, ref FROM chunks WHERE model_id = ?", (self._embedder.model_id,)
         )
-        result: dict[str, set[str]] = {}
         for path, ref in cursor.fetchall():
-            if path not in result:
-                result[path] = set()
-            result[path].add(ref)
-        return result
+            yield (RepoPath(Path(path), ref))
 
     def clear(self) -> None:
         """Remove all chunks from the store."""

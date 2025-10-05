@@ -7,7 +7,7 @@ generating embeddings, and storing/searching vectors.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Iterator, Protocol
+from typing import Iterable, Iterator, Protocol
 
 import numpy as np
 from numpy.typing import NDArray
@@ -127,6 +127,12 @@ class SearchIndex(Protocol):
         Args:
             chunk: The chunk to store
             embedding: The chunk's embedding vector
+        """
+        ...
+
+    def get_indexed_paths(self) -> Iterable[RepoPath]:
+        """
+        Paths that have been indexed.
         """
         ...
 

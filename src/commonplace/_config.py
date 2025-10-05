@@ -8,11 +8,12 @@ environment variables, .env files, and direct instantiation.
 import getpass
 from pathlib import Path
 
-from platformdirs import user_config_dir
+from platformdirs import user_config_dir, user_cache_dir
 from pydantic import DirectoryPath, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_CONFIG = Path(user_config_dir("commonplace")) / "commonplace.toml"
+DEFAULT_CACHE = Path(user_cache_dir("commonplace", ensure_exists=True))
 DEFAULT_NAME = getpass.getuser().title()  # Get the current user's name for default human-readable name
 DEFAULT_EDITOR = "vim"
 
@@ -46,6 +47,10 @@ class Config(BaseSettings):
     root: DirectoryPath = Field(
         description="The root directory for storing commonplace data",
     )
+    cache: DirectoryPath = Field(
+        default=Path(user_cache_dir("commonplace", ensure_exists=True)),
+        description="Cache directory",
+    )
     user: str = Field(default=DEFAULT_NAME, description="Human-readable name for the user e.g., Joe")
     wrap: int = Field(default=80, description="Target characters per line for text wrapping")
     editor: str = Field(default=DEFAULT_EDITOR, description="Default editor for opening notes")
@@ -64,6 +69,20 @@ class Config(BaseSettings):
         If root is a string, convert it to a Path object.
         """
         return values
+
+    def get_repo(self):
+        """Get the Commonplace repository at the root path."""
+        from commonplace._repo import Commonplace
+
+        return Commonplace.open(self.root)
+
+    def get_store(self):
+        """Get the search index."""
+        from commonplace._search._store import SQLiteVectorStore
+        from commonplace._search._embedder import SentenceTransformersEmbedder
+
+        embedder = SentenceTransformersEmbedder()
+        return SQLiteVectorStore(self.cache / "index.db", embedder=embedder)
 
 
 if __name__ == "__main__":

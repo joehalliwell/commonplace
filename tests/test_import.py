@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 import shutil
 
-from commonplace._repo import Commonplace
 import os
 
 from collections import namedtuple
@@ -25,23 +24,14 @@ def sample_export(request, tmp_path_factory):
     return SampleExport(name, zipfile)
 
 
-@pytest.fixture
-def temp_commonplace(tmp_path):
-    """Fixture to create a temporary Commonplace directory."""
-    Commonplace.init(tmp_path)
-    repo = Commonplace.open(tmp_path)
-    repo.commit("Initialize test repository")
-    return repo
-
-
-def test_import(sample_export, temp_commonplace, snapshot):
-    import_(sample_export.path, temp_commonplace, user="Human")
+def test_import(sample_export, test_repo, snapshot):
+    import_(sample_export.path, test_repo, user="Human")
 
     buffer = ""
-    for dirpath, _, filenames in os.walk(temp_commonplace.root / "chats"):
+    for dirpath, _, filenames in os.walk(test_repo.root / "chats"):
         for file in filenames:
             fp = Path(dirpath) / file
-            buffer += f"<!-- Contents of {fp.relative_to(temp_commonplace.root).as_posix()} -->\n"
+            buffer += f"<!-- Contents of {fp.relative_to(test_repo.root).as_posix()} -->\n"
             buffer += open(fp, "r").read() + "\n"
 
     snapshot.assert_match(buffer, "outputs.md")

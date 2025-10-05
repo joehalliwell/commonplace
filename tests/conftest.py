@@ -1,9 +1,13 @@
+from contextlib import closing
 import os
 import tempfile
 from pathlib import Path
 
 import pytest
 
+from commonplace._repo import Commonplace
+from commonplace._search._embedder import SentenceTransformersEmbedder
+from commonplace._search._store import SQLiteVectorStore
 from commonplace._search._types import Chunk
 from commonplace._types import Note, RepoPath
 
@@ -22,13 +26,6 @@ def setup_test_environment():
         # Clean up after all tests
         if "COMMONPLACE_ROOT" in os.environ:
             del os.environ["COMMONPLACE_ROOT"]
-
-
-@pytest.fixture
-def temp_commonplace_root():
-    """Provide a fresh temporary directory for individual tests."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        yield Path(temp_dir)
 
 
 @pytest.fixture
@@ -51,3 +48,23 @@ def make_chunk():
         return Chunk(repo_path=repo_path, section=section, text=text, offset=offset)
 
     return _make_chunk
+
+
+@pytest.fixture
+def test_store(tmp_path):
+    # FIXME: Make from config
+    embedder = SentenceTransformersEmbedder()
+    index_path = tmp_path / "cache" / "index.db"
+    index_path.parent.mkdir(parents=True)
+    with closing(SQLiteVectorStore(index_path, embedder)) as store:
+        yield store
+
+
+@pytest.fixture
+def test_repo(tmp_path):
+    # FIXME: Make from config
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True)
+    Commonplace.init(repo_path)
+    with closing(Commonplace.open(repo_path)) as repo:
+        yield repo

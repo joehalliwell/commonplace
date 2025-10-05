@@ -40,18 +40,13 @@ def init():
 
 
 @app.command()
-def index(
-    rebuild: bool = typer.Option(False, "--rebuild", help="Rebuild the index from scratch"),
-    batch_size: int = typer.Option(100, "--batch-size", help="Number of chunks to embed at once"),
-    model: str = typer.Option("3-small", "--model", "-m", help="LLM embedding model ID"),
-):
+def index(rebuild: bool = typer.Option(False, "--rebuild", help="Rebuild the index from scratch")):
     """Build or rebuild the search index for semantic search."""
     config = get_config()
-    repo = Commonplace.open(config.root)
-    db_path = config.root / ".commonplace" / "embeddings.db"
+
     from commonplace._search._commands import index
 
-    index(repo, db_path, rebuild=rebuild, batch_size=batch_size, model_id=model)
+    index(config.get_repo(), config.get_store(), rebuild=rebuild)
 
 
 @app.command()
@@ -65,24 +60,9 @@ def search(
 ):
     """Search for semantically similar content in your commonplace."""
     config = get_config()
-    db_path = config.root / ".commonplace" / "embeddings.db"
 
-    if not db_path.exists():
-        logger.error("Index not found. Run 'commonplace index' first.")
-        raise typer.Exit(1)
-
-    from commonplace._search import _commands
-
-    embedder = _commands.LLMEmbedder(model_id=model)
-    store = _commands.SQLiteVectorStore(db_path, embedder=embedder)
-
-    try:
-        results = store.search(query, limit=limit, method=method)
-    except ValueError as e:
-        logger.error(str(e))
-        raise typer.Exit(1)
-    finally:
-        store.close()
+    store = config.get_store()
+    results = store.search(query, limit=limit, method=method)
 
     if not results:
         logger.info("No results found")
@@ -104,7 +84,7 @@ def stats():
     import humanize
 
     config = get_config()
-    repo = Commonplace.open(config.root)
+    repo = config.get_repo()
 
     print("Repository statistics:")
     repo_stats = repo.stats()
@@ -123,9 +103,7 @@ def stats():
         newest = datetime.fromtimestamp(repo_stats.newest_timestamp).strftime("%Y-%m-%d")
         print(f"  Date range: {oldest} to {newest}")
 
-    from commonplace._search import get_store
-
-    store = get_store(config)
+    store = config.get_store()
     store_stats = store.stats()
     print("\nSearch index statistics:")
     print(f"  Number of notes: {store_stats.num_docs:,}")

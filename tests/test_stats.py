@@ -3,24 +3,12 @@
 from datetime import datetime
 from pathlib import Path
 
-import pytest
-
-from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 
 
-@pytest.fixture
-def temp_commonplace(tmp_path):
-    """Fixture to create a temporary Commonplace directory."""
-    Commonplace.init(tmp_path)
-    repo = Commonplace.open(tmp_path)
-    repo.commit("Initialize test repository")
-    return repo
-
-
-def test_stats_empty_repo(temp_commonplace):
+def test_stats_empty_repo(test_repo):
     """Test stats on an empty repository."""
-    stats = temp_commonplace.stats()
+    stats = test_repo.stats()
 
     assert stats.num_notes == 0
     assert stats.total_size_bytes == 0
@@ -29,17 +17,17 @@ def test_stats_empty_repo(temp_commonplace):
     assert stats.newest_timestamp == 0
 
 
-def test_stats_single_note(temp_commonplace):
+def test_stats_single_note(test_repo):
     """Test stats with a single note."""
     # Create a note with a date in the filename
-    note_path = RepoPath(path=Path("chats/claude/2024/01/2024-01-15-test-note.md"), ref=temp_commonplace.head_ref)
+    note_path = RepoPath(path=Path("chats/claude/2024/01/2024-01-15-test-note.md"), ref=test_repo.head_ref)
     content = "# Test Note\n\nThis is a test."
     note = Note(repo_path=note_path, content=content)
 
-    temp_commonplace.save(note)
-    temp_commonplace.commit("Add test note")
+    test_repo.save(note)
+    test_repo.commit("Add test note")
 
-    stats = temp_commonplace.stats()
+    stats = test_repo.stats()
 
     assert stats.num_notes == 1
     assert stats.total_size_bytes == len(content)
@@ -51,7 +39,7 @@ def test_stats_single_note(temp_commonplace):
     assert stats.newest_timestamp == expected_timestamp
 
 
-def test_stats_multiple_notes_multiple_providers(temp_commonplace):
+def test_stats_multiple_notes_multiple_providers(test_repo):
     """Test stats with multiple notes from different providers."""
     notes = [
         (
@@ -82,14 +70,14 @@ def test_stats_multiple_notes_multiple_providers(temp_commonplace):
 
     total_size = 0
     for path_str, content, _, _ in notes:
-        note_path = RepoPath(path=Path(path_str), ref=temp_commonplace.head_ref)
+        note_path = RepoPath(path=Path(path_str), ref=test_repo.head_ref)
         note = Note(repo_path=note_path, content=content)
-        temp_commonplace.save(note)
+        test_repo.save(note)
         total_size += len(content)
 
-    temp_commonplace.commit("Add multiple notes")
+    test_repo.commit("Add multiple notes")
 
-    stats = temp_commonplace.stats()
+    stats = test_repo.stats()
 
     assert stats.num_notes == 4
     assert stats.total_size_bytes == total_size
@@ -100,16 +88,16 @@ def test_stats_multiple_notes_multiple_providers(temp_commonplace):
     assert stats.newest_timestamp == int(datetime(2024, 4, 1).timestamp())
 
 
-def test_stats_note_without_date(temp_commonplace):
+def test_stats_note_without_date(test_repo):
     """Test stats with a note that doesn't have a valid date in filename."""
-    note_path = RepoPath(path=Path("chats/claude/no-date-note.md"), ref=temp_commonplace.head_ref)
+    note_path = RepoPath(path=Path("chats/claude/no-date-note.md"), ref=test_repo.head_ref)
     content = "# No Date Note\n\nThis note has no date."
     note = Note(repo_path=note_path, content=content)
 
-    temp_commonplace.save(note)
-    temp_commonplace.commit("Add note without date")
+    test_repo.save(note)
+    test_repo.commit("Add note without date")
 
-    stats = temp_commonplace.stats()
+    stats = test_repo.stats()
 
     assert stats.num_notes == 1
     assert stats.total_size_bytes == len(content)
@@ -119,16 +107,16 @@ def test_stats_note_without_date(temp_commonplace):
     assert stats.newest_timestamp == 0
 
 
-def test_stats_note_outside_chats_dir(temp_commonplace):
+def test_stats_note_outside_chats_dir(test_repo):
     """Test stats with a note outside the chats directory."""
-    note_path = RepoPath(path=Path("random/2024-01-15-note.md"), ref=temp_commonplace.head_ref)
+    note_path = RepoPath(path=Path("random/2024-01-15-note.md"), ref=test_repo.head_ref)
     content = "# Random Note\n\nOutside chats dir."
     note = Note(repo_path=note_path, content=content)
 
-    temp_commonplace.save(note)
-    temp_commonplace.commit("Add random note")
+    test_repo.save(note)
+    test_repo.commit("Add random note")
 
-    stats = temp_commonplace.stats()
+    stats = test_repo.stats()
 
     assert stats.num_notes == 1
     assert stats.total_size_bytes == len(content)
