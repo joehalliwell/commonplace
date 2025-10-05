@@ -60,6 +60,6 @@ class Link(BaseModel):
 class RepoStats:
     num_notes: int
     total_size_bytes: int = 0
-    providers: dict[str, int] = Field(default_factory=dict)  # Provider name -> note count
+    num_per_type: dict[str, int] = Field(default_factory=dict)  # Provider name -> note count
     oldest_timestamp: int = 0  # Unix timestamp
     newest_timestamp: int = 0  # Unix timestamp

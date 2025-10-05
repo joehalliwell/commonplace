@@ -24,7 +24,7 @@ def test_stats_empty_repo(temp_commonplace):
 
     assert stats.num_notes == 0
     assert stats.total_size_bytes == 0
-    assert stats.providers == {}
+    assert stats.num_per_type == {}
     assert stats.oldest_timestamp == 0
     assert stats.newest_timestamp == 0
 
@@ -43,7 +43,7 @@ def test_stats_single_note(temp_commonplace):
 
     assert stats.num_notes == 1
     assert stats.total_size_bytes == len(content)
-    assert stats.providers == {"claude": 1}
+    assert stats.num_per_type == {"claude": 1}
 
     # Check timestamp (2024-01-15)
     expected_timestamp = int(datetime(2024, 1, 15).timestamp())
@@ -54,15 +54,30 @@ def test_stats_single_note(temp_commonplace):
 def test_stats_multiple_notes_multiple_providers(temp_commonplace):
     """Test stats with multiple notes from different providers."""
     notes = [
-        ("chats/claude/2024/01/2024-01-15-first.md", "# First\n\nClaude note.", "claude", datetime(2024, 1, 15)),
-        ("chats/gemini/2024/02/2024-02-20-second.md", "# Second\n\nGemini note.", "gemini", datetime(2024, 2, 20)),
+        (
+            "chats/claude/2024/01/2024-01-15-first.md",
+            "# First\n\nClaude note.",
+            "claude",
+            datetime(2024, 1, 15),
+        ),
+        (
+            "chats/gemini/2024/02/2024-02-20-second.md",
+            "# Second\n\nGemini note.",
+            "gemini",
+            datetime(2024, 2, 20),
+        ),
         (
             "chats/chatgpt/2024/03/2024-03-10-third.md",
             "# Third\n\nChatGPT note.",
             "chatgpt",
             datetime(2024, 3, 10),
         ),
-        ("chats/claude/2024/04/2024-04-01-fourth.md", "# Fourth\n\nAnother Claude.", "claude", datetime(2024, 4, 1)),
+        (
+            "chats/claude/2024/04/2024-04-01-fourth.md",
+            "# Fourth\n\nAnother Claude.",
+            "claude",
+            datetime(2024, 4, 1),
+        ),
     ]
 
     total_size = 0
@@ -78,7 +93,7 @@ def test_stats_multiple_notes_multiple_providers(temp_commonplace):
 
     assert stats.num_notes == 4
     assert stats.total_size_bytes == total_size
-    assert stats.providers == {"claude": 2, "gemini": 1, "chatgpt": 1}
+    assert stats.num_per_type == {"claude": 2, "gemini": 1, "chatgpt": 1}
 
     # Oldest should be 2024-01-15, newest should be 2024-04-01
     assert stats.oldest_timestamp == int(datetime(2024, 1, 15).timestamp())
@@ -98,7 +113,7 @@ def test_stats_note_without_date(temp_commonplace):
 
     assert stats.num_notes == 1
     assert stats.total_size_bytes == len(content)
-    assert stats.providers == {"claude": 1}
+    assert stats.num_per_type == {"claude": 1}
     # No valid timestamp extracted
     assert stats.oldest_timestamp == 0
     assert stats.newest_timestamp == 0
@@ -118,7 +133,7 @@ def test_stats_note_outside_chats_dir(temp_commonplace):
     assert stats.num_notes == 1
     assert stats.total_size_bytes == len(content)
     # No provider extracted (not in chats/...)
-    assert stats.providers == {}
+    assert stats.num_per_type == {"random": 1}
     # But timestamp should still be extracted
     assert stats.oldest_timestamp == int(datetime(2024, 1, 15).timestamp())
     assert stats.newest_timestamp == int(datetime(2024, 1, 15).timestamp())

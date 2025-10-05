@@ -112,9 +112,9 @@ def stats():
     print(f"  Total size: {humanize.naturalsize(repo_stats.total_size_bytes, binary=True)}")
 
     # Show providers
-    if repo_stats.providers:
-        print("  Notes by provider:")
-        for provider, count in sorted(repo_stats.providers.items()):
+    if repo_stats.num_per_type:
+        print("  Notes by type:")
+        for provider, count in sorted(repo_stats.num_per_type.items()):
             print(f"    {provider}: {count:,}")
 
     # Show date range
@@ -128,6 +128,7 @@ def stats():
     store = get_store(config)
     store_stats = store.stats()
     print("\nSearch index statistics:")
+    print(f"  Number of notes: {store_stats.num_docs:,}")
     print(f"  Number of chunks: {store_stats.num_chunks:,}")
     print("  Chunks by embedding model:")
     for model_id, count in store_stats.chunks_by_embedding_model.items():

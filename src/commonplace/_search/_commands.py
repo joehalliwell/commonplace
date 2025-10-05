@@ -78,6 +78,7 @@ def index(
 
     all_chunks = []
     for note in progress_track(notes_to_index, "Chunking notes"):
+        logger.debug(f"Chunking {note.repo_path}")
         chunks = list(chunker.chunk(note))
         all_chunks.extend(chunks)
 

@@ -11,6 +11,8 @@ from pygit2.repository import Repository
 from commonplace import logger
 from commonplace._types import Note, Pathlike, RepoPath, RepoStats
 
+from collections import defaultdict
+
 
 @dataclass
 class Commonplace:
@@ -134,18 +136,8 @@ class Commonplace:
 
     def notes(self) -> Iterator[Note]:
         """Get an iterator over all notes at current HEAD."""
-        for root, dirs, files in os.walk(self.git.workdir):
-            for f in files:
-                abs_path = Path(root) / f
-                if self.git.path_is_ignored(abs_path.as_posix()):
-                    continue
-                if abs_path.suffix != ".md":
-                    continue
-                try:
-                    repo_path = self.make_repo_path(abs_path)
-                    yield self.get_note(repo_path)
-                except Exception:
-                    logger.warning(f"Can't parse {abs_path}")
+        for repo_path in self.note_paths():
+            yield self.get_note(repo_path)
 
     def note_paths(self) -> Iterator[RepoPath]:
         """Get an iterator over all note paths at current HEAD."""
@@ -153,6 +145,8 @@ class Commonplace:
             for f in files:
                 abs_path = Path(root) / f
                 if self.git.path_is_ignored(abs_path.as_posix()):
+                    continue
+                if abs_path.suffix != ".md":
                     continue
                 yield self.make_repo_path(abs_path)
 
@@ -234,52 +228,46 @@ class Commonplace:
 
         num_notes = 0
         total_size_bytes = 0
-        providers: dict[str, int] = {}
+        num_per_type: dict[str, int] = defaultdict(int)
         oldest_timestamp = 0
         newest_timestamp = 0
 
-        for root, _, files in os.walk(self.git.workdir):
-            for f in files:
-                abs_path = Path(root) / f
-                if self.git.path_is_ignored(abs_path.as_posix()):
-                    continue
-                if abs_path.suffix != ".md":
-                    continue
+        for rp in self.note_paths():
+            num_notes += 1
 
-                num_notes += 1
+            # Get file size
+            total_size_bytes += (self.git.workdir / rp.path).stat().st_size
 
-                # Get file size
+            # Extract provider from path (e.g., chats/claude/... -> "claude")
+            parts = rp.path.parts
+            if len(parts) < 2:
+                continue
+            if parts[0] == "chats" and len(parts) > 1:
+                provider = parts[1]
+                num_per_type[provider] = num_per_type.get(provider, 0) + 1
+            else:
+                provider = parts[0]
+                num_per_type[provider] += 1
+
+            # Extract timestamp from filename (YYYY-MM-DD-...)
+            filename = rp.path.stem
+            if len(filename) >= 10 and filename[4] == "-" and filename[7] == "-":
                 try:
-                    total_size_bytes += abs_path.stat().st_size
-                except OSError:
+                    date_str = filename[:10]
+                    dt = datetime.strptime(date_str, "%Y-%m-%d")
+                    timestamp = int(dt.timestamp())
+
+                    if oldest_timestamp == 0 or timestamp < oldest_timestamp:
+                        oldest_timestamp = timestamp
+                    if newest_timestamp == 0 or timestamp > newest_timestamp:
+                        newest_timestamp = timestamp
+                except ValueError:
                     pass
-
-                # Extract provider from path (e.g., chats/claude/... -> "claude")
-                rel_path = abs_path.relative_to(self.git.workdir)
-                parts = rel_path.parts
-                if len(parts) >= 2 and parts[0] == "chats":
-                    provider = parts[1]
-                    providers[provider] = providers.get(provider, 0) + 1
-
-                # Extract timestamp from filename (YYYY-MM-DD-...)
-                filename = abs_path.stem
-                if len(filename) >= 10 and filename[4] == "-" and filename[7] == "-":
-                    try:
-                        date_str = filename[:10]
-                        dt = datetime.strptime(date_str, "%Y-%m-%d")
-                        timestamp = int(dt.timestamp())
-
-                        if oldest_timestamp == 0 or timestamp < oldest_timestamp:
-                            oldest_timestamp = timestamp
-                        if newest_timestamp == 0 or timestamp > newest_timestamp:
-                            newest_timestamp = timestamp
-                    except ValueError:
-                        pass
 
         return RepoStats(
             num_notes=num_notes,
             total_size_bytes=total_size_bytes,
-            providers=providers,
+            num_per_type=num_per_type,
             oldest_timestamp=oldest_timestamp,
             newest_timestamp=newest_timestamp,
         )
