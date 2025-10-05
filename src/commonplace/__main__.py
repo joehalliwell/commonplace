@@ -1,3 +1,4 @@
+from collections import Counter
 import logging
 from pathlib import Path
 
@@ -46,7 +47,7 @@ def index(rebuild: bool = typer.Option(False, "--rebuild", help="Rebuild the ind
 
     from commonplace._search._commands import index
 
-    index(config.get_repo(), config.get_store(), rebuild=rebuild)
+    index(config.get_repo(), config.get_index(), rebuild=rebuild)
 
 
 @app.command()
@@ -61,8 +62,8 @@ def search(
     """Search for semantically similar content in your commonplace."""
     config = get_config()
 
-    store = config.get_store()
-    results = store.search(query, limit=limit, method=method)
+    index = config.get_index()
+    results = index.search(query, limit=limit, method=method)
 
     if not results:
         logger.info("No results found")
@@ -81,33 +82,48 @@ def stats():
     """Show statistics about your commonplace and search index."""
     from datetime import datetime
 
-    import humanize
+    from rich.console import Console
+    from rich.table import Table
 
     config = get_config()
+
     repo = config.get_repo()
-
-    print("Repository statistics:")
     repo_stats = repo.stats()
-    print(f"  Number of notes: {repo_stats.num_notes:,}")
-    print(f"  Total size: {humanize.naturalsize(repo_stats.total_size_bytes, binary=True)}")
+    repo_counts = Counter()
+    repo_counts.update(config.source(path) for path in repo.note_paths())
 
-    # Show providers
-    if repo_stats.num_per_type:
-        print("  Notes by type:")
-        for provider, count in sorted(repo_stats.num_per_type.items()):
-            print(f"    {provider}: {count:,}")
+    index = config.get_index()
+    index_stats = index.stats()
+    index_counts = Counter()
+    index_counts.update(config.source(path) for path in index.get_indexed_paths())
+
+    print(f"Number of notes: {repo_stats.num_notes:,}")
+    print(f"Number of chunks: {index_stats.num_chunks:,}")
+
+    # print(f"  Total size: {humanize.naturalsize(repo_stats.total_size_bytes, binary=True)}")
 
     # Show date range
-    if repo_stats.oldest_timestamp > 0:
-        oldest = datetime.fromtimestamp(repo_stats.oldest_timestamp).strftime("%Y-%m-%d")
-        newest = datetime.fromtimestamp(repo_stats.newest_timestamp).strftime("%Y-%m-%d")
-        print(f"  Date range: {oldest} to {newest}")
+    oldest = datetime.fromtimestamp(repo_stats.oldest_timestamp).strftime("%Y-%m-%d")
+    print(f"Oldest note: {oldest}")
+    newest = datetime.fromtimestamp(repo_stats.newest_timestamp).strftime("%Y-%m-%d")
+    print(f"Newest note: {newest}")
 
-    store = config.get_store()
-    store_stats = store.stats()
-    print("\nSearch index statistics:")
-    print(f"  Number of notes: {store_stats.num_docs:,}")
-    print(f"  Number of chunks: {store_stats.num_chunks:,}")
-    print("  Chunks by embedding model:")
-    for model_id, count in store_stats.chunks_by_embedding_model.items():
-        print(f"    {model_id}: {count:,}")
+    table = Table("Category", "Repo count", "Index count")
+    categories = sorted(set(repo_counts) | set(index_counts), key=lambda category: -repo_counts.get(category, 0))
+    repo_total = sum(repo_counts.values(), 0)
+    index_total = sum(index_counts.values(), 0)
+
+    for category in categories:
+        repo_count = repo_counts.get(category, 0)
+        index_count = index_counts.get(category, 0)
+        table.add_row(
+            category,
+            f"{repo_count:,} ({repo_count / repo_total:.1%})" if repo_total > 0 else "0",
+            f"{index_count:,} ({index_count / index_total:.1%})" if index_total > 0 else "0",
+        )
+
+    table.add_section()
+    table.add_row("Total", f"{repo_total:,}", f"{index_total:,}")
+
+    console = Console()
+    console.print(table)

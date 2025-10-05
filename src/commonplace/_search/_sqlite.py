@@ -18,7 +18,7 @@ from commonplace._search._types import (
 from commonplace._types import RepoPath
 
 
-class SQLiteVectorStore(SearchIndex):
+class SQLiteSearchIndex(SearchIndex):
     """
     Vector store using SQLite with brute-force cosine similarity search.
 

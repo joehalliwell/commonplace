@@ -12,6 +12,8 @@ from platformdirs import user_config_dir, user_cache_dir
 from pydantic import DirectoryPath, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from commonplace._types import RepoPath
+
 DEFAULT_CONFIG = Path(user_config_dir("commonplace")) / "commonplace.toml"
 DEFAULT_CACHE = Path(user_cache_dir("commonplace", ensure_exists=True))
 DEFAULT_NAME = getpass.getuser().title()  # Get the current user's name for default human-readable name
@@ -76,13 +78,22 @@ class Config(BaseSettings):
 
         return Commonplace.open(self.root)
 
-    def get_store(self):
+    def get_index(self):
         """Get the search index."""
-        from commonplace._search._store import SQLiteVectorStore
+        from commonplace._search._sqlite import SQLiteSearchIndex
         from commonplace._search._embedder import SentenceTransformersEmbedder
 
         embedder = SentenceTransformersEmbedder()
-        return SQLiteVectorStore(self.cache / "index.db", embedder=embedder)
+        return SQLiteSearchIndex(self.cache / "index.db", embedder=embedder)
+
+    def source(self, repo_path: RepoPath) -> str:
+        """The source of this collection of notes/chats"""
+        parts = repo_path.path.parts
+        if len(parts) < 2:
+            return "misc"
+        if parts[0] == "chats":
+            return "/".join(parts[:2])
+        return parts[0]
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ import pytest
 
 from commonplace._repo import Commonplace
 from commonplace._search._embedder import SentenceTransformersEmbedder
-from commonplace._search._store import SQLiteVectorStore
+from commonplace._search._sqlite import SQLiteSearchIndex
 from commonplace._search._types import Chunk
 from commonplace._types import Note, RepoPath
 
@@ -56,7 +56,7 @@ def test_store(tmp_path):
     embedder = SentenceTransformersEmbedder()
     index_path = tmp_path / "cache" / "index.db"
     index_path.parent.mkdir(parents=True)
-    with closing(SQLiteVectorStore(index_path, embedder)) as store:
+    with closing(SQLiteSearchIndex(index_path, embedder)) as store:
         yield store
 
 

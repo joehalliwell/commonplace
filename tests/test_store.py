@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from commonplace._search._store import SQLiteVectorStore
+from commonplace._search._sqlite import SQLiteSearchIndex
 from commonplace._search._types import IndexStats
 
 
@@ -115,7 +115,7 @@ def test_cosine_similarity():
         dtype=np.float32,
     )
 
-    similarities = SQLiteVectorStore._cosine_similarity(query, embeddings)
+    similarities = SQLiteSearchIndex._cosine_similarity(query, embeddings)
 
     assert similarities[0] == pytest.approx(1.0, abs=1e-5)
     assert similarities[1] == pytest.approx(0.0, abs=1e-5)
