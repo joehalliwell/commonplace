@@ -1,5 +1,7 @@
 """Embedding implementations for generating vector representations of text."""
 
+from functools import cached_property
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -19,11 +21,15 @@ class SentenceTransformersEmbedder:
         Args:
             model_name: Name of the sentence-transformers model to use
         """
-        # Lazy import to avoid loading heavy dependencies at module import time
+        self._model_name = model_name
+        self._model_id = f"sentence-transformers:{model_name}"
+
+    @cached_property
+    def model(self):
+        """Lazily load the sentence transformer model."""
         from sentence_transformers import SentenceTransformer
 
-        self.model = SentenceTransformer(model_name)
-        self._model_id = f"sentence-transformers:{model_name}"
+        return SentenceTransformer(self._model_name)
 
     @property
     def model_id(self) -> str:
