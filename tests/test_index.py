@@ -105,9 +105,9 @@ More content.
     indexed_paths = set(test_store.get_indexed_paths())
     assert test_repo.make_repo_path("first.md") in indexed_paths
     assert test_repo.make_repo_path("second.md") in indexed_paths
-    assert len(indexed_paths) == 3
+    assert len(indexed_paths) == 2
 
-    # Index
+    # Index again without changes - should not add duplicates
     _commands.index(test_repo, test_store)
     indexed_paths = set(test_store.get_indexed_paths())
-    assert len(indexed_paths) == 3
+    assert len(indexed_paths) == 2

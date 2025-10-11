@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Iterator
 
 from pygit2 import Commit, Diff, Signature, init_repository
-from pygit2.enums import FileStatus
+from pygit2.enums import FileStatus, ObjectType
 from pygit2.repository import Repository
 
 from commonplace import logger
@@ -188,13 +188,25 @@ class Commonplace:
 
     def commit(self, message: str) -> None:
         """Commit staged changes to the repository."""
-        # FIXME: This doesn't work!
-        if len(self.git.index) == 0:
+        # Check if there are actually changes to commit
+        tree = self.git.index.write_tree()
+
+        if self.git.head_is_unborn:
+            # No commits yet - commit if index has any entries
+            has_changes = len(self.git.index) > 0
+        else:
+            # Compare index tree with HEAD tree to detect changes
+            head_commit = self.git.head.peel(ObjectType.COMMIT)
+            assert isinstance(head_commit, Commit)
+            head_tree = head_commit.tree.id
+            has_changes = tree != head_tree
+
+        if not has_changes:
             logger.info("No changes to commit")
             return
+
         author = Signature("Commonplace Bot", "commonplace@joehalliwell.com")
         committer = author
-        tree = self.git.index.write_tree()
         self.git.create_commit(
             "HEAD",
             author,
@@ -203,5 +215,4 @@ class Commonplace:
             tree,
             [self.git.head.target] if not self.git.head_is_unborn else [],
         )
-        self.git.index.clear()
         logger.info(f"Committed changes with message: {message}")
