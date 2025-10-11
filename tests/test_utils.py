@@ -3,8 +3,9 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+import yaml
 
-from commonplace._utils import edit_in_editor, slugify, truncate
+from commonplace._utils import edit_in_editor, merge_frontmatter, parse_frontmatter, slugify, truncate
 
 
 def test_truncate_short_text():
@@ -171,3 +172,76 @@ def test_edit_in_editor_editor_not_found(tmp_path):
         with patch.object(Path, "write_text"), patch.object(Path, "unlink"):
             with pytest.raises(FileNotFoundError):
                 edit_in_editor(content, "vim")
+
+
+def test_parse_frontmatter_with_metadata():
+    content = """---
+uuid: abc123
+model: claude-3
+---
+
+# Test Content
+
+Body here."""
+    metadata, body = parse_frontmatter(content)
+
+    assert metadata == {"uuid": "abc123", "model": "claude-3"}
+    assert body.strip().startswith("# Test Content")
+
+
+def test_parse_frontmatter_no_metadata():
+    content = "# Test Content\n\nNo frontmatter here."
+    metadata, body = parse_frontmatter(content)
+
+    assert metadata == {}
+    assert body == content
+
+
+def test_parse_frontmatter_invalid_yaml():
+    content = """---
+invalid: [unclosed
+---
+
+Body"""
+    with pytest.raises(yaml.YAMLError):
+        parse_frontmatter(content)
+
+
+def test_parse_frontmatter_no_closing_delimiter():
+    content = """---
+uuid: abc123
+
+# This looks like content but no closing ---"""
+    metadata, body = parse_frontmatter(content)
+
+    # Should treat as no frontmatter
+    assert metadata == {}
+    assert body == content
+
+
+def test_merge_frontmatter_preserves_user_fields():
+    existing = """---
+uuid: abc123
+model: claude-3
+tags: [python, debugging]
+rating: 5
+---
+
+Content"""
+    new_metadata = {"uuid": "abc123", "model": "claude-3-5"}
+
+    merged = merge_frontmatter(existing, new_metadata)
+
+    assert merged["uuid"] == "abc123"
+    assert merged["model"] == "claude-3-5"  # Updated by importer
+    assert merged["tags"] == ["python", "debugging"]  # Preserved
+    assert merged["rating"] == 5  # Preserved
+
+
+def test_merge_frontmatter_no_existing():
+    existing = "# Content\n\nNo frontmatter"
+    new_metadata = {"uuid": "new123", "model": "claude-3"}
+
+    merged = merge_frontmatter(existing, new_metadata)
+
+    assert merged == new_metadata

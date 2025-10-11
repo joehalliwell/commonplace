@@ -62,3 +62,45 @@ def test_serialize_log(snapshot):
 
     result = serializer.serialize(log)
     snapshot.assert_match(result, "log.md")
+
+
+def test_import_preserves_user_metadata(test_repo, tmp_path_factory):
+    """Test that re-importing preserves user-added metadata."""
+    from commonplace._import._commands import import_
+
+    # Use existing sample export
+    sample_dir = SAMPLE_EXPORTS_DIR / "claude"
+    export_path = tmp_path_factory.mktemp("export") / "claude.zip"
+    shutil.make_archive(str(export_path.with_suffix("")), "zip", sample_dir)
+
+    # First import
+    import_(export_path, test_repo, user="Human")
+
+    # Find the first imported file
+    imported_files = sorted((test_repo.root / "chats").glob("**/*.md"))
+    assert len(imported_files) > 0
+    imported_file = imported_files[0]
+
+    # Add user metadata to the frontmatter
+    original_content = imported_file.read_text()
+    # Find the end of frontmatter and insert user fields before it
+    updated_content = original_content.replace(
+        "\n---\n",
+        "\ntags:\n- important\n- test\nrating: 5\n---\n",
+        1,  # Only replace first occurrence
+    )
+    imported_file.write_text(updated_content)
+
+    # Re-import the same export
+    import_(export_path, test_repo, user="Human")
+
+    # Verify user metadata was preserved
+    from commonplace._utils import parse_frontmatter
+
+    final_content = imported_file.read_text()
+    final_metadata, _ = parse_frontmatter(final_content)
+
+    assert "tags" in final_metadata
+    assert "important" in final_metadata["tags"]
+    assert "test" in final_metadata["tags"]
+    assert final_metadata["rating"] == 5

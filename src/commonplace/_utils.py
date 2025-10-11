@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Iterable, Optional, TypeVar
 
 import llm
+import yaml
 from rich.progress import Progress
 
 from commonplace import logger
@@ -122,3 +123,64 @@ def edit_in_editor(content: str, editor: str) -> Optional[str]:
 
     finally:
         buffer.unlink()
+
+
+def parse_frontmatter(content: str) -> tuple[dict, str]:
+    """
+    Parse YAML frontmatter from markdown content.
+
+    Args:
+        content: Markdown content that may contain frontmatter
+
+    Returns:
+        Tuple of (metadata dict, body content)
+        If no frontmatter found, returns ({}, original content)
+
+    Raises:
+        yaml.YAMLError: If frontmatter exists but cannot be parsed
+    """
+    lines = content.split("\n")
+
+    # Check if content starts with frontmatter delimiter
+    if not lines or lines[0].strip() != "---":
+        return {}, content
+
+    # Find closing delimiter
+    end_idx = None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            end_idx = i
+            break
+
+    if end_idx is None:
+        # No closing delimiter found
+        return {}, content
+
+    # Parse YAML between delimiters
+    yaml_content = "\n".join(lines[1:end_idx])
+    metadata = yaml.safe_load(yaml_content) or {}
+
+    # Body is everything after the closing delimiter
+    body = "\n".join(lines[end_idx + 1 :])
+
+    return metadata, body
+
+
+def merge_frontmatter(existing_content: str, new_metadata: dict) -> dict:
+    """
+    Merge new metadata with existing frontmatter, preserving user additions.
+
+    Args:
+        existing_content: Existing markdown content with frontmatter
+        new_metadata: New metadata from importer (these keys will be updated)
+
+    Returns:
+        Merged metadata dict (existing preserved, new overwrites on key collision)
+
+    Raises:
+        yaml.YAMLError: If existing frontmatter cannot be parsed
+    """
+    existing_metadata, _ = parse_frontmatter(existing_content)
+
+    # Merge: existing | new means new overwrites existing where keys overlap
+    return existing_metadata | new_metadata

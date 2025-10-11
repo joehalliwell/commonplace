@@ -14,7 +14,7 @@ from commonplace._import._gemini import GeminiImporter
 from commonplace._import._types import ActivityLog, Importer, Role
 from commonplace._repo import Commonplace
 from commonplace._types import Note
-from commonplace._utils import slugify
+from commonplace._utils import merge_frontmatter, slugify
 
 IMPORTERS: list[Importer] = [GeminiImporter(), ClaudeImporter(), ChatGptImporter()]
 
@@ -121,6 +121,10 @@ def import_path(source: str, date: datetime, title: Optional[str], prefix="chats
 def import_(path: Path, repo: Commonplace, user: str, prefix="chats"):
     """
     Import chats from a supported provider into the repository.
+
+    If a conversation already exists at the target path, metadata will be merged:
+    - Fields provided by the importer will be updated with new values
+    - User-added fields (not in importer metadata) will be preserved
     """
     importer = next((importer for importer in IMPORTERS if importer.can_import(path)), None)
     if importer is None:
@@ -135,6 +139,14 @@ def import_(path: Path, repo: Commonplace, user: str, prefix="chats"):
             date=log.created,
             title=log.title,
         )
+
+        # Check if file already exists and merge metadata if so
+        abs_path = repo.root / rel_path
+        if abs_path.exists():
+            existing_content = abs_path.read_text()
+            merged_metadata = merge_frontmatter(existing_content, log.metadata)
+            log.metadata = merged_metadata
+            logger.debug(f"Merged metadata for existing file '{rel_path}'")
 
         # Create RepoPath for the new note (will get proper ref after commit)
         repo_path = repo.make_repo_path(rel_path)
