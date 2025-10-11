@@ -51,10 +51,6 @@ class Config(BaseSettings):
     root: DirectoryPath = Field(
         description="The root directory for storing commonplace data",
     )
-    cache: DirectoryPath = Field(
-        default=Path(user_cache_dir("commonplace", ensure_exists=True)),
-        description="Cache directory",
-    )
     user: str = Field(default=DEFAULT_NAME, description="Human-readable name for the user e.g., Joe")
     wrap: int = Field(default=80, description="Target characters per line for text wrapping")
     editor: str = Field(default=DEFAULT_EDITOR, description="Default editor for opening notes")
@@ -73,6 +69,11 @@ class Config(BaseSettings):
         If root is a string, convert it to a Path object.
         """
         return values
+
+    @property
+    def cache(self) -> Path:
+        """Get the cache directory, defaulting to COMMONPLACE_ROOT/.commonplace/cache"""
+        return self.root / ".commonplace" / "cache"
 
     def get_repo(self):
         """Get the Commonplace repository at the root path."""

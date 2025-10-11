@@ -25,8 +25,6 @@ class Commonplace:
         root = root.absolute()
         logger.debug(f"Opening commonplace repository at {root}")
         git = Repository(root.as_posix())
-        # Create .commonplace directory for embeddings and other data
-        (root / ".commonplace").mkdir(exist_ok=True)
         return Commonplace(git=git)
 
     def close(self):
@@ -36,7 +34,8 @@ class Commonplace:
     @staticmethod
     def init(root: Path):
         init_repository(root, bare=False)
-        (root / ".commonplace").mkdir(exist_ok=True)
+        (root / ".commonplace" / "cache").mkdir(exist_ok=True, parents=True)
+        # TODO: .gitignore
 
     @property
     def root(self) -> Path:
