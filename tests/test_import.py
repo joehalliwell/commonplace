@@ -1,4 +1,3 @@
-import os
 import shutil
 from collections import namedtuple
 from datetime import datetime
@@ -27,11 +26,9 @@ def test_import(sample_export, test_repo, snapshot):
     import_(sample_export.path, test_repo, user="Human")
 
     buffer = ""
-    for dirpath, _, filenames in os.walk(test_repo.root / "chats"):
-        for file in filenames:
-            fp = Path(dirpath) / file
-            buffer += f"<!-- Contents of {fp.relative_to(test_repo.root).as_posix()} -->\n"
-            buffer += open(fp, "r").read() + "\n"
+    for path in sorted((test_repo.root / "chats").glob("**/*.md")):
+        buffer += f"<!-- Contents of {path.relative_to(test_repo.root).as_posix()} -->\n"
+        buffer += open(path, "r").read() + "\n"
 
     snapshot.assert_match(buffer, "outputs.md")
 
