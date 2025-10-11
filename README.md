@@ -37,8 +37,42 @@ valuable AI conversations.
 
 ### Planned Features
 
+**Near Term:**
+
 - Interactive curation tools (move, rename, label)
 - Advanced synthesis across both imported chats and manual content
+
+**Future Ideas:**
+
+#### Metadata Enrichment
+
+- Automatic topic/tag extraction during import
+- Track which conversations were particularly valuable
+- Mark insights and key takeaways
+
+#### Reflection & Review
+
+- Periodic review commands to surface recent conversations
+- Pattern detection: highlight recurring topics or questions
+- Weekly/monthly digest generation
+
+#### Knowledge Connections
+
+- Automatic linking of related conversations
+- Track how thinking evolves on a topic over time
+- Identify knowledge gaps and follow-up opportunities
+
+#### Synthesis & Sharing
+
+- Combine insights from multiple conversations on a topic
+- Create derived notes from conversation threads
+- Export curated collections with privacy controls
+
+#### Growth Tracking
+
+- Visualize learning trajectories over time
+- Track questions asked vs topics explored
+- Revisit old conversations with new context
 
 ## Installation
 

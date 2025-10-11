@@ -69,7 +69,7 @@ class MarkdownSerializer(BaseModel):
             extensions=[
                 "frontmatter",
                 "gfm",
-            ],  # TODO: Check these can be enabled!
+            ],
             options={"wrap": self.wrap, "number": True, "validate": True},
         )
         return formatted
