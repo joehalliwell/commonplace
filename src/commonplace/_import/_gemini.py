@@ -2,6 +2,7 @@ import re
 from collections import defaultdict
 from contextlib import closing
 from datetime import datetime, timezone
+from dateutil import parser
 from pathlib import Path
 from typing import Iterable
 from zipfile import ZipFile
@@ -13,6 +14,8 @@ from rich.progress import track
 
 from commonplace import logger
 from commonplace._import._types import ActivityLog, Importer, Message, Role
+
+from dateutil.tz import gettz
 
 _PROMPT_PREFIX = "Prompted"
 _HTML_PATH = "Takeout/My Activity/Gemini Apps/My Activity.html"
@@ -101,8 +104,10 @@ class GeminiImporter(Importer):
         """
         18 Sept 2024, 00:12:50 BST
         """
-        timestamp = timestamp.lower().replace("sept", "sep")
-        dt = datetime.strptime(timestamp, "%d %b %Y, %H:%M:%S %Z")
+        # NB the below fails for timezone specifiers like "BST"
+        # timestamp = timestamp.lower().replace("sept", "sep")
+        # dt = datetime.strptime(timestamp, "%d %b %Y, %H:%M:%S %Z")
+        dt = parser.parse(timestamp, fuzzy=True, tzinfos={"BST": gettz("Europe/London")})
         return dt.astimezone(timezone.utc)
 
     def _parse_cell(self, cell: Tag) -> Iterable[Message]:
