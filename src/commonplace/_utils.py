@@ -5,7 +5,10 @@ Provides helper functions for truncating text and creating URL-friendly slugs.
 """
 
 import re
-from typing import Iterable, TypeVar
+import subprocess
+import tempfile
+from pathlib import Path
+from typing import Iterable, Optional, TypeVar
 
 import llm
 from rich.progress import Progress
@@ -83,3 +86,39 @@ def progress_track(iterable: Iterable[T], description: str, total: int | None = 
         for item in iterable:
             yield item
             progress.advance(task)
+
+
+def edit_in_editor(content: str, editor: str) -> Optional[str]:
+    """
+    Open content in an editor for editing.
+
+    Args:
+        content: The initial content to edit
+        editor: Path to the editor executable
+
+    Returns:
+        Edited content if changes were made, None if no changes
+
+    Raises:
+        subprocess.CalledProcessError: If editor exits with non-zero status
+        FileNotFoundError: If editor executable is not found
+    """
+    buffer = Path(tempfile.NamedTemporaryFile(prefix="commonplace", suffix=".md", delete=False).name)
+
+    try:
+        buffer.write_text(content, encoding="utf-8")
+
+        logger.info(f"Waiting for edits on {buffer}")
+        subprocess.run([editor, str(buffer)], check=True)
+
+        edited_content = buffer.read_text(encoding="utf-8")
+
+        # If there were no edits, return None
+        if edited_content == content:
+            logger.info("No edits")
+            return None
+
+        return edited_content
+
+    finally:
+        buffer.unlink()

@@ -6,6 +6,7 @@ environment variables, .env files, and direct instantiation.
 """
 
 import getpass
+import os
 from pathlib import Path
 
 from platformdirs import user_config_dir, user_cache_dir
@@ -17,7 +18,7 @@ from commonplace._types import RepoPath
 DEFAULT_CONFIG = Path(user_config_dir("commonplace")) / "commonplace.toml"
 DEFAULT_CACHE = Path(user_cache_dir("commonplace", ensure_exists=True))
 DEFAULT_NAME = getpass.getuser().title()  # Get the current user's name for default human-readable name
-DEFAULT_EDITOR = "vim"
+DEFAULT_EDITOR = os.getenv("EDITOR", default="vim")
 
 
 class Config(BaseSettings):

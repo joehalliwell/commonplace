@@ -174,23 +174,15 @@ class Commonplace:
             Note object with content
         """
         logger.debug(f"Fetching note at {repo_path}")
-        return self._read_note(repo_path)
-
-    def _read_note(self, repo_path: RepoPath) -> Note:
-        """
-        Read note from disk.
-
-        Currently only supports reading from working directory.
-        Future: could read from git object store for historical refs.
-        """
-        logger.debug(f"Reading {repo_path}")
         abs_path = self.root / repo_path.path
+
         with open(abs_path) as fd:
             content = fd.read()
         return Note(repo_path=repo_path, content=content)
 
     def save(self, note: Note) -> None:
-        """Save a note to working directory and stage."""
+        """Save a note to working directory and stage. Beware! This will overwrite
+        existing content."""
         abs_path = self.root / note.repo_path.path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         with open(abs_path, "w") as fd:

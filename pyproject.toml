@@ -15,7 +15,6 @@ dependencies = [
     "pydantic >=2.0.0",
     "python-dotenv >=1.0.0",
     "tqdm >=4.66.0",
-    "typer >=0.9.0",
     "pydantic-settings>=2.10.0",
     "pygit2>=1.15.0",
     "llm>=0.13.0",
@@ -26,6 +25,7 @@ dependencies = [
     "sentence-transformers>=2.2.0",
     "humanize>=4.0.0",
     "platformdirs>=4.0.0",
+    "typer>=0.19.2",
 ]
 
 [dependency-groups]

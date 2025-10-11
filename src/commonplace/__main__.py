@@ -1,6 +1,9 @@
-from collections import Counter
+import datetime as dt
 import logging
+import subprocess
+from collections import Counter
 from pathlib import Path
+from typing import Optional
 
 import typer
 from rich.logging import RichHandler
@@ -8,6 +11,8 @@ from rich.logging import RichHandler
 from commonplace import get_config, logger
 from commonplace._repo import Commonplace
 from commonplace._search._types import SearchMethod
+from commonplace._types import Note
+from commonplace._utils import edit_in_editor
 
 app = typer.Typer(
     help="Commonplace: Personal knowledge management",
@@ -127,3 +132,53 @@ def stats():
 
     console = Console()
     console.print(table)
+
+
+@app.command()
+def journal(date_str: Optional[str] = typer.Argument(None, help="Date for the journal entry (YYYY-MM-DD)")):
+    """Create or edit a daily journal entry."""
+    config = get_config()
+    repo = config.get_repo()
+
+    if date_str is None:
+        date = dt.datetime.now()
+    else:
+        try:
+            date = dt.datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError as e:
+            logger.error(f"Invalid date format '{date_str}'. Use YYYY-MM-DD (e.g., 2025-10-11)")
+            raise typer.Exit(1) from e
+
+    journal_path = repo.root / "journal" / date.strftime("%Y/%m/%Y-%m-%d.md")
+    default_content = f"# {date.strftime('%A, %B %d, %Y')}\n\n## Tasks\n\n## Notes\n\n"
+
+    # Ensure parent directory exists
+    journal_path.parent.mkdir(parents=True, exist_ok=True)
+
+    repo_path = repo.make_repo_path(journal_path)
+
+    # Load existing content or use default (but don't create file yet)
+    if journal_path.exists():
+        note = repo.get_note(repo_path)
+        original_content = note.content
+    else:
+        original_content = default_content
+
+    # Open in editor
+    try:
+        edited_content = edit_in_editor(original_content, config.editor)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Editor exited with error code {e.returncode}")
+        raise typer.Exit(1) from e
+    except FileNotFoundError as e:
+        logger.error(f"Editor '{config.editor}' not found. Set COMMONPLACE_EDITOR environment variable or config.")
+        raise typer.Exit(1) from e
+
+    # If no changes, we're done
+    if edited_content is None:
+        return
+
+    # Save the edited content (creates file if it doesn't exist)
+    note = Note(repo_path=repo_path, content=edited_content)
+    repo.save(note)
+    logger.info(f"Saved journal entry to {journal_path.relative_to(repo.root)}")
