@@ -104,17 +104,12 @@ class Embedder(Protocol):
 
 
 @dataclass
-class IndexStats:
-    """Statistics about the a search index"""
+class IndexStat:
+    """Statistic about a particular set of chunks"""
 
-    num_docs: int
-    """Total number of documents (notes) indexed"""
-
+    model_id: str
+    repo_path: RepoPath
     num_chunks: int
-    """Total number of chunks stored"""
-
-    chunks_by_embedding_model: dict[str, int]
-    """Chunks per embeeding model id"""
 
 
 class SearchIndex(Protocol):
@@ -153,6 +148,6 @@ class SearchIndex(Protocol):
         """Remove all chunks from the store."""
         ...
 
-    def stats(self) -> IndexStats:
+    def stats(self) -> Iterator[IndexStat]:
         """Get stats on this index"""
         ...

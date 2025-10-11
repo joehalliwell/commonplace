@@ -4,14 +4,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Iterator
 
-from pygit2 import Diff, init_repository, Signature, Commit
+from pygit2 import Commit, Diff, Signature, init_repository
 from pygit2.enums import FileStatus
 from pygit2.repository import Repository
 
 from commonplace import logger
-from commonplace._types import Note, Pathlike, RepoPath, RepoStats
-
-from collections import defaultdict
+from commonplace._types import Note, Pathlike, RepoPath
 
 
 @dataclass
@@ -25,7 +23,7 @@ class Commonplace:
     @staticmethod
     def open(root: Path) -> "Commonplace":
         root = root.absolute()
-        logger.info(f"Opening commonplace repository at {root}")
+        logger.debug(f"Opening commonplace repository at {root}")
         git = Repository(root.as_posix())
         # Create .commonplace directory for embeddings and other data
         (root / ".commonplace").mkdir(exist_ok=True)
@@ -208,53 +206,3 @@ class Commonplace:
         )
         self.git.index.clear()
         logger.info(f"Committed changes with message: {message}")
-
-    def stats(self) -> RepoStats:
-        """Get repository statistics."""
-        from datetime import datetime
-
-        num_notes = 0
-        total_size_bytes = 0
-        num_per_type: dict[str, int] = defaultdict(int)
-        oldest_timestamp = 0
-        newest_timestamp = 0
-
-        for rp in self.note_paths():
-            num_notes += 1
-
-            # Get file size
-            total_size_bytes += (self.git.workdir / rp.path).stat().st_size
-
-            # Extract provider from path (e.g., chats/claude/... -> "claude")
-            parts = rp.path.parts
-            if len(parts) < 2:
-                continue
-            if parts[0] == "chats" and len(parts) > 1:
-                provider = parts[1]
-                num_per_type[provider] = num_per_type.get(provider, 0) + 1
-            else:
-                provider = parts[0]
-                num_per_type[provider] += 1
-
-            # Extract timestamp from filename (YYYY-MM-DD-...)
-            filename = rp.path.stem
-            if len(filename) >= 10 and filename[4] == "-" and filename[7] == "-":
-                try:
-                    date_str = filename[:10]
-                    dt = datetime.strptime(date_str, "%Y-%m-%d")
-                    timestamp = int(dt.timestamp())
-
-                    if oldest_timestamp == 0 or timestamp < oldest_timestamp:
-                        oldest_timestamp = timestamp
-                    if newest_timestamp == 0 or timestamp > newest_timestamp:
-                        newest_timestamp = timestamp
-                except ValueError:
-                    pass
-
-        return RepoStats(
-            num_notes=num_notes,
-            total_size_bytes=total_size_bytes,
-            num_per_type=num_per_type,
-            oldest_timestamp=oldest_timestamp,
-            newest_timestamp=newest_timestamp,
-        )

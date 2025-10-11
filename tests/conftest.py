@@ -1,6 +1,6 @@
-from contextlib import closing
 import os
 import tempfile
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -10,7 +10,6 @@ from commonplace._search._embedder import SentenceTransformersEmbedder
 from commonplace._search._sqlite import SQLiteSearchIndex
 from commonplace._search._types import Chunk
 from commonplace._types import Note, RepoPath
-
 
 # Dummy ref for tests that don't care about git history
 TEST_REF = "0" * 40

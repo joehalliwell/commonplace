@@ -2,18 +2,18 @@
 
 import sqlite3
 from pathlib import Path
+from typing import Iterable, Iterator
 
 import numpy as np
 from numpy.typing import NDArray
-from typing import Iterable
 
 from commonplace._search._types import (
     Chunk,
     Embedder,
+    IndexStat,
     SearchHit,
-    SearchMethod,
-    IndexStats,
     SearchIndex,
+    SearchMethod,
 )
 from commonplace._types import RepoPath
 
@@ -346,20 +346,8 @@ class SQLiteSearchIndex(SearchIndex):
 
         return similarities
 
-    def stats(self) -> IndexStats:
+    def stats(self) -> Iterator[IndexStat]:
         """Get statistics about the vector store."""
 
-        cursor = self._conn.execute("SELECT COUNT(DISTINCT path) from chunks")
-        num_docs = cursor.fetchone()[0]
-
-        cursor = self._conn.execute("SELECT COUNT(*) FROM chunks")
-        num_chunks = cursor.fetchone()[0]
-
-        cursor = self._conn.execute("SELECT model_id, COUNT(*) FROM chunks GROUP BY model_id")
-        chunks_by_embedding_model = {row[0]: row[1] for row in cursor.fetchall()}
-
-        return IndexStats(
-            num_docs=num_docs,
-            num_chunks=num_chunks,
-            chunks_by_embedding_model=chunks_by_embedding_model,
-        )
+        for row in self._conn.execute("SELECT model_id, path, ref, COUNT(*) FROM chunks GROUP BY model_id, path, ref"):
+            yield IndexStat(row[0], RepoPath(Path(row[1]), row[2]), num_chunks=row[3])

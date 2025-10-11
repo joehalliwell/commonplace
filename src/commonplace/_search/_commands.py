@@ -4,8 +4,12 @@ from commonplace import logger
 from commonplace._repo import Commonplace
 from commonplace._search._chunker import MarkdownChunker
 from commonplace._search._types import (
-    SearchIndex,
     SearchHit as SearchHit,
+)
+from commonplace._search._types import (
+    SearchIndex,
+)
+from commonplace._search._types import (
     SearchMethod as SearchMethod,
 )
 from commonplace._utils import progress_track

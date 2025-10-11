@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 from commonplace._search._sqlite import SQLiteSearchIndex
-from commonplace._search._types import IndexStats
 
 
 def test_add_and_search(test_store, make_chunk):
@@ -146,6 +145,6 @@ def test_get_indexed_paths(test_store, make_chunk):
     assert chunk2.repo_path in paths
 
 
-def test_stats(test_store):
-    stats = test_store.stats()
-    assert stats == IndexStats(num_docs=0, num_chunks=0, chunks_by_embedding_model={})
+def test_stats_empty(test_store):
+    stats = list(test_store.stats())
+    assert len(stats) == 0

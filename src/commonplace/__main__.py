@@ -85,50 +85,51 @@ def search(
 @app.command()
 def stats():
     """Show statistics about your commonplace and search index."""
-    from datetime import datetime
 
     from rich.console import Console
+    from rich.progress import track
     from rich.table import Table
 
     config = get_config()
 
+    # Collate the stats
     repo = config.get_repo()
-    repo_stats = repo.stats()
     repo_counts = Counter()
-    repo_counts.update(config.source(path) for path in repo.note_paths())
+    repo_counts.update(
+        config.source(path) for path in track(repo.note_paths(), description="Scanning repo", transient=True)
+    )
 
     index = config.get_index()
-    index_stats = index.stats()
-    index_counts = Counter()
-    index_counts.update(config.source(path) for path in index.get_indexed_paths())
+    index_chunks_by_source = Counter()
+    for stat in track(index.stats(), description="Scanning index", transient=True):
+        index_chunks_by_source.update({config.source(stat.repo_path): stat.num_chunks})
 
-    print(f"Number of notes: {repo_stats.num_notes:,}")
-    print(f"Number of chunks: {index_stats.num_chunks:,}")
+    sources = sorted(
+        set(repo_counts) | set(index_chunks_by_source),
+        key=lambda category: -repo_counts.get(category, 0),
+    )
 
-    # print(f"  Total size: {humanize.naturalsize(repo_stats.total_size_bytes, binary=True)}")
-
-    # Show date range
-    oldest = datetime.fromtimestamp(repo_stats.oldest_timestamp).strftime("%Y-%m-%d")
-    print(f"Oldest note: {oldest}")
-    newest = datetime.fromtimestamp(repo_stats.newest_timestamp).strftime("%Y-%m-%d")
-    print(f"Newest note: {newest}")
-
-    table = Table("Category", "Repo count", "Index count")
-    categories = sorted(set(repo_counts) | set(index_counts), key=lambda category: -repo_counts.get(category, 0))
+    # Display them
+    table = Table("Source", "Files", "Indexed chunks")
     repo_total = sum(repo_counts.values(), 0)
-    index_total = sum(index_counts.values(), 0)
+    index_total = sum(index_chunks_by_source.values(), 0)
 
-    for category in categories:
-        repo_count = repo_counts.get(category, 0)
-        index_count = index_counts.get(category, 0)
+    def make_percentage(val, total):
+        return f"{val:<6,} [dim]{val / total:>6.1%}[/]" if total > 0 else "0"
+
+    # Add a row for each source
+    for source in sources:
+        repo_count = repo_counts.get(source, 0)
+        index_count = index_chunks_by_source.get(source, 0)
         table.add_row(
-            category,
-            f"{repo_count:,} ({repo_count / repo_total:.1%})" if repo_total > 0 else "0",
-            f"{index_count:,} ({index_count / index_total:.1%})" if index_total > 0 else "0",
+            source,
+            make_percentage(repo_count, repo_total),
+            make_percentage(index_count, index_total),
         )
 
+    # Add total row
     table.add_section()
-    table.add_row("Total", f"{repo_total:,}", f"{index_total:,}")
+    table.add_row("Total", make_percentage(repo_total, repo_total), make_percentage(index_total, index_total))
 
     console = Console()
     console.print(table)

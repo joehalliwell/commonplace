@@ -9,10 +9,11 @@ import getpass
 import os
 from pathlib import Path
 
-from platformdirs import user_config_dir, user_cache_dir
+from platformdirs import user_cache_dir, user_config_dir
 from pydantic import DirectoryPath, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from commonplace._search._types import SearchIndex
 from commonplace._types import RepoPath
 
 DEFAULT_CONFIG = Path(user_config_dir("commonplace")) / "commonplace.toml"
@@ -79,10 +80,10 @@ class Config(BaseSettings):
 
         return Commonplace.open(self.root)
 
-    def get_index(self):
+    def get_index(self) -> SearchIndex:
         """Get the search index."""
-        from commonplace._search._sqlite import SQLiteSearchIndex
         from commonplace._search._embedder import SentenceTransformersEmbedder
+        from commonplace._search._sqlite import SQLiteSearchIndex
 
         embedder = SentenceTransformersEmbedder()
         return SQLiteSearchIndex(self.cache / "index.db", embedder=embedder)
