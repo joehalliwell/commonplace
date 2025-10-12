@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from pydantic import BaseModel, Field
 
@@ -15,7 +15,17 @@ class Role(Enum):
     ASSISTANT = auto()
 
 
-class Message(BaseModel):
+class Event(BaseModel):
+    created: datetime = Field(
+        description="The timestamp of when the event occurred",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Dictionary for any other metadata associated with this event (e.g., model used, token count)",
+    )
+
+
+class Message(Event):
     """
     Represents a single message or turn in a conversation.
     """
@@ -31,20 +41,32 @@ class Message(BaseModel):
     )
 
 
-class ActivityLog(BaseModel):
+class ToolCall(Event):
+    tool: str = Field(description="The name of tool")
+    args: dict[str, Any] = Field(description="The arguments to the tool call")
+    output: str = Field(description="The output from the tool call")
+    created: datetime = Field(
+        description="The timestamp of when the message was sent or created",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Dictionary for any other metadata associated with the message (e.g., model used, token count)",
+    )
+
+
+class EventLog(BaseModel):
     """
     Represents a log of activity, which may include one or more messages or
     interactions, imported from a single source file or session.
     """
 
-    source: str = Field(description="Source of the log (e.g., 'Gemini', 'ChatGPT').")
-    title: str = Field(description="A short title for the journal entry.")
-
-    created: datetime = Field(description="The ISO 8601 timestamp of when the log was imported into commonplace.")
-    messages: list[Message] = Field(description="A list of messages or entries that make up this activity log.")
+    source: str = Field(description="Source of the log (e.g., 'Gemini', 'ChatGPT')")
+    title: str = Field(description="A short title for this conversation")
+    events: Sequence[Event] = Field(description="A list of events in this log")
+    created: datetime = Field(description="When this log was started")
     metadata: dict[str, Any] = Field(
         default_factory=dict,
-        description="Dictionary for any other metadata associated with this log (e.g., model used, token count).",
+        description="Dictionary for any other metadata associated with this log (e.g., model used, token count)",
     )
 
 
@@ -58,7 +80,7 @@ class Importer(ABC):
     3. Convert the data into standardized ActivityLog objects
     """
 
-    source: str = Field(description="The name of the source, e.g., 'Gemini', 'ChatGPT'.")
+    source: str = Field(description="The name of the source, e.g., 'Gemini', 'ChatGPT'")
 
     @abstractmethod
     def can_import(self, path: Path) -> bool:
@@ -74,7 +96,7 @@ class Importer(ABC):
         raise NotImplementedError("Subclasses must implement this method.")
 
     @abstractmethod
-    def import_(self, path: Path) -> list[ActivityLog]:
+    def import_(self, path: Path) -> list[EventLog]:
         """
         Import activity logs from the source file or session.
 

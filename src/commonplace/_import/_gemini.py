@@ -14,7 +14,7 @@ from html_to_markdown import convert_to_markdown
 from rich.progress import track
 
 from commonplace import logger
-from commonplace._import._types import ActivityLog, Importer, Message, Role
+from commonplace._import._types import EventLog, Importer, Message, Role
 
 _PROMPT_PREFIX = "Prompted"
 _HTML_PATH = "Takeout/My Activity/Gemini Apps/My Activity.html"
@@ -37,18 +37,11 @@ class GeminiImporter(Importer):
     def can_import(self, path: Path) -> bool:
         """Check if the importer can potentially handle the given file path. It
         zip file with the expected path structure."""
-        try:
-            with closing(ZipFile(path, "r")) as zip_file:
-                # Check if the expected path exists in the zip file
-                return _HTML_PATH in zip_file.namelist()
-        except Exception as e:
-            logger.info(
-                f"{path} failed Gemini importability check: {e}",
-                exc_info=True,
-            )
-            return False
+        with closing(ZipFile(path, "r")) as zip_file:
+            # Check if the expected path exists in the zip file
+            return _HTML_PATH in zip_file.namelist()
 
-    def import_(self, path: Path) -> list[ActivityLog]:
+    def import_(self, path: Path) -> list[EventLog]:
         """Import activity logs from the Gemini file."""
         with ZipFile(path, "r") as zip_file:
             # Read the HTML file from the zip
@@ -56,7 +49,7 @@ class GeminiImporter(Importer):
                 content = file.read().decode("utf-8")
                 return self._parse_gemini_html(content)
 
-    def _parse_gemini_html(self, html_content: str) -> list[ActivityLog]:
+    def _parse_gemini_html(self, html_content: str) -> list[EventLog]:
         soup = BeautifulSoup(html_content, "lxml")
 
         TURN_CONTAINER_SELECTOR = "div.content-cell:not(.mdl-typography--caption)"
@@ -78,11 +71,11 @@ class GeminiImporter(Importer):
 
         results = []
         for date, messages in logs_by_date.items():
-            log = ActivityLog(
+            log = EventLog(
                 source=self.source,
                 title=f"Gemini conversations from {date.isoformat()}",
                 created=messages[0].created,
-                messages=messages,
+                events=messages,
             )
             logger.debug(f"Created log for {date}: {log}")
             results.append(log)

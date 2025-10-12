@@ -1,13 +1,13 @@
-from dataclasses import dataclass
 import shutil
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-from commonplace._import._commands import MarkdownSerializer, import_
-from commonplace._import._types import ActivityLog, Message, Role
-
+from commonplace._import._commands import import_
+from commonplace._import._serializer import MarkdownSerializer
+from commonplace._import._types import EventLog, Message, Role
 
 SAMPLE_EXPORTS_DIR = Path(__file__).parent / "resources" / "sample-exports"
 SAMPLE_EXPORT_NAMES = [p.name for p in SAMPLE_EXPORTS_DIR.glob("*")]
@@ -22,10 +22,15 @@ class SampleExport:
 @pytest.fixture(scope="module", params=SAMPLE_EXPORT_NAMES)
 def sample_export(request, tmp_path_factory):
     """Make a sample export archive from the resources directory"""
-    name = request.param
-    tmp_path = tmp_path_factory.mktemp(name)
-    zipfile = shutil.make_archive(tmp_path / name, "zip", SAMPLE_EXPORTS_DIR / name)
-    return SampleExport(name, Path(zipfile))
+    name: str = request.param
+    source_path: Path = SAMPLE_EXPORTS_DIR / name
+    if source_path.is_dir() and source_path.suffix == ".zip":
+        # Create a zip file from the directory
+        tmp_path = tmp_path_factory.mktemp(name)
+        zipfile = shutil.make_archive(tmp_path / name, "zip", SAMPLE_EXPORTS_DIR / name)
+        return SampleExport(name, Path(zipfile))
+
+    return SampleExport(name, source_path)
 
 
 def test_import(sample_export, test_repo, snapshot):
@@ -37,7 +42,7 @@ def test_import(sample_export, test_repo, snapshot):
         buffer += f"<!-- Contents of {path.relative_to(test_repo.root).as_posix()} -->\n"
         buffer += open(path, "r").read() + "\n"
 
-    snapshot.assert_match(buffer, "outputs.md")
+    snapshot.assert_match(buffer, snapshot_name="combined.md")
 
 
 def test_serialize_log(snapshot):
@@ -59,11 +64,11 @@ def test_serialize_log(snapshot):
         ),
     ]
 
-    log = ActivityLog(
+    log = EventLog(
         source="test",
         title="Test Chat",
         created=datetime(2024, 1, 1, 12, 0, 0),
-        messages=messages,
+        events=messages,
         metadata={"id": "log-0"},
     )
 
@@ -76,7 +81,7 @@ def test_import_preserves_user_metadata(test_repo, tmp_path_factory):
     from commonplace._import._commands import import_
 
     # Use existing sample export
-    sample_dir = SAMPLE_EXPORTS_DIR / "claude"
+    sample_dir = SAMPLE_EXPORTS_DIR / "claude.zip"
     export_path = tmp_path_factory.mktemp("export") / "claude.zip"
     shutil.make_archive(str(export_path.with_suffix("")), "zip", sample_dir)
 

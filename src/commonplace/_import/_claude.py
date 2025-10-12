@@ -7,7 +7,7 @@ from zipfile import ZipFile
 from rich.progress import track
 
 from commonplace import logger
-from commonplace._import._types import ActivityLog, Importer, Message, Role
+from commonplace._import._types import EventLog, Importer, Message, Role
 from commonplace._utils import truncate
 
 
@@ -24,19 +24,11 @@ class ClaudeImporter(Importer):
         For Claude, we can check if the file has a specific extension or contains
         certain metadata that indicates it's a Claude log.
         """
-        try:
-            with closing(ZipFile(path, "r")) as zip_file:
-                files = zip_file.namelist()
-                return "conversations.json" in files and "users.json" in files
+        with closing(ZipFile(path, "r")) as zip_file:
+            files = zip_file.namelist()
+            return "conversations.json" in files and "users.json" in files
 
-        except Exception as e:
-            logger.info(
-                f"{path} failed Claude importability check: {e}",
-                exc_info=True,
-            )
-            return False
-
-    def import_(self, path: Path) -> list[ActivityLog]:
+    def import_(self, path: Path) -> list[EventLog]:
         """
         Import activity logs from the Claude file.
         """
@@ -45,7 +37,7 @@ class ClaudeImporter(Importer):
             # users = json.loads(zf.read("users.json"))
         return [self._to_log(thread) for thread in track(threads)]
 
-    def _to_log(self, thread: dict[str, Any]) -> ActivityLog:
+    def _to_log(self, thread: dict[str, Any]) -> EventLog:
         """
         Convert a thread dictionary to an ActivityLog object.
         """
@@ -53,10 +45,10 @@ class ClaudeImporter(Importer):
         created = thread["created_at"]
         messages = [self._to_message(msg) for msg in thread["chat_messages"]]
 
-        return ActivityLog(
+        return EventLog(
             source=self.source,
             created=created,
-            messages=messages,
+            events=messages,
             title=title,
             metadata={"uuid": thread["uuid"]},
         )

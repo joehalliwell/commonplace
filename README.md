@@ -37,13 +37,6 @@ valuable AI conversations.
 
 ### Planned Features
 
-**Near Term:**
-
-- Interactive curation tools (move, rename, label)
-- Advanced synthesis across both imported chats and manual content
-
-**Future Ideas:**
-
 #### Metadata Enrichment
 
 - Automatic topic/tag extraction during import

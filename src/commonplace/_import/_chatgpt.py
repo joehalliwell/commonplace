@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Optional
 from zipfile import ZipFile
 
-from commonplace._import._types import ActivityLog, Importer, Message, Role
+from commonplace._import._types import EventLog, Importer, Message, Role
 from commonplace._utils import logger
 
 DEFAULT_TIME = datetime.fromtimestamp(0, tz=timezone.utc)  # Default time if not provided
@@ -18,38 +18,30 @@ class ChatGptImporter(Importer):
 
     def can_import(self, path: Path) -> bool:
         """Check if the importer can handle the given file path."""
-        try:
-            with closing(ZipFile(path, "r")) as zf:
-                files = zf.namelist()
-                assert "conversations.json" in files
-                assert "user.json" in files
-                return True
+        with closing(ZipFile(path, "r")) as zf:
+            files = zf.namelist()
+            assert "conversations.json" in files
+            assert "user.json" in files
+            return True
 
-        except Exception as e:
-            logger.info(
-                f"{path} failed {self} importability check: {e}",
-                exc_info=True,
-            )
-            return False
-
-    def import_(self, path: Path) -> list[ActivityLog]:
+    def import_(self, path: Path) -> list[EventLog]:
         """Import activity logs from the ChatGPT file."""
         with closing(ZipFile(path)) as zf:
             conversations = json.loads(zf.read("conversations.json"))
 
         return [self._to_log(conversation) for conversation in conversations]
 
-    def _to_log(self, conversation: dict[str, Any]) -> ActivityLog:
+    def _to_log(self, conversation: dict[str, Any]) -> EventLog:
         """Convert a conversation dictionary to an ActivityLog object."""
         metadata = {"id": conversation["id"]}
         title = conversation["title"]
         created = self._timestamp(conversation.get("create_time"))
         messages = list(self._messages(conversation))
 
-        return ActivityLog(
+        return EventLog(
             source=self.source,
             created=created,
-            messages=messages,
+            events=messages,
             title=title,
             metadata=metadata,
         )
