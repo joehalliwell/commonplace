@@ -30,7 +30,8 @@ class ClaudeCodeImporter(Importer):
                 data = json.loads(line)
                 messages_by_type[data["type"]] = data
 
-        assert "file-history-snapshot" in messages_by_type
+        # Not always present...
+        # assert "file-history-snapshot" in messages_by_type
         assert "user" in messages_by_type
         assert "sessionId" in messages_by_type["user"]
 

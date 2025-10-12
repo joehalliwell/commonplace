@@ -215,4 +215,6 @@ class Commonplace:
             tree,
             [self.git.head.target] if not self.git.head_is_unborn else [],
         )
+        # Write index to disk to ensure it matches the new HEAD
+        self.git.index.write()
         logger.info(f"Committed changes with message: {message}")
