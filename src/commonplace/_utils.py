@@ -5,6 +5,7 @@ Provides helper functions for truncating text and creating URL-friendly slugs.
 """
 
 import re
+import shlex
 import subprocess
 import tempfile
 from pathlib import Path
@@ -12,11 +13,34 @@ from typing import Iterable, Optional, TypeVar
 
 import llm
 import yaml
-from rich.progress import Progress
+from rich.progress import Progress, TextColumn
 
 from commonplace import logger
 
 T = TypeVar("T")
+
+
+def batched(iterable: Iterable[T], batch_size: int) -> Iterable[list[T]]:
+    """
+    Batch an iterable into chunks of specified size.
+
+    Args:
+        iterable: The iterable to batch
+        batch_size: Number of items per batch
+
+    Yields:
+        Lists of items, each containing up to batch_size items
+    """
+    batch = []
+    for item in iterable:
+        batch.append(item)
+        if len(batch) >= batch_size:
+            yield batch
+            batch = []
+
+    # Yield remaining items
+    if batch:
+        yield batch
 
 
 def truncate(text: str, max_length: int = 200) -> str:
@@ -82,11 +106,11 @@ def progress_track(iterable: Iterable[T], description: str, total: int | None = 
         except TypeError:
             total = None  # Indeterminate progress
 
-    with Progress() as progress:
-        task = progress.add_task(description, total=total)
+    with Progress(*Progress.get_default_columns(), TextColumn("[dim]{task.fields[item]}")) as progress:
+        task = progress.add_task(description, total=total, item="")
         for item in iterable:
+            progress.update(task, advance=1, item=str(item))
             yield item
-            progress.advance(task)
 
 
 def edit_in_editor(content: str, editor: str) -> Optional[str]:
@@ -110,7 +134,7 @@ def edit_in_editor(content: str, editor: str) -> Optional[str]:
         buffer.write_text(content, encoding="utf-8")
 
         logger.info(f"Waiting for edits on {buffer}")
-        subprocess.run([editor, str(buffer)], check=True)
+        subprocess.run([*shlex.split(editor), str(buffer)], check=True)
 
         edited_content = buffer.read_text(encoding="utf-8")
 

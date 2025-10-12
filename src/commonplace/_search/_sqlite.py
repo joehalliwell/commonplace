@@ -108,6 +108,27 @@ class SQLiteSearchIndex(SearchIndex):
         embedding = self._embedder.embed(chunk.text)
         self._add_with_embedding(chunk, embedding)
 
+    def add_chunks(self, chunks: list[Chunk]) -> None:
+        """
+        Embed and add multiple chunks to the store in a batch.
+
+        This is more efficient than calling add_chunk repeatedly,
+        as it embeds all chunks in a single batch operation.
+
+        Args:
+            chunks: List of chunks to store
+        """
+        if not chunks:
+            return
+
+        # Batch embed all chunks
+        texts = [chunk.text for chunk in chunks]
+        embeddings = self._embedder.embed_batch(texts)
+
+        # Add all chunks with their embeddings
+        for chunk, embedding in zip(chunks, embeddings):
+            self._add_with_embedding(chunk, embedding)
+
     def _add_with_embedding(self, chunk: Chunk, embedding: NDArray[np.float32]) -> None:
         """
         Internal method to add a chunk with a pre-computed embedding.

@@ -2,20 +2,19 @@ import re
 from collections import defaultdict
 from contextlib import closing
 from datetime import datetime, timezone
-from dateutil import parser
 from pathlib import Path
 from typing import Iterable
 from zipfile import ZipFile
 
 from bs4 import BeautifulSoup
 from bs4.element import NavigableString, PageElement, Tag
+from dateutil import parser
+from dateutil.tz import gettz
 from html_to_markdown import convert_to_markdown
 from rich.progress import track
 
 from commonplace import logger
 from commonplace._import._types import ActivityLog, Importer, Message, Role
-
-from dateutil.tz import gettz
 
 _PROMPT_PREFIX = "Prompted"
 _HTML_PATH = "Takeout/My Activity/Gemini Apps/My Activity.html"

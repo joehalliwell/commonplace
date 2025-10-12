@@ -121,7 +121,18 @@ class SearchIndex(Protocol):
 
         Args:
             chunk: The chunk to store
-            embedding: The chunk's embedding vector
+        """
+        ...
+
+    def add_chunks(self, chunks: list[Chunk]) -> None:
+        """
+        Add multiple chunks to the store in a batch.
+
+        This is more efficient than calling add_chunk repeatedly,
+        as it can embed all chunks in a single batch operation.
+
+        Args:
+            chunks: List of chunks to store
         """
         ...
 

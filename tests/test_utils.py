@@ -5,7 +5,59 @@ from unittest.mock import Mock, patch
 import pytest
 import yaml
 
-from commonplace._utils import edit_in_editor, merge_frontmatter, parse_frontmatter, slugify, truncate
+from commonplace._utils import batched, edit_in_editor, merge_frontmatter, parse_frontmatter, slugify, truncate
+
+
+def test_batched_basic():
+    """Test batching a simple list."""
+    items = [1, 2, 3, 4, 5, 6, 7]
+    batches = list(batched(items, 3))
+
+    assert len(batches) == 3
+    assert batches[0] == [1, 2, 3]
+    assert batches[1] == [4, 5, 6]
+    assert batches[2] == [7]
+
+
+def test_batched_exact_multiple():
+    """Test batching when items divide evenly."""
+    items = [1, 2, 3, 4, 5, 6]
+    batches = list(batched(items, 2))
+
+    assert len(batches) == 3
+    assert batches[0] == [1, 2]
+    assert batches[1] == [3, 4]
+    assert batches[2] == [5, 6]
+
+
+def test_batched_single_batch():
+    """Test when all items fit in one batch."""
+    items = [1, 2, 3]
+    batches = list(batched(items, 10))
+
+    assert len(batches) == 1
+    assert batches[0] == [1, 2, 3]
+
+
+def test_batched_empty():
+    """Test batching an empty iterable."""
+    items = []
+    batches = list(batched(items, 5))
+
+    assert len(batches) == 0
+
+
+def test_batched_generator():
+    """Test batching a generator."""
+
+    def gen():
+        yield from range(10)
+
+    batches = list(batched(gen(), 3))
+
+    assert len(batches) == 4
+    assert batches[0] == [0, 1, 2]
+    assert batches[3] == [9]
 
 
 def test_truncate_short_text():

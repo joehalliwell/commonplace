@@ -12,16 +12,23 @@ from commonplace._search._types import (
 from commonplace._search._types import (
     SearchMethod as SearchMethod,
 )
-from commonplace._utils import progress_track
+from commonplace._utils import batched, progress_track
 
 
 def index(
     repo: Commonplace,
     store: SearchIndex,
     rebuild: bool = False,
+    batch_size: int = 64,
 ) -> None:
     """
     Build or rebuild the search index for semantic search.
+
+    Args:
+        repo: The commonplace repository
+        store: The search index to populate
+        rebuild: If True, clear existing index before rebuilding
+        batch_size: Number of chunks to embed in each batch (default: 64)
     """
     chunker = MarkdownChunker()
 
@@ -36,9 +43,14 @@ def index(
 
     logger.info(f"Indexing {len(to_index)} notes")
 
-    for path in progress_track(to_index, "Indexing notes"):
-        note = repo.get_note(path)
-        for chunk in chunker.chunk(note):
-            store.add_chunk(chunk)
+    # Stream chunks from all notes and batch them for efficient embedding
+    def chunk_stream():
+        for path in progress_track(to_index, "Indexing notes"):
+            note = repo.get_note(path)
+            yield from chunker.chunk(note)
+
+    # Process chunks in batches
+    for chunk_batch in batched(chunk_stream(), batch_size):
+        store.add_chunks(chunk_batch)
 
     logger.info("Indexing complete")

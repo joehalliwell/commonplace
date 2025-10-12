@@ -148,3 +148,31 @@ def test_get_indexed_paths(test_store, make_chunk):
 def test_stats_empty(test_store):
     stats = list(test_store.stats())
     assert len(stats) == 0
+
+
+def test_add_chunks_batch(test_store, make_chunk):
+    """Test adding multiple chunks in a batch."""
+    # Create test chunks
+    chunks = [make_chunk(path="test1.md", section="Section 1", text=f"Text {i}", offset=i * 10) for i in range(5)]
+
+    # Add chunks in batch
+    test_store.add_chunks(chunks)
+
+    # Verify all chunks were added by searching
+    paths = list(test_store.get_indexed_paths())
+    assert len(paths) == 1
+    assert paths[0].path.name == "test1.md"
+
+    # Verify we can search and find them
+    results = test_store.search("test query", limit=10)
+    assert len(results) == 5
+
+
+def test_add_chunks_empty_batch(test_store):
+    """Test adding an empty batch (should be a no-op)."""
+    # Should not raise an error
+    test_store.add_chunks([])
+
+    # Store should still be empty
+    paths = list(test_store.get_indexed_paths())
+    assert len(paths) == 0

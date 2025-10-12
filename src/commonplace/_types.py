@@ -36,7 +36,7 @@ class RepoPath:
         object.__setattr__(self, "path", Path(self.path))
 
     def __str__(self) -> str:
-        return f"{self.ref[:8]}:{self.path}"
+        return f"{self.path}@{self.ref[:8]}"
 
 
 @dataclass

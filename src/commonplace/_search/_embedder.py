@@ -5,6 +5,8 @@ from functools import cached_property
 import numpy as np
 from numpy.typing import NDArray
 
+from commonplace import logger
+
 
 class SentenceTransformersEmbedder:
     """
@@ -27,6 +29,7 @@ class SentenceTransformersEmbedder:
     @cached_property
     def model(self):
         """Lazily load the sentence transformer model."""
+        logger.info(f"Loading sentence-transformers model '{self._model_name}'...")
         from sentence_transformers import SentenceTransformer
 
         return SentenceTransformer(self._model_name)
