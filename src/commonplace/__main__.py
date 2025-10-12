@@ -17,7 +17,12 @@ from commonplace._utils import edit_in_editor
 app = typer.Typer(
     help="Commonplace: Personal knowledge management",
     pretty_exceptions_enable=False,
+    no_args_is_help=True,
 )
+
+CREATING_SECTION = "Creating notes"
+ANALYZING_SECTION = "Analyzing"
+SYSTEM_SECTION = "System"
 
 
 @app.callback()
@@ -26,7 +31,7 @@ def _setup_logging(verbose: bool = typer.Option(False, "--verbose", "-v")):
     logger.addHandler(RichHandler())
 
 
-@app.command(name="import")
+@app.command(name="import, i", rich_help_panel=CREATING_SECTION)
 def import_(path: Path):
     """Import AI conversation exports (Claude ZIP, Gemini Takeout) into your commonplace."""
 
@@ -38,14 +43,17 @@ def import_(path: Path):
     import_(path, repo, user=config.user, prefix="chats")
 
 
-@app.command()
+app.command(name="i", hidden=True)(import_)
+
+
+@app.command(rich_help_panel=SYSTEM_SECTION)
 def init():
     """Initialize a commonplace working directory."""
     config = get_config()
     Commonplace.init(config.root)
 
 
-@app.command()
+@app.command(rich_help_panel=SYSTEM_SECTION)
 def index(rebuild: bool = typer.Option(False, "--rebuild", help="Rebuild the index from scratch")):
     """Build or rebuild the search index for semantic search."""
     config = get_config()
@@ -82,7 +90,7 @@ def search(
         print(f"   {hit.chunk.text[:200]}{'...' if len(hit.chunk.text) > 200 else ''}")
 
 
-@app.command()
+@app.command(rich_help_panel=SYSTEM_SECTION)
 def stats():
     """Show statistics about your commonplace and search index."""
 
@@ -135,7 +143,7 @@ def stats():
     console.print(table)
 
 
-@app.command()
+@app.command(rich_help_panel=CREATING_SECTION)
 def journal(date_str: Optional[str] = typer.Argument(None, help="Date for the journal entry (YYYY-MM-DD)")):
     """Create or edit a daily journal entry."""
     config = get_config()
