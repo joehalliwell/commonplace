@@ -31,7 +31,7 @@ def _setup_logging(verbose: bool = typer.Option(False, "--verbose", "-v")):
     logger.addHandler(RichHandler())
 
 
-@app.command(name="import, i", rich_help_panel=CREATING_SECTION)
+@app.command(name="import", rich_help_panel=CREATING_SECTION)
 def import_(path: Path):
     """Import AI conversation exports (Claude ZIP, Gemini Takeout) into your commonplace."""
 
@@ -63,7 +63,7 @@ def index(rebuild: bool = typer.Option(False, "--rebuild", help="Rebuild the ind
     index(config.get_repo(), config.get_index(), rebuild=rebuild)
 
 
-@app.command()
+@app.command(name="search", rich_help_panel=ANALYZING_SECTION)
 def search(
     query: str,
     limit: int = typer.Option(10, "--limit", "-n", help="Maximum number of results"),
@@ -88,6 +88,9 @@ def search(
         print(f"   Section: {hit.chunk.section}")
         print(f"   Score: {hit.score:.3f}")
         print(f"   {hit.chunk.text[:200]}{'...' if len(hit.chunk.text) > 200 else ''}")
+
+
+app.command(name="s", hidden=True)(search)
 
 
 @app.command(rich_help_panel=SYSTEM_SECTION)

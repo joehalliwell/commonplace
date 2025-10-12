@@ -14,7 +14,7 @@ from commonplace._import._gemini import GeminiImporter
 from commonplace._import._types import ActivityLog, Importer, Role
 from commonplace._repo import Commonplace
 from commonplace._types import Note
-from commonplace._utils import merge_frontmatter, slugify
+from commonplace._utils import merge_frontmatter, progress_track, slugify
 
 IMPORTERS: list[Importer] = [GeminiImporter(), ClaudeImporter(), ChatGptImporter()]
 
@@ -119,14 +119,14 @@ def make_chat_path(source: str, date: datetime, title: Optional[str], prefix="ch
 
 
 def import_(path: Path, repo: Commonplace, user: str, prefix="chats"):
-    """Import a path or directory"""
+    """Import an exported/local log or a directory of the same"""
     if path.is_file():
         import_one(path, repo, user, prefix=prefix)
     else:
         assert path.is_dir()
-        for file_path in sorted(path.rglob("*")):
-            if file_path.is_file():
-                import_one(file_path, repo, user, prefix=prefix)
+        paths_to_import = sorted(p for p in path.rglob("*") if p.is_file())
+        for filepath in progress_track(paths_to_import, "Importing files"):
+            import_one(filepath, repo, user, prefix=prefix)
 
 
 def import_one(path: Path, repo: Commonplace, user: str, prefix="chats"):
