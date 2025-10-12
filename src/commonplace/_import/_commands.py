@@ -94,7 +94,7 @@ class MarkdownSerializer(BaseModel):
         lines.append("")
 
 
-def import_path(source: str, date: datetime, title: Optional[str], prefix="chats") -> Path:
+def make_chat_path(source: str, date: datetime, title: Optional[str], prefix="chats") -> Path:
     """
     Generate the relative file path for storing an activity log.
 
@@ -119,6 +119,17 @@ def import_path(source: str, date: datetime, title: Optional[str], prefix="chats
 
 
 def import_(path: Path, repo: Commonplace, user: str, prefix="chats"):
+    """Import a path or directory"""
+    if path.is_file():
+        import_one(path, repo, user, prefix=prefix)
+    else:
+        assert path.is_dir()
+        for file_path in sorted(path.rglob("*")):
+            if file_path.is_file():
+                import_one(file_path, repo, user, prefix=prefix)
+
+
+def import_one(path: Path, repo: Commonplace, user: str, prefix="chats"):
     """
     Import chats from a supported provider into the repository.
 
@@ -126,15 +137,16 @@ def import_(path: Path, repo: Commonplace, user: str, prefix="chats"):
     - Fields provided by the importer will be updated with new values
     - User-added fields (not in importer metadata) will be preserved
     """
+    assert path.is_file()
     importer = next((importer for importer in IMPORTERS if importer.can_import(path)), None)
     if importer is None:
-        logger.error(f"The file {path} is not supported by any available importer")
+        logger.warning(f"The file {path} is not supported by any available importer")
         return
     logger.info(f"Using {importer} importer for {path}")
     serializer = MarkdownSerializer(human=user, assistant=importer.source.title())
 
     for log in importer.import_(path):
-        rel_path = import_path(
+        rel_path = make_chat_path(
             source=log.source,
             date=log.created,
             title=log.title,
