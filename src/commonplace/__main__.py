@@ -31,6 +31,11 @@ def _setup_logging(verbose: bool = typer.Option(False, "--verbose", "-v")):
     logger.addHandler(RichHandler())
 
 
+################################################################################
+# Commands that create notes
+################################################################################
+
+
 @app.command(name="import", rich_help_panel=CREATING_SECTION)
 def import_(path: Path):
     """Import AI conversation exports (Claude ZIP, Gemini Takeout) into your commonplace."""
@@ -43,24 +48,59 @@ def import_(path: Path):
     import_(path, repo, user=config.user, prefix="chats")
 
 
-app.command(name="i", hidden=True)(import_)
-
-
-@app.command(rich_help_panel=SYSTEM_SECTION)
-def init():
-    """Initialize a commonplace working directory."""
+@app.command(rich_help_panel=CREATING_SECTION)
+def journal(date_str: Optional[str] = typer.Argument(None, help="Date for the journal entry (YYYY-MM-DD)")):
+    """Create or edit a daily journal entry."""
     config = get_config()
-    Commonplace.init(config.root)
+    repo = config.get_repo()
+
+    if date_str is None:
+        date = dt.datetime.now()
+    else:
+        try:
+            date = dt.datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError as e:
+            logger.error(f"Invalid date format '{date_str}'. Use YYYY-MM-DD (e.g., 2025-10-11)")
+            raise typer.Exit(1) from e
+
+    journal_path = repo.root / "journal" / date.strftime("%Y/%m/%Y-%m-%d.md")
+    default_content = f"# {date.strftime('%A, %B %d, %Y')}\n\n## Tasks\n\n## Notes\n\n"
+
+    # Ensure parent directory exists
+    journal_path.parent.mkdir(parents=True, exist_ok=True)
+
+    repo_path = repo.make_repo_path(journal_path)
+
+    # Load existing content or use default (but don't create file yet)
+    if journal_path.exists():
+        note = repo.get_note(repo_path)
+        original_content = note.content
+    else:
+        original_content = default_content
+
+    # Open in editor
+    try:
+        edited_content = edit_in_editor(original_content, config.editor)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Editor exited with error code {e.returncode}")
+        raise typer.Exit(1) from e
+    except FileNotFoundError as e:
+        logger.error(f"Editor '{config.editor}' not found. Set COMMONPLACE_EDITOR environment variable or config.")
+        raise typer.Exit(1) from e
+
+    # If no changes, we're done
+    if edited_content is None:
+        return
+
+    # Save the edited content (creates file if it doesn't exist)
+    note = Note(repo_path=repo_path, content=edited_content)
+    repo.save(note)
+    logger.info(f"Saved journal entry to {journal_path.relative_to(repo.root)}")
 
 
-@app.command(rich_help_panel=SYSTEM_SECTION)
-def index(rebuild: bool = typer.Option(False, "--rebuild", help="Rebuild the index from scratch")):
-    """Build or rebuild the search index for semantic search."""
-    config = get_config()
-
-    from commonplace._search._commands import index
-
-    index(config.get_repo(), config.get_index(), rebuild=rebuild)
+################################################################################
+# Commands that analyze notes
+################################################################################
 
 
 @app.command(name="search", rich_help_panel=ANALYZING_SECTION)
@@ -70,7 +110,6 @@ def search(
     method: SearchMethod = typer.Option(
         SearchMethod.HYBRID, "--method", help="Search method: semantic, keyword, or hybrid"
     ),
-    model: str = typer.Option("3-small", "--model", "-m", help="LLM embedding model ID"),
 ):
     """Search for semantically similar content in your commonplace."""
     config = get_config()
@@ -90,7 +129,42 @@ def search(
         print(f"   {hit.chunk.text[:200]}{'...' if len(hit.chunk.text) > 200 else ''}")
 
 
-app.command(name="s", hidden=True)(search)
+################################################################################
+# System commands
+################################################################################
+
+
+@app.command(rich_help_panel=SYSTEM_SECTION)
+def git(args: list[str]):
+    """Execute a git command in the commonplace repository. Requires git to be
+    installed and on PATH."""
+    import os
+    import shlex
+
+    config = get_config()
+
+    cmd = "git"
+    args = [f"--git-dir={config.root / '.git'}", f"--work-tree={config.root}", *args]
+
+    logger.info(f"Executing command: {cmd} {shlex.join(args)}")
+    os.execlp(cmd, cmd, *args)
+
+
+@app.command(rich_help_panel=SYSTEM_SECTION)
+def init():
+    """Initialize a commonplace working directory."""
+    config = get_config()
+    Commonplace.init(config.root)
+
+
+@app.command(rich_help_panel=SYSTEM_SECTION)
+def index(rebuild: bool = typer.Option(False, "--rebuild", help="Rebuild the index from scratch")):
+    """Build or rebuild the search index for semantic search."""
+    config = get_config()
+
+    from commonplace._search._commands import index
+
+    index(config.get_repo(), config.get_index(), rebuild=rebuild)
 
 
 @app.command(rich_help_panel=SYSTEM_SECTION)
@@ -146,51 +220,7 @@ def stats():
     console.print(table)
 
 
-@app.command(rich_help_panel=CREATING_SECTION)
-def journal(date_str: Optional[str] = typer.Argument(None, help="Date for the journal entry (YYYY-MM-DD)")):
-    """Create or edit a daily journal entry."""
-    config = get_config()
-    repo = config.get_repo()
-
-    if date_str is None:
-        date = dt.datetime.now()
-    else:
-        try:
-            date = dt.datetime.strptime(date_str, "%Y-%m-%d")
-        except ValueError as e:
-            logger.error(f"Invalid date format '{date_str}'. Use YYYY-MM-DD (e.g., 2025-10-11)")
-            raise typer.Exit(1) from e
-
-    journal_path = repo.root / "journal" / date.strftime("%Y/%m/%Y-%m-%d.md")
-    default_content = f"# {date.strftime('%A, %B %d, %Y')}\n\n## Tasks\n\n## Notes\n\n"
-
-    # Ensure parent directory exists
-    journal_path.parent.mkdir(parents=True, exist_ok=True)
-
-    repo_path = repo.make_repo_path(journal_path)
-
-    # Load existing content or use default (but don't create file yet)
-    if journal_path.exists():
-        note = repo.get_note(repo_path)
-        original_content = note.content
-    else:
-        original_content = default_content
-
-    # Open in editor
-    try:
-        edited_content = edit_in_editor(original_content, config.editor)
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Editor exited with error code {e.returncode}")
-        raise typer.Exit(1) from e
-    except FileNotFoundError as e:
-        logger.error(f"Editor '{config.editor}' not found. Set COMMONPLACE_EDITOR environment variable or config.")
-        raise typer.Exit(1) from e
-
-    # If no changes, we're done
-    if edited_content is None:
-        return
-
-    # Save the edited content (creates file if it doesn't exist)
-    note = Note(repo_path=repo_path, content=edited_content)
-    repo.save(note)
-    logger.info(f"Saved journal entry to {journal_path.relative_to(repo.root)}")
+# Short aliases for import
+app.command(name="i", hidden=True)(import_)
+app.command(name="s", hidden=True)(search)
+app.command(name="j", hidden=True)(journal)
