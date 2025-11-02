@@ -15,7 +15,7 @@ from commonplace._types import Note, Pathlike, RepoPath
 @dataclass
 class Commonplace:
     """
-    Wraps a git repo
+    Simplified and opinionated abstraction around a git repo
     """
 
     git: Repository
@@ -31,12 +31,6 @@ class Commonplace:
         """Close this repo. Does nothing."""
         ...
 
-    @staticmethod
-    def init(root: Path):
-        init_repository(root, bare=False)
-        (root / ".commonplace" / "cache").mkdir(exist_ok=True, parents=True)
-        # TODO: .gitignore
-
     @property
     def root(self) -> Path:
         """Get the root path of the repository."""
@@ -49,6 +43,37 @@ class Commonplace:
             # No commits yet - use a placeholder ref
             return "0" * 40
         return str(self.git.head.target)
+
+    @staticmethod
+    def init(root: Path):
+        repo = init_repository(root, bare=False)
+        (root / ".commonplace" / "cache").mkdir(exist_ok=True, parents=True)
+
+        # Set HEAD to point to main branch (standard default branch)
+        repo.set_head("refs/heads/main")
+
+        # Create initial .gitignore
+        gitignore_path = root / ".gitignore"
+        if not gitignore_path.exists():
+            gitignore_path.write_text("# Commonplace\n.commonplace/cache\n")
+
+        # Create initial commit
+        repo.index.add(".gitignore")
+        repo.index.write()
+        tree = repo.index.write_tree()
+
+        author = Signature("Commonplace Bot", "commonplace@joehalliwell.com")
+        repo.create_commit(
+            "refs/heads/main",
+            author,
+            author,
+            "Initial commit",
+            tree,
+            [],  # No parents for initial commit
+        )
+
+        # Checkout the main branch to ensure HEAD is a symbolic reference
+        repo.checkout("refs/heads/main")
 
     def make_repo_path(self, path: Pathlike) -> RepoPath:
         """
@@ -218,3 +243,121 @@ class Commonplace:
         # Write index to disk to ensure it matches the new HEAD
         self.git.index.write()
         logger.info(f"Committed changes with message: {message}")
+
+    def has_remote(self, remote_name: str = "origin") -> bool:
+        """
+        Check if a remote exists.
+
+        Args:
+            remote_name: Name of the remote to check
+
+        Returns:
+            True if remote exists, False otherwise
+        """
+        try:
+            self.git.remotes[remote_name]
+            return True
+        except KeyError:
+            return False
+
+    def sync(
+        self,
+        remote_name: str = "origin",
+        branch: str | None = None,
+        strategy: str = "rebase",
+        auto_commit: bool = True,
+    ) -> None:
+        """
+        Synchronize repository with remote using git commands.
+
+        Steps:
+        1. Check for remote
+        2. Add and commit all changes (if auto_commit=True)
+        3. Pull from remote (rebase or merge)
+        4. Push to remote
+
+        Args:
+            remote_name: Name of remote (default: "origin")
+            branch: Branch name (default: current branch)
+            strategy: "rebase" or "merge" (default: "rebase")
+            auto_commit: Auto-commit uncommitted changes (default: True)
+
+        Raises:
+            ValueError: If sync operation fails
+        """
+        import subprocess
+        from datetime import datetime, timezone
+
+        # 1. Check for remote (helpful error message)
+        if not self.has_remote(remote_name):
+            raise ValueError(f"Remote '{remote_name}' not found. Add remote first.")
+
+        # Get current branch if not specified
+        if branch is None:
+            try:
+                result = self._git("rev-parse", "--abbrev-ref", "HEAD")
+                branch = result.strip()
+            except subprocess.CalledProcessError:
+                raise ValueError("Could not determine current branch.")
+
+        logger.info(f"Syncing branch '{branch}' with '{remote_name}'")
+
+        # 2. Auto-commit if there are changes
+        if auto_commit:
+            try:
+                # Check if there are changes
+                result = self._git("status", "--porcelain")
+                if result.strip():
+                    logger.info("Adding and committing changes...")
+                    self._git("add", "-A")
+                    timestamp = datetime.now(timezone.utc).isoformat()
+                    self._git("commit", "-m", f"Auto-commit before sync at {timestamp}")
+            except subprocess.CalledProcessError as e:
+                raise ValueError(f"Failed to commit changes. {e.stderr}") from e
+
+        # 3. Pull from remote (skip if remote branch doesn't exist yet)
+        logger.info(f"Pulling from {remote_name}/{branch}...")
+        pull_args = ["pull", remote_name, branch]
+        if strategy == "rebase":
+            pull_args.append("--rebase")
+        try:
+            self._git(*pull_args)
+        except subprocess.CalledProcessError as e:
+            # If remote branch doesn't exist, this is a first push - skip pull
+            if "couldn't find remote ref" in (e.stderr or ""):
+                logger.info(f"Remote branch {remote_name}/{branch} doesn't exist yet (first push)")
+            else:
+                stderr = e.stderr.strip() if e.stderr else ""
+                raise ValueError(f"Failed to pull from {remote_name}/{branch}. {stderr}") from e
+
+        # 4. Push to remote
+        logger.info(f"Pushing to {remote_name}/{branch}...")
+        try:
+            self._git("push", remote_name, branch)
+            logger.info(f"Successfully synced with {remote_name}/{branch}")
+        except subprocess.CalledProcessError as e:
+            stderr = e.stderr.strip() if e.stderr else ""
+            raise ValueError(f"Failed to push to {remote_name}/{branch}. {stderr}") from e
+
+    def _git(self, *args: str) -> str:
+        """
+        Run a git command in the repository.
+
+        Args:
+            *args: Git command arguments
+
+        Returns:
+            Command output (stdout)
+
+        Raises:
+            subprocess.CalledProcessError: If git command fails
+        """
+        import subprocess
+
+        result = subprocess.run(
+            ["git", f"--git-dir={self.root / '.git'}", f"--work-tree={self.root}", *args],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout

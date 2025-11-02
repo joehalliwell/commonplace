@@ -189,6 +189,29 @@ def index(
 
 
 @app.command(group=SYSTEM_SECTION)
+def sync(
+    remote: Annotated[str, Parameter(help="Remote name")] = "origin",
+    branch: Annotated[Optional[str], Parameter(help="Branch name (default: current)")] = None,
+    strategy: Annotated[str, Parameter(help="Sync strategy: rebase or merge")] = "rebase",
+    auto_commit: Annotated[bool, Parameter(help="Auto-commit uncommitted changes")] = True,
+):
+    """Synchronize with remote repository (add changes, pull, push)."""
+    config = get_config()
+    repo = config.get_repo()
+
+    try:
+        repo.sync(
+            remote_name=remote,
+            branch=branch,
+            strategy=strategy,
+            auto_commit=auto_commit,
+        )
+    except ValueError as e:
+        logger.error(f"Sync failed: {e}")
+        raise SystemExit(1) from e
+
+
+@app.command(group=SYSTEM_SECTION)
 def stats():
     """Show statistics about your commonplace and search index."""
 

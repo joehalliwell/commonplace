@@ -108,3 +108,21 @@ def test_index_matches_head_after_commit(test_repo):
         f"Index tree {index_tree_id} doesn't match HEAD tree {head_tree_id}. "
         "This makes it look like there are staged changes (a revert)!"
     )
+
+
+def test_has_remote_exists(test_repo):
+    """Test has_remote returns True when remote exists."""
+    test_repo.git.remotes.create("origin", "https://github.com/test/repo.git")
+    assert test_repo.has_remote("origin")
+
+
+def test_has_remote_not_exists(test_repo):
+    """Test has_remote returns False when remote doesn't exist."""
+    assert not test_repo.has_remote("origin")
+
+
+def test_has_remote_custom_name(test_repo):
+    """Test has_remote works with custom remote names."""
+    test_repo.git.remotes.create("upstream", "https://github.com/test/repo.git")
+    assert test_repo.has_remote("upstream")
+    assert not test_repo.has_remote("origin")

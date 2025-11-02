@@ -147,6 +147,22 @@ commonplace search "machine learning" --limit 5
 commonplace index --rebuild
 ```
 
+### Sync your commonplace
+If you have a git remote configured, sync your changes:
+```bash
+# Sync with default remote (origin), auto-commit changes
+commonplace sync
+
+# Sync with specific remote
+commonplace sync --remote upstream
+
+# Use merge instead of rebase
+commonplace sync --strategy merge
+
+# Don't auto-commit uncommitted changes
+commonplace sync --no-auto-commit
+```
+
 ## Output Format
 
 Each conversation is stored as a markdown file with:
@@ -172,13 +188,17 @@ Can you explain how neural networks work?
 Neural networks are computational models inspired by biological brains...
 ```
 
+## Design Notes
+
+- **Commonplace is an abstraction on top of git, not a git wrapper.** Commands like `init()` and `sync()` are part of the commonplace abstraction. The `git` command is an escape hatch for raw access.
+
 ## Development
 
 ```bash
 # Run tests
 uv run pytest tests/ -v
 
-# Format code  
+# Format code
 uv run ruff format .
 
 # Type check
