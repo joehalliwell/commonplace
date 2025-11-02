@@ -122,6 +122,7 @@ def journal(
 @app.command(name="search", alias="s", group=ANALYZING_SECTION)
 def search(
     query: str,
+    /,
     limit: Annotated[int, Parameter(name=["--limit", "-n"], help="Maximum number of results")] = 10,
     method: Annotated[
         SearchMethod, Parameter(help="Search method: semantic, keyword, or hybrid")
@@ -187,7 +188,6 @@ def index(
     index(config.get_repo(), config.get_index(), rebuild=rebuild)
 
 
-@app.default
 @app.command(group=SYSTEM_SECTION)
 def stats():
     """Show statistics about your commonplace and search index."""

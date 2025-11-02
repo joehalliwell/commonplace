@@ -16,6 +16,7 @@ from commonplace._search._types import (
     SearchMethod,
 )
 from commonplace._types import RepoPath
+from commonplace import logger
 
 
 class SQLiteSearchIndex(SearchIndex):
@@ -167,6 +168,8 @@ class SQLiteSearchIndex(SearchIndex):
         Returns:
             List of search hits, ordered by relevance
         """
+        logger.debug(f"Searching for {query} ({limit} hits using {method})")
+
         if method == SearchMethod.SEMANTIC:
             return self.search_semantic(query, limit=limit)
         elif method == SearchMethod.KEYWORD:
@@ -279,7 +282,7 @@ class SQLiteSearchIndex(SearchIndex):
         k: int = 60,
     ) -> list[SearchHit]:
         """
-        Search using reciprocal rank fusion of keyword and semantic search.
+        Search using a modified reciprocal rank fusion of keyword and semantic search.
 
         Args:
             query: The search query string
@@ -290,8 +293,8 @@ class SQLiteSearchIndex(SearchIndex):
             List of search hits, ordered by fused score
         """
         # Get results from both methods
-        keyword_results = self.search_keyword(query, limit=limit * 2)
-        semantic_results = self.search_semantic(query, limit=limit * 2)
+        keyword_results = self.search_keyword(query, limit=limit)
+        semantic_results = self.search_semantic(query, limit=limit)
 
         # Build lookup by chunk identity (path + offset uniquely identifies a chunk)
         def chunk_key(chunk: Chunk) -> tuple:
@@ -301,23 +304,17 @@ class SQLiteSearchIndex(SearchIndex):
         rrf_scores: dict[tuple, float] = {}
         chunk_lookup: dict[tuple, Chunk] = {}
 
-        # Add keyword results
-        for rank, hit in enumerate(keyword_results, 1):
-            key = chunk_key(hit.chunk)
-            rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (k + rank)
-            chunk_lookup[key] = hit.chunk
-
-        # Add semantic results
-        for rank, hit in enumerate(semantic_results, 1):
-            key = chunk_key(hit.chunk)
-            rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (k + rank)
-            chunk_lookup[key] = hit.chunk
+        for result_set in (keyword_results, semantic_results):
+            for rank, hit in enumerate(result_set, 1):
+                key = chunk_key(hit.chunk)
+                rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (k + rank)
+                chunk_lookup[key] = hit.chunk
 
         # Sort by RRF score and build results
-        sorted_keys = sorted(rrf_scores.keys(), key=lambda k: rrf_scores[k], reverse=True)[:limit]
+        sorted_keys = sorted(rrf_scores.keys(), key=lambda k: rrf_scores[k], reverse=True)
 
         results = []
-        for key in sorted_keys:
+        for key in sorted_keys[:limit]:
             results.append(SearchHit(chunk=chunk_lookup[key], score=rrf_scores[key]))
 
         return results
