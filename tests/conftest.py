@@ -51,7 +51,6 @@ def make_chunk():
 
 @pytest.fixture
 def test_store(tmp_path):
-    # FIXME: Make from config
     embedder = SentenceTransformersEmbedder()
     index_path = tmp_path / "cache" / "index.db"
     index_path.parent.mkdir(parents=True)
@@ -61,7 +60,6 @@ def test_store(tmp_path):
 
 @pytest.fixture
 def test_repo(tmp_path):
-    # FIXME: Make from config
     repo_path = tmp_path / "repo"
     repo_path.mkdir(parents=True)
     Commonplace.init(repo_path)

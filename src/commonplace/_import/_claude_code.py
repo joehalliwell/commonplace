@@ -96,8 +96,7 @@ class ClaudeCodeImporter(Importer):
             logger.warning(f"Skipping unhandled message type {msg_type}")
             return None
 
-        # Determine role
-        # FIXME: Do this based on the content block?
+        # Determine role from message type
         role = Role.USER if msg_type == "user" else Role.ASSISTANT
 
         # Extract content from message structure

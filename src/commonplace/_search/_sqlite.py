@@ -7,16 +7,9 @@ from typing import Iterable, Iterator
 import numpy as np
 from numpy.typing import NDArray
 
-from commonplace._search._types import (
-    Chunk,
-    Embedder,
-    IndexStat,
-    SearchHit,
-    SearchIndex,
-    SearchMethod,
-)
-from commonplace._types import RepoPath
 from commonplace import logger
+from commonplace._search._types import Chunk, Embedder, IndexStat, SearchHit, SearchIndex, SearchMethod
+from commonplace._types import RepoPath
 
 
 class SQLiteSearchIndex(SearchIndex):
@@ -292,6 +285,7 @@ class SQLiteSearchIndex(SearchIndex):
         Returns:
             List of search hits, ordered by fused score
         """
+
         # Get results from both methods
         keyword_results = self.search_keyword(query, limit=limit)
         semantic_results = self.search_semantic(query, limit=limit)
