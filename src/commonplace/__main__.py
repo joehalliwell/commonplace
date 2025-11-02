@@ -1,47 +1,54 @@
 import datetime as dt
 import logging
+import os
 import subprocess
 from collections import Counter
 from pathlib import Path
 from typing import Annotated, Optional
 
-from cyclopts import Parameter, App
-from rich.logging import RichHandler
+import cyclopts
+from cyclopts import App, Parameter
+from platformdirs import user_data_dir
 
-from commonplace import get_config, logger
+from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._search._types import SearchMethod
 from commonplace._types import Note
 from commonplace._utils import edit_in_editor
 
-app = App(help="Commonplace: Personal knowledge management")
+app = App(
+    name="commonplace",
+    help="Personal knowledge management tool for the augmented self.",
+    config=[cyclopts.config.Env(prefix="COMMONPLACE_")],
+)
+repo: Commonplace = None  # type: ignore # Will be set in launch()
 
-CREATING_SECTION = "Creating notes"
-ANALYZING_SECTION = "Analyzing"
-SYSTEM_SECTION = "System"
+DEFAULT_ROOT = Path(user_data_dir("commonplace"))
 
 
 @app.meta.default
 def launch(
     *tokens: Annotated[str, Parameter(show=False, allow_leading_hyphen=True)],
-    root: Annotated[
-        Optional[Path],
-        Parameter(name=["--root"], help="Path to the commonplace root directory."),
-    ] = None,
     verbose: Annotated[
         bool,
         Parameter(name=["-v", "--verbose"], help="Provide more detailed logging.", negative=[]),
     ] = False,
-):
+    root: Annotated[
+        Path,
+        Parameter(name=["--root"], help="Path to the commonplace root directory."),
+    ] = DEFAULT_ROOT,
+) -> None:
     """Set up common parameters for all commands."""
-    # Setup logging before anything else!
-    logger.setLevel(logging.DEBUG if verbose else logging.INFO)
-    logger.addHandler(RichHandler())
-    config = get_config()
 
-    if root is not None:
-        logger.warning(f"Overriding root: {config.root}")
-        config.root = root
+    # Setup logging before doing anything else!
+    logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+
+    global repo
+    try:
+        repo = Commonplace.open(root)
+    except Exception as e:
+        logger.error(f"Failed to open commonplace repository at {root}: {e}")
+        raise SystemExit(1) from e
 
     app(tokens)
 
@@ -49,26 +56,23 @@ def launch(
 ################################################################################
 # Commands that create notes
 ################################################################################
+CREATING_SECTION = "Creating notes"
 
 
 @app.command(name="import", alias="i", group=CREATING_SECTION)
-def import_(path: Path):
+def import_(path: Path) -> None:
     """Import AI conversation exports (Claude ZIP, Gemini Takeout) into your commonplace."""
-    config = get_config()
-    repo = Commonplace.open(config.root)
 
     from commonplace._import._commands import import_
 
-    import_(path, repo, user=config.user, prefix="chats")
+    import_(path, repo, user=repo.config.user, prefix="chats")
 
 
 @app.command(alias="j", group=CREATING_SECTION)
 def journal(
     date_str: Annotated[Optional[str], Parameter(help="Date for the journal entry (YYYY-MM-DD)")] = None,
-):
+) -> None:
     """Create or edit a daily journal entry."""
-    config = get_config()
-    repo = config.get_repo()
 
     if date_str is None:
         date = dt.datetime.now()
@@ -96,12 +100,12 @@ def journal(
 
     # Open in editor
     try:
-        edited_content = edit_in_editor(original_content, config.editor)
+        edited_content = edit_in_editor(original_content, repo.config.editor)
     except subprocess.CalledProcessError as e:
         logger.error(f"Editor exited with error code {e.returncode}")
         raise SystemExit(1) from e
     except FileNotFoundError as e:
-        logger.error(f"Editor '{config.editor}' not found. Set COMMONPLACE_EDITOR environment variable or config.")
+        logger.error(f"Editor '{repo.config.editor}' not found. Set COMMONPLACE_EDITOR environment variable or config.")
         raise SystemExit(1) from e
 
     # If no changes, we're done
@@ -117,6 +121,7 @@ def journal(
 ################################################################################
 # Commands that analyze notes
 ################################################################################
+ANALYZING_SECTION = "Analyzing"
 
 
 @app.command(name="search", alias="s", group=ANALYZING_SECTION)
@@ -124,15 +129,11 @@ def search(
     query: str,
     /,
     limit: Annotated[int, Parameter(name=["--limit", "-n"], help="Maximum number of results")] = 10,
-    method: Annotated[
-        SearchMethod, Parameter(help="Search method: semantic, keyword, or hybrid")
-    ] = SearchMethod.HYBRID,
-):
+    method: Annotated[SearchMethod, Parameter(help="Search method")] = SearchMethod.HYBRID,
+) -> None:
     """Search for semantically similar content in your commonplace."""
-    config = get_config()
 
-    index = config.get_index()
-    results = index.search(query, limit=limit, method=method)
+    results = repo.index.search(query, limit=limit, method=method)
 
     if not results:
         logger.info("No results found")
@@ -150,42 +151,43 @@ def search(
 # System commands
 ################################################################################
 
+SYSTEM_SECTION = "System"
+
 
 @app.command(group=SYSTEM_SECTION)
 def git(
     args: list[str],
-):
+) -> None:
     """Execute a git command in the commonplace repository. Requires git to be
     installed and on PATH."""
-    import os
     import shlex
 
-    config = get_config()
-
     cmd = "git"
-    args = [f"--git-dir={config.root / '.git'}", f"--work-tree={config.root}", *args]
+    args = [f"--git-dir={repo.root / '.git'}", f"--work-tree={repo.root}", *args]
 
     logger.info(f"Executing command: {cmd} {shlex.join(args)}")
     os.execlp(cmd, cmd, *args)
 
 
-@app.command(group=SYSTEM_SECTION)
-def init():
+@app.meta.command()
+def init(root: Path) -> None:
     """Initialize a commonplace working directory."""
-    config = get_config()
-    Commonplace.init(config.root)
+    Commonplace.init(root)
+    if root != DEFAULT_ROOT:
+        logger.warning(
+            f"Initialized commonplace at {root}. To use it, run commands with --root {root} or set COMMONPLACE_ROOT."
+        )
 
 
 @app.command(group=SYSTEM_SECTION)
 def index(
     rebuild: Annotated[bool, Parameter(help="Rebuild the index from scratch")] = False,
-):
+) -> None:
     """Build or rebuild the search index for semantic search."""
-    config = get_config()
 
     from commonplace._search._commands import index
 
-    index(config.get_repo(), config.get_index(), rebuild=rebuild)
+    index(repo, rebuild=rebuild)
 
 
 @app.command(group=SYSTEM_SECTION)
@@ -194,10 +196,8 @@ def sync(
     branch: Annotated[Optional[str], Parameter(help="Branch name (default: current)")] = None,
     strategy: Annotated[str, Parameter(help="Sync strategy: rebase or merge")] = "rebase",
     auto_commit: Annotated[bool, Parameter(help="Auto-commit uncommitted changes")] = True,
-):
+) -> None:
     """Synchronize with remote repository (add changes, pull, push)."""
-    config = get_config()
-    repo = config.get_repo()
 
     try:
         repo.sync(
@@ -212,26 +212,22 @@ def sync(
 
 
 @app.command(group=SYSTEM_SECTION)
-def stats():
+def stats() -> None:
     """Show statistics about your commonplace and search index."""
 
     from rich.console import Console
     from rich.progress import track
     from rich.table import Table
 
-    config = get_config()
-
     # Collate the stats
-    repo = config.get_repo()
     repo_counts: Counter[str] = Counter()
     repo_counts.update(
-        config.source(path) for path in track(repo.note_paths(), description="Scanning repo", transient=True)
+        repo.config.source(path) for path in track(repo.note_paths(), description="Scanning repo", transient=True)
     )
 
-    index = config.get_index()
     index_chunks_by_source: Counter[str] = Counter()
-    for stat in track(index.stats(), description="Scanning index", transient=True):
-        index_chunks_by_source.update({config.source(stat.repo_path): stat.num_chunks})
+    for stat in track(repo.index.stats(), description="Scanning index", transient=True):
+        index_chunks_by_source.update({repo.config.source(stat.repo_path): stat.num_chunks})
 
     sources = sorted(
         set(repo_counts) | set(index_chunks_by_source),
@@ -264,5 +260,5 @@ def stats():
     console.print(table)
 
 
-def main():
+if __name__ == "__main__":
     app.meta()

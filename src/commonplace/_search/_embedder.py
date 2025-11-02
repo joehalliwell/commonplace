@@ -5,7 +5,7 @@ from functools import cached_property, lru_cache
 import numpy as np
 from numpy.typing import NDArray
 
-from commonplace import logger
+from commonplace._logging import logger
 
 _ALIASES = {
     "default": "sentence-transformers:all-MiniLM-L6-v2",
@@ -26,7 +26,7 @@ def get_embedder(model: str = "default"):
         An embedder instance
     """
     if model in _ALIASES:
-        logger.debug(f"Resolved embedder '{model}' -> '{_ALIASES[model]}'")
+        logger.debug(f"Resolved embedder '{model}' to '{_ALIASES[model]}'")
         model = _ALIASES[model]
 
     if model.startswith("sentence-transformers:"):

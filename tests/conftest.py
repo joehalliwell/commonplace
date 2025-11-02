@@ -6,8 +6,6 @@ from pathlib import Path
 import pytest
 
 from commonplace._repo import Commonplace
-from commonplace._search._embedder import get_embedder
-from commonplace._search._sqlite import SQLiteSearchIndex
 from commonplace._search._types import Chunk
 from commonplace._types import Note, RepoPath
 
@@ -50,18 +48,24 @@ def make_chunk():
 
 
 @pytest.fixture
-def test_store(tmp_path):
-    embedder = get_embedder()
-    index_path = tmp_path / "cache" / "index.db"
-    index_path.parent.mkdir(parents=True)
-    with closing(SQLiteSearchIndex(index_path, embedder)) as store:
-        yield store
-
-
-@pytest.fixture
 def test_repo(tmp_path):
     repo_path = tmp_path / "repo"
     repo_path.mkdir(parents=True)
     Commonplace.init(repo_path)
     with closing(Commonplace.open(repo_path)) as repo:
         yield repo
+
+
+@pytest.fixture
+def test_index(test_repo):
+    return test_repo.index
+
+
+@pytest.fixture
+def test_app(test_repo):
+    from commonplace.__main__ import app
+
+    def _run_app(args):
+        return app.meta([f"--root={test_repo.root}", *args], result_action="return_int_as_exit_code_else_zero")
+
+    return _run_app

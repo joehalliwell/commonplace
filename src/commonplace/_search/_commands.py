@@ -1,23 +1,15 @@
 """Semantic search components for commonplace."""
 
-from commonplace import logger
+from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._search._chunker import MarkdownChunker
-from commonplace._search._types import (
-    SearchHit as SearchHit,
-)
-from commonplace._search._types import (
-    SearchIndex,
-)
-from commonplace._search._types import (
-    SearchMethod as SearchMethod,
-)
+from commonplace._search._types import SearchHit as SearchHit
+from commonplace._search._types import SearchMethod as SearchMethod
 from commonplace._utils import batched, progress_track
 
 
 def index(
     repo: Commonplace,
-    store: SearchIndex,
     rebuild: bool = False,
     batch_size: int = 64,
 ) -> None:
@@ -34,12 +26,12 @@ def index(
 
     if rebuild:
         logger.info("Clearing existing index")
-        store.clear()
+        repo.index.clear()
 
     # Collect notes to index
     to_index = set(repo.note_paths())
     if not rebuild:
-        to_index.difference_update(store.get_indexed_paths())
+        to_index.difference_update(repo.index.get_indexed_paths())
 
     logger.info(f"Indexing {len(to_index)} notes")
 
@@ -51,6 +43,6 @@ def index(
 
     # Process chunks in batches
     for chunk_batch in batched(chunk_stream(), batch_size):
-        store.add_chunks(chunk_batch)
+        repo.index.add_chunks(chunk_batch)
 
     logger.info("Indexing complete")

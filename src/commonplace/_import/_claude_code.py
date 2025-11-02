@@ -3,8 +3,8 @@ from itertools import islice
 from pathlib import Path
 from typing import Any
 
-from commonplace import logger
 from commonplace._import._types import Event, EventLog, Importer, Message, Role, ToolCall
+from commonplace._logging import logger
 from commonplace._utils import truncate
 
 

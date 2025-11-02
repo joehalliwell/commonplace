@@ -5,13 +5,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from commonplace import logger
 from commonplace._import._chatgpt import ChatGptImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._claude_code import ClaudeCodeImporter
 from commonplace._import._gemini import GeminiImporter
 from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import Importer
+from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._types import Note
 from commonplace._utils import merge_frontmatter, progress_track, slugify

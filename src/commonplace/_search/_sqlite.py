@@ -7,7 +7,7 @@ from typing import Iterable, Iterator
 import numpy as np
 from numpy.typing import NDArray
 
-from commonplace import logger
+from commonplace._logging import logger
 from commonplace._search._types import Chunk, Embedder, IndexStat, SearchHit, SearchIndex, SearchMethod
 from commonplace._types import RepoPath
 
@@ -28,13 +28,14 @@ class SQLiteSearchIndex(SearchIndex):
             db_path: Path to the SQLite database file
             embedder: Embedder instance to use for generating embeddings
         """
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._conn = sqlite3.connect(str(db_path))
+        self._create_tables()
         if embedder is None:
             from commonplace._search._embedder import get_embedder
 
             embedder = get_embedder()
         self._embedder = embedder
-        self._conn = sqlite3.connect(str(db_path))
-        self._create_tables()
 
     def _create_tables(self) -> None:
         """Create the necessary database tables if they don't exist."""

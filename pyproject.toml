@@ -1,7 +1,7 @@
 [project]
+description = "Personal knowledge management tool for the augmented self."
 name = "commonplace"
 dynamic = ["version"]
-description = "A personal knowledge management tool"
 readme = "README.md"
 authors = [{ name = "Joe Halliwell", email = "joe.halliwell@gmail.com" }]
 requires-python = ">=3.12"
@@ -24,7 +24,7 @@ dependencies = [
     "sentence-transformers>=2.2.0",
     "humanize>=4.0.0",
     "platformdirs>=4.0.0",
-    "cyclopts>=3.0.0",
+    "cyclopts==4.1.0",              # There's a bug in 4.2.0
 ]
 
 [dependency-groups]
@@ -39,7 +39,7 @@ dev = [
 ]
 
 [project.scripts]
-commonplace = "commonplace.__main__:main"
+commonplace = "commonplace:__main__.app.meta"
 
 [build-system]
 requires = ["hatchling", "versioningit"]

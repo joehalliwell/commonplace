@@ -6,8 +6,8 @@ from zipfile import ZipFile
 
 from rich.progress import track
 
-from commonplace import logger
 from commonplace._import._types import EventLog, Importer, Message, Role
+from commonplace._logging import logger
 from commonplace._utils import truncate
 
 

@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import Iterator
 
@@ -8,14 +8,29 @@ from pygit2 import Commit, Diff, Signature, init_repository
 from pygit2.enums import FileStatus, ObjectType
 from pygit2.repository import Repository
 
-from commonplace import logger
+from commonplace._config import DEFAULT_EDITOR, DEFAULT_NAME
+from commonplace._logging import logger
 from commonplace._types import Note, Pathlike, RepoPath
+
+_INIT_GIT_IGNORE = """
+# Commonplace
+
+.commonplace/cache
+"""
+
+_INIT_CONFIG_TOML = f"""
+# Commonplace configuration
+
+# user = "{DEFAULT_NAME}"
+# editor = "{DEFAULT_EDITOR}"
+"""
 
 
 @dataclass
 class Commonplace:
     """
-    Simplified and opinionated abstraction around a git repo
+    Simplified and opinionated abstraction around a git repo with a
+    configuration and search index.
     """
 
     git: Repository
@@ -25,46 +40,69 @@ class Commonplace:
         root = root.absolute()
         logger.debug(f"Opening commonplace repository at {root}")
         git = Repository(root.as_posix())
+        assert not git.head_is_unborn, "Repository has no commits yet"
         return Commonplace(git=git)
 
     def close(self):
         """Close this repo. Does nothing."""
         ...
 
-    @property
+    @cached_property
     def root(self) -> Path:
         """Get the root path of the repository."""
         return Path(self.git.workdir)
 
-    @property
-    def head_ref(self) -> str:
-        """Get current HEAD tree SHA."""
-        if self.git.head_is_unborn:
-            # No commits yet - use a placeholder ref
-            return "0" * 40
-        return str(self.git.head.target)
+    @cached_property
+    def config(self):
+        """Get the commonplace configuration."""
+        from commonplace._config import Config
+
+        return Config()
+
+    @cached_property
+    def cache(self) -> Path:
+        """Get the cache directory."""
+        return self.root / ".commonplace" / "cache"
+
+    @cached_property
+    def index(self):
+        """Get the search index."""
+        from commonplace._search._sqlite import SQLiteSearchIndex
+
+        index_path = self.cache / "index.db"
+        try:
+            return SQLiteSearchIndex(index_path)
+        except Exception as e:
+            logger.error(f"Search index not found at '{index_path}'.")
+            raise SystemExit(1) from e
 
     @staticmethod
     def init(root: Path):
-        repo = init_repository(root, bare=False)
-        (root / ".commonplace" / "cache").mkdir(exist_ok=True, parents=True)
+        main = "refs/heads/main"
 
-        # Set HEAD to point to main branch (standard default branch)
-        repo.set_head("refs/heads/main")
+        # Create the git repository
+        git = init_repository(root, bare=False, initial_head=main)
+
+        # Create stub config
+        config_path = root / ".commonplace"
+        config_path.mkdir(exist_ok=True, parents=True)
+        config_toml_path = config_path / "config.toml"
+
+        if not config_toml_path.exists():
+            config_toml_path.write_text(_INIT_CONFIG_TOML)
+        git.index.add(config_toml_path.relative_to(root))  # type: ignore[attr-defined]
 
         # Create initial .gitignore
         gitignore_path = root / ".gitignore"
         if not gitignore_path.exists():
-            gitignore_path.write_text("# Commonplace\n.commonplace/cache\n")
+            gitignore_path.write_text(_INIT_GIT_IGNORE)
+        git.index.add(gitignore_path.relative_to(root))  # type: ignore[attr-defined]
 
         # Create initial commit
-        repo.index.add(".gitignore")
-        repo.index.write()
-        tree = repo.index.write_tree()
-
+        tree = git.index.write_tree()  # type: ignore[attr-defined]
         author = Signature("Commonplace Bot", "commonplace@joehalliwell.com")
-        repo.create_commit(
-            "refs/heads/main",
+        git.create_commit(
+            main,
             author,
             author,
             "Initial commit",
@@ -73,7 +111,8 @@ class Commonplace:
         )
 
         # Checkout the main branch to ensure HEAD is a symbolic reference
-        repo.checkout("refs/heads/main")
+        git.index.write()  # type: ignore[attr-defined]
+        git.checkout(main)  # type: ignore[attr-defined]
 
     def make_repo_path(self, path: Pathlike) -> RepoPath:
         """
@@ -90,20 +129,22 @@ class Commonplace:
         if path.is_absolute():
             path = path.relative_to(self.git.workdir, walk_up=False)
 
+        head_ref = str(self.git.head.target)
+
         # Check if file exists and get its status
         try:
             flags = self.git.status_file(path.as_posix())
         except KeyError:
             # File doesn't exist yet (new file being created)
-            return RepoPath(path=path, ref=self.head_ref)
+            return RepoPath(path=path, ref=head_ref)
 
         if flags != FileStatus.CURRENT:
             # File is modified/staged/new - not committed yet
-            return RepoPath(path=path, ref=self.head_ref)
+            return RepoPath(path=path, ref=head_ref)
 
         # File is clean - find last commit that modified it (cached)
         path_map = self._build_path_commit_map(self.git.workdir)
-        ref = path_map.get(path.as_posix(), self.head_ref)
+        ref = path_map.get(path.as_posix(), head_ref)
         return RepoPath(path=path, ref=ref)
 
     @staticmethod

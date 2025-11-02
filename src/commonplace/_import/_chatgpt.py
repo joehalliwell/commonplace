@@ -6,7 +6,7 @@ from typing import Any, Optional
 from zipfile import ZipFile
 
 from commonplace._import._types import EventLog, Importer, Message, Role
-from commonplace._utils import logger
+from commonplace._logging import logger
 
 DEFAULT_TIME = datetime.fromtimestamp(0, tz=timezone.utc)  # Default time if not provided
 

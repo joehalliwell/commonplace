@@ -15,7 +15,7 @@ import llm
 import yaml
 from rich.progress import Progress, TextColumn
 
-from commonplace import logger
+from commonplace._logging import logger
 
 T = TypeVar("T")
 
