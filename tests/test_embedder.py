@@ -3,13 +3,13 @@
 import numpy as np
 import pytest
 
-from commonplace._search._embedder import SentenceTransformersEmbedder
+from commonplace._search._embedder import get_embedder
 
 
 @pytest.fixture
 def embedder():
     """Create an embedder instance."""
-    return SentenceTransformersEmbedder()
+    return get_embedder()
 
 
 def test_model_id(embedder):

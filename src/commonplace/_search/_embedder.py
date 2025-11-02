@@ -1,11 +1,42 @@
 """Embedding implementations for generating vector representations of text."""
 
-from functools import cached_property
+from functools import cached_property, lru_cache
 
 import numpy as np
 from numpy.typing import NDArray
 
 from commonplace import logger
+
+_ALIASES = {
+    "default": "sentence-transformers:all-MiniLM-L6-v2",
+}
+
+
+@lru_cache(maxsize=8)
+def get_embedder(model: str = "default"):
+    """
+    Factory function to get an embedder instance based on a model identifier.
+
+    Args:
+        model: Model identifier string. Examples:
+            - "sentence-transformers:all-MiniLM-L6-v2"
+            - "llm:3-small"
+
+    Returns:
+        An embedder instance
+    """
+    if model in _ALIASES:
+        logger.debug(f"Resolved embedder '{model}' -> '{_ALIASES[model]}'")
+        model = _ALIASES[model]
+
+    if model.startswith("sentence-transformers:"):
+        model_name = model.split(":", 1)[1]
+        return SentenceTransformersEmbedder(model_name=model_name)
+    elif model.startswith("llm:"):
+        model_id = model.split(":", 1)[1]
+        return LLMEmbedder(model_id=model_id)
+    else:
+        raise ValueError(f"Unsupported embedder model: {model}")
 
 
 class SentenceTransformersEmbedder:

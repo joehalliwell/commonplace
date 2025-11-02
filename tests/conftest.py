@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from commonplace._repo import Commonplace
-from commonplace._search._embedder import SentenceTransformersEmbedder
+from commonplace._search._embedder import get_embedder
 from commonplace._search._sqlite import SQLiteSearchIndex
 from commonplace._search._types import Chunk
 from commonplace._types import Note, RepoPath
@@ -51,7 +51,7 @@ def make_chunk():
 
 @pytest.fixture
 def test_store(tmp_path):
-    embedder = SentenceTransformersEmbedder()
+    embedder = get_embedder()
     index_path = tmp_path / "cache" / "index.db"
     index_path.parent.mkdir(parents=True)
     with closing(SQLiteSearchIndex(index_path, embedder)) as store:

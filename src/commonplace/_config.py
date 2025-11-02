@@ -83,11 +83,9 @@ class Config(BaseSettings):
 
     def get_index(self) -> SearchIndex:
         """Get the search index."""
-        from commonplace._search._embedder import SentenceTransformersEmbedder
         from commonplace._search._sqlite import SQLiteSearchIndex
 
-        embedder = SentenceTransformersEmbedder()
-        return SQLiteSearchIndex(self.cache / "index.db", embedder=embedder)
+        return SQLiteSearchIndex(self.cache / "index.db")
 
     def source(self, repo_path: RepoPath) -> str:
         """The source of this collection of notes/chats"""

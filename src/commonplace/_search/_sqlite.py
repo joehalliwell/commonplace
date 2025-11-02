@@ -20,7 +20,7 @@ class SQLiteSearchIndex(SearchIndex):
     in-memory similarity search using numpy.
     """
 
-    def __init__(self, db_path: Path, embedder: Embedder):
+    def __init__(self, db_path: Path, embedder: Embedder | None = None):
         """
         Initialize the vector store.
 
@@ -28,8 +28,12 @@ class SQLiteSearchIndex(SearchIndex):
             db_path: Path to the SQLite database file
             embedder: Embedder instance to use for generating embeddings
         """
-        self._conn = sqlite3.connect(str(db_path))
+        if embedder is None:
+            from commonplace._search._embedder import get_embedder
+
+            embedder = get_embedder()
         self._embedder = embedder
+        self._conn = sqlite3.connect(str(db_path))
         self._create_tables()
 
     def _create_tables(self) -> None:
