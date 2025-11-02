@@ -3,9 +3,9 @@ import logging
 import subprocess
 from collections import Counter
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Optional
 
-import typer
+from cyclopts import Parameter, App
 from rich.logging import RichHandler
 
 from commonplace import get_config, logger
@@ -14,21 +14,36 @@ from commonplace._search._types import SearchMethod
 from commonplace._types import Note
 from commonplace._utils import edit_in_editor
 
-app = typer.Typer(
-    help="Commonplace: Personal knowledge management",
-    pretty_exceptions_enable=False,
-    no_args_is_help=True,
-)
+app = App(help="Commonplace: Personal knowledge management")
 
 CREATING_SECTION = "Creating notes"
 ANALYZING_SECTION = "Analyzing"
 SYSTEM_SECTION = "System"
 
 
-@app.callback()
-def _setup_logging(verbose: bool = typer.Option(False, "--verbose", "-v")):
+@app.meta.default
+def launch(
+    *tokens: Annotated[str, Parameter(show=False, allow_leading_hyphen=True)],
+    root: Annotated[
+        Optional[Path],
+        Parameter(name=["--root"], help="Path to the commonplace root directory."),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        Parameter(name=["-v", "--verbose"], help="Provide more detailed logging.", negative=[]),
+    ] = False,
+):
+    """Set up common parameters for all commands."""
+    # Setup logging before anything else!
     logger.setLevel(logging.DEBUG if verbose else logging.INFO)
     logger.addHandler(RichHandler())
+    config = get_config()
+
+    if root is not None:
+        logger.warning(f"Overriding root: {config.root}")
+        config.root = root
+
+    app(tokens)
 
 
 ################################################################################
@@ -36,10 +51,9 @@ def _setup_logging(verbose: bool = typer.Option(False, "--verbose", "-v")):
 ################################################################################
 
 
-@app.command(name="import", rich_help_panel=CREATING_SECTION)
+@app.command(name="import", alias="i", group=CREATING_SECTION)
 def import_(path: Path):
     """Import AI conversation exports (Claude ZIP, Gemini Takeout) into your commonplace."""
-
     config = get_config()
     repo = Commonplace.open(config.root)
 
@@ -48,8 +62,10 @@ def import_(path: Path):
     import_(path, repo, user=config.user, prefix="chats")
 
 
-@app.command(rich_help_panel=CREATING_SECTION)
-def journal(date_str: Optional[str] = typer.Argument(None, help="Date for the journal entry (YYYY-MM-DD)")):
+@app.command(alias="j", group=CREATING_SECTION)
+def journal(
+    date_str: Annotated[Optional[str], Parameter(help="Date for the journal entry (YYYY-MM-DD)")] = None,
+):
     """Create or edit a daily journal entry."""
     config = get_config()
     repo = config.get_repo()
@@ -61,7 +77,7 @@ def journal(date_str: Optional[str] = typer.Argument(None, help="Date for the jo
             date = dt.datetime.strptime(date_str, "%Y-%m-%d")
         except ValueError as e:
             logger.error(f"Invalid date format '{date_str}'. Use YYYY-MM-DD (e.g., 2025-10-11)")
-            raise typer.Exit(1) from e
+            raise SystemExit(1) from e
 
     journal_path = repo.root / "journal" / date.strftime("%Y/%m/%Y-%m-%d.md")
     default_content = f"# {date.strftime('%A, %B %d, %Y')}\n\n## Tasks\n\n## Notes\n\n"
@@ -83,10 +99,10 @@ def journal(date_str: Optional[str] = typer.Argument(None, help="Date for the jo
         edited_content = edit_in_editor(original_content, config.editor)
     except subprocess.CalledProcessError as e:
         logger.error(f"Editor exited with error code {e.returncode}")
-        raise typer.Exit(1) from e
+        raise SystemExit(1) from e
     except FileNotFoundError as e:
         logger.error(f"Editor '{config.editor}' not found. Set COMMONPLACE_EDITOR environment variable or config.")
-        raise typer.Exit(1) from e
+        raise SystemExit(1) from e
 
     # If no changes, we're done
     if edited_content is None:
@@ -103,13 +119,13 @@ def journal(date_str: Optional[str] = typer.Argument(None, help="Date for the jo
 ################################################################################
 
 
-@app.command(name="search", rich_help_panel=ANALYZING_SECTION)
+@app.command(name="search", alias="s", group=ANALYZING_SECTION)
 def search(
     query: str,
-    limit: int = typer.Option(10, "--limit", "-n", help="Maximum number of results"),
-    method: SearchMethod = typer.Option(
-        SearchMethod.HYBRID, "--method", help="Search method: semantic, keyword, or hybrid"
-    ),
+    limit: Annotated[int, Parameter(name=["--limit", "-n"], help="Maximum number of results")] = 10,
+    method: Annotated[
+        SearchMethod, Parameter(help="Search method: semantic, keyword, or hybrid")
+    ] = SearchMethod.HYBRID,
 ):
     """Search for semantically similar content in your commonplace."""
     config = get_config()
@@ -134,8 +150,10 @@ def search(
 ################################################################################
 
 
-@app.command(rich_help_panel=SYSTEM_SECTION)
-def git(args: list[str]):
+@app.command(group=SYSTEM_SECTION)
+def git(
+    args: list[str],
+):
     """Execute a git command in the commonplace repository. Requires git to be
     installed and on PATH."""
     import os
@@ -150,15 +168,17 @@ def git(args: list[str]):
     os.execlp(cmd, cmd, *args)
 
 
-@app.command(rich_help_panel=SYSTEM_SECTION)
+@app.command(group=SYSTEM_SECTION)
 def init():
     """Initialize a commonplace working directory."""
     config = get_config()
     Commonplace.init(config.root)
 
 
-@app.command(rich_help_panel=SYSTEM_SECTION)
-def index(rebuild: bool = typer.Option(False, "--rebuild", help="Rebuild the index from scratch")):
+@app.command(group=SYSTEM_SECTION)
+def index(
+    rebuild: Annotated[bool, Parameter(help="Rebuild the index from scratch")] = False,
+):
     """Build or rebuild the search index for semantic search."""
     config = get_config()
 
@@ -167,7 +187,8 @@ def index(rebuild: bool = typer.Option(False, "--rebuild", help="Rebuild the ind
     index(config.get_repo(), config.get_index(), rebuild=rebuild)
 
 
-@app.command(rich_help_panel=SYSTEM_SECTION)
+@app.default
+@app.command(group=SYSTEM_SECTION)
 def stats():
     """Show statistics about your commonplace and search index."""
 
@@ -179,13 +200,13 @@ def stats():
 
     # Collate the stats
     repo = config.get_repo()
-    repo_counts = Counter()
+    repo_counts: Counter[str] = Counter()
     repo_counts.update(
         config.source(path) for path in track(repo.note_paths(), description="Scanning repo", transient=True)
     )
 
     index = config.get_index()
-    index_chunks_by_source = Counter()
+    index_chunks_by_source: Counter[str] = Counter()
     for stat in track(index.stats(), description="Scanning index", transient=True):
         index_chunks_by_source.update({config.source(stat.repo_path): stat.num_chunks})
 
@@ -220,7 +241,5 @@ def stats():
     console.print(table)
 
 
-# Short aliases for import
-app.command(name="i", hidden=True)(import_)
-app.command(name="s", hidden=True)(search)
-app.command(name="j", hidden=True)(journal)
+def main():
+    app.meta()

@@ -24,7 +24,7 @@ dependencies = [
     "sentence-transformers>=2.2.0",
     "humanize>=4.0.0",
     "platformdirs>=4.0.0",
-    "typer>=0.19.2",
+    "cyclopts>=3.0.0",
 ]
 
 [dependency-groups]
@@ -39,7 +39,7 @@ dev = [
 ]
 
 [project.scripts]
-commonplace = "commonplace.__main__:app"
+commonplace = "commonplace.__main__:main"
 
 [build-system]
 requires = ["hatchling", "versioningit"]
