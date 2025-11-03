@@ -70,11 +70,7 @@ class Commonplace:
         from commonplace._search._sqlite import SQLiteSearchIndex
 
         index_path = self.cache / "index.db"
-        try:
-            return SQLiteSearchIndex(index_path)
-        except Exception as e:
-            logger.error(f"Search index not found at '{index_path}'.")
-            raise SystemExit(1) from e
+        return SQLiteSearchIndex(index_path)
 
     @staticmethod
     def init(root: Path):

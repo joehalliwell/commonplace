@@ -29,14 +29,17 @@ def get_embedder(model: str = "default"):
         logger.debug(f"Resolved embedder '{model}' to '{_ALIASES[model]}'")
         model = _ALIASES[model]
 
-    if model.startswith("sentence-transformers:"):
-        model_name = model.split(":", 1)[1]
-        return SentenceTransformersEmbedder(model_name=model_name)
-    elif model.startswith("llm:"):
-        model_id = model.split(":", 1)[1]
-        return LLMEmbedder(model_id=model_id)
-    else:
-        raise ValueError(f"Unsupported embedder model: {model}")
+    try:
+        if model.startswith("sentence-transformers:"):
+            model_name = model.split(":", 1)[1]
+            return SentenceTransformersEmbedder(model_name=model_name)
+        elif model.startswith("llm:"):
+            model_id = model.split(":", 1)[1]
+            return LLMEmbedder(model_id=model_id)
+        else:
+            raise ValueError(f"Unsupported embedder model: {model}")
+    except Exception as e:
+        raise RuntimeError(f"Could not initialize embedder '{model}' : {e}") from e
 
 
 class SentenceTransformersEmbedder:

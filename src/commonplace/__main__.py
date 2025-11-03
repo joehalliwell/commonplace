@@ -50,7 +50,11 @@ def launch(
         logger.error(f"Failed to open commonplace repository at {root}: {e}")
         raise SystemExit(1) from e
 
-    app(tokens)
+    try:
+        app(tokens)
+    except Exception as e:
+        logger.error(f"Error executing command: {e}")
+        raise SystemExit(1) from e
 
 
 ################################################################################

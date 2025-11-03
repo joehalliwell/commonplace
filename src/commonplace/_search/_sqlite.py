@@ -28,13 +28,18 @@ class SQLiteSearchIndex(SearchIndex):
             db_path: Path to the SQLite database file
             embedder: Embedder instance to use for generating embeddings
         """
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(db_path))
-        self._create_tables()
+        try:
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._conn = sqlite3.connect(str(db_path))
+            self._create_tables()
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize index at '{db_path}': {e}") from e
+
         if embedder is None:
             from commonplace._search._embedder import get_embedder
 
             embedder = get_embedder()
+
         self._embedder = embedder
 
     def _create_tables(self) -> None:
