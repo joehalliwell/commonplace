@@ -25,6 +25,9 @@ _INIT_CONFIG_TOML = f"""
 # editor = "{DEFAULT_EDITOR}"
 """
 
+_BOT_USERNAME = "Commonplace Bot"
+_BOT_EMAIL = "commonplace@joehalliwell.com"
+
 
 @dataclass
 class Commonplace:
@@ -96,7 +99,7 @@ class Commonplace:
 
         # Create initial commit
         tree = git.index.write_tree()  # type: ignore[attr-defined]
-        author = Signature("Commonplace Bot", "commonplace@joehalliwell.com")
+        author = Signature(_BOT_USERNAME, _BOT_EMAIL)
         git.create_commit(
             main,
             author,
@@ -267,7 +270,7 @@ class Commonplace:
             logger.info("No changes to commit")
             return
 
-        author = Signature("Commonplace Bot", "commonplace@joehalliwell.com")
+        author = Signature(_BOT_USERNAME, _BOT_EMAIL)
         committer = author
         self.git.create_commit(
             "HEAD",
@@ -348,7 +351,11 @@ class Commonplace:
                     logger.info("Adding and committing changes...")
                     self._git("add", "-A")
                     timestamp = datetime.now(timezone.utc).isoformat()
-                    self._git("commit", "-m", f"Auto-commit before sync at {timestamp}")
+                    self._git(
+                        "commit",
+                        "-m",
+                        f"Auto-commit before sync at {timestamp}",
+                    )
             except subprocess.CalledProcessError as e:
                 raise ValueError(f"Failed to commit changes. {e.stderr}") from e
 
@@ -392,7 +399,16 @@ class Commonplace:
         import subprocess
 
         result = subprocess.run(
-            ["git", f"--git-dir={self.root / '.git'}", f"--work-tree={self.root}", *args],
+            [
+                "git",
+                f"--git-dir={self.root / '.git'}",
+                f"--work-tree={self.root}",
+                "-c",
+                f"user.name={_BOT_USERNAME}",
+                "-c",
+                f"user.email={_BOT_EMAIL}",
+                *args,
+            ],
             capture_output=True,
             text=True,
             check=True,
