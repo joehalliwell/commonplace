@@ -32,43 +32,49 @@ uv run commonplace search "query text"
 
 ## Architecture
 
-**Repository** (`_repo.py`): `Commonplace` wraps a git repo with pygit2, provides note management with caching and indexing
+**Repository** (`_repo.py`): `Commonplace` is the central object wrapping a git repo (pygit2) with cached properties: `config`, `cache`, `index`. Provides note management and indexing.
 
 **Import** (`_import/`): Provider-specific importers (Claude/Gemini/ChatGPT) → `ActivityLog` → `MarkdownSerializer` → markdown files in `chats/{provider}/{year}/{month}/{date}-{title}.md`
 
-**Search** (`_search/`): Protocol-based pipeline with `Chunker` (splits by sections) → `Embedder` (SentenceTransformers) → `VectorStore` (SQLite + FTS5). Supports semantic, full-text, and hybrid search. Index: `.commonplace/embeddings.db`
+**Search** (`_search/`): Protocol-based pipeline with `Chunker` (splits by sections) → `Embedder` (SentenceTransformers) → `VectorStore` (SQLite + FTS5). Supports semantic, full-text, and hybrid search. Index: `.commonplace/cache/index.db`
 
-**Config** (`_config.py`): Pydantic-settings from env/`.env`. Required: `COMMONPLACE_ROOT`
+**Config** (`_config.py`): Pydantic-settings from env/`.env` with `COMMONPLACE_` prefix. Per-repo config at `.commonplace/config.toml`
+
+**CLI** (`__main__.py`): Repo-centric with global `repo` object initialized in `launch()`. Top-level exception handler catches all command errors.
 
 **Data flows:**
+
 - Import: ZIP → Importer → ActivityLog → MarkdownSerializer → Note → git
 - Index: Notes → Chunker → Chunks → Embedder → Embeddings → VectorStore
 - Search: Query → Embedder → VectorStore → SearchHits
 
-**Patterns:** Protocol interfaces for loose coupling, batch processing, incremental indexing, auto-commit on import
+**Patterns:** Protocol interfaces, cached properties, top-level error handling, batch processing, incremental indexing, auto-commit on import
 
 ## Workflow
 
 **All changes require tests.** New features need test cases, bug fixes need regression tests, refactoring maintains coverage.
 
 **Test standards:**
+
 - Descriptive names: `test_<feature>_<scenario>_<expected_result>`
 - Positive and negative cases
 - Use `conftest.py` fixtures
 - Snapshot tests for complex output
 
 **Code quality:**
+
 - Python 3.12+, ruff (120 chars), mypy, type hints throughout
 - Focused functions with docstrings for public APIs
 - Update README.md for user-facing changes
 - Pre-commit hooks run ruff automatically
 
 **Change process:**
+
 1. Propose with full context, explain rationale and trade-offs
-2. Implement code
-3. Write tests
-4. Verify: `uv run pytest tests/ -v`
-5. Format: `uv run ruff format .`
-6. Update docs if needed
+1. Implement code
+1. Write tests
+1. Verify: `uv run pytest tests/ -v`
+1. Format: `uv run ruff format .`
+1. Update docs if needed
 
 **Commits:** Imperative mood ("Add" not "Added"), concise, no AI credits/co-author tags
