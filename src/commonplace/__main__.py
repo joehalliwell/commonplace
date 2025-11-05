@@ -130,14 +130,13 @@ ANALYZING_SECTION = "Analyzing"
 
 @app.command(name="search", alias="s", group=ANALYZING_SECTION)
 def search(
-    query: str,
-    /,
+    *query: str,
     limit: Annotated[int, Parameter(name=["--limit", "-n"], help="Maximum number of results")] = 10,
     method: Annotated[SearchMethod, Parameter(help="Search method")] = SearchMethod.HYBRID,
 ) -> None:
     """Search for semantically similar content in your commonplace."""
 
-    results = repo.index.search(query, limit=limit, method=method)
+    results = repo.index.search(" ".join(query), limit=limit, method=method)
 
     if not results:
         logger.info("No results found")
