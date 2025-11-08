@@ -9,6 +9,7 @@ from rich.console import Console, ConsoleOptions, RenderResult
 from rich.measure import Measurement
 from rich.segment import Segment
 from rich.style import Style
+from rich.text import Text
 
 from commonplace._types import RepoPath
 
@@ -121,12 +122,8 @@ class ActivityHeatmap:
                 return style, char
         return self.levels[0][1], self.levels[0][2]
 
-    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
-        """Render the heatmap using rich."""
-        # Day labels (first column)
-        day_labels = ["", "Mon", "", "Wed", "", "Fri", ""]
-
-        # Month labels (top row) - show month when it changes
+    def _get_month_labels(self) -> list[tuple[int, str]]:
+        """Get month labels showing when month changes."""
         month_labels = []
         current_month = None
         for week_idx in range(self.weeks):
@@ -135,20 +132,43 @@ class ActivityHeatmap:
                 if week_date.month != current_month:
                     month_labels.append((week_idx, week_date.strftime("%b")))
                     current_month = week_date.month
+        return month_labels
 
-        # Render month labels
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        """Render the heatmap using rich."""
+        # Day labels (first column)
+        day_labels = ["", "Mon", "", "Wed", "", "Fri", ""]
+
+        # Month labels (top row) - show month when it changes
+        month_labels = self._get_month_labels()
+
+        # Render month labels - each week column is 2 chars wide
         month_line = " " * 4  # Space for day labels
-        for week_idx in range(self.weeks):
+        week_idx = 0
+        while week_idx < self.weeks:
             # Check if this week has a month label
-            label = ""
+            label = None
             for label_week, label_text in month_labels:
                 if label_week == week_idx:
                     label = label_text
                     break
+
             if label:
-                month_line += label + " " * (2 - len(label) + 1)
+                # Add label - it takes up ceil(len(label)/2) week columns
+                month_line += label
+                # Calculate how many week columns this label spans
+                chars_used = len(label)
+                weeks_spanned = (chars_used + 1) // 2  # Round up, each week is 2 chars
+                # Add padding to reach the end of the spanned weeks
+                padding_needed = (weeks_spanned * 2) - chars_used
+                month_line += " " * padding_needed
+                # Skip the weeks we've covered
+                week_idx += weeks_spanned
             else:
+                # No label for this week - add 2 spaces
                 month_line += "  "
+                week_idx += 1
+
         yield Segment(month_line + "\n")
 
         # Render heatmap grid
@@ -182,3 +202,92 @@ class ActivityHeatmap:
         """Measure the heatmap width."""
         width = 4 + self.weeks * 2  # day labels + 2 chars per week
         return Measurement(width, width)
+
+
+class YearHeatmap(ActivityHeatmap):
+    """Year-aligned heatmap that starts from Jan 1."""
+
+    def __init__(self, activity: Counter[date], year_start: date, year_end: date):
+        """
+        Create a year-aligned heatmap.
+
+        Args:
+            activity: Counter mapping dates to activity counts
+            year_start: Start of year (Jan 1)
+            year_end: End of year (Dec 31 or current date)
+        """
+        # Calculate weeks needed
+        days_in_range = (year_end - year_start).days + 1
+        weeks = (days_in_range + 6) // 7
+
+        # Initialize using parent but we'll override start_date
+        super().__init__(activity, end_date=year_end, weeks=weeks)
+
+        # Override to start from Jan 1, not weeks back from end_date
+        self.start_date = year_start
+        self.year_start = year_start
+        self.year_end = year_end
+
+        # Rebuild grid with correct start date
+        self.grid = self._build_grid()
+
+    def _get_month_labels(self) -> list[tuple[int, str]]:
+        """Get month labels, filtering to only show months within the year."""
+        month_labels = []
+        current_month = None
+        for week_idx in range(self.weeks):
+            if week_idx < len(self.grid[0]):
+                week_date = self.grid[0][week_idx][0]
+                # Only show month label if the date is within the year range
+                if self.year_start <= week_date <= self.year_end and week_date.month != current_month:
+                    month_labels.append((week_idx, week_date.strftime("%b")))
+                    current_month = week_date.month
+        return month_labels
+
+
+def render_all_time_heatmap(activity: Counter[date], console: Console) -> None:
+    """
+    Render full activity history with year-aligned rows.
+
+    Each year (Jan-Dec) is shown as a separate 52-week heatmap row.
+    Current year starts from Jan 1 and goes to today.
+
+    Args:
+        activity: Counter mapping dates to activity counts
+        console: Rich console for rendering
+    """
+    if not activity:
+        return
+
+    # Find date range
+    min_date = min(activity.keys())
+    max_date = max(activity.keys())
+
+    # Start from Jan 1 of the earliest year
+    start_year = min_date.year
+    end_year = max_date.year
+
+    # Render each year
+    for year in range(start_year, end_year + 1):
+        # Year boundaries
+        year_start = date(year, 1, 1)
+        if year == end_year:
+            year_end = max_date
+        else:
+            year_end = date(year, 12, 31)
+
+        # Check if this year has any activity
+        year_has_activity = any(year_start <= d <= year_end for d in activity.keys())
+        if not year_has_activity:
+            continue  # Skip empty years
+
+        # Create a custom heatmap that starts exactly from Jan 1
+        heatmap = YearHeatmap(activity, year_start, year_end)
+
+        # Year label
+        year_label = Text(f"{year}", style="bold")
+        console.print(year_label)
+
+        # Render the heatmap
+        console.print(heatmap)
+        console.print()  # Blank line between years

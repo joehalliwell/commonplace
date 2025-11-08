@@ -233,6 +233,10 @@ def stats(
         Optional[str],
         Parameter(name=["--source"], help="Filter by source (e.g., 'journal', 'chats/claude')"),
     ] = None,
+    all_time: Annotated[
+        bool,
+        Parameter(name=["--all"], help="Show full history (default: last 52 weeks)"),
+    ] = False,
 ) -> None:
     """Show statistics about your commonplace and search index."""
 
@@ -261,10 +265,19 @@ def stats(
     # Build activity heatmap
     activity = build_activity_data(note_paths)
     if activity:
-        title = "Activity (last 52 weeks)" + (f" - {source}" if source else "")
-        console.print(f"\n[bold]{title}[/bold]\n")
-        heatmap = ActivityHeatmap(activity, weeks=52)
-        console.print(heatmap)
+        if all_time:
+            # Show full history, year by year
+            from commonplace._heatmap import render_all_time_heatmap
+
+            title = "Activity (all time)" + (f" - {source}" if source else "")
+            console.print(f"\n[bold]{title}[/bold]\n")
+            render_all_time_heatmap(activity, console)
+        else:
+            # Show last 52 weeks
+            title = "Activity (last 52 weeks)" + (f" - {source}" if source else "")
+            console.print(f"\n[bold]{title}[/bold]\n")
+            heatmap = ActivityHeatmap(activity, weeks=52)
+            console.print(heatmap)
         console.print()
 
     # Collate the stats (only show filtered results)
