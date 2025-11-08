@@ -126,3 +126,117 @@ def test_has_remote_custom_name(test_repo):
     test_repo.git.remotes.create("upstream", "https://github.com/test/repo.git")
     assert test_repo.has_remote("upstream")
     assert not test_repo.has_remote("origin")
+
+
+def test_commit_auto_indexes_by_default(test_repo, monkeypatch):
+    """Test that commit auto-indexes when config.auto_index is True."""
+    # Track if index was called
+    index_called = []
+
+    def mock_index(repo, rebuild):
+        index_called.append((repo, rebuild))
+
+    # Patch the index function
+    import commonplace._search._commands
+
+    monkeypatch.setattr(commonplace._search._commands, "index", mock_index)
+
+    # Ensure config has auto_index=True (default)
+    assert test_repo.config.auto_index is True
+
+    # Create and commit a note
+    note = Note(
+        repo_path=RepoPath(path=Path("test.md"), ref=""),
+        content="# Test\nHello world",
+    )
+    test_repo.save(note)
+    test_repo.commit("Test commit")
+
+    # Verify index was called once with rebuild=False
+    assert len(index_called) == 1
+    assert index_called[0] == (test_repo, False)
+
+
+def test_commit_no_index_flag_disables_indexing(test_repo, monkeypatch):
+    """Test that commit with auto_index=False doesn't index."""
+    # Track if index was called
+    index_called = []
+
+    def mock_index(repo, rebuild):
+        index_called.append((repo, rebuild))
+
+    # Patch the index function
+    import commonplace._search._commands
+
+    monkeypatch.setattr(commonplace._search._commands, "index", mock_index)
+
+    # Create and commit a note with auto_index=False
+    note = Note(
+        repo_path=RepoPath(path=Path("test.md"), ref=""),
+        content="# Test\nHello world",
+    )
+    test_repo.save(note)
+    test_repo.commit("Test commit", auto_index=False)
+
+    # Verify index was NOT called
+    assert len(index_called) == 0
+
+
+def test_commit_index_flag_overrides_config(test_repo, monkeypatch):
+    """Test that auto_index=True overrides config when auto_index is False."""
+    # Track if index was called
+    index_called = []
+
+    def mock_index(repo, rebuild):
+        index_called.append((repo, rebuild))
+
+    # Patch the index function
+    import commonplace._search._commands
+
+    monkeypatch.setattr(commonplace._search._commands, "index", mock_index)
+
+    # Set config to auto_index=False
+    monkeypatch.setattr(test_repo.config, "auto_index", False)
+
+    # Create and commit a note with auto_index=True (override)
+    note = Note(
+        repo_path=RepoPath(path=Path("test.md"), ref=""),
+        content="# Test\nHello world",
+    )
+    test_repo.save(note)
+    test_repo.commit("Test commit", auto_index=True)
+
+    # Verify index WAS called (flag overrode config)
+    assert len(index_called) == 1
+    assert index_called[0] == (test_repo, False)
+
+
+def test_commit_no_changes_skips_indexing(test_repo, monkeypatch):
+    """Test that commit with no changes doesn't trigger indexing."""
+    # Track if index was called
+    index_called = []
+
+    def mock_index(repo, rebuild):
+        index_called.append((repo, rebuild))
+
+    # Patch the index function
+    import commonplace._search._commands
+
+    monkeypatch.setattr(commonplace._search._commands, "index", mock_index)
+
+    # Create initial commit
+    note = Note(
+        repo_path=RepoPath(path=Path("test.md"), ref=""),
+        content="# Test\nHello world",
+    )
+    test_repo.save(note)
+    test_repo.commit("Initial commit")
+
+    # Clear the tracking
+    index_called.clear()
+
+    # Try to commit with no changes
+    test_repo.commit("No changes")
+
+    # Verify index was NOT called (no changes means no commit means no index)
+    assert len(index_called) == 0

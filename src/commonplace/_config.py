@@ -38,6 +38,7 @@ class Config(BaseSettings):
     user: str = Field(default=DEFAULT_NAME, description="Human-readable name for the user e.g., Joe")
     wrap: int = Field(default=80, description="Target characters per line for text wrapping")
     editor: str = Field(default=DEFAULT_EDITOR, description="Default editor for opening notes")
+    auto_index: bool = Field(default=True, description="Automatically index notes when they are added")
 
     def source(self, repo_path: RepoPath) -> str:
         """The source of this collection of notes/chats"""

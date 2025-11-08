@@ -64,17 +64,27 @@ CREATING_SECTION = "Creating notes"
 
 
 @app.command(name="import", alias="i", group=CREATING_SECTION)
-def import_(path: Path) -> None:
+def import_(
+    path: Path,
+    index: Annotated[
+        Optional[bool],
+        Parameter(name=["--index/--no-index"], help="Index notes after commit (default: from config)"),
+    ] = None,
+) -> None:
     """Import AI conversation exports (Claude ZIP, Gemini Takeout) into your commonplace."""
 
     from commonplace._import._commands import import_
 
-    import_(path, repo, user=repo.config.user, prefix="chats")
+    import_(path, repo, user=repo.config.user, prefix="chats", auto_index=index)
 
 
 @app.command(alias="j", group=CREATING_SECTION)
 def journal(
     date_str: Annotated[Optional[str], Parameter(help="Date for the journal entry (YYYY-MM-DD)")] = None,
+    index: Annotated[
+        Optional[bool],
+        Parameter(name=["--index/--no-index"], help="Index notes after commit (default: from config)"),
+    ] = None,
 ) -> None:
     """Create or edit a daily journal entry."""
 
@@ -120,6 +130,9 @@ def journal(
     note = Note(repo_path=repo_path, content=edited_content)
     repo.save(note)
     logger.info(f"Saved journal entry to {journal_path.relative_to(repo.root)}")
+
+    # Commit the journal entry
+    repo.commit(f"Update journal entry for {date.strftime('%Y-%m-%d')}", auto_index=index)
 
 
 ################################################################################

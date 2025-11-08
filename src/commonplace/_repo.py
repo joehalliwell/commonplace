@@ -251,8 +251,13 @@ class Commonplace:
             fd.write(note.content)
         self.git.index.add(note.repo_path.path.as_posix())
 
-    def commit(self, message: str) -> None:
-        """Commit staged changes to the repository."""
+    def commit(self, message: str, auto_index: bool | None = None) -> None:
+        """Commit staged changes to the repository.
+
+        Args:
+            message: Commit message
+            auto_index: Whether to index after committing (default: from config)
+        """
         # Check if there are actually changes to commit
         tree = self.git.index.write_tree()
 
@@ -283,6 +288,14 @@ class Commonplace:
         # Write index to disk to ensure it matches the new HEAD
         self.git.index.write()
         logger.info(f"Committed changes with message: {message}")
+
+        # Auto-index if enabled
+        should_index = auto_index if auto_index is not None else self.config.auto_index
+        if should_index:
+            from commonplace._search._commands import index
+
+            logger.info("Auto-indexing committed notes")
+            index(self, rebuild=False)
 
     def has_remote(self, remote_name: str = "origin") -> bool:
         """

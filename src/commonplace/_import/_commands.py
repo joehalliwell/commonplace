@@ -24,17 +24,17 @@ IMPORTERS: list[Importer] = [
 ]
 
 
-def import_(path: Path, repo: Commonplace, user: str, prefix="chats"):
+def import_(path: Path, repo: Commonplace, user: str, prefix="chats", auto_index: bool | None = None):
     """Import an exported/local log or a directory of the same"""
     assert path.exists()
     if path.is_file():
-        import_one(path, repo, user, prefix=prefix)
+        import_one(path, repo, user, prefix=prefix, auto_index=auto_index)
     else:
         logger.debug("Scanning '{path}' for export files")
         assert path.is_dir()
         paths_to_import = sorted(p for p in path.rglob("*") if p.is_file())
         for filepath in progress_track(paths_to_import, "Importing files"):
-            import_one(filepath, repo, user, prefix=prefix)
+            import_one(filepath, repo, user, prefix=prefix, auto_index=auto_index)
 
 
 def autodetect_importer(path: Path) -> Optional[Importer]:
@@ -50,7 +50,7 @@ def autodetect_importer(path: Path) -> Optional[Importer]:
     return None
 
 
-def import_one(path: Path, repo: Commonplace, user: str, prefix="chats"):
+def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_index: bool | None = None):
     """
     Import chats from a supported provider into the repository.
 
@@ -91,7 +91,7 @@ def import_one(path: Path, repo: Commonplace, user: str, prefix="chats"):
         repo.save(note)
         logger.info(f"Stored log '{log.title}' at '{rel_path}'")
 
-    repo.commit(f"Import from '{path}' using '{importer.source}' importer")
+    repo.commit(f"Import from '{path}' using '{importer.source}' importer", auto_index=auto_index)
 
 
 def make_chat_path(source: str, date: datetime, title: Optional[str], prefix="chats") -> Path:
