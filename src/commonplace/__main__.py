@@ -228,18 +228,48 @@ def sync(
 
 
 @app.command(group=SYSTEM_SECTION)
-def stats() -> None:
+def stats(
+    source: Annotated[
+        Optional[str],
+        Parameter(name=["--source"], help="Filter by source (e.g., 'journal', 'chats/claude')"),
+    ] = None,
+) -> None:
     """Show statistics about your commonplace and search index."""
 
     from rich.console import Console
     from rich.progress import track
     from rich.table import Table
 
-    # Collate the stats
+    from commonplace._heatmap import ActivityHeatmap, build_activity_data
+
+    console = Console()
+
+    # Collect note paths (with progress)
+    all_note_paths = list(track(repo.note_paths(), description="Scanning repo", transient=True))
+
+    # Filter by source if specified
+    if source:
+        note_paths = [path for path in all_note_paths if repo.config.source(path) == source]
+        if not note_paths:
+            logger.error(f"No notes found for source '{source}'")
+            available_sources = sorted(set(repo.config.source(path) for path in all_note_paths))
+            logger.info(f"Available sources: {', '.join(available_sources)}")
+            return
+    else:
+        note_paths = all_note_paths
+
+    # Build activity heatmap
+    activity = build_activity_data(note_paths)
+    if activity:
+        title = "Activity (last 52 weeks)" + (f" - {source}" if source else "")
+        console.print(f"\n[bold]{title}[/bold]\n")
+        heatmap = ActivityHeatmap(activity, weeks=52)
+        console.print(heatmap)
+        console.print()
+
+    # Collate the stats (only show filtered results)
     repo_counts: Counter[str] = Counter()
-    repo_counts.update(
-        repo.config.source(path) for path in track(repo.note_paths(), description="Scanning repo", transient=True)
-    )
+    repo_counts.update(repo.config.source(path) for path in note_paths)
 
     index_chunks_by_source: Counter[str] = Counter()
     for stat in track(repo.index.stats(), description="Scanning index", transient=True):
@@ -272,7 +302,6 @@ def stats() -> None:
     table.add_section()
     table.add_row("Total", make_percentage(repo_total, repo_total), make_percentage(index_total, index_total))
 
-    console = Console()
     console.print(table)
 
 
