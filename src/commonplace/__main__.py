@@ -272,7 +272,15 @@ def stats(
     repo_counts.update(repo.config.source(path) for path in note_paths)
 
     index_chunks_by_source: Counter[str] = Counter()
-    for stat in track(repo.index.stats(), description="Scanning index", transient=True):
+    all_stats = list(track(repo.index.stats(), description="Scanning index", transient=True))
+
+    # Filter index stats by source if specified
+    if source:
+        filtered_stats = [stat for stat in all_stats if repo.config.source(stat.repo_path) == source]
+    else:
+        filtered_stats = all_stats
+
+    for stat in filtered_stats:
         index_chunks_by_source.update({repo.config.source(stat.repo_path): stat.num_chunks})
 
     sources = sorted(
