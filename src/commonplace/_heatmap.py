@@ -106,7 +106,7 @@ class ActivityHeatmap:
         # (GitHub starts weeks on Sunday)
         current = self.start_date - timedelta(days=self.start_date.weekday() + 1)  # Go to Sunday
 
-        grid = [[] for _ in range(7)]  # 7 rows (Sun-Sat)
+        grid: list[list[tuple[date, int]]] = [[] for _ in range(7)]  # 7 rows (Sun-Sat)
 
         for _ in range(self.weeks):
             for day in range(7):

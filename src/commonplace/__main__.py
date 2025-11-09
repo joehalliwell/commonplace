@@ -2,7 +2,6 @@ import datetime as dt
 import logging
 import os
 import subprocess
-from collections import Counter
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -230,9 +229,9 @@ def sync(
 @app.command(group=SYSTEM_SECTION)
 def stats(
     source: Annotated[
-        Optional[str],
-        Parameter(name=["--source"], help="Filter by source (e.g., 'journal', 'chats/claude')"),
-    ] = None,
+        list[str],
+        Parameter(name=["--source"], help="Filter by source (can be specified multiple times)"),
+    ] = [],
     all_time: Annotated[
         bool,
         Parameter(name=["--all"], help="Show full history (default: last 52 weeks)"),
@@ -240,90 +239,27 @@ def stats(
 ) -> None:
     """Show statistics about your commonplace and search index."""
 
-    from rich.console import Console
-    from rich.progress import track
-    from rich.table import Table
+    from commonplace._stats import generate_stats
 
-    from commonplace._heatmap import ActivityHeatmap, build_activity_data
-
-    console = Console()
-
-    # Collect note paths (with progress)
-    all_note_paths = list(track(repo.note_paths(), description="Scanning repo", transient=True))
-
-    # Filter by source if specified
-    if source:
-        note_paths = [path for path in all_note_paths if repo.config.source(path) == source]
-        if not note_paths:
-            logger.error(f"No notes found for source '{source}'")
-            available_sources = sorted(set(repo.config.source(path) for path in all_note_paths))
-            logger.info(f"Available sources: {', '.join(available_sources)}")
-            return
-    else:
-        note_paths = all_note_paths
-
-    # Build activity heatmap
-    activity = build_activity_data(note_paths)
-    if activity:
-        if all_time:
-            # Show full history, year by year
-            from commonplace._heatmap import render_all_time_heatmap
-
-            title = "Activity (all time)" + (f" - {source}" if source else "")
-            console.print(f"\n[bold]{title}[/bold]\n")
-            render_all_time_heatmap(activity, console)
-        else:
-            # Show last 52 weeks
-            title = "Activity (last 52 weeks)" + (f" - {source}" if source else "")
-            console.print(f"\n[bold]{title}[/bold]\n")
-            heatmap = ActivityHeatmap(activity, weeks=52)
-            console.print(heatmap)
-        console.print()
-
-    # Collate the stats (only show filtered results)
-    repo_counts: Counter[str] = Counter()
-    repo_counts.update(repo.config.source(path) for path in note_paths)
-
-    index_chunks_by_source: Counter[str] = Counter()
-    all_stats = list(track(repo.index.stats(), description="Scanning index", transient=True))
-
-    # Filter index stats by source if specified
-    if source:
-        filtered_stats = [stat for stat in all_stats if repo.config.source(stat.repo_path) == source]
-    else:
-        filtered_stats = all_stats
-
-    for stat in filtered_stats:
-        index_chunks_by_source.update({repo.config.source(stat.repo_path): stat.num_chunks})
-
-    sources = sorted(
-        set(repo_counts) | set(index_chunks_by_source),
-        key=lambda category: -repo_counts.get(category, 0),
-    )
-
-    # Display them
-    table = Table("Source", "Files", "Indexed chunks")
-    repo_total = sum(repo_counts.values(), 0)
-    index_total = sum(index_chunks_by_source.values(), 0)
-
-    def make_percentage(val, total):
-        return f"{val:<6,} [dim]{val / total:>6.1%}[/]" if total > 0 else "0"
-
-    # Add a row for each source
-    for source in sources:
-        repo_count = repo_counts.get(source, 0)
-        index_count = index_chunks_by_source.get(source, 0)
-        table.add_row(
-            source,
-            make_percentage(repo_count, repo_total),
-            make_percentage(index_count, index_total),
+    try:
+        heatmap_output, table_output = generate_stats(
+            repo,
+            sources=source if source else None,
+            all_time=all_time,
         )
 
-    # Add total row
-    table.add_section()
-    table.add_row("Total", make_percentage(repo_total, repo_total), make_percentage(index_total, index_total))
+        # Display the outputs (captured strings already have ANSI formatting)
+        if heatmap_output:
+            print(heatmap_output, end="")
+        print(table_output, end="")
 
-    console.print(table)
+    except ValueError as e:
+        logger.error(str(e))
+        # Show available sources
+        all_note_paths = list(repo.note_paths())
+        available_sources = sorted(set(repo.config.source(path) for path in all_note_paths))
+        logger.info(f"Available sources: {', '.join(available_sources)}")
+        return
 
 
 if __name__ == "__main__":
