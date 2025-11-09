@@ -28,12 +28,16 @@ def generate_stats(
 
     console = Console()
 
+    # Helper function for source prefix matching (e.g., "chats" matches "chats/claude")
+    def matches_any_source(source_str: str) -> bool:
+        return any(source_str == src or source_str.startswith(src + "/") for src in sources)
+
     # Collect all note paths
     all_note_paths = list(repo.note_paths())
 
     # Filter by sources if specified
     if sources:
-        note_paths = [path for path in all_note_paths if repo.config.source(path) in sources]
+        note_paths = [path for path in all_note_paths if matches_any_source(repo.config.source(path))]
         if not note_paths:
             raise ValueError(f"No notes found for sources: {', '.join(sources)}")
     else:
@@ -73,7 +77,7 @@ def generate_stats(
 
     # Filter index stats by sources if specified
     if sources:
-        filtered_stats = [stat for stat in all_stats if repo.config.source(stat.repo_path) in sources]
+        filtered_stats = [stat for stat in all_stats if matches_any_source(repo.config.source(stat.repo_path))]
     else:
         filtered_stats = all_stats
 

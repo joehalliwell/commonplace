@@ -57,6 +57,24 @@ def test_generate_stats_with_multiple_sources(test_repo):
     assert "chats/claude" in table_output
 
 
+def test_generate_stats_with_prefix_matching(test_repo):
+    """Test stats generation with prefix matching (e.g., 'chats' matches 'chats/claude')."""
+    # Add notes in different chat sources
+    test_repo.save(Note(RepoPath(Path("chats/claude/2024/01/2024-01-15.md"), ""), "# Claude chat\n\nContent"))
+    test_repo.save(Note(RepoPath(Path("chats/gemini/2024/01/2024-01-16.md"), ""), "# Gemini chat\n\nContent"))
+    test_repo.save(Note(RepoPath(Path("journal/2024/01/2024-01-17.md"), ""), "# Journal\n\nContent"))
+
+    # Filter by "chats" prefix - should match both chat sources
+    heatmap_output, table_output = generate_stats(test_repo, sources=["chats"], all_time=False)
+
+    # Check that both chat sources are included
+    assert "chats" in heatmap_output
+    assert "chats/claude" in table_output
+    assert "chats/gemini" in table_output
+    # Journal should not be included
+    assert "journal" not in table_output
+
+
 def test_generate_stats_all_time(test_repo):
     """Test stats generation with all-time view."""
     # Add notes from different years
