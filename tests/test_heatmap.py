@@ -78,13 +78,12 @@ def test_activity_heatmap_intensity_levels():
     )
     heatmap = ActivityHeatmap(activity, end_date=date(2024, 1, 31), weeks=4)
 
-    # Should have 4 levels (0, low, medium, high)
-    assert len(heatmap.levels) == 4
+    # Should have 5 levels (0 + 3 intensity levels + max)
+    assert len(heatmap.levels) == 5
 
-    # Check that thresholds are calculated
-    assert heatmap.q1 > 0
-    assert heatmap.q2 > 0
-    assert heatmap.q3 > 0
+    # Check that levels are sorted by threshold
+    thresholds = [level[0] for level in heatmap.levels]
+    assert thresholds == sorted(thresholds)
 
 
 def test_activity_heatmap_style_selection():
@@ -97,7 +96,65 @@ def test_activity_heatmap_style_selection():
     assert char_0 == "░"  # No activity
 
     style_1, char_1 = heatmap._get_style_and_char(1)
-    assert char_1 == "▓"  # Low activity
+    assert char_1 == "█"  # Activity
 
-    style_high, char_high = heatmap._get_style_and_char(10)
-    assert char_high == "█"  # High activity
+    style_max, char_max = heatmap._get_style_and_char(5)
+    assert char_max == "*"  # Max activity gets special char
+
+
+def test_activity_heatmap_thresholds_start_at_one():
+    """Test that first non-zero threshold starts at 1."""
+    activity = Counter({date(2024, 1, 1): 5, date(2024, 1, 2): 10})
+    heatmap = ActivityHeatmap(activity, end_date=date(2024, 1, 31), weeks=4)
+
+    # Extract thresholds from levels (skip the 0 level)
+    thresholds = [level[0] for level in heatmap.levels if level[0] > 0]
+    assert thresholds[0] == 1
+
+
+def test_activity_heatmap_max_count_one_gets_highest_intensity():
+    """Test that when max count is 1, it gets the highest intensity."""
+    activity = Counter({date(2024, 1, 1): 1})
+    heatmap = ActivityHeatmap(activity, end_date=date(2024, 1, 31), weeks=4)
+
+    # Count of 1 should get the max intensity (*)
+    style, char = heatmap._get_style_and_char(1)
+    assert char == "*"
+
+
+def test_activity_heatmap_max_gets_special_marker():
+    """Test that max value gets special red asterisk marker."""
+    activity = Counter(
+        {
+            date(2024, 1, 1): 1,
+            date(2024, 1, 2): 5,
+            date(2024, 1, 3): 10,
+        }
+    )
+    heatmap = ActivityHeatmap(activity, end_date=date(2024, 1, 31), weeks=4)
+
+    # Max value should get the special marker
+    style, char = heatmap._get_style_and_char(10)
+    assert char == "*"
+
+    # Last level should be max with red color
+    assert heatmap.levels[-1][0] == 10
+    assert heatmap.levels[-1][2] == "*"
+
+
+def test_activity_heatmap_custom_num_levels():
+    """Test that custom number of levels works correctly."""
+    activity = Counter(
+        {
+            date(2024, 1, 1): 1,
+            date(2024, 1, 2): 10,
+        }
+    )
+    heatmap = ActivityHeatmap(activity, end_date=date(2024, 1, 31), weeks=4, num_levels=5)
+
+    # Should have 7 levels total (0 + 5 intensity levels + max)
+    assert len(heatmap.levels) == 7
+
+    # Last level should be max
+    assert heatmap.levels[-1][0] == 10
+    assert heatmap.levels[-1][2] == "*"

@@ -59,7 +59,13 @@ def build_activity_data(note_paths: list[RepoPath]) -> Counter[date]:
 class ActivityHeatmap:
     """GitHub-style activity heatmap visualization."""
 
-    def __init__(self, activity: Counter[date], end_date: date | None = None, weeks: int = 52):
+    def __init__(
+        self,
+        activity: Counter[date],
+        end_date: date | None = None,
+        weeks: int = 52,
+        num_levels: int = 3,
+    ):
         """
         Create an activity heatmap.
 
@@ -67,10 +73,14 @@ class ActivityHeatmap:
             activity: Counter mapping dates to activity counts
             end_date: End date for heatmap (default: today)
             weeks: Number of weeks to show (default: 52)
+            num_levels: Number of intensity levels excluding 0 (default: 3)
         """
+        assert num_levels >= 1, "num_levels must be at least 1"
+
         self.activity = activity
         self.end_date = end_date or date.today()
         self.weeks = weeks
+        self.num_levels = num_levels
 
         # Calculate start date (weeks * 7 days before end_date)
         self.start_date = self.end_date - timedelta(days=weeks * 7 - 1)
@@ -78,27 +88,21 @@ class ActivityHeatmap:
         # Build the grid (7 rows for days of week, weeks columns)
         self.grid = self._build_grid()
 
-        # Define intensity levels (like GitHub)
-        # Calculate quartiles from the data for dynamic levels
-        if activity:
-            values = [count for count in activity.values() if count > 0]
-            if values:
-                values_sorted = sorted(values)
-                q1 = values_sorted[len(values_sorted) // 4] if len(values_sorted) > 4 else 1
-                q2 = values_sorted[len(values_sorted) // 2] if len(values_sorted) > 2 else 2
-                q3 = values_sorted[3 * len(values_sorted) // 4] if len(values_sorted) > 4 else 3
-            else:
-                q1, q2, q3 = 1, 2, 3
-        else:
-            q1, q2, q3 = 1, 2, 3
+        self.levels = [(0, Style(color="grey30", bgcolor=None), "░")]  # No activity
 
-        self.levels = [
-            (0, Style(color="grey30"), "░"),  # No activity
-            (1, Style(color="#0e4429"), "▓"),  # Low (1st quartile) - GitHub dark green
-            (q2, Style(color="#006d32"), "▓"),  # Medium (median) - GitHub medium green
-            (q3, Style(color="#26a641"), "█"),  # High (3rd quartile) - GitHub bright green
-        ]
-        self.q1, self.q2, self.q3 = q1, q2, q3
+        # Define intensity level lower bounds by dividing value range [1, max]
+        # into equal sections. This provides better visual signal than
+        # percentiles when data is skewed
+        max_val = max(activity.values())
+
+        for i in range(num_levels):
+            threshold = 1 + int((max_val - 1) * i / (num_levels))
+            x = i / (num_levels - 1) if num_levels > 1 else 1
+            color = f"rgb({int(50 + (0.5 - x) * 50)},{int(50 + x * 150)},{50})"  # Gradient from dark to bright green
+            self.levels.append((threshold, Style(color=color), "█"))  # Placeholder
+
+        # Max activity
+        self.levels.append((max_val, Style(color="red", bold=True), "*"))
 
     def _build_grid(self) -> list[list[tuple[date, int]]]:
         """Build the heatmap grid."""
