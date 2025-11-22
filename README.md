@@ -111,33 +111,16 @@ Before you can import conversations into Commonplace, you need to export them fr
 
 ## Usage
 
-### Import Claude conversations
+### Import conversations
 
-1. Export your conversations from claude.ai (Download > Export)
-1. Import the ZIP file:
-
-```bash
-commonplace import path/to/claude-export.zip
-```
-
-### Import Gemini conversations
-
-1. Request your data from [Google Takeout](https://takeout.google.com)
-1. Select "My Activity" and "Assistant"
-1. Import the ZIP file:
+Once you have exported your conversations (see [Exporting Conversations](#exporting-conversations) above), import them:
 
 ```bash
-commonplace import path/to/takeout-export.zip
+# Import any supported export format
+commonplace import path/to/export.zip
 ```
 
-### Import ChatGPT conversations
-
-1. Export your data from ChatGPT (Settings > Data Controls > Export)
-1. Import the ZIP file:
-
-```bash
-commonplace import path/to/chatgpt-export.zip
-```
+The importer automatically detects the format (Claude, ChatGPT, or Gemini) and processes accordingly.
 
 ### Search your conversations
 
