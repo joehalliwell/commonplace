@@ -28,6 +28,9 @@ def generate_stats(
 
     console = Console()
 
+    console.print(f"[bold]Statistics for {repo.root}[/bold]")
+    console.print()
+
     # Helper function for source prefix matching (e.g., "chats" matches "chats/claude")
     def matches_any_source(source_str: str) -> bool:
         return any(source_str == src or source_str.startswith(src + "/") for src in sources)
@@ -57,11 +60,11 @@ def generate_stats(
         with console.capture() as capture:
             if all_time:
                 title = f"Activity (all time){source_suffix}"
-                console.print(f"\n[bold]{title}[/bold]\n")
+                console.print(f"[bold]{title}[/bold]")
                 render_all_time_heatmap(activity, console)
             else:
                 title = f"Activity (last 52 weeks){source_suffix}"
-                console.print(f"\n[bold]{title}[/bold]\n")
+                console.print(f"[bold]{title}[/bold]")
                 heatmap = ActivityHeatmap(activity, weeks=52)
                 console.print(heatmap)
             console.print()

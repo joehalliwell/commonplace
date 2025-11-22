@@ -15,15 +15,26 @@ from commonplace._search._types import SearchMethod
 from commonplace._types import Note
 from commonplace._utils import edit_in_editor
 
+DEFAULT_ROOT = Path(user_data_dir("commonplace"))
+ENV_PREFIX = "COMMONPLACE"
+
 app = App(
     name="commonplace",
     help="Personal knowledge management tool for the augmented self.",
-    config=[cyclopts.config.Env(prefix="COMMONPLACE_")],
+    config=[cyclopts.config.Env(prefix=f"{ENV_PREFIX}_")],
 )
 
-DEFAULT_ROOT = Path(user_data_dir("commonplace"))
 
 Repo: TypeAlias = Annotated[Commonplace, Parameter(parse=False)]
+Sources: TypeAlias = Annotated[
+    list[str],
+    Parameter(
+        name=["--source", "-s"],
+        help="Filter by source (can be specified multiple times)",
+        negative="",
+        show_default=False,
+    ),
+]
 
 
 def _open_repo(root: Path) -> Commonplace:
@@ -40,12 +51,17 @@ def _launch(
     *tokens: Annotated[str, Parameter(show=False, allow_leading_hyphen=True)],
     verbose: Annotated[
         bool,
-        Parameter(name=["-v", "--verbose"], help="Provide more detailed logging.", negative=[]),
+        Parameter(
+            name=["-v", "--verbose"],
+            help="Provide more detailed logging.",
+            negative=[],
+            env_var=f"{ENV_PREFIX}_VERBOSE",
+        ),
     ] = False,
     root: Annotated[
         Path,
-        Parameter(name=["--root"], help="Path to the commonplace root directory."),
-    ] = DEFAULT_ROOT,
+        Parameter(name=["--root"], help="Path to the commonplace root directory.", env_var=f"{ENV_PREFIX}_ROOT"),
+    ] = Path(os.getenv("COMMONPLACE_ROOT", DEFAULT_ROOT)),
 ) -> None:
     """Set up common parameters for all commands."""
 
@@ -199,7 +215,7 @@ def git(
     os.execlp(cmd, cmd, *args)
 
 
-@app.meta.command()
+@app.meta.command(group=SYSTEM_SECTION)
 def init(root: Path) -> None:
     """Initialize a commonplace working directory."""
     Commonplace.init(root)
@@ -247,15 +263,12 @@ def sync(
 
 @app.command(group=SYSTEM_SECTION)
 def stats(
-    source: Annotated[
-        list[str],
-        Parameter(name=["--source"], help="Filter by source (can be specified multiple times)"),
-    ] = [],
+    *,
+    sources: Sources = [],
     all_time: Annotated[
         bool,
-        Parameter(name=["--all"], help="Show full history (default: last 52 weeks)"),
+        Parameter(name=["--all"], help="Show full history (default: last 52 weeks)", negative=""),
     ] = False,
-    *,
     repo: Repo,
 ) -> None:
     """Show statistics about your commonplace and search index."""
@@ -265,7 +278,7 @@ def stats(
     try:
         heatmap_output, table_output = generate_stats(
             repo,
-            sources=source if source else None,
+            sources=sources if sources else None,
             all_time=all_time,
         )
 
