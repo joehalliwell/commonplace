@@ -24,7 +24,7 @@ app = App(
     config=[cyclopts.config.Env(prefix=f"{ENV_PREFIX}_")],
 )
 
-
+# Type aliases for common parameters
 Repo: TypeAlias = Annotated[Commonplace, Parameter(parse=False)]
 Sources: TypeAlias = Annotated[
     list[str],
@@ -35,15 +35,6 @@ Sources: TypeAlias = Annotated[
         show_default=False,
     ),
 ]
-
-
-def _open_repo(root: Path) -> Commonplace:
-    try:
-        repo = Commonplace.open(root)
-    except Exception as e:
-        logger.error(f"Failed to open commonplace repository at {root}: {e}")
-        raise SystemExit(1) from e
-    return repo
 
 
 @app.meta.default
@@ -78,6 +69,20 @@ def _launch(
     except Exception as e:
         logger.error(f"Error executing command: {e}")
         raise SystemExit(1) from e
+
+
+def _open_repo(root: Path) -> Commonplace:
+    """Try to open a commonplace repository at the given root path. Exit on
+    failure with a helpful message.
+
+    TODO: Make messages more helpful.
+    """
+    try:
+        repo = Commonplace.open(root)
+    except Exception as e:
+        logger.error(f"Failed to open commonplace repository at {root}: {e}")
+        raise SystemExit(1) from e
+    return repo
 
 
 ################################################################################
