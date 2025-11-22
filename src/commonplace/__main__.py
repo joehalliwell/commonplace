@@ -3,7 +3,7 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Optional, TypeAlias
 
 import cyclopts
 from cyclopts import App, Parameter
@@ -20,13 +20,23 @@ app = App(
     help="Personal knowledge management tool for the augmented self.",
     config=[cyclopts.config.Env(prefix="COMMONPLACE_")],
 )
-repo: Commonplace = None  # type: ignore # Will be set in launch()
 
 DEFAULT_ROOT = Path(user_data_dir("commonplace"))
 
+Repo: TypeAlias = Annotated[Commonplace, Parameter(parse=False)]
+
+
+def _open_repo(root: Path) -> Commonplace:
+    try:
+        repo = Commonplace.open(root)
+    except Exception as e:
+        logger.error(f"Failed to open commonplace repository at {root}: {e}")
+        raise SystemExit(1) from e
+    return repo
+
 
 @app.meta.default
-def launch(
+def _launch(
     *tokens: Annotated[str, Parameter(show=False, allow_leading_hyphen=True)],
     verbose: Annotated[
         bool,
@@ -42,15 +52,13 @@ def launch(
     # Setup logging before doing anything else!
     logger.setLevel(logging.DEBUG if verbose else logging.INFO)
 
-    global repo
     try:
-        repo = Commonplace.open(root)
-    except Exception as e:
-        logger.error(f"Failed to open commonplace repository at {root}: {e}")
-        raise SystemExit(1) from e
+        extras = {}
+        command, bound, ignored = app.parse_args(tokens)
+        if "repo" in ignored:  # Inject repo if command needs it
+            extras["repo"] = _open_repo(root)
+        return command(*bound.args, **bound.kwargs, **extras)
 
-    try:
-        app(tokens)
     except Exception as e:
         logger.error(f"Error executing command: {e}")
         raise SystemExit(1) from e
@@ -69,6 +77,8 @@ def import_(
         Optional[bool],
         Parameter(name=["--index/--no-index"], help="Index notes after commit (default: from config)"),
     ] = None,
+    *,
+    repo: Repo,
 ) -> None:
     """Import AI conversation exports (Claude ZIP, Gemini Takeout) into your commonplace."""
 
@@ -84,6 +94,8 @@ def journal(
         Optional[bool],
         Parameter(name=["--index/--no-index"], help="Index notes after commit (default: from config)"),
     ] = None,
+    *,
+    repo: Repo,
 ) -> None:
     """Create or edit a daily journal entry."""
 
@@ -145,6 +157,7 @@ def search(
     *query: str,
     limit: Annotated[int, Parameter(name=["--limit", "-n"], help="Maximum number of results")] = 10,
     method: Annotated[SearchMethod, Parameter(help="Search method")] = SearchMethod.HYBRID,
+    repo: Repo,
 ) -> None:
     """Search for semantically similar content in your commonplace."""
 
@@ -172,6 +185,8 @@ SYSTEM_SECTION = "System"
 @app.command(group=SYSTEM_SECTION)
 def git(
     args: list[str],
+    *,
+    repo: Repo,
 ) -> None:
     """Execute a git command in the commonplace repository. Requires git to be
     installed and on PATH."""
@@ -197,6 +212,8 @@ def init(root: Path) -> None:
 @app.command(group=SYSTEM_SECTION)
 def index(
     rebuild: Annotated[bool, Parameter(help="Rebuild the index from scratch")] = False,
+    *,
+    repo: Repo,
 ) -> None:
     """Build or rebuild the search index for semantic search."""
 
@@ -211,6 +228,8 @@ def sync(
     branch: Annotated[Optional[str], Parameter(help="Branch name (default: current)")] = None,
     strategy: Annotated[str, Parameter(help="Sync strategy: rebase or merge")] = "rebase",
     auto_commit: Annotated[bool, Parameter(help="Auto-commit uncommitted changes")] = True,
+    *,
+    repo: Repo,
 ) -> None:
     """Synchronize with remote repository (add changes, pull, push)."""
 
@@ -236,6 +255,8 @@ def stats(
         bool,
         Parameter(name=["--all"], help="Show full history (default: last 52 weeks)"),
     ] = False,
+    *,
+    repo: Repo,
 ) -> None:
     """Show statistics about your commonplace and search index."""
 
