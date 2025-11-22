@@ -69,6 +69,46 @@ llm keys set openai
 llm install llm-gpt4all
 ```
 
+## Exporting Conversations
+
+Before you can import conversations into Commonplace, you need to export them from each service.
+
+### Exporting from Claude
+
+1. Go to [claude.ai](https://claude.ai)
+1. Click your profile icon (bottom left)
+1. Select **Settings**
+1. Go to **Data & Privacy**
+1. Click **Export data**
+1. You'll receive an email with a download link (usually within a few minutes)
+1. Download the ZIP file from the email link
+
+### Exporting from ChatGPT
+
+1. Go to [chat.openai.com](https://chat.openai.com)
+1. Click your profile icon (bottom left)
+1. Select **Settings**
+1. Go to **Data controls**
+1. Click **Export data**
+1. Confirm the export request
+1. You'll receive an email with a download link (can take up to 24 hours)
+1. Download the ZIP file from the email link
+
+### Exporting from Gemini
+
+1. Go to [Google Takeout](https://takeout.google.com)
+1. Click **Deselect all**
+1. Scroll down and select **My Activity**
+1. Click **Multiple formats** and ensure HTML is selected
+1. Click **All activity data included** and select only **Assistant**
+1. Click **Next step**
+1. Choose delivery method (email link recommended)
+1. Click **Create export**
+1. You'll receive an email when ready (can take several hours)
+1. Download the ZIP file from the email link
+
+⚠️ **Note**: Export links are temporary and typically expire after 7 days.
+
 ## Usage
 
 ### Import Claude conversations
