@@ -12,9 +12,10 @@ from commonplace._import._gemini import GeminiImporter
 from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import Importer
 from commonplace._logging import logger
+from commonplace._progress import track
 from commonplace._repo import Commonplace
 from commonplace._types import Note
-from commonplace._utils import merge_frontmatter, progress_track, slugify
+from commonplace._utils import merge_frontmatter, slugify
 
 IMPORTERS: list[Importer] = [
     GeminiImporter(),
@@ -33,7 +34,7 @@ def import_(path: Path, repo: Commonplace, user: str, prefix="chats", auto_index
         logger.debug("Scanning '{path}' for export files")
         assert path.is_dir()
         paths_to_import = sorted(p for p in path.rglob("*") if p.is_file())
-        for filepath in progress_track(paths_to_import, "Importing files"):
+        for filepath in track(paths_to_import, "Importing files"):
             import_one(filepath, repo, user, prefix=prefix, auto_index=auto_index)
 
 

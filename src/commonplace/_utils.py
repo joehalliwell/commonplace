@@ -13,7 +13,6 @@ from typing import Iterable, Optional, TypeVar
 
 import llm
 import yaml
-from rich.progress import Progress, TextColumn
 
 from commonplace._logging import logger
 
@@ -86,31 +85,6 @@ def get_model(model_name: str) -> llm.Model:
         logger.info(f"Pick: {llm.get_models()}")
         logger.info("Make sure the model is installed and configured. Try: llm models list")
         raise
-
-
-def progress_track(iterable: Iterable[T], description: str, total: int | None = None) -> Iterable[T]:
-    """
-    Track progress through an iterable with a Rich progress bar showing count.
-
-    Args:
-        iterable: The iterable to track
-        description: Description to show in the progress bar
-        total: Total number of items (optional, will try to get from len() if not provided)
-
-    Yields:
-        Items from the iterable
-    """
-    if total is None:
-        try:
-            total = len(iterable)  # type: ignore
-        except TypeError:
-            total = None  # Indeterminate progress
-
-    with Progress(*Progress.get_default_columns(), TextColumn("[dim]{task.fields[item]}")) as progress:
-        task = progress.add_task(description, total=total, item="")
-        for item in iterable:
-            progress.update(task, advance=1, item=str(item))
-            yield item
 
 
 def edit_in_editor(content: str, editor: str) -> Optional[str]:

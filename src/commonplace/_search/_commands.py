@@ -1,11 +1,12 @@
 """Semantic search components for commonplace."""
 
 from commonplace._logging import logger
+from commonplace._progress import track
 from commonplace._repo import Commonplace
 from commonplace._search._chunker import MarkdownChunker
 from commonplace._search._types import SearchHit as SearchHit
 from commonplace._search._types import SearchMethod as SearchMethod
-from commonplace._utils import batched, progress_track
+from commonplace._utils import batched
 
 
 def index(
@@ -37,7 +38,7 @@ def index(
 
     # Stream chunks from all notes and batch them for efficient embedding
     def chunk_stream():
-        for path in progress_track(to_index, "Indexing notes"):
+        for path in track(to_index, "Indexing notes"):
             note = repo.get_note(path)
             yield from chunker.chunk(note)
 
@@ -45,4 +46,5 @@ def index(
     for chunk_batch in batched(chunk_stream(), batch_size):
         repo.index.add_chunks(chunk_batch)
 
+    logger.info("Indexing complete")
     logger.info("Indexing complete")
