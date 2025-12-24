@@ -8,7 +8,9 @@ from numpy.typing import NDArray
 from commonplace._logging import logger
 
 _ALIASES = {
-    "default": "sentence-transformers:all-MiniLM-L6-v2",
+    "default": "fastembed:BAAI/bge-small-en-v1.5"
+    # "default": "sentence-transformers:all-MiniLM-L6-v2",
+    # "default": "fastembed:sentence-transformers/all-MiniLM-L6-v2"
 }
 
 
@@ -30,6 +32,9 @@ def get_embedder(model: str = "default"):
         model = _ALIASES[model]
 
     try:
+        if model.startswith("fastembed:"):
+            model_name = model.split(":")[1]
+            return FastEmbedEmbedder(model_name=model_name)
         if model.startswith("sentence-transformers:"):
             model_name = model.split(":", 1)[1]
             return SentenceTransformersEmbedder(model_name=model_name)
@@ -40,6 +45,52 @@ def get_embedder(model: str = "default"):
             raise ValueError(f"Unsupported embedder model: {model}")
     except Exception as e:
         raise RuntimeError(f"Could not initialize embedder '{model}' : {e}") from e
+
+
+class FastEmbedEmbedder:
+    """Embedder using fastembed"""
+
+    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+        self._model_name = model_name
+
+    @cached_property
+    def model(self):
+        """Lazily load the sentence transformer model."""
+        logger.info(f"Loading fastembed model '{self._model_name}'...")
+        from fastembed import TextEmbedding
+
+        return TextEmbedding(self._model_name)
+
+    @property
+    def model_id(self) -> str:
+        """Get the model identifier."""
+        return f"fastembed:{self._model_name}"
+
+    def embed(self, text: str) -> NDArray[np.float32]:
+        """
+        Generate an embedding for a single text.
+
+        Args:
+            text: The text to embed
+
+        Returns:
+            Embedding vector
+        """
+        embedding = next(iter(self.model.embed(text)))
+        return embedding
+
+    def embed_batch(self, texts: list[str]) -> NDArray[np.float32]:
+        """
+        Generate embeddings for multiple texts.
+
+        Args:
+            texts: List of texts to embed
+
+        Returns:
+            Array of embedding vectors, shape (len(texts), embedding_dim)
+        """
+        embeddings = self.model.embed(texts)
+        return np.stack([e for e in embeddings])
 
 
 class SentenceTransformersEmbedder:

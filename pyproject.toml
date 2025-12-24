@@ -21,10 +21,10 @@ dependencies = [
     "llm-gemini>=0.23",
     "llm-claude>=0.4.2",
     "numpy>=1.24.0",
-    "sentence-transformers>=2.2.0",
     "humanize>=4.0.0",
     "platformdirs>=4.0.0",
     "cyclopts==4.1.0",              # There's a bug in 4.2.0
+    "fastembed>=0.7.4",
 ]
 
 [dependency-groups]

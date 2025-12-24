@@ -21,7 +21,7 @@ ENV_PREFIX = "COMMONPLACE"
 app = App(
     name="commonplace",
     help="Personal knowledge management tool for the augmented self.",
-    config=[cyclopts.config.Env(prefix=f"{ENV_PREFIX}_")],
+    config=cyclopts.config.Env(prefix=f"{ENV_PREFIX}_"),
 )
 
 # Type aliases for common parameters
@@ -67,7 +67,7 @@ def _launch(
         return command(*bound.args, **bound.kwargs, **extras)
 
     except Exception as e:
-        logger.error(f"Error executing command: {e}")
+        logger.exception(f"Error executing command: {e}")
         raise SystemExit(1) from e
 
 

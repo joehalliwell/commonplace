@@ -33,18 +33,15 @@ def generate_stats(
 
     # Helper function for source prefix matching (e.g., "chats" matches "chats/claude")
     def matches_any_source(source_str: str) -> bool:
-        return any(source_str == src or source_str.startswith(src + "/") for src in sources)
+        return sources is None or any(source_str == src or source_str.startswith(src + "/") for src in sources)
 
     # Collect all note paths
     all_note_paths = list(repo.note_paths())
 
     # Filter by sources if specified
-    if sources:
-        note_paths = [path for path in all_note_paths if matches_any_source(repo.config.source(path))]
-        if not note_paths:
-            raise ValueError(f"No notes found for sources: {', '.join(sources)}")
-    else:
-        note_paths = all_note_paths
+    note_paths = [path for path in all_note_paths if matches_any_source(repo.config.source(path))]
+    if not note_paths and sources is not None:
+        raise ValueError(f"No notes found for sources: {', '.join(sources)}")
 
     # Build activity heatmap
     activity = build_activity_data(note_paths)
