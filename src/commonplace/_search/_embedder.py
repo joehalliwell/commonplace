@@ -1,6 +1,7 @@
 """Embedding implementations for generating vector representations of text."""
 
 from functools import cached_property, lru_cache
+from typing import Protocol
 
 import numpy as np
 from numpy.typing import NDArray
@@ -14,8 +15,14 @@ _ALIASES = {
 }
 
 
+class Embedder(Protocol):
+    @property
+    def model_id(self) -> str: ...
+    def embed(self, text: str, query: bool = False) -> NDArray[np.float32]: ...
+
+
 @lru_cache(maxsize=8)
-def get_embedder(model: str = "default"):
+def get_embedder(model: str = "default") -> Embedder:
     """
     Factory function to get an embedder instance based on a model identifier.
 
@@ -66,7 +73,7 @@ class FastEmbedEmbedder:
         """Get the model identifier."""
         return f"fastembed:{self._model_name}"
 
-    def embed(self, text: str) -> NDArray[np.float32]:
+    def embed(self, text: str, query: bool = False) -> NDArray[np.float32]:
         """
         Generate an embedding for a single text.
 
@@ -76,7 +83,8 @@ class FastEmbedEmbedder:
         Returns:
             Embedding vector
         """
-        embedding = next(iter(self.model.embed(text)))
+        prefix = "query: " if query else "passage: "
+        embedding = next(iter(self.model.embed(prefix + text)))
         return embedding
 
     def embed_batch(self, texts: list[str]) -> NDArray[np.float32]:
@@ -124,7 +132,7 @@ class SentenceTransformersEmbedder:
         """Get the model identifier."""
         return self._model_id
 
-    def embed(self, text: str) -> NDArray[np.float32]:
+    def embed(self, text: str, query: bool = False) -> NDArray[np.float32]:
         """
         Generate an embedding for a single text.
 
@@ -177,7 +185,7 @@ class LLMEmbedder:
         """Get the model identifier."""
         return self._model_id
 
-    def embed(self, text: str) -> NDArray[np.float32]:
+    def embed(self, text: str, query: bool = False) -> NDArray[np.float32]:
         """
         Generate an embedding for a single text.
 

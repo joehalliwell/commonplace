@@ -193,7 +193,7 @@ class SQLiteSearchIndex(SearchIndex):
         Returns:
             List of search hits, ordered by descending similarity
         """
-        query_embedding = self._embedder.embed(query)
+        query_embedding = self._embedder.embed(query, query=True)
         return self._search_by_embedding(query_embedding, limit)
 
     def _search_by_embedding(self, query_embedding: NDArray[np.float32], limit: int = 10) -> list[SearchHit]:
