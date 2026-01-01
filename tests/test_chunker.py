@@ -21,6 +21,8 @@ Content for section 1.
 
 Content for section 2.
 
+Another paragraph within section 2.
+
 ### Subsection 2.1
 
 Nested content.
@@ -43,7 +45,7 @@ Nested content.
 
     # Check third chunk
     assert chunks[2].section == "Main Title / Section 2"
-    assert chunks[2].text == "Content for section 2."
+    assert chunks[2].text == "Content for section 2.\n\nAnother paragraph within section 2."
 
     # Check nested chunk
     assert chunks[3].section == "Main Title / Section 2 / Subsection 2.1"
