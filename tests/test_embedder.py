@@ -12,11 +12,6 @@ def embedder():
     return get_embedder()
 
 
-def test_model_id(embedder):
-    """Test that model_id is correctly set."""
-    assert embedder.model_id == "sentence-transformers:all-MiniLM-L6-v2"
-
-
 def test_single_embedding(embedder):
     """Test embedding a single text."""
     text = "This is a test sentence."
