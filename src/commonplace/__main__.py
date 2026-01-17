@@ -203,10 +203,11 @@ def search(
 SYSTEM_SECTION = "System"
 
 
-@app.command(group=SYSTEM_SECTION)
+@app.command(
+    group=SYSTEM_SECTION,
+)
 def git(
-    args: list[str],
-    *,
+    *args: Annotated[str, Parameter(allow_leading_hyphen=True)],
     repo: Repo,
 ) -> None:
     """Execute a git command in the commonplace repository. Requires git to be
@@ -214,10 +215,10 @@ def git(
     import shlex
 
     cmd = "git"
-    args = [f"--git-dir={repo.root / '.git'}", f"--work-tree={repo.root}", *args]
+    _args = [f"--git-dir={repo.root / '.git'}", f"--work-tree={repo.root}", *args]
 
-    logger.info(f"Executing command: {cmd} {shlex.join(args)}")
-    os.execlp(cmd, cmd, *args)
+    logger.info(f"Executing command: {cmd} {shlex.join(_args)}")
+    os.execlp(cmd, cmd, *_args)
 
 
 @app.meta.command(group=SYSTEM_SECTION)
