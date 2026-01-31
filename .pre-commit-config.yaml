@@ -20,3 +20,4 @@ repos:
     - mdformat-frontmatter
     - mdformat-gfm
     - mdformat-toc
+    exclude: (snapshot)
