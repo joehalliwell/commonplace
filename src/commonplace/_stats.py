@@ -39,7 +39,7 @@ def generate_stats(
     all_note_paths = list(repo.note_paths())
 
     # Filter by sources if specified
-    note_paths = [path for path in all_note_paths if matches_any_source(repo.config.source(path))]
+    note_paths = [path for path in all_note_paths if matches_any_source(repo.source(path))]
     if not note_paths and sources is not None:
         raise ValueError(f"No notes found for sources: {', '.join(sources)}")
 
@@ -70,19 +70,19 @@ def generate_stats(
 
     # Build stats table
     repo_counts: Counter[str] = Counter()
-    repo_counts.update(repo.config.source(path) for path in note_paths)
+    repo_counts.update(repo.source(path) for path in note_paths)
 
     index_chunks_by_source: Counter[str] = Counter()
     all_stats = list(repo.index.stats())
 
     # Filter index stats by sources if specified
     if sources:
-        filtered_stats = [stat for stat in all_stats if matches_any_source(repo.config.source(stat.repo_path))]
+        filtered_stats = [stat for stat in all_stats if matches_any_source(repo.source(stat.repo_path))]
     else:
         filtered_stats = all_stats
 
     for stat in filtered_stats:
-        index_chunks_by_source.update({repo.config.source(stat.repo_path): stat.num_chunks})
+        index_chunks_by_source.update({repo.source(stat.repo_path): stat.num_chunks})
 
     sources_list = sorted(
         set(repo_counts) | set(index_chunks_by_source),

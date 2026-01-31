@@ -6,6 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Commonplace is a personal knowledge management tool that imports AI conversation exports (Claude, Gemini, ChatGPT) and organizes them as searchable markdown files in a git repository. It supports semantic search via vector embeddings, full-text search, and hybrid search.
 
+The manifesto in `MANIFESTO.md` should be considered a northstar for the system
+design.
+
 ## Commands
 
 ```bash
@@ -77,4 +80,4 @@ uv run commonplace search "query text"
 1. Format: `uv run ruff format .`
 1. Update docs if needed
 
-**Commits:** Imperative mood ("Add" not "Added"), concise, no AI credits/co-author tags
+**Commits:** Imperative mood ("Add" not "Added"), concise, no AI credits/co-author tags. When implementing a multi-step plan, commit each logical change separately rather than batching them into one commit.

@@ -2,7 +2,7 @@
 
 ______________________________________________________________________
 
-## source_export: .commonplace/blobs/2c79e386712986b4bcde4910585201fa5b62237bc721210beeaef61ba0e1aacb/gemini.zip.zip
+## source: gemini source_export: .commonplace/blobs/2c79e386712986b4bcde4910585201fa5b62237bc721210beeaef61ba0e1aacb/gemini.zip.zip
 
 # Gemini conversations from 2025-06-08 [created:: 2025-06-08T12:37:50+00:00]
 

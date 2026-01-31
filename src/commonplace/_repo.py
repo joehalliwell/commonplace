@@ -256,6 +256,15 @@ class Commonplace:
 
         return path_to_commit
 
+    def source(self, repo_path: RepoPath) -> str:
+        """The source of this collection of notes/chats."""
+        parts = repo_path.path.parts
+        if len(parts) < 2:
+            return "misc"
+        if parts[0] == "chats":
+            return "/".join(parts[:2])
+        return parts[0]
+
     def notes(self) -> Iterator[Note]:
         """Get an iterator over all notes at current HEAD."""
         for repo_path in self.note_paths():

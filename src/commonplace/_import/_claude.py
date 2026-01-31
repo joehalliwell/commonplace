@@ -6,12 +6,12 @@ from zipfile import ZipFile
 
 from rich.progress import track
 
-from commonplace._import._types import EventLog, Importer, Message, Role
+from commonplace._import._types import EventLog, Message, Role
 from commonplace._logging import logger
 from commonplace._utils import truncate
 
 
-class ClaudeImporter(Importer):
+class ClaudeImporter:
     """
     Importer for Claude activity logs.
     """

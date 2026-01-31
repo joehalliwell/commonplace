@@ -13,14 +13,14 @@ from dateutil.tz import gettz
 from html_to_markdown import convert_to_markdown
 from rich.progress import track
 
-from commonplace._import._types import EventLog, Importer, Message, Role
+from commonplace._import._types import EventLog, Message, Role
 from commonplace._logging import logger
 
 _PROMPT_PREFIX = "Prompted"
 _HTML_PATH = "Takeout/My Activity/Gemini Apps/My Activity.html"
 
 
-class GeminiImporter(Importer):
+class GeminiImporter:
     """
     Importer for Gemini activity logs from Google Takeout.
 

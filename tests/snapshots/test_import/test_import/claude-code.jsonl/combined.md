@@ -2,7 +2,7 @@
 
 ______________________________________________________________________
 
-## sessionId: 1510b7e5-ed4a-454b-9acf-bb29fb72ea26 cwd: /var/home/joe/work/commonplace model: claude-sonnet-4-5-20250929 source_export: .commonplace/blobs/52e0e484e5efa8fba74b0cc0b6d3badbd204e4c0d318bd4fe26c904c53ce09e6/claude-code.jsonl
+## sessionId: 1510b7e5-ed4a-454b-9acf-bb29fb72ea26 cwd: /var/home/joe/work/commonplace model: claude-sonnet-4-5-20250929 source: claude-code source_export: .commonplace/blobs/52e0e484e5efa8fba74b0cc0b6d3badbd204e4c0d318bd4fe26c904c53ce09e6/claude-code.jsonl
 
 # Hybrid Search Implementation for Semantic Text Retrieval [created:: 2025-10-01T19:55:52+00:00]
 

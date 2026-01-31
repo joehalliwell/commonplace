@@ -75,6 +75,7 @@ def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_in
         if count > 1:
             rel_path = make_chat_path(source=log.source, date=log.created, title=f"{log.title}-{count}")
 
+        log.metadata["source"] = log.source
         log.metadata["source_export"] = blob_path.path.as_posix()
 
         # Check if file already exists and merge metadata if so

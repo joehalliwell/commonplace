@@ -3,12 +3,12 @@ from itertools import islice
 from pathlib import Path
 from typing import Any
 
-from commonplace._import._types import Event, EventLog, Importer, Message, Role, ToolCall
+from commonplace._import._types import Event, EventLog, Message, Role, ToolCall
 from commonplace._logging import logger
 from commonplace._utils import truncate
 
 
-class ClaudeCodeImporter(Importer):
+class ClaudeCodeImporter:
     """
     Importer for Claude Code conversation logs.
 

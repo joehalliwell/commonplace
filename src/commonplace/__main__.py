@@ -295,7 +295,7 @@ def stats(
         logger.error(str(e))
         # Show available sources
         all_note_paths = list(repo.note_paths())
-        available_sources = sorted(set(repo.config.source(path) for path in all_note_paths))
+        available_sources = sorted(set(repo.source(path) for path in all_note_paths))
         logger.info(f"Available sources: {', '.join(available_sources)}")
         return
 

@@ -1,8 +1,7 @@
-from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Protocol, Sequence, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -32,26 +31,12 @@ class Message(Event):
 
     sender: Role = Field(description="The name or role of the sender")
     content: str = Field(description="The content of the message in Markdown")
-    created: datetime = Field(
-        description="The timestamp of when the message was sent or created",
-    )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Dictionary for any other metadata associated with the message (e.g., model used, token count)",
-    )
 
 
 class ToolCall(Event):
     tool: str = Field(description="The name of tool")
     args: dict[str, Any] = Field(description="The arguments to the tool call")
     output: str = Field(description="The output from the tool call")
-    created: datetime = Field(
-        description="The timestamp of when the message was sent or created",
-    )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Dictionary for any other metadata associated with the message (e.g., model used, token count)",
-    )
 
 
 class EventLog(BaseModel):
@@ -70,9 +55,10 @@ class EventLog(BaseModel):
     )
 
 
-class Importer(ABC):
+@runtime_checkable
+class Importer(Protocol):
     """
-    Abstract base class for importing activity logs from different AI chat providers.
+    Protocol for importing activity logs from different AI chat providers.
 
     Each importer should be able to:
     1. Determine if it can handle a given file format
@@ -80,33 +66,8 @@ class Importer(ABC):
     3. Convert the data into standardized ActivityLog objects
     """
 
-    source: str = Field(description="The name of the source, e.g., 'Gemini', 'ChatGPT'")
+    source: str
 
-    @abstractmethod
-    def can_import(self, path: Path) -> bool:
-        """
-        Check if the importer can handle the given file path.
+    def can_import(self, path: Path) -> bool: ...
 
-        Args:
-            path: Path to the file to check
-
-        Returns:
-            True if this importer can handle the file, False otherwise
-        """
-        raise NotImplementedError("Subclasses must implement this method.")
-
-    @abstractmethod
-    def import_(self, path: Path) -> list[EventLog]:
-        """
-        Import activity logs from the source file or session.
-
-        Args:
-            path: Path to the file to import from
-
-        Returns:
-            List of ActivityLog objects extracted from the file
-
-        Raises:
-            Exception: If the file cannot be parsed or imported
-        """
-        raise NotImplementedError("Subclasses must implement this method.")
+    def import_(self, path: Path) -> list[EventLog]: ...

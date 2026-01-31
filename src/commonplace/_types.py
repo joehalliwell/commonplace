@@ -9,8 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeAlias
 
-from pydantic import BaseModel, Field
-
 Metadata: TypeAlias = dict[str, Any]
 Pathlike: TypeAlias = str | Path
 
@@ -45,12 +43,3 @@ class Note:
 
     repo_path: RepoPath
     content: str
-
-
-class Link(BaseModel):
-    parent: Note
-    child: Note
-    metadata: Metadata = Field(
-        default_factory=dict,
-        description="Metadata associated with this link",
-    )
