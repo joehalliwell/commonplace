@@ -61,6 +61,36 @@ def test_store_blob_different_content_different_hash(test_repo, tmp_path):
     assert p1.path.name == p2.path.name == "data.bin"
 
 
+def test_store_blob_creates_gitattributes(test_repo, sample_file):
+    """store_blob() ensures .gitattributes exists with LFS config."""
+    gitattributes = test_repo.root / ".gitattributes"
+    # Remove if init() already created it
+    if gitattributes.exists():
+        gitattributes.unlink()
+
+    test_repo.store_blob(sample_file)
+
+    assert gitattributes.exists()
+    content = gitattributes.read_text()
+    assert ".commonplace/blobs/**" in content
+    assert "filter=lfs" in content
+
+
+def test_init_creates_gitattributes(tmp_path):
+    """Commonplace.init() includes .gitattributes with LFS config."""
+    from commonplace._repo import Commonplace
+
+    root = tmp_path / "fresh_repo"
+    root.mkdir()
+    Commonplace.init(root)
+
+    gitattributes = root / ".gitattributes"
+    assert gitattributes.exists()
+    content = gitattributes.read_text()
+    assert ".commonplace/blobs/**" in content
+    assert "filter=lfs" in content
+
+
 def test_import_records_provenance(test_repo, tmp_path):
     """Imported markdown files contain source_export in frontmatter."""
     sample_dir = SAMPLE_EXPORTS_DIR / "claude.zip"

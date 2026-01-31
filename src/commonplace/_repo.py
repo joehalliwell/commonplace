@@ -20,6 +20,11 @@ _INIT_GIT_IGNORE = """
 .commonplace/cache
 """
 
+_INIT_GIT_ATTRIBUTES = """
+# Track blobs with Git LFS
+.commonplace/blobs/** filter=lfs diff=lfs merge=lfs -text
+"""
+
 _INIT_CONFIG_TOML = f"""
 # Commonplace configuration
 
@@ -83,6 +88,8 @@ class Commonplace:
 
         Returns the existing path if the blob already exists (idempotent).
         """
+        self._ensure_gitattributes()
+
         digest = _hash_file(source_path)
         rel_path = Path(".commonplace") / "blobs" / digest / source_path.name
         abs_path = self.root / rel_path
@@ -93,6 +100,13 @@ class Commonplace:
             self.git.index.add(rel_path.as_posix())
 
         return self.make_repo_path(rel_path)
+
+    def _ensure_gitattributes(self) -> None:
+        """Create .gitattributes with LFS config if it doesn't exist yet."""
+        gitattributes_path = self.root / ".gitattributes"
+        if not gitattributes_path.exists():
+            gitattributes_path.write_text(_INIT_GIT_ATTRIBUTES)
+            self.git.index.add(".gitattributes")
 
     @cached_property
     def index(self):
@@ -123,6 +137,12 @@ class Commonplace:
         if not gitignore_path.exists():
             gitignore_path.write_text(_INIT_GIT_IGNORE)
         git.index.add(gitignore_path.relative_to(root))  # type: ignore[attr-defined]
+
+        # Create .gitattributes for LFS blob tracking
+        gitattributes_path = root / ".gitattributes"
+        if not gitattributes_path.exists():
+            gitattributes_path.write_text(_INIT_GIT_ATTRIBUTES)
+        git.index.add(gitattributes_path.relative_to(root))  # type: ignore[attr-defined]
 
         # Create initial commit
         tree = git.index.write_tree()  # type: ignore[attr-defined]
