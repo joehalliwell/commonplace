@@ -5,7 +5,6 @@ import subprocess
 from pathlib import Path
 from typing import Annotated, Optional, TypeAlias
 
-import cyclopts
 from cyclopts import App, Parameter
 from platformdirs import user_data_dir
 
@@ -21,7 +20,6 @@ ENV_PREFIX = "COMMONPLACE"
 app = App(
     name="commonplace",
     help="Personal knowledge management tool for the augmented self.",
-    config=cyclopts.config.Env(prefix=f"{ENV_PREFIX}_"),
 )
 
 # Type aliases for common parameters
