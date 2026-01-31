@@ -1,7 +1,8 @@
 <!-- Contents of chats/chatgpt/2024/02/2024-02-27-big-numbers-summed.md -->
----
-id: 038fd537-ef57-4f71-8ce1-8e27aa2c61bb
----
+
+______________________________________________________________________
+
+## id: 038fd537-ef57-4f71-8ce1-8e27aa2c61bb source_export: .commonplace/blobs/48c76a53f271e49ecf89d9bb2e36ce9d0879669b5fd98658c9eda3a7fce9dcb9/chatgpt.zip.zip
 
 # Big Numbers Summed [created:: 2024-02-27T13:35:45+00:00]
 
@@ -18,9 +19,10 @@ the cosmos—each one significant, no matter how small. Fact checked, and it's
 astronomically correct!
 
 <!-- Contents of chats/chatgpt/2024/03/2024-03-06-conventual-life-for-nuns.md -->
----
-id: 2cd72c1e-7631-44c7-b072-5273f45af955
----
+
+______________________________________________________________________
+
+## id: 2cd72c1e-7631-44c7-b072-5273f45af955 source_export: .commonplace/blobs/48c76a53f271e49ecf89d9bb2e36ce9d0879669b5fd98658c9eda3a7fce9dcb9/chatgpt.zip.zip
 
 # Conventual Life for Nuns [created:: 2024-03-06T07:47:29+00:00]
 
@@ -76,9 +78,10 @@ pure or pristine. The term encapsulates both a specific historical role and
 broader notions of purity and dedication.
 
 <!-- Contents of chats/chatgpt/2025/03/2025-03-31-ghibli-style-illustration-request.md -->
----
-id: 67eb115c-ee28-8001-adbb-d8986cb6793b
----
+
+______________________________________________________________________
+
+## id: 67eb115c-ee28-8001-adbb-d8986cb6793b source_export: .commonplace/blobs/48c76a53f271e49ecf89d9bb2e36ce9d0879669b5fd98658c9eda3a7fce9dcb9/chatgpt.zip.zip
 
 # Ghibli-style Illustration Request [created:: 2025-03-31T22:04:13+00:00]
 
@@ -217,4 +220,3 @@ cozy and nostalgic atmosphere.","size":"1024x1024","n":1}
   }
 }
 ```
-

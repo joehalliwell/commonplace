@@ -64,6 +64,7 @@ def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_in
         logger.debug(f"Skipping {path}")
         return
     serializer = MarkdownSerializer(human=user, assistant=importer.source.title())
+    blob_path = repo.store_blob(path)
 
     used_paths: Counter[Path] = Counter()
 
@@ -73,6 +74,8 @@ def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_in
         count = used_paths[rel_path]
         if count > 1:
             rel_path = make_chat_path(source=log.source, date=log.created, title=f"{log.title}-{count}")
+
+        log.metadata["source_export"] = blob_path.path.as_posix()
 
         # Check if file already exists and merge metadata if so
         abs_path = repo.root / rel_path

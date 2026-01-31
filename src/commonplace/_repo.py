@@ -1,4 +1,6 @@
+import hashlib
 import os
+import shutil
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
 from pathlib import Path
@@ -27,6 +29,15 @@ _INIT_CONFIG_TOML = f"""
 
 _BOT_USERNAME = "Commonplace Bot"
 _BOT_EMAIL = "commonplace@joehalliwell.com"
+
+
+def _hash_file(path: Path, buf_size: int = 65536) -> str:
+    """SHA-256 hash a file, streaming in chunks."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(buf_size):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 @dataclass
@@ -66,6 +77,22 @@ class Commonplace:
     def cache(self) -> Path:
         """Get the cache directory."""
         return self.root / ".commonplace" / "cache"
+
+    def store_blob(self, source_path: Path) -> RepoPath:
+        """Store a file in .commonplace/blobs/ addressed by its SHA-256 hash.
+
+        Returns the existing path if the blob already exists (idempotent).
+        """
+        digest = _hash_file(source_path)
+        rel_path = Path(".commonplace") / "blobs" / digest / source_path.name
+        abs_path = self.root / rel_path
+
+        if not abs_path.exists():
+            abs_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_path, abs_path)
+            self.git.index.add(rel_path.as_posix())
+
+        return self.make_repo_path(rel_path)
 
     @cached_property
     def index(self):
