@@ -18,6 +18,9 @@ class ClaudeCodeImporter:
 
     source: str = "claude-code"
 
+    def required_paths(self) -> list[str]:
+        return []  # Not an archive
+
     def can_import(self, path: Path) -> bool:
         """Check if this is a Claude Code JSONL file."""
         if path.suffix != ".jsonl":

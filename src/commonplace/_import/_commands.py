@@ -1,9 +1,11 @@
 """Chat importers"""
 
+import tempfile
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from zipfile import ZipFile
 
 from commonplace._import._chatgpt import ChatGptImporter
 from commonplace._import._claude import ClaudeImporter
@@ -14,7 +16,7 @@ from commonplace._import._types import Importer
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
-from commonplace._types import Note
+from commonplace._types import Note, RepoPath
 from commonplace._utils import merge_frontmatter, slugify
 
 IMPORTERS: list[Importer] = [
@@ -51,6 +53,17 @@ def autodetect_importer(path: Path) -> Optional[Importer]:
     return None
 
 
+def extract_and_store(archive: Path, paths: list[str], repo: Commonplace) -> list[RepoPath]:
+    """Extract specific files from archive and store each as a blob."""
+    result = []
+    with tempfile.TemporaryDirectory() as tmp:
+        with ZipFile(archive) as zf:
+            for p in paths:
+                zf.extract(p, tmp)
+                result.append(repo.store_blob(Path(tmp) / p))
+    return result
+
+
 def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_index: bool | None = None):
     """
     Import chats from a supported provider into the repository.
@@ -64,7 +77,15 @@ def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_in
         logger.debug(f"Skipping {path}")
         return
     serializer = MarkdownSerializer(human=user, assistant=importer.source.title())
-    blob_path = repo.store_blob(path)
+
+    # Store only the required files from archives, or the whole file for non-archives
+    required = importer.required_paths()
+    if required:
+        blob_paths = extract_and_store(path, required, repo)
+    else:
+        blob_paths = [repo.store_blob(path)]
+
+    source_exports = [p.path.as_posix() for p in blob_paths]
 
     used_paths: Counter[Path] = Counter()
 
@@ -76,7 +97,7 @@ def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_in
             rel_path = make_chat_path(source=log.source, date=log.created, title=f"{log.title}-{count}")
 
         log.metadata["source"] = log.source
-        log.metadata["source_export"] = blob_path.path.as_posix()
+        log.metadata["source_exports"] = source_exports
 
         # Check if file already exists and merge metadata if so
         abs_path = repo.root / rel_path

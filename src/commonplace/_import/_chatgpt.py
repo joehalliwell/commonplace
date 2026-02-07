@@ -16,6 +16,9 @@ class ChatGptImporter:
 
     source: str = "chatgpt"
 
+    def required_paths(self) -> list[str]:
+        return ["conversations.json", "user.json"]
+
     def can_import(self, path: Path) -> bool:
         """Check if the importer can handle the given file path."""
         with closing(ZipFile(path, "r")) as zf:

@@ -34,6 +34,9 @@ class GeminiImporter:
 
     source: str = "gemini"
 
+    def required_paths(self) -> list[str]:
+        return [_HTML_PATH]
+
     def can_import(self, path: Path) -> bool:
         """Check if the importer can potentially handle the given file path. It
         zip file with the expected path structure."""

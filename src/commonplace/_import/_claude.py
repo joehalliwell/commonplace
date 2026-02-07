@@ -18,6 +18,9 @@ class ClaudeImporter:
 
     source: str = "claude"
 
+    def required_paths(self) -> list[str]:
+        return ["conversations.json", "users.json"]
+
     def can_import(self, path: Path) -> bool:
         """Check if the importer can handle the given file path.
 

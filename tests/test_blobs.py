@@ -92,7 +92,7 @@ def test_init_creates_gitattributes(tmp_path):
 
 
 def test_import_records_provenance(test_repo, tmp_path):
-    """Imported markdown files contain source_export in frontmatter."""
+    """Imported markdown files contain source_exports in frontmatter."""
     sample_dir = SAMPLE_EXPORTS_DIR / "claude.zip"
     export_path = tmp_path / "claude.zip"
     shutil.make_archive(str(export_path.with_suffix("")), "zip", sample_dir)
@@ -104,11 +104,12 @@ def test_import_records_provenance(test_repo, tmp_path):
 
     for md_file in md_files:
         metadata, _ = parse_frontmatter(md_file.read_text())
-        assert "source_export" in metadata, f"Missing source_export in {md_file}"
+        assert "source_exports" in metadata, f"Missing source_exports in {md_file}"
+        assert isinstance(metadata["source_exports"], list)
 
 
 def test_import_provenance_points_to_valid_blob(test_repo, tmp_path):
-    """The source_export path actually exists in the repo."""
+    """The source_exports paths actually exist in the repo."""
     sample_dir = SAMPLE_EXPORTS_DIR / "claude.zip"
     export_path = tmp_path / "claude.zip"
     shutil.make_archive(str(export_path.with_suffix("")), "zip", sample_dir)
@@ -119,6 +120,42 @@ def test_import_provenance_points_to_valid_blob(test_repo, tmp_path):
     assert len(md_files) > 0
 
     metadata, _ = parse_frontmatter(md_files[0].read_text())
-    blob_rel = metadata["source_export"]
-    blob_abs = test_repo.root / blob_rel
-    assert blob_abs.exists(), f"Blob not found at {blob_abs}"
+    for blob_rel in metadata["source_exports"]:
+        blob_abs = test_repo.root / blob_rel
+        assert blob_abs.exists(), f"Blob not found at {blob_abs}"
+
+
+def test_import_stores_only_required_files(test_repo, tmp_path):
+    """Import extracts and stores only the files the importer needs."""
+    sample_dir = SAMPLE_EXPORTS_DIR / "claude.zip"
+    export_path = tmp_path / "claude.zip"
+    shutil.make_archive(str(export_path.with_suffix("")), "zip", sample_dir)
+
+    import_(export_path, test_repo, user="Human")
+
+    # Check blobs directory - should have conversations.json and users.json, not the zip
+    blobs_dir = test_repo.root / ".commonplace" / "blobs"
+    blob_files = list(blobs_dir.rglob("*"))
+    blob_names = {f.name for f in blob_files if f.is_file()}
+
+    assert "conversations.json" in blob_names
+    assert "users.json" in blob_names
+    assert "claude.zip" not in blob_names
+
+
+def test_import_provenance_lists_all_sources(test_repo, tmp_path):
+    """source_exports contains paths for all required files."""
+    sample_dir = SAMPLE_EXPORTS_DIR / "claude.zip"
+    export_path = tmp_path / "claude.zip"
+    shutil.make_archive(str(export_path.with_suffix("")), "zip", sample_dir)
+
+    import_(export_path, test_repo, user="Human")
+
+    md_files = sorted((test_repo.root / "chats").glob("**/*.md"))
+    metadata, _ = parse_frontmatter(md_files[0].read_text())
+
+    source_exports = metadata["source_exports"]
+    assert len(source_exports) == 2
+
+    filenames = {Path(p).name for p in source_exports}
+    assert filenames == {"conversations.json", "users.json"}
