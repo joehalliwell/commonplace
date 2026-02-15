@@ -94,7 +94,7 @@ def import_(
     path: Path,
     index: Annotated[
         Optional[bool],
-        Parameter(name=["--index/--no-index"], help="Index notes after commit (default: from config)"),
+        Parameter(help="Index notes after commit (default: from config)"),
     ] = None,
     *,
     repo: Repo,
@@ -111,7 +111,7 @@ def journal(
     date_str: Annotated[Optional[str], Parameter(help="Date for the journal entry (YYYY-MM-DD)")] = None,
     index: Annotated[
         Optional[bool],
-        Parameter(name=["--index/--no-index"], help="Index notes after commit (default: from config)"),
+        Parameter(help="Index notes after commit (default: from config)"),
     ] = None,
     *,
     repo: Repo,

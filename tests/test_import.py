@@ -13,6 +13,13 @@ SAMPLE_EXPORTS_DIR = Path(__file__).parent / "resources" / "sample-exports"
 SAMPLE_EXPORT_NAMES = [p.name for p in SAMPLE_EXPORTS_DIR.glob("*")]
 
 
+def _prepare_export(source_path: Path, tmp_dir: Path) -> Path:
+    """Prepare a sample export for testing — zip directories, copy files as-is."""
+    if source_path.is_dir() and source_path.suffix == ".zip":
+        return Path(shutil.make_archive(tmp_dir / source_path.stem, "zip", source_path))
+    return source_path
+
+
 @dataclass
 class SampleExport:
     name: str  # A short identifier for this sample
@@ -23,14 +30,9 @@ class SampleExport:
 def sample_export(request, tmp_path_factory):
     """Make a sample export archive from the resources directory"""
     name: str = request.param
-    source_path: Path = SAMPLE_EXPORTS_DIR / name
-    if source_path.is_dir() and source_path.suffix == ".zip":
-        # Create a zip file from the directory
-        tmp_path = tmp_path_factory.mktemp(name)
-        zipfile = shutil.make_archive(tmp_path / name, "zip", SAMPLE_EXPORTS_DIR / name)
-        return SampleExport(name, Path(zipfile))
-
-    return SampleExport(name, source_path)
+    tmp_path = tmp_path_factory.mktemp(name)
+    path = _prepare_export(SAMPLE_EXPORTS_DIR / name, tmp_path)
+    return SampleExport(name, path)
 
 
 def test_import(sample_export, test_repo, snapshot):
@@ -80,10 +82,7 @@ def test_import_preserves_user_metadata(test_repo, tmp_path_factory):
     """Test that re-importing preserves user-added metadata."""
     from commonplace._import._commands import import_
 
-    # Use existing sample export
-    sample_dir = SAMPLE_EXPORTS_DIR / "claude.zip"
-    export_path = tmp_path_factory.mktemp("export") / "claude.zip"
-    shutil.make_archive(str(export_path.with_suffix("")), "zip", sample_dir)
+    export_path = _prepare_export(SAMPLE_EXPORTS_DIR / "claude.zip", tmp_path_factory.mktemp("export"))
 
     # First import
     import_(export_path, test_repo, user="Human")
@@ -116,3 +115,42 @@ def test_import_preserves_user_metadata(test_repo, tmp_path_factory):
     assert "important" in final_metadata["tags"]
     assert "test" in final_metadata["tags"]
     assert final_metadata["rating"] == 5
+
+
+@pytest.fixture
+def claude_export(tmp_path_factory):
+    """Create a zip archive from the claude.zip sample export directory."""
+    return _prepare_export(SAMPLE_EXPORTS_DIR / "claude.zip", tmp_path_factory.mktemp("export"))
+
+
+@pytest.fixture
+def index_spy(monkeypatch):
+    """Mock the index function and return a list that records calls."""
+    calls = []
+
+    def mock_index(repo, rebuild):
+        calls.append((repo, rebuild))
+
+    import commonplace._search._commands
+
+    monkeypatch.setattr(commonplace._search._commands, "index", mock_index)
+    return calls
+
+
+def test_import_no_index_skips_indexing(test_repo, index_spy, claude_export):
+    """Test that import with auto_index=False does not trigger indexing."""
+    import_(claude_export, test_repo, user="Human", auto_index=False)
+    assert len(index_spy) == 0
+
+
+def test_import_with_index_triggers_indexing(test_repo, index_spy, claude_export):
+    """Test that import with auto_index=True does trigger indexing."""
+    import_(claude_export, test_repo, user="Human", auto_index=True)
+    assert len(index_spy) == 1
+
+
+def test_import_cli_no_index_flag(test_app, index_spy, claude_export):
+    """Test that 'import --no-index' CLI flag prevents indexing."""
+    result = test_app(["import", "--no-index", str(claude_export)])
+    assert result == 0
+    assert len(index_spy) == 0
