@@ -243,6 +243,16 @@ class SQLiteSearchIndex(SearchIndex):
 
         return results
 
+    @staticmethod
+    def _sanitize_fts5_query(query: str) -> str:
+        """Strip FTS5 syntax from a natural language query, keeping just the words."""
+        import re
+
+        # Remove characters that FTS5 treats as operators: " * ( ) , + - ^
+        cleaned = re.sub(r'["*()\,+\-^]', " ", query)
+        # Collapse whitespace and strip
+        return re.sub(r"\s+", " ", cleaned).strip()
+
     def search_keyword(self, query: str, limit: int = 10) -> list[SearchHit]:
         """
         Search for chunks using keyword (full-text) search.
@@ -263,7 +273,7 @@ class SQLiteSearchIndex(SearchIndex):
             ORDER BY rank
             LIMIT ?
             """,
-            (query, limit),
+            (self._sanitize_fts5_query(query), limit),
         )
         rows = cursor.fetchall()
 

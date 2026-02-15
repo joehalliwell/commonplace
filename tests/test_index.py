@@ -62,6 +62,24 @@ Content for note {i}.
     assert len(results) <= 3
 
 
+def test_search_with_punctuation(test_repo, make_note):
+    """Search queries containing commas and other FTS5 syntax don't crash."""
+    note = make_note(
+        path="test.md",
+        content="# Test\n\nThinking about life, the universe, and everything.\n",
+    )
+    test_repo.save(note)
+    test_repo.commit("Add test note")
+    _commands.index(test_repo)
+
+    # These queries contain FTS5 syntax characters (commas, parentheses)
+    results = test_repo.index.search("life, the universe, and everything", limit=5)
+    assert isinstance(results, list)
+
+    results = test_repo.index.search("thinking (about) things", limit=5)
+    assert isinstance(results, list)
+
+
 def test_index_incremental(test_repo, make_note):
     """Test that index only indexes new notes when not rebuilding."""
 
