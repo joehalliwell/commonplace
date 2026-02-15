@@ -15,7 +15,7 @@ def embedder():
 def test_single_embedding(embedder):
     """Test embedding a single text."""
     text = "This is a test sentence."
-    embedding = embedder.embed(text)
+    embedding = embedder.embed_doc(text)
 
     assert isinstance(embedding, np.ndarray)
     assert embedding.dtype == np.float32
@@ -26,7 +26,7 @@ def test_single_embedding(embedder):
 def test_batch_embedding(embedder):
     """Test embedding multiple texts."""
     texts = ["First sentence.", "Second sentence.", "Third sentence."]
-    embeddings = embedder.embed_batch(texts)
+    embeddings = embedder.embed_docs(texts)
 
     assert isinstance(embeddings, np.ndarray)
     assert embeddings.dtype == np.float32
@@ -39,9 +39,9 @@ def test_similar_texts_have_similar_embeddings(embedder):
     text2 = "A cat was sitting on a mat."
     text3 = "Python is a programming language."
 
-    emb1 = embedder.embed(text1)
-    emb2 = embedder.embed(text2)
-    emb3 = embedder.embed(text3)
+    emb1 = embedder.embed_doc(text1)
+    emb2 = embedder.embed_doc(text2)
+    emb3 = embedder.embed_doc(text3)
 
     # Cosine similarity
     def cosine_sim(a, b):

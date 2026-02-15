@@ -1,24 +1,18 @@
 """Embedding implementations for generating vector representations of text."""
 
 from functools import cached_property, lru_cache
-from typing import Protocol
 
 import numpy as np
 from numpy.typing import NDArray
 
 from commonplace._logging import logger
+from commonplace._search._types import Embedder
 
 _ALIASES = {
     "default": "fastembed:BAAI/bge-small-en-v1.5"
     # "default": "sentence-transformers:all-MiniLM-L6-v2",
     # "default": "fastembed:sentence-transformers/all-MiniLM-L6-v2"
 }
-
-
-class Embedder(Protocol):
-    @property
-    def model_id(self) -> str: ...
-    def embed(self, text: str, query: bool = False) -> NDArray[np.float32]: ...
 
 
 @lru_cache(maxsize=8)
@@ -73,30 +67,18 @@ class FastEmbedEmbedder:
         """Get the model identifier."""
         return f"fastembed:{self._model_name}"
 
-    def embed(self, text: str, query: bool = False) -> NDArray[np.float32]:
-        """
-        Generate an embedding for a single text.
-
-        Args:
-            text: The text to embed
-
-        Returns:
-            Embedding vector
-        """
-        prefix = "query: " if query else "passage: "
-        embedding = next(iter(self.model.embed(prefix + text)))
+    def embed_doc(self, text: str) -> NDArray[np.float32]:
+        """Generate an embedding for a document chunk."""
+        embedding = next(iter(self.model.embed("passage: " + text)))
         return embedding
 
-    def embed_batch(self, texts: list[str]) -> NDArray[np.float32]:
-        """
-        Generate embeddings for multiple texts.
+    def embed_query(self, text: str) -> NDArray[np.float32]:
+        """Generate an embedding for a search query."""
+        embedding = next(iter(self.model.embed("query: " + text)))
+        return embedding
 
-        Args:
-            texts: List of texts to embed
-
-        Returns:
-            Array of embedding vectors, shape (len(texts), embedding_dim)
-        """
+    def embed_docs(self, texts: list[str]) -> NDArray[np.float32]:
+        """Generate embeddings for multiple document chunks."""
         embeddings = self.model.embed(texts)
         return np.stack([e for e in embeddings])
 
@@ -123,7 +105,7 @@ class SentenceTransformersEmbedder:
     def model(self):
         """Lazily load the sentence transformer model."""
         logger.info(f"Loading sentence-transformers model '{self._model_name}'...")
-        from sentence_transformers import SentenceTransformer
+        from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
 
         return SentenceTransformer(self._model_name)
 
@@ -132,29 +114,17 @@ class SentenceTransformersEmbedder:
         """Get the model identifier."""
         return self._model_id
 
-    def embed(self, text: str, query: bool = False) -> NDArray[np.float32]:
-        """
-        Generate an embedding for a single text.
-
-        Args:
-            text: The text to embed
-
-        Returns:
-            Embedding vector
-        """
+    def embed_doc(self, text: str) -> NDArray[np.float32]:
+        """Generate an embedding for a document chunk."""
         embedding = self.model.encode(text, convert_to_numpy=True)
         return embedding.astype(np.float32)
 
-    def embed_batch(self, texts: list[str]) -> NDArray[np.float32]:
-        """
-        Generate embeddings for multiple texts.
+    def embed_query(self, text: str) -> NDArray[np.float32]:
+        """Generate an embedding for a search query."""
+        return self.embed_doc(text)
 
-        Args:
-            texts: List of texts to embed
-
-        Returns:
-            Array of embedding vectors, shape (len(texts), embedding_dim)
-        """
+    def embed_docs(self, texts: list[str]) -> NDArray[np.float32]:
+        """Generate embeddings for multiple document chunks."""
         embeddings = self.model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
         return embeddings.astype(np.float32)
 
@@ -185,28 +155,16 @@ class LLMEmbedder:
         """Get the model identifier."""
         return self._model_id
 
-    def embed(self, text: str, query: bool = False) -> NDArray[np.float32]:
-        """
-        Generate an embedding for a single text.
-
-        Args:
-            text: The text to embed
-
-        Returns:
-            Embedding vector
-        """
+    def embed_doc(self, text: str) -> NDArray[np.float32]:
+        """Generate an embedding for a document chunk."""
         embedding = self.model.embed(text)
         return np.array(embedding, dtype=np.float32)
 
-    def embed_batch(self, texts: list[str]) -> NDArray[np.float32]:
-        """
-        Generate embeddings for multiple texts.
+    def embed_query(self, text: str) -> NDArray[np.float32]:
+        """Generate an embedding for a search query."""
+        return self.embed_doc(text)
 
-        Args:
-            texts: List of texts to embed
-
-        Returns:
-            Array of embedding vectors, shape (len(texts), embedding_dim)
-        """
+    def embed_docs(self, texts: list[str]) -> NDArray[np.float32]:
+        """Generate embeddings for multiple document chunks."""
         embeddings = [self.model.embed(text) for text in texts]
         return np.array(embeddings, dtype=np.float32)

@@ -78,9 +78,9 @@ class Embedder(Protocol):
         """
         ...
 
-    def embed(self, text: str) -> NDArray[np.float32]:
+    def embed_doc(self, text: str) -> NDArray[np.float32]:
         """
-        Generate an embedding for a single text.
+        Generate an embedding for a document chunk.
 
         Args:
             text: The text to embed
@@ -90,15 +90,27 @@ class Embedder(Protocol):
         """
         ...
 
-    def embed_batch(self, texts: list[str]) -> NDArray[np.float32]:
+    def embed_docs(self, texts: list[str]) -> NDArray[np.float32]:
         """
-        Generate embeddings for multiple texts.
+        Generate embeddings for multiple document chunks.
 
         Args:
             texts: List of texts to embed
 
         Returns:
             Array of embedding vectors, shape (len(texts), embedding_dim)
+        """
+        ...
+
+    def embed_query(self, text: str) -> NDArray[np.float32]:
+        """
+        Generate an embedding for a search query.
+
+        Args:
+            text: The query text to embed
+
+        Returns:
+            Embedding vector
         """
         ...
 

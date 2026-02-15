@@ -109,7 +109,7 @@ class SQLiteSearchIndex(SearchIndex):
         Args:
             chunk: The chunk to store
         """
-        embedding = self._embedder.embed(chunk.text)
+        embedding = self._embedder.embed_doc(chunk.text)
         self._add_with_embedding(chunk, embedding)
 
     def add_chunks(self, chunks: list[Chunk]) -> None:
@@ -127,7 +127,7 @@ class SQLiteSearchIndex(SearchIndex):
 
         # Batch embed all chunks
         texts = [chunk.text for chunk in chunks]
-        embeddings = self._embedder.embed_batch(texts)
+        embeddings = self._embedder.embed_docs(texts)
 
         # Add all chunks with their embeddings
         for chunk, embedding in zip(chunks, embeddings):
@@ -193,7 +193,7 @@ class SQLiteSearchIndex(SearchIndex):
         Returns:
             List of search hits, ordered by descending similarity
         """
-        query_embedding = self._embedder.embed(query, query=True)
+        query_embedding = self._embedder.embed_query(query)
         return self._search_by_embedding(query_embedding, limit)
 
     def _search_by_embedding(self, query_embedding: NDArray[np.float32], limit: int = 10) -> list[SearchHit]:
