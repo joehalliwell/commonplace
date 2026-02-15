@@ -105,7 +105,7 @@ def test_init_creates_claude_settings(tmp_path):
 
     data = json.loads(settings.read_text())
     assert "commonplace" in data["extraKnownMarketplaces"]
-    assert data["enabledPlugins"]["commonplace@commonplace"] is True
+    assert data["enabledPlugins"]["commonplace-skills@commonplace"] is True
 
 
 def test_doctor_creates_missing_claude_settings(test_repo):

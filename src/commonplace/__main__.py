@@ -227,6 +227,9 @@ def init(root: Path) -> None:
         logger.warning(
             f"Initialized commonplace at {root}. To use it, run commands with --root {root} or set COMMONPLACE_ROOT."
         )
+    logger.info("")
+    logger.info("To enable Claude Code plugins, run in Claude Code:")
+    logger.info("  /plugin marketplace add joehalliwell/commonplace")
 
 
 @app.command(group=SYSTEM_SECTION)
@@ -277,6 +280,10 @@ def doctor(
             logger.info(action)
     else:
         logger.info("Everything looks good")
+
+    logger.info("")
+    logger.info("To enable Claude Code plugins, run in Claude Code:")
+    logger.info("  /plugin marketplace add joehalliwell/commonplace")
 
 
 @app.command(group=SYSTEM_SECTION)

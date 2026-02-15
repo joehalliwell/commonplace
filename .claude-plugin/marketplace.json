@@ -9,7 +9,7 @@
   },
   "plugins": [
     {
-      "name": "commonplace",
+      "name": "commonplace-skills",
       "source": "./plugins/commonplace",
       "description": "Skills and agents for working with a commonplace repository"
     }

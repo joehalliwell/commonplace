@@ -43,7 +43,7 @@ _INIT_CLAUDE_SETTINGS = """\
     }
   },
   "enabledPlugins": {
-    "commonplace@commonplace": true
+    "commonplace-skills@commonplace": true
   }
 }
 """
