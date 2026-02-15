@@ -108,6 +108,31 @@ def test_init_creates_claude_settings(tmp_path):
     assert data["enabledPlugins"]["commonplace@commonplace"] is True
 
 
+def test_doctor_creates_missing_claude_settings(test_repo):
+    """doctor() creates .claude/settings.json if missing."""
+    import json
+
+    settings = test_repo.root / ".claude" / "settings.json"
+    # Remove if init() already created it
+    if settings.exists():
+        settings.unlink()
+
+    actions = test_repo.doctor()
+    assert any("settings.json" in a for a in actions)
+    assert settings.exists()
+    data = json.loads(settings.read_text())
+    assert "commonplace" in data["extraKnownMarketplaces"]
+
+
+def test_doctor_is_idempotent(test_repo):
+    """doctor() reports no actions when everything is already in place."""
+    # First call to ensure everything exists
+    test_repo.doctor()
+    # Second call should find nothing to do
+    actions = test_repo.doctor()
+    assert actions == []
+
+
 def test_import_records_provenance(test_repo, tmp_path):
     """Imported markdown files contain source_exports in frontmatter."""
     sample_dir = SAMPLE_EXPORTS_DIR / "claude.zip"

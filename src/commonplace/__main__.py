@@ -266,6 +266,20 @@ def sync(
 
 
 @app.command(group=SYSTEM_SECTION)
+def doctor(
+    *,
+    repo: Repo,
+) -> None:
+    """Check and fix repository scaffolding (settings, LFS config, etc.)."""
+    actions = repo.doctor()
+    if actions:
+        for action in actions:
+            logger.info(action)
+    else:
+        logger.info("Everything looks good")
+
+
+@app.command(group=SYSTEM_SECTION)
 def stats(
     *,
     sources: Sources = [],

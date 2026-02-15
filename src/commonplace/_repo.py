@@ -117,6 +117,31 @@ class Commonplace:
 
         return self.make_repo_path(rel_path)
 
+    def doctor(self) -> list[str]:
+        """Check and fix repository scaffolding. Returns list of actions taken."""
+        actions: list[str] = []
+
+        # Ensure .gitattributes
+        gitattributes_path = self.root / ".gitattributes"
+        if not gitattributes_path.exists():
+            gitattributes_path.write_text(_INIT_GIT_ATTRIBUTES)
+            self.git.index.add(".gitattributes")
+            actions.append("Created .gitattributes with LFS config")
+
+        # Ensure .claude/settings.json with marketplace config
+        claude_dir = self.root / ".claude"
+        claude_dir.mkdir(exist_ok=True)
+        settings_path = claude_dir / "settings.json"
+        if not settings_path.exists():
+            settings_path.write_text(_INIT_CLAUDE_SETTINGS)
+            self.git.index.add(settings_path.relative_to(self.root).as_posix())
+            actions.append("Created .claude/settings.json with marketplace config")
+
+        if actions:
+            self.git.index.write()
+
+        return actions
+
     def _ensure_gitattributes(self) -> None:
         """Create .gitattributes with LFS config if it doesn't exist yet."""
         gitattributes_path = self.root / ".gitattributes"
