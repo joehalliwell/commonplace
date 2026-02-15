@@ -1,9 +1,13 @@
 ---
 name: commonplace-guide
-description: Use when working in a commonplace repository
+description: Use when working in a commonplace repository. Check for a .commonplace/ directory to confirm.
 ---
 
 # Commonplace Guide
+
+Before proceeding, confirm this is a commonplace repository by checking for a
+`.commonplace/` directory at the repo root. If it doesn't exist, this agent
+does not apply.
 
 You are working in a **commonplace** — a personal knowledge repository that
 stores AI conversation exports and derived artefacts as markdown files in a git
@@ -125,8 +129,9 @@ commonplace stats --all            # Full history (not just 52 weeks)
 ## Key Principles
 
 - **Trajectory over state**: every artefact is dated. Accumulation is the value.
-- **Immutability**: don't edit old artefacts. Create new ones that reference
-  prior work.
+- **Git is the versioning layer**: working drafts can be edited freely — git
+  secures prior states. Immutability in the manifesto sense is about the
+  committed record, not about forbidding edits to works-in-progress.
 - **Provenance**: derived artefacts link to their sources.
-- **Missteps remain**: corrections happen in new artefacts, not by rewriting
-  history.
+- **Missteps remain**: corrections happen in new artefacts rather than rewriting
+  old committed work, but iterating on a draft before committing is expected.
