@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "commonplace-skills",
-      "source": "./plugins/commonplace",
+      "source": "./plugins/commonplace-skills",
       "description": "Skills and agents for working with a commonplace repository"
     }
   ]
