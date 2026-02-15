@@ -1,0 +1,17 @@
+{
+  "name": "commonplace",
+  "owner": {
+    "name": "Joe Halliwell",
+    "email": "joe.halliwell@gmail.com"
+  },
+  "metadata": {
+    "description": "Skills and agents for commonplace knowledge repositories"
+  },
+  "plugins": [
+    {
+      "name": "commonplace",
+      "source": "./plugins/commonplace",
+      "description": "Skills and agents for working with a commonplace repository"
+    }
+  ]
+}

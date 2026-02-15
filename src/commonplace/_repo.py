@@ -32,6 +32,22 @@ _INIT_CONFIG_TOML = f"""
 # editor = "{DEFAULT_EDITOR}"
 """
 
+_INIT_CLAUDE_SETTINGS = """\
+{
+  "extraKnownMarketplaces": {
+    "commonplace": {
+      "source": {
+        "source": "github",
+        "repo": "joehalliwell/commonplace"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "commonplace@commonplace": true
+  }
+}
+"""
+
 _BOT_USERNAME = "Commonplace Bot"
 _BOT_EMAIL = "commonplace@joehalliwell.com"
 
@@ -143,6 +159,14 @@ class Commonplace:
         if not gitattributes_path.exists():
             gitattributes_path.write_text(_INIT_GIT_ATTRIBUTES)
         git.index.add(gitattributes_path.relative_to(root))  # type: ignore[attr-defined]
+
+        # Configure Claude Code plugin marketplace
+        claude_dir = root / ".claude"
+        claude_dir.mkdir(exist_ok=True)
+        settings_path = claude_dir / "settings.json"
+        if not settings_path.exists():
+            settings_path.write_text(_INIT_CLAUDE_SETTINGS)
+        git.index.add(settings_path.relative_to(root))  # type: ignore[attr-defined]
 
         # Create initial commit
         tree = git.index.write_tree()  # type: ignore[attr-defined]

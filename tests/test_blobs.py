@@ -91,6 +91,23 @@ def test_init_creates_gitattributes(tmp_path):
     assert "filter=lfs" in content
 
 
+def test_init_creates_claude_settings(tmp_path):
+    """Commonplace.init() includes .claude/settings.json with marketplace config."""
+    from commonplace._repo import Commonplace
+
+    root = tmp_path / "fresh_repo"
+    root.mkdir()
+    Commonplace.init(root)
+
+    settings = root / ".claude" / "settings.json"
+    assert settings.exists()
+    import json
+
+    data = json.loads(settings.read_text())
+    assert "commonplace" in data["extraKnownMarketplaces"]
+    assert data["enabledPlugins"]["commonplace@commonplace"] is True
+
+
 def test_import_records_provenance(test_repo, tmp_path):
     """Imported markdown files contain source_exports in frontmatter."""
     sample_dir = SAMPLE_EXPORTS_DIR / "claude.zip"
