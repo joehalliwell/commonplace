@@ -29,7 +29,7 @@ If no topic argument was provided, run broad searches to discover recurring
 themes:
 
 ```bash
-commonplace search --json -n 50 "<broad query>"
+commonplace search -n 50 "<broad query>"
 ```
 
 Propose 3-5 candidate topics to the user. Wait for confirmation before
@@ -43,7 +43,7 @@ gathering.
 For the chosen topic, search specifically:
 
 ```bash
-commonplace search --json -n 30 "<specific query>"
+commonplace search -n 30 "<specific query>"
 ```
 
 Read each source note to get full context (use the Read tool). For each
@@ -58,8 +58,8 @@ Order all gathered material chronologically.
 Check for prior work:
 
 ```bash
-commonplace search --json -n 5 "gathering <topic>"
-commonplace search --json -n 5 "distillation <topic>"
+commonplace search -n 5 "gathering <topic>"
+commonplace search -n 5 "distillation <topic>"
 ```
 
 If prior distillations exist, read them — they provide context and should be
