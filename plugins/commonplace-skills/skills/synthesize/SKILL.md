@@ -40,6 +40,18 @@ gathering.
 
 ### 2. Gather
 
+**Check for prior work first.** Before searching sources, check whether this
+topic has already been distilled:
+
+```bash
+commonplace search -n 5 "gathering <topic>"
+commonplace search -n 5 "distillation <topic>"
+```
+
+If prior distillations exist, read them now — they establish existing coverage
+and determine whether to do a full gather or follow the **Incremental
+Synthesis** workflow below.
+
 For the chosen topic, run multiple specific searches:
 
 ```bash
@@ -66,16 +78,6 @@ relevant section:
 - Track the source path
 
 Order all gathered material chronologically.
-
-Check for prior work:
-
-```bash
-commonplace search -n 5 "gathering <topic>"
-commonplace search -n 5 "distillation <topic>"
-```
-
-If prior distillations exist, read them — they provide context and should be
-referenced.
 
 ### 3. Write the Gathering
 
@@ -107,7 +109,9 @@ contradictions, unresolved questions, and gaps. Produce:
 - **Threads**: What's unresolved? What dangling questions remain?
 
 The Threads section is the most valuable part of a distillation. Give it the
-most attention.
+most attention. At the end of Threads, call out one **Most Pressing Thread**
+— the single open question or tension most worth the user's attention right
+now.
 
 Write the distillation at:
 `topics/{slug}/{date}-distillation.md`
@@ -117,9 +121,17 @@ recent one in the `prior_distillation` field and note what has changed since.
 
 ### 5. Review
 
-**Present both artefacts to the user before committing.** Show or summarise
-the gathering and distillation, and wait for the user to approve, request
-changes, or redirect. Do not proceed to commit without explicit approval.
+**Present both artefacts to the user before committing.** Do not dump the raw
+file contents. Instead, present:
+
+- **Gathering**: source count and date range of material covered (e.g. "12
+  sources, 2024-03 to 2025-11").
+- **Distillation**: a structured summary — brief prose for Timeline and
+  Shifts, then each named Thread, ending with the Most Pressing Thread called
+  out explicitly.
+
+Wait for the user to approve, request changes, or redirect. Do not proceed to
+commit without explicit approval.
 
 ### 6. Update the Map (optional)
 
@@ -129,6 +141,15 @@ If synthesizing multiple topics, or if a map already exists, update or create:
 ### 7. Commit
 
 Stage and commit using `commonplace git`:
+
+```bash
+commonplace git -- add topics/{slug}/
+commonplace git -- commit -m "Synthesize: {topic name}"
+```
+
+If a pre-commit hook (e.g. a formatter) modifies files, the commit will fail.
+Re-stage the reformatted files and retry — this is expected behaviour, not an
+error:
 
 ```bash
 commonplace git -- add topics/{slug}/
@@ -162,7 +183,9 @@ The prior artefacts remain untouched. The accumulation is the value.
 ```markdown
 ---
 kind: gathering
-query: "<the search query used>"
+queries:
+  - "<search query 1>"
+  - "<search query 2>"
 created: <ISO 8601 timestamp>
 sources:
   - <repo-relative path to source 1>
@@ -187,7 +210,9 @@ sources:
 ```markdown
 ---
 kind: distillation
-query: "<the search query used>"
+queries:
+  - "<search query 1>"
+  - "<search query 2>"
 created: <ISO 8601 timestamp>
 source_gathering: <path to the gathering file>
 prior_distillation: <path to prior distillation, or null>
@@ -203,6 +228,9 @@ How thinking has changed. What prompted the shifts.
 
 ## Threads
 Open questions, unresolved tensions, areas for future exploration.
+
+### Most Pressing Thread
+The single open question or tension most worth the user's attention right now.
 ```
 
 ### Map
