@@ -40,17 +40,29 @@ gathering.
 
 ### 2. Gather
 
-For the chosen topic, search specifically:
+For the chosen topic, run multiple specific searches:
 
 ```bash
 commonplace search -n 30 "<specific query>"
 ```
 
+**Search strategy:** Run at least 3-5 queries with different phrasings to
+maximise coverage. After initial searches, check results by source directory
+(chats, journal, notes) — if any directory is unrepresented, run a targeted
+query for it. There is no systematic way to know what you missed, so breadth
+of querying matters.
+
+**Triage before deep reading.** For topics with many hits (>15 sources), do a
+triage pass first: skim each source (read the first ~100 lines or the section
+around the search hit) and rank by relevance. Only do full reads of the most
+relevant sources. Use background subagents to parallelise reading of large
+files.
+
 Read each source note to get full context (use the Read tool). For each
 relevant section:
 
 - Note the date (from the file path or frontmatter)
-- Extract the relevant passage verbatim
+- Extract the relevant passage
 - Track the source path
 
 Order all gathered material chronologically.
@@ -75,13 +87,27 @@ Where `{slug}` is the kebab-case topic name and `{date}` is today (YYYY-MM-DD).
 Use the gathering template format (see below). The gathering is a
 **chronological** compilation of relevant passages with source attribution.
 
+**Density.** Quote generously when sources are few (\<10). For larger topics,
+be more selective: quote verbatim only the most significant passages (turning
+points, novel formulations, contradictions). Summarise the rest with enough
+context to be useful. A gathering that's too long to read defeats its purpose.
+
 ### 4. Distil
 
-Now synthesize. Produce a distillation that covers:
+Synthesize in two passes.
+
+**First pass — structure.** Produce the Timeline and Shifts sections:
 
 - **Timeline**: When did this topic appear? Key dates and milestones.
 - **Shifts**: How has thinking evolved? What changed and why?
+
+**Second pass — tensions.** Re-read the gathering specifically looking for
+contradictions, unresolved questions, and gaps. Produce:
+
 - **Threads**: What's unresolved? What dangling questions remain?
+
+The Threads section is the most valuable part of a distillation. Give it the
+most attention.
 
 Write the distillation at:
 `topics/{slug}/{date}-distillation.md`
@@ -89,19 +115,45 @@ Write the distillation at:
 Reference the gathering. If prior distillations exist, reference the most
 recent one in the `prior_distillation` field and note what has changed since.
 
-### 5. Update the Map (optional)
+### 5. Review
+
+**Present both artefacts to the user before committing.** Show or summarise
+the gathering and distillation, and wait for the user to approve, request
+changes, or redirect. Do not proceed to commit without explicit approval.
+
+### 6. Update the Map (optional)
 
 If synthesizing multiple topics, or if a map already exists, update or create:
 `topics/{date}-map.md`
 
-### 6. Commit
+### 7. Commit
+
+Stage and commit using `commonplace git`:
 
 ```bash
-commonplace commit "Synthesize: {topic name}"
+commonplace git -- add topics/{slug}/
+commonplace git -- commit -m "Synthesize: {topic name}"
 ```
 
-This stages all changes and triggers auto-indexing, making the new artefacts
-searchable for future synthesis runs.
+Then re-index so the new artefacts are searchable:
+
+```bash
+commonplace index
+```
+
+## Incremental Synthesis
+
+When a `prior_distillation` exists for a topic, the workflow changes:
+
+1. **Read the prior distillation** to understand existing coverage.
+1. **Search for new material** — focus on dates after the prior gathering's
+   latest source. You don't need to re-read sources already gathered.
+1. **Write a new gathering** containing only the new material. Reference the
+   prior gathering in the frontmatter.
+1. **Write a new distillation** that updates the prior one. Note what changed:
+   new entries in the Timeline, revised Shifts, resolved or new Threads.
+
+The prior artefacts remain untouched. The accumulation is the value.
 
 ## Artefact Formats
 
@@ -176,7 +228,9 @@ Latest distillation: <path>
 
 ## Guidelines
 
-- **Quote generously** in gatherings. The raw material matters.
+- **Quote generously** in gatherings — but scale quoting inversely with source
+  count. 5 sources: quote everything relevant. 20 sources: quote turning points,
+  summarise the rest.
 - **Be specific** in distillations. Cite dates and sources, not vague summaries.
 - **Name the threads**. The most valuable output is often what's unresolved.
 - **Don't over-synthesize**. If the material is thin, say so. A short
