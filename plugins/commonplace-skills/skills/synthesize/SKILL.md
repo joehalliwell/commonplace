@@ -67,7 +67,7 @@ another subagent with the correction) or make small edits directly.
 ### 4. Update the Map (optional)
 
 If synthesizing multiple topics, or if a map already exists, update or create:
-`topics/{date}-map.md`
+`topics/map.md`
 
 ### 5. Commit
 
@@ -132,9 +132,14 @@ commonplace search -n 5 "gathering {topic}"
 commonplace search -n 5 "distillation {topic}"
 ```
 
-If prior distillations exist, read them now — they establish existing coverage
-and determine whether to do a full gather or an incremental one (see
-Incremental Mode below).
+Also check directly for existing artefact files:
+
+- `topics/{slug}/gathering.md`
+- `topics/{slug}/distillation.md`
+
+If prior artefacts exist, read them now — they establish existing coverage and
+determine whether this is a first-run or an update (see Incremental Mode
+below).
 
 ### Phase 2: Gather
 
@@ -165,7 +170,7 @@ Order all gathered material chronologically.
 
 ### Phase 3: Write the Gathering
 
-Write to: `topics/{slug}/{date}-gathering.md`
+Write to: `topics/{slug}/gathering.md`
 
 ```markdown
 ---
@@ -173,7 +178,7 @@ kind: gathering
 queries:
   - "<search query 1>"
   - "<search query 2>"
-created: <ISO 8601 timestamp>
+updated: <YYYY-MM-DD>
 sources:
   - <repo-relative path to source 1>
   - <repo-relative path to source 2>
@@ -216,7 +221,7 @@ most attention. At the end of Threads, call out one **Most Pressing Thread**
 — the single open question or tension most worth the user's attention right
 now.
 
-Write to: `topics/{slug}/{date}-distillation.md`
+Write to: `topics/{slug}/distillation.md`
 
 ```markdown
 ---
@@ -224,9 +229,8 @@ kind: distillation
 queries:
   - "<search query 1>"
   - "<search query 2>"
-created: <ISO 8601 timestamp>
-source_gathering: topics/{slug}/{date}-gathering.md
-prior_distillation: <path to prior distillation, or null>
+updated: <YYYY-MM-DD>
+source_gathering: topics/{slug}/gathering.md
 ---
 
 # Distillation: {topic}
@@ -244,22 +248,23 @@ Open questions, unresolved tensions, areas for future exploration.
 The single open question or tension most worth the user's attention right now.
 ```
 
-Reference the gathering. If prior distillations exist, reference the most
-recent in `prior_distillation` and note what has changed since.
+Reference the gathering in `source_gathering`.
 
 ### Incremental Mode
 
-When a prior distillation exists for this topic:
+When `topics/{slug}/gathering.md` and `topics/{slug}/distillation.md` already
+exist, this is an update run:
 
-1. **Read the prior distillation** to understand existing coverage.
-1. **Search for new material** — focus on dates after the prior gathering's
-   latest source. You don't need to re-read already-gathered sources.
-1. **Write a new gathering** containing only the new material. Reference the
-   prior gathering in the frontmatter.
-1. **Write a new distillation** that updates the prior one. Note what changed:
-   new entries in the Timeline, revised Shifts, resolved or new Threads.
+1. **Read the existing distillation** to understand current coverage.
+1. **Search for new material** — focus on dates after the gathering's most
+   recent source. You don't need to re-read already-gathered sources.
+1. **Update `gathering.md` in place** — append new entries in chronological
+   order. Update `updated` and `sources` in the frontmatter. Update `queries`
+   if new queries were used.
+1. **Update `distillation.md` in place** — revise Timeline, Shifts, and
+   Threads to reflect new material. Note what changed. Update `updated`.
 
-The prior artefacts remain untouched. The accumulation is the value.
+Git tracks the full history. The prior state is always recoverable.
 
 ### Return Value
 
@@ -281,8 +286,8 @@ ______________________________________________________________________
 
 **Artefacts written**:
 
-- `topics/{slug}/{date}-gathering.md`
-- `topics/{slug}/{date}-distillation.md`
+- `topics/{slug}/gathering.md`
+- `topics/{slug}/distillation.md`
 
 ______________________________________________________________________
 
@@ -299,6 +304,7 @@ ______________________________________________________________________
   distillation noting "only 2 sources, early exploration" is more honest than
   padding.
 - **Trajectory over state**: each synthesis run is additive. Don't try to
-  produce a "final" summary. Date everything. The accumulation IS the value.
+  produce a "final" summary. The accumulation IS the value — now via git
+  history rather than dated filenames.
 - **Missteps remain**: if a prior distillation got something wrong, the new one
-  corrects it — but the old one stays.
+  corrects it in place — but git preserves the prior state.
