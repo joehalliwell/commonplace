@@ -6,25 +6,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Commonplace is a personal knowledge management tool that imports AI conversation exports (Claude, Gemini, ChatGPT) and organizes them as searchable markdown files in a git repository. It supports semantic search via vector embeddings, full-text search, and hybrid search.
 
-The manifesto in `MANIFESTO.md` should be considered a northstar for the system
-design.
+`MANIFESTO.md` is the northstar for system design.
 
 ## Commands
 
 ```bash
 # Testing
-just test                              # Run all tests with coverage
-uv run pytest tests/ -v                # Run tests directly
+just test                              # Run tests with coverage
 uv run pytest tests/test_import.py -v  # Run single test file
-just update-snapshots                  # Update test snapshots
+just update-snapshots                  # Update import snapshots (test_import.py only)
 
 # Code quality
-just format           # Format and lint
+just format           # ruff check + format
 uv run mypy src/      # Type check
 
 # Build & publish
-uv build              # Build distribution
-just publish          # Publish to PyPI
+just publish          # Build and publish to PyPI
 
 # Development
 uv tool install .                           # Install locally
@@ -51,33 +48,34 @@ uv run commonplace search "query text"
 - Index: Notes → Chunker → Chunks → Embedder → Embeddings → VectorStore
 - Search: Query → Embedder → VectorStore → SearchHits
 
-**Patterns:** Protocol interfaces, cached properties, top-level error handling, batch processing, incremental indexing, auto-commit on import
-
 ## Workflow
 
-**All changes require tests.** New features need test cases, bug fixes need regression tests, refactoring maintains coverage.
+All changes require tests. Test names: `test_<feature>_<scenario>_<expected_result>`. Use `conftest.py` fixtures; snapshot tests for complex output.
 
-**Test standards:**
+Code standards: Python 3.12+, ruff at 120 chars, mypy, type hints throughout. Update README.md for user-facing changes.
 
-- Descriptive names: `test_<feature>_<scenario>_<expected_result>`
-- Positive and negative cases
-- Use `conftest.py` fixtures
-- Snapshot tests for complex output
+Pre-commit hooks run ruff and mdformat. If mdformat reformats a file, re-stage and retry the commit.
 
-**Code quality:**
+Commits: imperative mood, concise, no AI credits. Commit each logical change separately in multi-step plans.
 
-- Python 3.12+, ruff (120 chars), mypy, type hints throughout
-- Focused functions with docstrings for public APIs
-- Update README.md for user-facing changes
-- Pre-commit hooks run ruff automatically
+## Plugins
 
-**Change process:**
+Claude Code skills and agents live in `plugins/commonplace-skills/` (current version: 0.8.0).
 
-1. Propose with full context, explain rationale and trade-offs
-1. Implement code
-1. Write tests
-1. Verify: `uv run pytest tests/ -v`
-1. Format: `uv run ruff format .`
-1. Update docs if needed
+**Skills:**
 
-**Commits:** Imperative mood ("Add" not "Added"), concise, no AI credits/co-author tags. When implementing a multi-step plan, commit each logical change separately rather than batching them into one commit.
+- `/synthesize [topic]` — gather and distil a topic from the commonplace
+- `/resonate <slug1> <slug2> [...]` — surface interference patterns between synthesized topics
+- `/projects` — scan for candidate projects, update `projects/index.md`
+- `/project <sketch>` — extract a project artefact from the commonplace
+
+**Artefact paths** (no dated filenames — git is the versioning layer):
+
+- `topics/{slug}/gathering.md`, `topics/{slug}/distillation.md`
+- `topics/resonances/{sorted-slugs}.md`
+- `projects/{slug}/project.md`, `projects/index.md`
+
+**Conventions:**
+
+- Heavy work (search, read, write) runs in a `general-purpose` subagent via the Task tool; the calling agent handles survey, review, and commit
+- Artefacts update in place on incremental runs; prior state is recoverable via git
