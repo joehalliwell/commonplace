@@ -44,11 +44,12 @@ Wait for the subagent to complete.
 
 ### 3. Review
 
-Present the subagent's summary to the user. Do not re-read the artefact file.
-Wait for explicit approval before committing.
+Read `projects/{slug}/project.md` briefly, then present a summary to the
+user. Check the subagent's Most Pressing Thread against the full Threads
+section — if the dependency reasoning looks off, flag it.
 
-If the user requests changes, spawn a revision subagent or make small edits
-directly.
+Wait for explicit approval before committing. If the user requests changes,
+spawn a revision subagent or make small edits directly.
 
 ### 4. Commit
 
@@ -58,6 +59,11 @@ commonplace git -- commit -m "Extract project: {sketch}"
 ```
 
 If a pre-commit hook reformats files, re-stage and retry.
+
+**Update the project index.** If `projects/index.md` exists, update it: move
+`{slug}` from Candidates (if present) to the appropriate status section, or
+add it if it isn't listed. Stage and include in the same commit, or a
+follow-up commit if the first has already landed.
 
 Then re-index:
 
@@ -109,12 +115,16 @@ planning, progress, blockers, decisions, completions. Journal entries often
 contain the richest project material — search them directly if they're
 underrepresented in results.
 
-Also search for status signals:
+Also search for status signals. **Decompose the sketch into its 2-3 key
+terms** and search those individually combined with status words — do not
+search the full sketch as a literal string:
 
 ```bash
-commonplace search -n 20 "{sketch} finished"
-commonplace search -n 20 "{sketch} abandoned"
-commonplace search -n 20 "{sketch} blocked"
+# e.g. for "genx icon interviews": search "interviews finished",
+# "icon project abandoned", "genx complete" — not "genx icon interviews finished"
+commonplace search -n 20 "<key term> finished"
+commonplace search -n 20 "<key term> abandoned"
+commonplace search -n 20 "<key term> blocked"
 ```
 
 **If search returns very little or nothing**, this is a stub project — the
@@ -148,9 +158,17 @@ updated: <YYYY-MM-DD>
 ## What
 One sentence. What is this project?
 
+## Why
+The impulse or motivation. Why does this matter, or why does it exist?
+Capture this while it's live — motivation decays faster than facts.
+For speculative projects: what does the sketch suggest about the motivation?
+
 ## History
-Chronological milestones, decisions, and key moments. Cite dates and sources.
-Be specific — "decided to X on YYYY-MM-DD" beats "at some point considered X".
+Chronological milestones, decisions, and key moments. Every entry must
+cite a source: either a repo-relative file path or a specific date from
+the material. Uncited milestones should be marked (source unknown).
+Be specific — "decided to X (chats/claude/2024/03/2024-03-12-foo.md)"
+beats "at some point considered X".
 
 ## Current State
 Where things stand as of {date}. What has been done, what hasn't.
@@ -161,11 +179,25 @@ material, and describe what the sketch implies.
 Open questions, blockers, and next actions.
 
 ### Most Pressing Thread
-The single most important thing to address or decide next.
+The thread that blocks the most other threads — the dependency root. If
+no dependencies exist between threads, the most urgent standalone action.
 ```
 
 **For update runs:** revise each section to reflect new material. Be specific
 about what changed. Update `status` if it has shifted. Update `updated`.
+
+### Phase 5: Critique
+
+Re-read the Threads section before finalising. Ask:
+
+- Do any threads depend on other threads? (e.g. "decide on format" must
+  happen before "reach out to subjects")
+- Which thread, if resolved, would unblock the most others?
+- Is the current Most Pressing Thread actually the dependency root, or is
+  there something upstream of it?
+
+Revise Most Pressing Thread if needed. This is the step that turns
+transcription into analysis.
 
 ### Incremental Mode
 
@@ -173,8 +205,9 @@ When `projects/{slug}/project.md` already exists:
 
 1. Read the existing artefact.
 1. Search for material dated after the artefact's `updated` date.
-1. Update the artefact in place — append to History, revise Current State and
-   Threads. Update `updated` and `status` if needed.
+1. Update the artefact in place — append to History (with citations), revise
+   Current State and Threads. Update `updated` and `status` if needed.
+1. Re-run the critique phase on the updated Threads.
 
 Git tracks the full history. The prior state is always recoverable.
 
@@ -188,6 +221,8 @@ ______________________________________________________________________
 
 **What**: {one sentence}
 
+**Why**: {one sentence — the motivation}
+
 **History**: {2-3 sentence summary of key milestones}
 
 **Current state**: {1-2 sentences}
@@ -196,7 +231,7 @@ ______________________________________________________________________
 
 - {Thread}: {one sentence}
 - *(repeat)*
-- **Most Pressing Thread**: {thread} — {one sentence rationale}
+- **Most Pressing Thread**: {thread} — {rationale, including any threads it unblocks}
 
 **Artefact written**: `projects/{slug}/project.md`
 
