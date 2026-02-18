@@ -11,8 +11,8 @@ what projects exist (or may exist), note their apparent status, and update the
 project index. No per-project artefacts are written here; use `/project` for
 that.
 
-The heavy scanning runs in a subagent. You handle review and the optional
-index commit.
+The heavy scanning runs in a subagent. You handle review, extraction offers,
+and the optional index commit.
 
 ## Prerequisites
 
@@ -33,19 +33,24 @@ Use the **Task tool** to spawn a `general-purpose` subagent:
 
 Wait for the subagent to complete.
 
-### 2. Review
+### 2. Review and Offer Extraction
 
-Present the subagent's candidate list to the user. The list is structured as:
+Present the subagent's candidate list to the user, structured as:
 
+- **Index staleness**: how long since the last scan (compute from
+  `projects/index.md` frontmatter `updated` date — e.g. "last scanned 47
+  days ago"). Omit if no index exists yet.
+- **Drift** (if index exists): projects whose status has changed since the
+  last scan, and candidates that have since been extracted.
 - **Extracted projects**: already have a `projects/{slug}/project.md` artefact
 - **Candidate projects**: discovered in the material, not yet extracted
-- **Thin signals**: mentioned once or twice, may not be real projects
+- **Thin signals**: weak evidence, may not be real projects
 
-Wait for the user to review. They may:
-
-- Ask you to extract one or more candidates (hand off to `/project`)
-- Dismiss thin signals
-- Correct misidentified projects
+After presenting, explicitly ask: **"Shall I extract any of these? If so,
+which ones?"** If the user says yes, run `/project` for each confirmed
+candidate in-session — spawn the extraction subagent(s) directly rather than
+handing back to the command line. Handle review and commit for each as per the
+`/project` workflow.
 
 ### 3. Update the Index (optional)
 
@@ -100,21 +105,46 @@ Check the `projects/` directory for already-extracted project artefacts:
 Read each one. Note slug, status, and `updated` date. These form the
 "extracted projects" section of your return value.
 
-Also read `projects/index.md` if it exists.
+Also read `projects/index.md` if it exists. Note its `updated` date — you
+will compare this against the current project artefacts to detect drift.
 
-### Phase 2: Scan for Signals
+### Phase 2: Detect Drift
 
-Search for action-oriented and commitment language. Run all of these:
+If `projects/index.md` exists, compare its `updated` date against each
+extracted project's `updated` date and status:
+
+- Projects whose `updated` date is more recent than the index were modified
+  after the last scan — flag them as **status may have changed**.
+- Projects listed as Candidates in the index that now have a
+  `projects/{slug}/project.md` artefact — flag them as **since extracted**.
+
+This drift section is often the most useful output when the index is fresh.
+
+### Phase 3: Scan for Signals
+
+Search for action-oriented and commitment language. Run all of these.
+
+**First-person signals** (Joe writing to AI):
 
 ```bash
 commonplace search -n 30 "working on"
 commonplace search -n 30 "I'm building"
 commonplace search -n 30 "I want to make"
 commonplace search -n 30 "plan to"
-commonplace search -n 30 "next step"
 commonplace search -n 30 "I need to"
-commonplace search -n 30 "deadline"
 commonplace search -n 30 "I've been"
+```
+
+**Task-oriented signals** (AI responding, or notes/journal):
+
+```bash
+commonplace search -n 30 "next steps"
+commonplace search -n 30 "action items"
+commonplace search -n 30 "to do"
+commonplace search -n 30 "the goal is"
+commonplace search -n 30 "the plan is"
+commonplace search -n 30 "next step"
+commonplace search -n 30 "deadline"
 commonplace search -n 30 "project"
 ```
 
@@ -130,9 +160,26 @@ commonplace search -n 20 "gave up"
 commonplace search -n 20 "shipped"
 ```
 
-### Phase 3: Cluster into Candidates
+### Phase 4: Cluster into Candidates
 
-Group hits by apparent project. For each cluster:
+Group hits by apparent project. For each cluster, assess project-ness using
+these signals — **named + explicit next action is stronger than five unnamed
+mentions**:
+
+| Signal                          | Weight   |
+| ------------------------------- | -------- |
+| Has a proper name or title      | Strong   |
+| Has an explicit next action     | Strong   |
+| Has a stated goal or motivation | Moderate |
+| Multiple mentions across time   | Moderate |
+| Action language without a name  | Weak     |
+| Single mention only             | Weak     |
+
+A named project with one clear next action is a strong candidate. A nameless
+topic with five mentions is a thin signal. Don't use mention count as a proxy
+for project-ness.
+
+For each candidate:
 
 - Infer a name and slug
 - Estimate status: active / paused / complete / abandoned
@@ -141,17 +188,17 @@ Group hits by apparent project. For each cluster:
 - Note the strongest evidence (a brief quote or source path)
 
 Exclude topics that are clearly intellectual/exploratory with no action
-component — those belong in `/synthesize`. A project involves doing something,
-not just thinking about it.
-
-Separate strong candidates (3+ signals, recent activity) from thin signals
-(1-2 mentions, may not be real projects).
+component — those belong in `/synthesize`.
 
 ### Return Value
 
 Return **only** this structured list:
 
 ______________________________________________________________________
+
+**Drift since last scan** (omit section if no prior index):
+
+- {slug}: {what changed — e.g. "status active→paused" or "now extracted"}
 
 **Extracted projects** (already have artefacts):
 
@@ -162,8 +209,8 @@ ______________________________________________________________________
 **Candidate projects** (discovered, not yet extracted):
 
 - **{name}** (`{slug}`) — {one-line description}. Status signal: {active /
-  paused / complete / abandoned}. Evidence: {date range}, {brief
-  quote or source}.
+  paused / complete / abandoned}. Evidence: {date range}, {brief quote or
+  source}.
 
 *(repeat)*
 
@@ -206,7 +253,8 @@ updated: <YYYY-MM-DD>
 
 ## Candidates
 
-Projects identified but not yet extracted. Run `/project <sketch>` to extract.
+Projects identified but not yet extracted.
 
-- **{Project Name}** — {one-line description}.
+- **{Project Name}** — {one-line description}. Run `/project {slug}` to
+  extract.
 ```
