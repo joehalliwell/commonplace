@@ -1,18 +1,13 @@
 """Tests for the Gemini fetcher (and its paired importer)."""
 
 import json
-import re
 from pathlib import Path
 
 import httpx
 import pytest
 
-from commonplace._fetch._gemini import (
-    GeminiFetcher,
-    _extract_rpc_body,
-    _ts_to_iso,
-)
-from commonplace._import._gemini import GeminiImporter
+from commonplace._fetch._gemini import GeminiFetcher
+from commonplace._import._gemini import GeminiImporter, _extract_rpc_body, _ts_to_iso
 
 FIXTURES = Path(__file__).parent / "resources" / "gemini-samples"
 LIST_CHATS_RAW = (FIXTURES / "list_chats.txt").read_text()
@@ -46,8 +41,6 @@ def _handler(request: httpx.Request) -> httpx.Response:
         rpcids = request.url.params.get("rpcids", "")
         if rpcids == "MaZiqc":
             cursor = _extract_payload_cursor(request)
-            # First call in a bucket: cursor is None → return fixture (which
-            # contains a cursor). Second call: cursor is set → terminate.
             return httpx.Response(200, text=EMPTY_LIST_CHATS if cursor else LIST_CHATS_RAW)
         if rpcids == "hNvQHb":
             return httpx.Response(200, text=READ_CHAT_RAW)
@@ -86,6 +79,15 @@ def stub_cursor(monkeypatch):
     return setter
 
 
+def _read_wire(archive: Path) -> list[dict]:
+    return [json.loads(line) for line in archive.read_text().splitlines() if line]
+
+
+# ---------------------------------------------------------------------------
+# Unit tests on shared wire helpers.
+# ---------------------------------------------------------------------------
+
+
 def test_ts_to_iso_truncates_nanos_to_micros():
     assert _ts_to_iso(1750141638, 548904000) == "2025-06-17T06:27:18.548904Z"
 
@@ -93,7 +95,6 @@ def test_ts_to_iso_truncates_nanos_to_micros():
 def test_extract_rpc_body_pulls_correct_wrb():
     body = _extract_rpc_body(READ_CHAT_RAW, "hNvQHb")
     assert isinstance(body, list)
-    # body[0] is the turns list
     assert isinstance(body[0], list)
 
 
@@ -107,91 +108,40 @@ def test_extract_rpc_body_raises_on_bad_preamble():
         _extract_rpc_body("not-a-real-response", "MaZiqc")
 
 
+# ---------------------------------------------------------------------------
+# Fetcher tests.
+# ---------------------------------------------------------------------------
+
+
 def test_fetch_returns_none_without_session(monkeypatch, test_repo, tmp_path):
     monkeypatch.setattr(GeminiFetcher, "_read_cookies", lambda self: {})
     assert GeminiFetcher().fetch(tmp_path, test_repo) is None
 
 
-def test_fetch_end_to_end(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
-    """Full path: scrape tokens, list, read, produce an importable JSON archive."""
+def test_fetch_writes_raw_wire_only(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
+    """The fetcher's artifact is a JSONL of raw `batchexecute` responses —
+    no invented intermediate format."""
     archive = GeminiFetcher().fetch(tmp_path, test_repo)
     assert archive is not None
-    assert archive.name == "gemini-fetch.json"
+    assert archive.name == "gemini-wire.jsonl"
 
-    data = json.loads(archive.read_text())
-    # Mock returns the 5-chat fixture for both pinned + unpinned buckets → 10 chats.
-    assert len(data) == 10
-    for chat in data:
-        assert chat["cid"].startswith("c_")
-        assert re.match(r"CHAT_TITLE_\d", chat["title"])
-        assert chat["gem_name"] == "GEM_NAME"
-        assert len(chat["rounds"]) == 3
-        # Rounds should be chronological (oldest first) after reversal.
-        timestamps = [r["timestamp"] for r in chat["rounds"]]
-        assert timestamps == sorted(timestamps), "rounds must be chronological"
-
-
-def test_fetch_extracts_per_turn_timestamps(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
-    archive = GeminiFetcher().fetch(tmp_path, test_repo)
-    data = json.loads(archive.read_text())
-    rounds = data[0]["rounds"]
-    # The three timestamps in the fixture (chronological after reversal):
-    assert [r["timestamp"] for r in rounds] == [
-        "2025-06-17T06:01:53.371626Z",
-        "2025-06-17T06:04:32.191904Z",
-        "2025-06-17T06:27:18.548904Z",
-    ]
-    # Each round has both user + model text
-    assert rounds[0]["user_text"] == "USER_TEXT_2"
-    assert rounds[0]["model_text"] == "MODEL_TEXT_2_0"
-    assert rounds[0]["model_thoughts"] == "MODEL_THOUGHTS_2_0"
-    assert rounds[0]["language"] == "en"
+    wire = _read_wire(archive)
+    # 2 list_chats buckets × 2 pages each (real + terminating empty) = 4
+    # plus 5 read_chat calls × 2 buckets = 10 → 14 entries.
+    list_calls = [e for e in wire if e["rpc"] == "MaZiqc"]
+    read_calls = [e for e in wire if e["rpc"] == "hNvQHb"]
+    assert len(list_calls) == 4
+    assert len(read_calls) == 10
+    # Every response is stored as the exact batchexecute text.
+    for entry in wire:
+        assert entry["response"].startswith(")]}'\n"), "raw batchexecute preamble preserved"
+        assert set(entry.keys()) == {"rpc", "payload", "response"}
 
 
 def test_fetch_incremental_skips_seen(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
     """A cursor >= all summaries' updated_at → nothing to fetch."""
     stub_cursor("2030-01-01T00:00:00Z")
     assert GeminiFetcher().fetch(tmp_path, test_repo) is None
-
-
-def test_importer_recognizes_fetcher_output(tmp_path):
-    """GeminiImporter.can_import must accept the fetcher's JSON."""
-    path = tmp_path / "gemini-fetch.json"
-    path.write_text(json.dumps([{"cid": "c_abc", "title": "t", "rounds": []}]))
-    assert GeminiImporter().can_import(path)
-
-
-def test_importer_rejects_arbitrary_json(tmp_path):
-    path = tmp_path / "other.json"
-    path.write_text(json.dumps({"not": "a chat list"}))
-    assert not GeminiImporter().can_import(path)
-
-
-def test_importer_produces_events_with_shared_timestamps(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
-    """User and model messages in a round share the wire timestamp."""
-    archive = GeminiFetcher().fetch(tmp_path, test_repo)
-    logs = GeminiImporter().import_(archive)
-    assert len(logs) == 10
-    log = logs[0]
-    assert log.source == "gemini"
-    assert log.metadata["uuid"].startswith("c_")
-    assert log.metadata["gem"] == "GEM_NAME"
-    # 3 rounds × 2 messages
-    assert len(log.events) == 6
-    # first user + model share timestamp
-    assert log.events[0].created == log.events[1].created
-
-
-def test_importer_carries_thoughts_and_language_metadata(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
-    archive = GeminiFetcher().fetch(tmp_path, test_repo)
-    logs = GeminiImporter().import_(archive)
-    # events[1] is the earliest model message. In the wire the fixture's turns
-    # are newest-first: turn[0], turn[1], turn[2]. After chronological reversal,
-    # the earliest round corresponds to wire turn[2] → MODEL_THOUGHTS_2_0.
-    model_msg = logs[0].events[1]
-    assert model_msg.metadata["language"] == "en"
-    assert model_msg.metadata["thoughts"] == "MODEL_THOUGHTS_2_0"
-    assert model_msg.metadata["rcid"].startswith("rc_")
 
 
 def test_fetch_retries_transient_5xx(monkeypatch, stub_cookies, stub_cursor, test_repo, tmp_path):
@@ -204,7 +154,6 @@ def test_fetch_retries_transient_5xx(monkeypatch, stub_cookies, stub_cursor, tes
         calls[path] = calls.get(path, 0) + 1
         if path.endswith("/app"):
             return httpx.Response(200, text=_fake_app_page())
-        # First batchexecute request 503s; subsequent succeed.
         if "batchexecute" in path and calls[path] == 1:
             return httpx.Response(503)
         return _handler(request)
@@ -241,9 +190,98 @@ def test_fetch_raises_on_403(monkeypatch, stub_cookies, stub_cursor, test_repo, 
         GeminiFetcher().fetch(tmp_path, test_repo)
 
 
-def test_read_chat_skips_null_body(monkeypatch, stub_cookies, stub_cursor, test_repo, tmp_path, caplog):
+def test_read_session_tokens_raises_on_missing_html(monkeypatch, stub_cookies, test_repo, tmp_path):
+    def handler(request):
+        if request.url.path.endswith("/app"):
+            return httpx.Response(200, text="<html>no tokens here</html>")
+        return httpx.Response(200, text=")]}'\n\n0\n[]")
+
+    transport = httpx.MockTransport(handler)
+    real_client = httpx.Client
+
+    def factory(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr("commonplace._fetch._gemini.httpx.Client", factory)
+    monkeypatch.setattr(GeminiFetcher, "_last_import_time", lambda self, repo: None)
+
+    with pytest.raises(RuntimeError, match="access token"):
+        GeminiFetcher().fetch(tmp_path, test_repo)
+
+
+# ---------------------------------------------------------------------------
+# Importer tests.
+# ---------------------------------------------------------------------------
+
+
+def test_importer_recognizes_wire_jsonl(tmp_path):
+    path = tmp_path / "wire.jsonl"
+    path.write_text(json.dumps({"rpc": "MaZiqc", "payload": [], "response": ")]}'\n"}) + "\n")
+    assert GeminiImporter().can_import(path)
+
+
+def test_importer_rejects_arbitrary_jsonl(tmp_path):
+    path = tmp_path / "other.jsonl"
+    path.write_text(json.dumps({"not": "a wire log"}) + "\n")
+    assert not GeminiImporter().can_import(path)
+
+
+def test_importer_rejects_non_jsonl(tmp_path):
+    path = tmp_path / "chats.json"
+    path.write_text("[]")
+    assert not GeminiImporter().can_import(path)
+
+
+def test_importer_reconstructs_events_from_wire(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
+    """The importer reads raw responses and produces EventLogs with per-turn
+    timestamps drawn from the wire."""
+    archive = GeminiFetcher().fetch(tmp_path, test_repo)
+    logs = GeminiImporter().import_(archive)
+
+    # 5 chats × 2 buckets (mock returns fixture for both pinned + unpinned) = 10.
+    assert len(logs) == 10
+    log = logs[0]
+    assert log.source == "gemini"
+    assert log.metadata["uuid"].startswith("c_")
+    assert log.metadata["gem"] == "GEM_NAME"
+    assert log.title.startswith("CHAT_TITLE_")
+    # 3 rounds × 2 messages
+    assert len(log.events) == 6
+    # first user + model share timestamp
+    assert log.events[0].created == log.events[1].created
+    # Chronological order after wire-reversal.
+    times = [e.created for e in log.events]
+    assert times == sorted(times)
+
+
+def test_importer_carries_thoughts_and_language_metadata(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
+    archive = GeminiFetcher().fetch(tmp_path, test_repo)
+    logs = GeminiImporter().import_(archive)
+    # events[1] is the earliest model message. Wire turns are newest-first in
+    # the fixture; after chronological reversal the earliest round is wire
+    # turn[2] → MODEL_THOUGHTS_2_0.
+    model_msg = logs[0].events[1]
+    assert model_msg.metadata["language"] == "en"
+    assert model_msg.metadata["thoughts"] == "MODEL_THOUGHTS_2_0"
+    assert model_msg.metadata["rcid"].startswith("rc_")
+
+
+def test_importer_extracts_per_turn_timestamps_from_wire(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
+    archive = GeminiFetcher().fetch(tmp_path, test_repo)
+    logs = GeminiImporter().import_(archive)
+    # The three per-round timestamps in the fixture (chronological after reversal):
+    times = [e.created.isoformat().replace("+00:00", "Z") for e in logs[0].events[::2]]  # user messages only
+    assert times == [
+        "2025-06-17T06:01:53.371626Z",
+        "2025-06-17T06:04:32.191904Z",
+        "2025-06-17T06:27:18.548904Z",
+    ]
+
+
+def test_importer_handles_null_body_with_warning(monkeypatch, stub_cookies, stub_cursor, test_repo, tmp_path, caplog):
     """Per-chat access glitches (wrb.fr body = null) log a warning and yield
-    an empty-turns chat, rather than aborting the batch."""
+    an EventLog with no events, rather than aborting the batch."""
     import logging
 
     null_body_response = ')]}\'\n\n0\n[["wrb.fr","hNvQHb",null,null,null,null,"generic"]]'
@@ -269,29 +307,9 @@ def test_read_chat_skips_null_body(monkeypatch, stub_cookies, stub_cursor, test_
 
     monkeypatch.setattr("commonplace._fetch._gemini.httpx.Client", factory)
 
-    with caplog.at_level(logging.WARNING, logger="commonplace"):
-        archive = GeminiFetcher().fetch(tmp_path, test_repo)
+    archive = GeminiFetcher().fetch(tmp_path, test_repo)
     assert archive is not None
-    data = json.loads(archive.read_text())
-    assert all(chat["rounds"] == [] for chat in data)
+    with caplog.at_level(logging.WARNING, logger="commonplace"):
+        logs = GeminiImporter().import_(archive)
+    assert all(log.events == [] for log in logs)
     assert any("Empty response" in r.message for r in caplog.records)
-
-
-def test_read_session_tokens_raises_on_missing_html(monkeypatch, stub_cookies, test_repo, tmp_path):
-    def handler(request):
-        if request.url.path.endswith("/app"):
-            return httpx.Response(200, text="<html>no tokens here</html>")
-        return httpx.Response(200, text=")]}'\n\n0\n[]")
-
-    transport = httpx.MockTransport(handler)
-    real_client = httpx.Client
-
-    def factory(*args, **kwargs):
-        kwargs["transport"] = transport
-        return real_client(*args, **kwargs)
-
-    monkeypatch.setattr("commonplace._fetch._gemini.httpx.Client", factory)
-    monkeypatch.setattr(GeminiFetcher, "_last_import_time", lambda self, repo: None)
-
-    with pytest.raises(RuntimeError, match="access token"):
-        GeminiFetcher().fetch(tmp_path, test_repo)
