@@ -67,9 +67,8 @@ def mock_http(monkeypatch):
 def stub_cookies(monkeypatch):
     """Bypass real browser cookie extraction."""
     monkeypatch.setattr(
-        ClaudeFetcher,
-        "_read_cookies",
-        lambda self: {"sessionKey": "sk-test", "lastActiveOrg": ORG},
+        "commonplace._fetch._claude.read_chrome_cookies",
+        lambda domain: {"sessionKey": "sk-test", "lastActiveOrg": ORG},
     )
 
 
@@ -81,7 +80,7 @@ def stub_cursor(monkeypatch):
     def setter(ts):
         state["value"] = ts
 
-    monkeypatch.setattr(ClaudeFetcher, "_last_import_time", lambda self, repo: state["value"])
+    monkeypatch.setattr("commonplace._fetch._claude.last_import_time", lambda repo, source: state["value"])
     return setter
 
 
@@ -111,12 +110,12 @@ def test_archive_is_valid_claude_export(tmp_path):
 
 
 def test_fetch_returns_none_without_session(monkeypatch, test_repo, tmp_path):
-    monkeypatch.setattr(ClaudeFetcher, "_read_cookies", lambda self: {})
+    monkeypatch.setattr("commonplace._fetch._claude.read_chrome_cookies", lambda domain: {})
     assert ClaudeFetcher().fetch(tmp_path, test_repo) is None
 
 
 def test_fetch_returns_none_without_org(monkeypatch, test_repo, tmp_path):
-    monkeypatch.setattr(ClaudeFetcher, "_read_cookies", lambda self: {"sessionKey": "sk"})
+    monkeypatch.setattr("commonplace._fetch._claude.read_chrome_cookies", lambda domain: {"sessionKey": "sk"})
     assert ClaudeFetcher().fetch(tmp_path, test_repo) is None
 
 
@@ -146,18 +145,22 @@ def test_fetch_incremental_picks_up_newer(mock_http, stub_cookies, stub_cursor, 
 
 def test_last_import_time_returns_none_on_fresh_repo(test_repo):
     """Fresh repo with no chats/claude/ commits → None cursor."""
-    assert ClaudeFetcher()._last_import_time(test_repo) is None
+    from commonplace._fetch._helpers import last_import_time
+
+    assert last_import_time(test_repo, "claude") is None
 
 
 def test_last_import_time_returns_iso_after_commit(test_repo):
     """After importing chats, the cursor is an ISO timestamp."""
+    from commonplace._fetch._helpers import last_import_time
+
     (test_repo.root / "chats" / "claude" / "2026" / "07").mkdir(parents=True)
     note = test_repo.root / "chats" / "claude" / "2026" / "07" / "test.md"
     note.write_text("# test\n")
     test_repo.git.index.add(note.relative_to(test_repo.root).as_posix())
     test_repo.commit("Import test", auto_index=False)
 
-    ts = ClaudeFetcher()._last_import_time(test_repo)
+    ts = last_import_time(test_repo, "claude")
     assert ts is not None
     assert "T" in ts  # rough ISO shape check
 
@@ -195,7 +198,7 @@ def test_fetch_command_filters_by_source(test_repo, monkeypatch):
 
 def test_fetch_retries_transient_5xx(monkeypatch, stub_cookies, stub_cursor, test_repo, tmp_path):
     """A 503 followed by success should resolve without raising."""
-    monkeypatch.setattr("commonplace._fetch._claude.time.sleep", lambda _: None)
+    monkeypatch.setattr("commonplace._fetch._helpers.time.sleep", lambda _: None)
 
     calls: dict[str, int] = {}
 

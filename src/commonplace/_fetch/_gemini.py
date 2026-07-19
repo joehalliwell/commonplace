@@ -8,35 +8,26 @@ surfaces immediately rather than as silent data loss.
 
 import gzip
 import json
-import os
 import random
 import re
-import subprocess
-import time
 from pathlib import Path
 from typing import Any
 
-import browser_cookie3  # type: ignore[import-untyped]
 import httpx
 
+from commonplace._fetch._helpers import last_import_time, read_chrome_cookies, request_with_retry
 from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
 
 CHROME_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-FLATPAK_CHROME_CONFIG = Path.home() / ".var" / "app" / "com.google.Chrome" / "config"
 
 INIT_URL = "https://gemini.google.com/app"
 BATCH_URL = "https://gemini.google.com/_/BardChatUi/data/batchexecute"
 
 RPC_LIST_CHATS = "MaZiqc"
 RPC_READ_CHAT = "hNvQHb"
-
-# Retry transient failures with exponential backoff.
-RETRY_STATUSES = {429, 500, 502, 503, 504}
-MAX_RETRIES = 5
-BACKOFF_BASE = 1.5
 
 
 class GeminiFetcher:
@@ -51,12 +42,12 @@ class GeminiFetcher:
     _wire_log: list[dict[str, Any]]
 
     def fetch(self, destination: Path, repo: Commonplace) -> Path | None:
-        cookies = self._read_cookies()
+        cookies = read_chrome_cookies(".google.com")
         if not cookies.get("__Secure-1PSID"):
             logger.error("No Gemini session cookie found. Log in at https://gemini.google.com in Chrome first.")
             return None
 
-        since = self._last_import_time(repo)
+        since = last_import_time(repo, self.source)
         self._wire_log = []
 
         with httpx.Client(
@@ -86,24 +77,6 @@ class GeminiFetcher:
                 self._call_rpc(RPC_READ_CHAT, [cid, 1000, None, 1, [1], [4], None, 1])
 
         return self._write_archive(destination)
-
-    def _read_cookies(self) -> dict[str, str]:
-        if FLATPAK_CHROME_CONFIG.exists():
-            os.environ["XDG_CONFIG_HOME"] = str(FLATPAK_CHROME_CONFIG)
-        jar = browser_cookie3.chrome(domain_name=".google.com")
-        return {c.name: c.value for c in jar if c.value}
-
-    def _last_import_time(self, repo: Commonplace) -> str | None:
-        """ISO timestamp of the most recent commit touching this source's
-        chats, or None if none. Same commit-time cursor caveat as
-        [[claude fetcher]]."""
-        result = subprocess.run(
-            ["git", "-C", str(repo.root), "log", "-1", "--format=%aI", "--", f"chats/{self.source}/"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        return result.stdout.strip() or None
 
     def _read_session_tokens(self) -> None:
         """Scrape SNlM0e (access token), cfb2h (build label), and FdrFJe
@@ -155,21 +128,10 @@ class GeminiFetcher:
         envelope = json.dumps([[[rpcid, json.dumps(payload), None, "generic"]]])
         data = {"at": self._access_token, "f.req": envelope}
         headers = {"Content-Type": "application/x-www-form-urlencoded;charset=utf-8"}
-        r = self._post_with_retry(BATCH_URL, params=params, data=data, headers=headers)
+        r = request_with_retry(self._client, "POST", BATCH_URL, params=params, data=data, headers=headers)
+        self._check(r)
         self._wire_log.append({"rpc": rpcid, "payload": payload, "response": r.text})
         return _extract_rpc_body(r.text, rpcid)
-
-    def _post_with_retry(self, url: str, **kwargs: Any) -> httpx.Response:
-        for attempt in range(MAX_RETRIES):
-            r = self._client.post(url, **kwargs)
-            if r.status_code not in RETRY_STATUSES:
-                self._check(r)
-                return r
-            delay = BACKOFF_BASE**attempt
-            logger.warning(f"Got {r.status_code} from {url}; retrying in {delay:.1f}s")
-            time.sleep(delay)
-        self._check(r)
-        return r
 
     @staticmethod
     def _check(r: httpx.Response) -> None:

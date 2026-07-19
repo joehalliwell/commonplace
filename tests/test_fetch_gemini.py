@@ -63,9 +63,8 @@ def mock_http(monkeypatch):
 @pytest.fixture
 def stub_cookies(monkeypatch):
     monkeypatch.setattr(
-        GeminiFetcher,
-        "_read_cookies",
-        lambda self: {"__Secure-1PSID": "psid", "__Secure-1PSIDTS": "psidts"},
+        "commonplace._fetch._gemini.read_chrome_cookies",
+        lambda domain: {"__Secure-1PSID": "psid", "__Secure-1PSIDTS": "psidts"},
     )
 
 
@@ -76,7 +75,7 @@ def stub_cursor(monkeypatch):
     def setter(ts):
         state["value"] = ts
 
-    monkeypatch.setattr(GeminiFetcher, "_last_import_time", lambda self, repo: state["value"])
+    monkeypatch.setattr("commonplace._fetch._gemini.last_import_time", lambda repo, source: state["value"])
     return setter
 
 
@@ -116,7 +115,7 @@ def test_extract_rpc_body_raises_on_bad_preamble():
 
 
 def test_fetch_returns_none_without_session(monkeypatch, test_repo, tmp_path):
-    monkeypatch.setattr(GeminiFetcher, "_read_cookies", lambda self: {})
+    monkeypatch.setattr("commonplace._fetch._gemini.read_chrome_cookies", lambda domain: {})
     assert GeminiFetcher().fetch(tmp_path, test_repo) is None
 
 
@@ -147,7 +146,7 @@ def test_fetch_incremental_skips_seen(mock_http, stub_cookies, stub_cursor, test
 
 
 def test_fetch_retries_transient_5xx(monkeypatch, stub_cookies, stub_cursor, test_repo, tmp_path):
-    monkeypatch.setattr("commonplace._fetch._gemini.time.sleep", lambda _: None)
+    monkeypatch.setattr("commonplace._fetch._helpers.time.sleep", lambda _: None)
 
     calls: dict[str, int] = {}
 
@@ -206,7 +205,7 @@ def test_read_session_tokens_raises_on_missing_html(monkeypatch, stub_cookies, t
         return real_client(*args, **kwargs)
 
     monkeypatch.setattr("commonplace._fetch._gemini.httpx.Client", factory)
-    monkeypatch.setattr(GeminiFetcher, "_last_import_time", lambda self, repo: None)
+    monkeypatch.setattr("commonplace._fetch._gemini.last_import_time", lambda repo, source: None)
 
     with pytest.raises(RuntimeError, match="access token"):
         GeminiFetcher().fetch(tmp_path, test_repo)
