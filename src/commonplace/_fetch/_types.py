@@ -1,8 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
-
-if TYPE_CHECKING:
-    from commonplace._repo import Commonplace
+from typing import Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -17,13 +14,13 @@ class Fetcher(Protocol):
 
     source: str
 
-    def fetch(self, destination: Path, repo: "Commonplace") -> Path | None:
+    def fetch(self, destination: Path, since: str | None) -> Path | None:
         """Fetch new content.
 
         Args:
             destination: Directory to write the fetched artifact into.
-            repo: The commonplace repository; used to derive the incremental
-                cursor from git history so no cache file is needed.
+            since: ISO 8601 cursor — only fetch conversations updated after
+                this timestamp. `None` means fetch everything.
 
         Returns:
             Path to an importable file, or None if nothing new was fetched.

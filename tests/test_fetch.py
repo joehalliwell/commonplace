@@ -1,4 +1,4 @@
-"""Tests for the fetch pipeline (Claude fetcher + commands)."""
+"""Tests for the Claude fetcher (and its paired importer)."""
 
 from pathlib import Path
 
@@ -14,6 +14,8 @@ SUMMARIES = [
     {"uuid": "c-old", "name": "Old", "updated_at": "2026-06-01T00:00:00Z"},
     {"uuid": "c-new", "name": "New", "updated_at": "2026-07-15T00:00:00Z"},
 ]
+
+TEST_COOKIES = {"sessionKey": "sk-test", "lastActiveOrg": ORG}
 
 
 def _detail(uuid: str) -> dict:
@@ -50,45 +52,19 @@ def _handler(request: httpx.Request) -> httpx.Response:
     return httpx.Response(404)
 
 
-@pytest.fixture
-def mock_http(monkeypatch):
-    """Patch httpx.Client inside _claude to route through MockTransport."""
-    transport = httpx.MockTransport(_handler)
-    real_client = httpx.Client
-
-    def factory(*args, **kwargs):
-        kwargs["transport"] = transport
-        return real_client(*args, **kwargs)
-
-    monkeypatch.setattr("commonplace._fetch._claude.httpx.Client", factory)
+def _make_fetcher(handler=_handler, cookies=TEST_COOKIES) -> ClaudeFetcher:
+    return ClaudeFetcher(cookies=cookies, transport=httpx.MockTransport(handler))
 
 
-@pytest.fixture
-def stub_cookies(monkeypatch):
-    """Bypass real browser cookie extraction."""
-    monkeypatch.setattr(
-        ClaudeFetcher,
-        "_read_cookies",
-        lambda self: {"sessionKey": "sk-test", "lastActiveOrg": ORG},
-    )
-
-
-@pytest.fixture
-def stub_cursor(monkeypatch):
-    """Return a settable cursor so tests can simulate prior imports."""
-    state = {"value": None}
-
-    def setter(ts):
-        state["value"] = ts
-
-    monkeypatch.setattr(ClaudeFetcher, "_last_import_time", lambda self, repo: state["value"])
-    return setter
+# ---------------------------------------------------------------------------
+# Unit tests on the shape-normalisation helper.
+# ---------------------------------------------------------------------------
 
 
 def test_to_export_shape_wraps_flat_text():
     """API messages carry a flat text field; the importer expects blocks."""
     convo = {"chat_messages": [{"sender": "human", "text": "hi"}]}
-    result = ClaudeFetcher()._to_export_shape(convo)
+    result = ClaudeFetcher._to_export_shape(convo)
     assert result["chat_messages"][0]["content"] == [{"type": "text", "text": "hi"}]
 
 
@@ -96,105 +72,86 @@ def test_to_export_shape_preserves_existing_content():
     """Don't clobber messages that already have content blocks."""
     blocks = [{"type": "text", "text": "hi", "citations": []}]
     convo = {"chat_messages": [{"sender": "human", "text": "hi", "content": blocks}]}
-    result = ClaudeFetcher()._to_export_shape(convo)
+    result = ClaudeFetcher._to_export_shape(convo)
     assert result["chat_messages"][0]["content"] is blocks
 
 
 def test_archive_is_valid_claude_export(tmp_path):
     """Synthesized ZIP must be recognized by the existing importer."""
-    fetcher = ClaudeFetcher()
-    archive = fetcher._write_archive([fetcher._to_export_shape(_detail("c-1"))], tmp_path)
+    archive = ClaudeFetcher._write_archive([ClaudeFetcher._to_export_shape(_detail("c-1"))], tmp_path)
     importer = ClaudeImporter()
     assert importer.can_import(archive)
-    logs = importer.import_(archive)
-    assert len(logs) == 1
+    assert len(importer.import_(archive)) == 1
 
 
-def test_fetch_returns_none_without_session(monkeypatch, test_repo, tmp_path):
-    monkeypatch.setattr(ClaudeFetcher, "_read_cookies", lambda self: {})
-    assert ClaudeFetcher().fetch(tmp_path, test_repo) is None
+# ---------------------------------------------------------------------------
+# Fetcher tests — cookies + transport injected via the constructor.
+# ---------------------------------------------------------------------------
 
 
-def test_fetch_returns_none_without_org(monkeypatch, test_repo, tmp_path):
-    monkeypatch.setattr(ClaudeFetcher, "_read_cookies", lambda self: {"sessionKey": "sk"})
-    assert ClaudeFetcher().fetch(tmp_path, test_repo) is None
+def test_fetch_returns_none_without_session(tmp_path):
+    fetcher = ClaudeFetcher(cookies={})
+    assert fetcher.fetch(tmp_path, since=None) is None
 
 
-def test_fetch_end_to_end(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
-    """With no prior import, fetch pulls everything."""
-    archive = ClaudeFetcher().fetch(tmp_path, test_repo)
+def test_fetch_returns_none_without_org(tmp_path):
+    fetcher = ClaudeFetcher(cookies={"sessionKey": "sk"})
+    assert fetcher.fetch(tmp_path, since=None) is None
+
+
+def test_fetch_end_to_end(tmp_path):
+    archive = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
     assert ClaudeImporter().can_import(archive)
     assert len(ClaudeImporter().import_(archive)) == 2
 
 
-def test_fetch_incremental_skips_seen(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
+def test_fetch_incremental_skips_seen(tmp_path):
     """Cursor at or after latest summary → nothing to fetch."""
-    stub_cursor("2026-07-15T00:00:00Z")
-    assert ClaudeFetcher().fetch(tmp_path, test_repo) is None
+    assert _make_fetcher().fetch(tmp_path, since="2026-07-15T00:00:00Z") is None
 
 
-def test_fetch_incremental_picks_up_newer(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
+def test_fetch_incremental_picks_up_newer(tmp_path):
     """Cursor between the two summaries → only the newer one."""
-    stub_cursor("2026-06-15T00:00:00Z")
-    archive = ClaudeFetcher().fetch(tmp_path, test_repo)
+    archive = _make_fetcher().fetch(tmp_path, since="2026-06-15T00:00:00Z")
     assert archive is not None
     logs = ClaudeImporter().import_(archive)
     assert len(logs) == 1
     assert logs[0].metadata["uuid"] == "c-new"
 
 
-def test_last_import_time_returns_none_on_fresh_repo(test_repo):
-    """Fresh repo with no chats/claude/ commits → None cursor."""
-    assert ClaudeFetcher()._last_import_time(test_repo) is None
-
-
-def test_last_import_time_returns_iso_after_commit(test_repo):
-    """After importing chats, the cursor is an ISO timestamp."""
-    (test_repo.root / "chats" / "claude" / "2026" / "07").mkdir(parents=True)
-    note = test_repo.root / "chats" / "claude" / "2026" / "07" / "test.md"
-    note.write_text("# test\n")
-    test_repo.git.index.add(note.relative_to(test_repo.root).as_posix())
-    test_repo.commit("Import test", auto_index=False)
-
-    ts = ClaudeFetcher()._last_import_time(test_repo)
-    assert ts is not None
-    assert "T" in ts  # rough ISO shape check
-
-
-def test_fetch_command_dispatches(test_repo, mock_http, stub_cookies, stub_cursor):
+def test_fetch_command_dispatches(test_repo):
     """`commonplace fetch` runs configured fetchers and imports the result."""
     from commonplace._fetch._commands import fetch
 
-    fetch(test_repo, auto_index=False)
+    fetch(test_repo, fetchers=[_make_fetcher()], auto_index=False)
 
     chats = list((Path(test_repo.root) / "chats" / "claude").rglob("*.md"))
     assert len(chats) == 2
 
 
-def test_fetch_command_filters_by_source(test_repo, monkeypatch):
-    from commonplace._fetch import _commands
+def test_fetch_command_filters_by_source(test_repo):
+    from commonplace._fetch._commands import fetch
 
     called: list[str] = []
 
     class Stub:
         source = "stub"
 
-        def fetch(self, destination, repo):
+        def fetch(self, destination, since):
             called.append("stub")
             return None
 
-    monkeypatch.setattr(_commands, "FETCHERS", [Stub()])
-    _commands.fetch(test_repo, sources=["nonexistent"], auto_index=False)
+    fetch(test_repo, sources=["nonexistent"], fetchers=[Stub()], auto_index=False)
     assert called == []
 
-    _commands.fetch(test_repo, sources=["stub"], auto_index=False)
+    fetch(test_repo, sources=["stub"], fetchers=[Stub()], auto_index=False)
     assert called == ["stub"]
 
 
-def test_fetch_retries_transient_5xx(monkeypatch, stub_cookies, stub_cursor, test_repo, tmp_path):
+def test_fetch_retries_transient_5xx(monkeypatch, tmp_path):
     """A 503 followed by success should resolve without raising."""
-    monkeypatch.setattr("commonplace._fetch._claude.time.sleep", lambda _: None)
+    monkeypatch.setattr("commonplace._fetch._helpers.time.sleep", lambda _: None)
 
     calls: dict[str, int] = {}
 
@@ -209,32 +166,11 @@ def test_fetch_retries_transient_5xx(monkeypatch, stub_cookies, stub_cursor, tes
         uuid = path[len(prefix) :]
         return httpx.Response(200, json=_detail(uuid))
 
-    transport = httpx.MockTransport(flaky)
-    real_client = httpx.Client
-
-    def factory(*args, **kwargs):
-        kwargs["transport"] = transport
-        return real_client(*args, **kwargs)
-
-    monkeypatch.setattr("commonplace._fetch._claude.httpx.Client", factory)
-
-    archive = ClaudeFetcher().fetch(tmp_path, test_repo)
+    archive = _make_fetcher(handler=flaky).fetch(tmp_path, since=None)
     assert archive is not None
     assert len(ClaudeImporter().import_(archive)) == 2
 
 
-def test_fetch_raises_on_401(monkeypatch, stub_cookies, stub_cursor, test_repo, tmp_path):
-    def handler(request):
-        return httpx.Response(401)
-
-    transport = httpx.MockTransport(handler)
-    real_client = httpx.Client
-
-    def factory(*args, **kwargs):
-        kwargs["transport"] = transport
-        return real_client(*args, **kwargs)
-
-    monkeypatch.setattr("commonplace._fetch._claude.httpx.Client", factory)
-
+def test_fetch_raises_on_401(tmp_path):
     with pytest.raises(RuntimeError, match="session expired"):
-        ClaudeFetcher().fetch(tmp_path, test_repo)
+        _make_fetcher(handler=lambda r: httpx.Response(401)).fetch(tmp_path, since=None)

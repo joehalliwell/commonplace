@@ -1,161 +1,202 @@
-import re
-from collections import defaultdict
-from contextlib import closing
+"""Importer for the raw `batchexecute` wire log produced by [[GeminiFetcher]].
+
+The archive is a `.jsonl` file, one line per RPC call:
+
+    {"rpc": "MaZiqc", "payload": [...], "response": "<raw batchexecute text>"}
+    {"rpc": "hNvQHb", "payload": [cid, ...], "response": "..."}
+    ...
+
+`MaZiqc` (list_chats) responses supply per-chat metadata (title, is_pinned,
+updated_at). `hNvQHb` (read_chat) responses supply the turns. The importer
+walks both to reconstruct `EventLog`s.
+
+Deliberately fail-loud: if a wire slot moves, we want a KeyError/IndexError,
+not silent field loss. The two known recoverable states — blocked candidates
+and empty per-chat bodies — are the only ones we tolerate, with warnings.
+"""
+
+import gzip
+import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
-from zipfile import ZipFile
-
-from bs4 import BeautifulSoup
-from bs4.element import NavigableString, PageElement, Tag
-from dateutil import parser
-from dateutil.tz import gettz
-from html_to_markdown import convert_to_markdown
-from rich.progress import track
+from typing import Any
 
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._logging import logger
 
-_PROMPT_PREFIX = "Prompted"
-_HTML_PATH = "Takeout/My Activity/Gemini Apps/My Activity.html"
+BATCH_PREAMBLE = ")]}'\n"
 
 
 class GeminiImporter:
-    """
-    Importer for Gemini activity logs from Google Takeout.
-
-    The input is a zip file containing `Takeout/My Activity/Gemini Apps/My
-    Activity.html`.
-
-    All message/response pairs are in the HTML in a weird format with no way to
-    tell which thread they belong to. This is fundamentally why commonplace is
-    structured around day files, rather than threads.
-    """
+    """Consumes gemini-wire.jsonl emitted by the fetcher."""
 
     source: str = "gemini"
 
     def required_paths(self) -> list[str]:
-        return [_HTML_PATH]
+        return []
 
     def can_import(self, path: Path) -> bool:
-        """Check if the importer can potentially handle the given file path. It
-        zip file with the expected path structure."""
-        with closing(ZipFile(path, "r")) as zip_file:
-            # Check if the expected path exists in the zip file
-            return _HTML_PATH in zip_file.namelist()
+        if not path.name.endswith(".jsonl.gz"):
+            return False
+        try:
+            with gzip.open(path, "rt", encoding="utf-8") as f:
+                first = f.readline()
+        except (OSError, gzip.BadGzipFile):
+            return False
+        if not first:
+            return False
+        try:
+            entry = json.loads(first)
+        except json.JSONDecodeError:
+            return False
+        return isinstance(entry, dict) and entry.get("rpc") in {"MaZiqc", "hNvQHb"}
 
     def import_(self, path: Path) -> list[EventLog]:
-        """Import activity logs from the Gemini file."""
-        with ZipFile(path, "r") as zip_file:
-            # Read the HTML file from the zip
-            with zip_file.open(_HTML_PATH) as file:
-                content = file.read().decode("utf-8")
-                return self._parse_gemini_html(content)
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            entries = [json.loads(line) for line in f if line.strip()]
 
-    def _parse_gemini_html(self, html_content: str) -> list[EventLog]:
-        soup = BeautifulSoup(html_content, "lxml")
+        # Pass 1: build cid → summary from every list_chats response.
+        summaries: dict[str, dict[str, Any]] = {}
+        for entry in entries:
+            if entry["rpc"] != "MaZiqc":
+                continue
+            body = _extract_rpc_body(entry["response"], "MaZiqc")
+            if body is None:
+                continue
+            payload = entry["payload"]
+            pinned = bool(payload[2][0])
+            for row in body[2]:
+                seconds, nanos = row[5]
+                summaries[row[0]] = {
+                    "cid": row[0],
+                    "title": row[1],
+                    "is_pinned": pinned,
+                    "updated_at": _ts_to_iso(seconds, nanos),
+                }
 
-        TURN_CONTAINER_SELECTOR = "div.content-cell:not(.mdl-typography--caption)"
-        all_content_cells = soup.select(TURN_CONTAINER_SELECTOR)
+        # Pass 2: for each read_chat, reconstruct an EventLog from the wire
+        # + the summary looked up by cid.
+        logs: list[EventLog] = []
+        for entry in entries:
+            if entry["rpc"] != "hNvQHb":
+                continue
+            cid = entry["payload"][0]
+            summary = summaries.get(cid)
+            if summary is None:
+                logger.warning(f"read_chat for {cid} has no matching list_chats entry; skipping")
+                continue
+            body = _extract_rpc_body(entry["response"], "hNvQHb")
+            logs.append(_to_log(summary, body))
+        return logs
 
-        logger.info(f"Found {len(all_content_cells)} candidate content cells in the HTML")
 
-        # Get all messages
-        messages: list[Message] = []
-        for cell in track(all_content_cells):
-            messages.extend(self._parse_cell(cell))
-        logger.info(f"Parsed {len(messages)} messages")
+def _to_log(summary: dict[str, Any], body: list | None) -> EventLog:
+    """Build an EventLog from a summary + a read_chat body. `body` may be None
+    for per-chat access glitches; the log is emitted with no events."""
+    events: list[Message] = []
+    gem_name: str | None = None
 
-        # Sort and group messages into day logs
-        logs_by_date = defaultdict(list)
-        for message in sorted(messages, key=lambda m: m.created):
-            date_key = message.created.date()
-            logs_by_date[date_key].append(message)
+    if body is not None:
+        wire_turns = body[0]
+        # Wire returns newest-first; reverse to chronological.
+        for turn in reversed(wire_turns):
+            candidate = turn[3][0][0]
+            if candidate[1] is None:
+                # Blocked / interrupted / deleted responses come back with a
+                # short (~29-slot) candidate whose text is None. Skip with a
+                # warning — anything unrecognised past this point still crashes.
+                logger.warning(f"Skipping incomplete round in {summary['cid']} (no candidate text)")
+                continue
 
-        results = []
-        for date, messages in logs_by_date.items():
-            log = EventLog(
-                source=self.source,
-                title=f"Gemini conversations from {date.isoformat()}",
-                created=messages[0].created,
-                events=messages,
+            seconds, nanos = turn[4]
+            ts = _ts_to_iso_dt(seconds, nanos)
+            user_text = turn[2][0][0]
+            rcid = candidate[0]
+            model_text = candidate[1][0]
+            language = candidate[9]
+            # Presence-gated: candidate slot 37 (thoughts) and turn slot 9 (gem)
+            # are optional. Once present, trust the shape — mis-shape crashes.
+            thoughts = candidate[37][0][0] if len(candidate) > 37 and candidate[37] else None
+            if len(turn) > 9 and turn[9]:
+                gem_name = turn[9][0]
+
+            events.append(
+                Message(
+                    sender=Role.USER,
+                    content=user_text,
+                    created=ts,
+                    metadata={"rid": turn[0][1]},
+                )
             )
-            logger.debug(f"Created log for {date}: {log}")
-            results.append(log)
+            model_meta: dict = {"rcid": rcid, "language": language}
+            if thoughts:
+                model_meta["thoughts"] = thoughts
+            events.append(
+                Message(
+                    sender=Role.ASSISTANT,
+                    content=model_text,
+                    created=ts,
+                    metadata=model_meta,
+                )
+            )
+    else:
+        logger.warning(f"Empty response for {summary['cid']}; recording chat with no turns.")
 
-        logger.info(f"Created {len(results)} day logs")
-        return results
+    created = events[0].created if events else _parse_iso(summary["updated_at"])
 
-    def _to_markdown(self, elements: Iterable[PageElement]) -> str:
-        """
-        Convert a list of BeautifulSoup elements to a Markdown string.
-        """
-        html = "".join(str(element) for element in elements).strip()
-        if not html:
-            return ""
-        return convert_to_markdown(html, heading_style="atx").strip()
+    metadata: dict = {
+        "uuid": summary["cid"],
+        "updated_at": summary["updated_at"],
+        "is_pinned": summary["is_pinned"],
+    }
+    if gem_name:
+        metadata["gem"] = gem_name
 
-    def _parse_timestamp(self, timestamp: str) -> datetime:
-        """
-        18 Sept 2024, 00:12:50 BST
-        """
-        # NB the below fails for timezone specifiers like "BST"
-        # timestamp = timestamp.lower().replace("sept", "sep")
-        # dt = datetime.strptime(timestamp, "%d %b %Y, %H:%M:%S %Z")
-        dt = parser.parse(timestamp, fuzzy=True, tzinfos={"BST": gettz("Europe/London")})
-        return dt.astimezone(timezone.utc)
+    return EventLog(
+        source="gemini",
+        title=summary["title"],
+        created=created,
+        events=events,
+        metadata=metadata,
+    )
 
-    def _parse_cell(self, cell: Tag) -> Iterable[Message]:
-        """
-        Parse the horrible HTML representation of a Gemini exchange.
-        TODO: Handle images
-        """
 
-        if len(cell) == 0:
-            return []
+def _extract_rpc_body(response_text: str, rpcid: str) -> list | None:
+    """Pull the wrb.fr entry for `rpcid` out of a batchexecute response and
+    parse its inner JSON body. Returns None if the entry has a null body
+    (per-item access glitch). Raises if the entry is missing entirely."""
+    if not response_text.startswith(BATCH_PREAMBLE):
+        raise RuntimeError(f"Unexpected batchexecute preamble: {response_text[:20]!r}")
+    rest = response_text[len(BATCH_PREAMBLE) :]
+    decoder = json.JSONDecoder()
+    i = 0
+    while i < len(rest):
+        while i < len(rest) and rest[i] != "[":
+            i += 1
+        if i >= len(rest):
+            break
+        obj, end = decoder.raw_decode(rest, i)
+        i = end
+        for entry in obj:
+            if isinstance(entry, list) and entry[0] == "wrb.fr" and entry[1] == rpcid:
+                if entry[2] is None:
+                    return None
+                return json.loads(entry[2])
+    raise RuntimeError(f"No wrb.fr entry for {rpcid} in batchexecute response.")
 
-        # print(cell.encode())
-        # logger.debug(cell.encode())  # Expensive but meh
-        children = iter(cell.children)
 
-        timestamp_match = None
-        user_bits = []
-        for child in children:
-            if isinstance(child, NavigableString):
-                timestamp_match = re.match(r"\d{1,2} \w+ \d{4}, \d{2}:\d{2}:\d{2} \w+", child.string)
-                if timestamp_match is not None:
-                    break
-            user_bits.append(child)
+def _ts_to_iso(seconds: int, nanos: int) -> str:
+    """Google timestamps come as [seconds, nanoseconds] pairs. Emit ISO 8601
+    with microsecond precision (nanos truncated to micros)."""
+    return _ts_to_iso_dt(seconds, nanos).isoformat().replace("+00:00", "Z")
 
-        if timestamp_match is None:
-            logger.debug(f"Failed to parse cell {cell})")
-            return []
 
-        timestamp = self._parse_timestamp(timestamp_match.group(0))
+def _ts_to_iso_dt(seconds: int, nanos: int) -> datetime:
+    micros = nanos // 1000
+    return datetime.fromtimestamp(seconds, tz=timezone.utc).replace(microsecond=micros)
 
-        ai_bits = list(children)
 
-        user_prompt = self._to_markdown(user_bits)
-        ai_response = self._to_markdown(ai_bits)
-
-        if not user_prompt.startswith(_PROMPT_PREFIX):
-            logger.debug(f"Skipping cell with no user prompt: {user_prompt} (in {cell}   )")
-            return []
-        user_prompt = user_prompt[len(_PROMPT_PREFIX) :].strip()
-
-        if not ai_response:
-            logger.debug(f"Skipping cell with no AI repsonse {ai_response} (in {cell})")
-            return []
-
-        user_message = Message(
-            sender=Role.USER,
-            content=user_prompt,
-            created=timestamp,
-        )
-
-        ai_message = Message(
-            sender=Role.ASSISTANT,
-            content=ai_response,
-            created=timestamp,
-        )
-        return user_message, ai_message
+def _parse_iso(s: str) -> datetime:
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    return datetime.fromisoformat(s)

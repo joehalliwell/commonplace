@@ -305,6 +305,32 @@ class Commonplace:
 
         return path_to_commit
 
+    def last_commit_time(self, pathspec: str) -> str | None:
+        """ISO 8601 timestamp of the most recent commit touching `pathspec`, or
+        None if no commit in history has touched it.
+
+        Uses git author date (`%aI`) so timestamps are stable across
+        rebases. Callers should be aware that this is commit time — always ≥
+        the effective content timestamp of whatever was written."""
+        import subprocess
+
+        result = subprocess.run(
+            [
+                "git",
+                f"--git-dir={self.root / '.git'}",
+                f"--work-tree={self.root}",
+                "log",
+                "-1",
+                "--format=%aI",
+                "--",
+                pathspec,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.stdout.strip() or None
+
     def source(self, repo_path: RepoPath) -> str:
         """The source of this collection of notes/chats."""
         parts = repo_path.path.parts

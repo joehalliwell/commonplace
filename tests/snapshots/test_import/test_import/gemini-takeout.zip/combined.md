@@ -1,6 +1,6 @@
-<!-- Contents of chats/gemini/2025/06/2025-06-08-gemini-conversations-from-2025-06-08.md -->
+<!-- Contents of chats/gemini-takeout/2025/06/2025-06-08-gemini-conversations-from-2025-06-08.md -->
 ---
-source: gemini
+source: gemini-takeout
 source_exports: [.commonplace/blobs/705091a4a9041598d52b5b999dd0450fadacb715214f64d9676b3061653aced1/My Activity.html]
 ---
 
@@ -10,7 +10,7 @@ source_exports: [.commonplace/blobs/705091a4a9041598d52b5b999dd0450fadacb715214f
 
 I don't think it's there, unless this is combined with "Messages"?
 
-## Gemini [created:: 2025-06-08T12:37:50+00:00]
+## Gemini-Takeout [created:: 2025-06-08T12:37:50+00:00]
 
 That's a very logical question to ask when an option is missing. It's common for
 Google to bundle related services in Takeout.

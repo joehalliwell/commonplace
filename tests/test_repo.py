@@ -240,3 +240,21 @@ def test_commit_no_changes_skips_indexing(test_repo, monkeypatch):
 
     # Verify index was NOT called (no changes means no commit means no index)
     assert len(index_called) == 0
+
+
+def test_last_commit_time_returns_none_on_missing_pathspec(test_repo):
+    """A pathspec with no history in the repo yields None."""
+    assert test_repo.last_commit_time("chats/claude/") is None
+
+
+def test_last_commit_time_returns_iso_after_commit(test_repo):
+    """After a commit touching the pathspec, the timestamp is a real ISO string."""
+    (test_repo.root / "chats" / "claude" / "2026" / "07").mkdir(parents=True)
+    note = test_repo.root / "chats" / "claude" / "2026" / "07" / "test.md"
+    note.write_text("# test\n")
+    test_repo.git.index.add(note.relative_to(test_repo.root).as_posix())
+    test_repo.commit("Import test", auto_index=False)
+
+    ts = test_repo.last_commit_time("chats/claude/")
+    assert ts is not None
+    assert "T" in ts  # rough ISO shape check
