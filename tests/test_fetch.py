@@ -166,7 +166,8 @@ def test_fetch_command_dispatches(test_repo, mock_http, stub_cookies, stub_curso
     """`commonplace fetch` runs configured fetchers and imports the result."""
     from commonplace._fetch._commands import fetch
 
-    fetch(test_repo, auto_index=False)
+    # Restrict to claude so Gemini's fetcher (which would try real network) is skipped.
+    fetch(test_repo, sources=["claude"], auto_index=False)
 
     chats = list((Path(test_repo.root) / "chats" / "claude").rglob("*.md"))
     assert len(chats) == 2
