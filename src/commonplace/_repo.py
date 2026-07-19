@@ -305,30 +305,33 @@ class Commonplace:
 
         return path_to_commit
 
-    def last_commit_time(self, pathspec: str) -> str | None:
+    def last_commit_time(self, pathspec: str, diff_filter: str | None = None) -> str | None:
         """ISO 8601 timestamp of the most recent commit touching `pathspec`, or
         None if no commit in history has touched it.
 
         Uses git author date (`%aI`) so timestamps are stable across
         rebases. Callers should be aware that this is commit time — always ≥
-        the effective content timestamp of whatever was written."""
+        the effective content timestamp of whatever was written.
+
+        `diff_filter` maps directly to `git log --diff-filter=...` — pass e.g.
+        `"AM"` to consider only commits that *added or modified* files under the
+        pathspec, ignoring pure deletions or rename-source commits (important
+        for fetch-cursor use, where `git mv chats/foo chats/bar` would
+        otherwise poison the cursor for `chats/foo/`)."""
         import subprocess
 
-        result = subprocess.run(
-            [
-                "git",
-                f"--git-dir={self.root / '.git'}",
-                f"--work-tree={self.root}",
-                "log",
-                "-1",
-                "--format=%aI",
-                "--",
-                pathspec,
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        cmd = [
+            "git",
+            f"--git-dir={self.root / '.git'}",
+            f"--work-tree={self.root}",
+            "log",
+            "-1",
+            "--format=%aI",
+        ]
+        if diff_filter:
+            cmd.append(f"--diff-filter={diff_filter}")
+        cmd += ["--", pathspec]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
         return result.stdout.strip() or None
 
     def source(self, repo_path: RepoPath) -> str:

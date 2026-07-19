@@ -33,7 +33,9 @@ def fetch(
 
     for fetcher in active:
         logger.info(f"Fetching from {fetcher.source}")
-        since = repo.last_commit_time(f"chats/{fetcher.source}/")
+        # `diff_filter="AM"` excludes rename-source / pure-deletion commits so
+        # a `git mv chats/{source}/ elsewhere` doesn't poison the cursor.
+        since = repo.last_commit_time(f"chats/{fetcher.source}/", diff_filter="AM")
         with tempfile.TemporaryDirectory() as tmp:
             artifact = fetcher.fetch(Path(tmp), since)
             if artifact is None:
