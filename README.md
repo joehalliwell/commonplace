@@ -122,6 +122,27 @@ commonplace import path/to/export.zip
 
 The importer automatically detects the format (Claude, ChatGPT, or Gemini) and processes accordingly.
 
+### Fetch conversations directly (Claude only)
+
+Skip the export/download dance by pulling new conversations straight from claude.ai:
+
+```bash
+# Fetch new Claude conversations and import them
+commonplace fetch
+
+# Restrict to a specific source
+commonplace fetch --source claude
+```
+
+`fetch` reads your logged-in `claude.ai` session cookie from Chrome — log in
+once in the browser and the session lasts several weeks. The incremental
+cursor is derived from git history (last commit touching `chats/{source}/`),
+so subsequent runs only pull conversations updated since the previous fetch.
+
+Note: this uses claude.ai's internal endpoints, which are unofficial and may
+change without notice. If it stops working, fall back to the manual export
+flow above.
+
 ### Search your conversations
 
 Build a search index and query your conversations:

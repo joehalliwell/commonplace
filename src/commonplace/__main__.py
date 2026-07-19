@@ -106,6 +106,23 @@ def import_(
     import_(path, repo, user=repo.config.user, prefix="chats", auto_index=index)
 
 
+@app.command(alias="f", group=CREATING_SECTION)
+def fetch(
+    index: Annotated[
+        Optional[bool],
+        Parameter(help="Index notes after commit (default: from config)"),
+    ] = None,
+    *,
+    sources: Sources = [],
+    repo: Repo,
+) -> None:
+    """Fetch new conversations directly from each source and import them."""
+
+    from commonplace._fetch._commands import fetch
+
+    fetch(repo, sources=sources if sources else None, auto_index=index)
+
+
 @app.command(alias="j", group=CREATING_SECTION)
 def journal(
     date_str: Annotated[Optional[str], Parameter(help="Date for the journal entry (YYYY-MM-DD)")] = None,
