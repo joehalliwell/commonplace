@@ -15,6 +15,7 @@ not silent field loss. The two known recoverable states — blocked candidates
 and empty per-chat bodies — are the only ones we tolerate, with warnings.
 """
 
+import gzip
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,10 +36,13 @@ class GeminiImporter:
         return []
 
     def can_import(self, path: Path) -> bool:
-        if path.suffix != ".jsonl":
+        if not path.name.endswith(".jsonl.gz"):
             return False
-        with path.open("r") as f:
-            first = f.readline()
+        try:
+            with gzip.open(path, "rt", encoding="utf-8") as f:
+                first = f.readline()
+        except (OSError, gzip.BadGzipFile):
+            return False
         if not first:
             return False
         try:
@@ -48,7 +52,8 @@ class GeminiImporter:
         return isinstance(entry, dict) and entry.get("rpc") in {"MaZiqc", "hNvQHb"}
 
     def import_(self, path: Path) -> list[EventLog]:
-        entries = [json.loads(line) for line in path.read_text().splitlines() if line]
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            entries = [json.loads(line) for line in f if line.strip()]
 
         # Pass 1: build cid → summary from every list_chats response.
         summaries: dict[str, dict[str, Any]] = {}

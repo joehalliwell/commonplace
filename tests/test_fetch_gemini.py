@@ -1,5 +1,6 @@
 """Tests for the Gemini fetcher (and its paired importer)."""
 
+import gzip
 import json
 from pathlib import Path
 
@@ -80,7 +81,8 @@ def stub_cursor(monkeypatch):
 
 
 def _read_wire(archive: Path) -> list[dict]:
-    return [json.loads(line) for line in archive.read_text().splitlines() if line]
+    with gzip.open(archive, "rt", encoding="utf-8") as f:
+        return [json.loads(line) for line in f if line.strip()]
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +125,7 @@ def test_fetch_writes_raw_wire_only(mock_http, stub_cookies, stub_cursor, test_r
     no invented intermediate format."""
     archive = GeminiFetcher().fetch(tmp_path, test_repo)
     assert archive is not None
-    assert archive.name == "gemini-wire.jsonl"
+    assert archive.name == "gemini-wire.jsonl.gz"
 
     wire = _read_wire(archive)
     # 2 list_chats buckets × 2 pages each (real + terminating empty) = 4
@@ -215,21 +217,30 @@ def test_read_session_tokens_raises_on_missing_html(monkeypatch, stub_cookies, t
 # ---------------------------------------------------------------------------
 
 
-def test_importer_recognizes_wire_jsonl(tmp_path):
-    path = tmp_path / "wire.jsonl"
-    path.write_text(json.dumps({"rpc": "MaZiqc", "payload": [], "response": ")]}'\n"}) + "\n")
+def test_importer_recognizes_wire_jsonl_gz(tmp_path):
+    path = tmp_path / "wire.jsonl.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        f.write(json.dumps({"rpc": "MaZiqc", "payload": [], "response": ")]}'\n"}) + "\n")
     assert GeminiImporter().can_import(path)
 
 
-def test_importer_rejects_arbitrary_jsonl(tmp_path):
-    path = tmp_path / "other.jsonl"
-    path.write_text(json.dumps({"not": "a wire log"}) + "\n")
+def test_importer_rejects_arbitrary_gz(tmp_path):
+    path = tmp_path / "other.jsonl.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        f.write(json.dumps({"not": "a wire log"}) + "\n")
     assert not GeminiImporter().can_import(path)
 
 
-def test_importer_rejects_non_jsonl(tmp_path):
+def test_importer_rejects_non_gz(tmp_path):
     path = tmp_path / "chats.json"
     path.write_text("[]")
+    assert not GeminiImporter().can_import(path)
+
+
+def test_importer_rejects_uncompressed_jsonl(tmp_path):
+    """The archive is always gzipped; a bare .jsonl isn't ours."""
+    path = tmp_path / "wire.jsonl"
+    path.write_text(json.dumps({"rpc": "MaZiqc", "payload": [], "response": ""}) + "\n")
     assert not GeminiImporter().can_import(path)
 
 

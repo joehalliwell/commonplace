@@ -6,6 +6,7 @@ deliberately fail-loud (no `.get()` defaults on wire fields) so drift
 surfaces immediately rather than as silent data loss.
 """
 
+import gzip
 import json
 import os
 import random
@@ -177,13 +178,17 @@ class GeminiFetcher:
         r.raise_for_status()
 
     def _write_archive(self, destination: Path) -> Path:
-        """Write the raw `batchexecute` responses. This is the canonical
-        artifact: what Google actually sent. The importer re-parses it into
-        EventLogs; there is no fabricated intermediate format."""
-        archive = destination / "gemini-wire.jsonl"
-        archive.write_text(
-            "\n".join(json.dumps(entry, ensure_ascii=False) for entry in self._wire_log),
-        )
+        """Write the raw `batchexecute` responses, gzipped. This is the
+        canonical artifact: what Google actually sent. The importer re-parses
+        it into EventLogs; there is no fabricated intermediate format.
+
+        Content is opaque JSON either way, so compressing costs no inspection
+        convenience and saves ~7× on disk / LFS bandwidth."""
+        archive = destination / "gemini-wire.jsonl.gz"
+        with gzip.open(archive, "wt", encoding="utf-8") as f:
+            for entry in self._wire_log:
+                f.write(json.dumps(entry, ensure_ascii=False))
+                f.write("\n")
         return archive
 
 
