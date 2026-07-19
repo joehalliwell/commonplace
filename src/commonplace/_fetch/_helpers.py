@@ -1,7 +1,6 @@
 """Shared helpers for Fetcher implementations."""
 
 import os
-import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -10,7 +9,6 @@ import browser_cookie3  # type: ignore[import-untyped]
 import httpx
 
 from commonplace._logging import logger
-from commonplace._repo import Commonplace
 
 # Flatpak Chrome stashes its config outside XDG_CONFIG_HOME.
 FLATPAK_CHROME_CONFIG = Path.home() / ".var" / "app" / "com.google.Chrome" / "config"
@@ -28,20 +26,6 @@ def read_chrome_cookies(domain: str) -> dict[str, str]:
         os.environ["XDG_CONFIG_HOME"] = str(FLATPAK_CHROME_CONFIG)
     jar = browser_cookie3.chrome(domain_name=domain)
     return {c.name: c.value for c in jar if c.value}
-
-
-def last_import_time(repo: Commonplace, source: str) -> str | None:
-    """ISO timestamp of the most recent commit touching `chats/{source}/`, or
-    None if no such history yet. Beware: this is commit time, always ≥
-    max(updated_at) of the last import, so a conversation edited on the remote
-    *during* a fetch may be missed until it changes again."""
-    result = subprocess.run(
-        ["git", "-C", str(repo.root), "log", "-1", "--format=%aI", "--", f"chats/{source}/"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return result.stdout.strip() or None
 
 
 def request_with_retry(client: httpx.Client, method: str, url: str, **kwargs: Any) -> httpx.Response:

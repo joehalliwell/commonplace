@@ -15,11 +15,10 @@ from typing import Any
 
 import httpx
 
-from commonplace._fetch._helpers import last_import_time, read_chrome_cookies, request_with_retry
+from commonplace._fetch._helpers import read_chrome_cookies, request_with_retry
 from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso
 from commonplace._logging import logger
 from commonplace._progress import track
-from commonplace._repo import Commonplace
 
 CHROME_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
@@ -31,7 +30,11 @@ RPC_READ_CHAT = "hNvQHb"
 
 
 class GeminiFetcher:
-    """Fetch Gemini conversations via gemini.google.com's `batchexecute` RPC."""
+    """Fetch Gemini conversations via gemini.google.com's `batchexecute` RPC.
+
+    Cookies and HTTP transport are injectable — real use passes neither and the
+    fetcher discovers cookies from Chrome and uses the real network. Tests
+    inject fakes for both."""
 
     source: str = "gemini"
 
@@ -41,13 +44,21 @@ class GeminiFetcher:
     _session_id: str
     _wire_log: list[dict[str, Any]]
 
-    def fetch(self, destination: Path, repo: Commonplace) -> Path | None:
-        cookies = read_chrome_cookies(".google.com")
+    def __init__(
+        self,
+        *,
+        cookies: dict[str, str] | None = None,
+        transport: httpx.BaseTransport | None = None,
+    ):
+        self._injected_cookies = cookies
+        self._transport = transport
+
+    def fetch(self, destination: Path, since: str | None) -> Path | None:
+        cookies = self._injected_cookies if self._injected_cookies is not None else read_chrome_cookies(".google.com")
         if not cookies.get("__Secure-1PSID"):
             logger.error("No Gemini session cookie found. Log in at https://gemini.google.com in Chrome first.")
             return None
 
-        since = last_import_time(repo, self.source)
         self._wire_log = []
 
         with httpx.Client(
@@ -62,6 +73,7 @@ class GeminiFetcher:
             },
             follow_redirects=True,
             timeout=60.0,
+            transport=self._transport,
         ) as self._client:
             self._read_session_tokens()
 

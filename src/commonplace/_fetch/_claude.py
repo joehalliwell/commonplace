@@ -7,10 +7,9 @@ from zipfile import ZipFile
 
 import httpx
 
-from commonplace._fetch._helpers import last_import_time, read_chrome_cookies, request_with_retry
+from commonplace._fetch._helpers import read_chrome_cookies, request_with_retry
 from commonplace._logging import logger
 from commonplace._progress import track
-from commonplace._repo import Commonplace
 
 # Full Chrome UA is required to pass Cloudflare's bot check.
 CLAUDE_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -20,15 +19,27 @@ class ClaudeFetcher:
     """Fetch Claude conversations via claude.ai's internal API.
 
     Endpoints are unofficial; expect drift.
-    """
+
+    Cookies and HTTP transport are injectable — real use passes neither and the
+    fetcher discovers cookies from Chrome and uses the real network. Tests
+    inject fakes for both."""
 
     source: str = "claude"
 
     _client: httpx.Client
     _org_uuid: str
 
-    def fetch(self, destination: Path, repo: Commonplace) -> Path | None:
-        cookies = read_chrome_cookies("claude.ai")
+    def __init__(
+        self,
+        *,
+        cookies: dict[str, str] | None = None,
+        transport: httpx.BaseTransport | None = None,
+    ):
+        self._injected_cookies = cookies
+        self._transport = transport
+
+    def fetch(self, destination: Path, since: str | None) -> Path | None:
+        cookies = self._injected_cookies if self._injected_cookies is not None else read_chrome_cookies("claude.ai")
         session_key = cookies.get("sessionKey")
         org_uuid = cookies.get("lastActiveOrg")
         if not session_key:
@@ -38,7 +49,6 @@ class ClaudeFetcher:
             logger.error("No lastActiveOrg cookie. Visit https://claude.ai in Chrome to set it.")
             return None
 
-        since = last_import_time(repo, self.source)
         self._org_uuid = org_uuid
 
         with httpx.Client(
@@ -49,6 +59,7 @@ class ClaudeFetcher:
                 "Referer": "https://claude.ai/",
             },
             timeout=30.0,
+            transport=self._transport,
         ) as self._client:
             summaries = self._list_conversations()
             fresh = [c for c in summaries if since is None or c["updated_at"] > since]
