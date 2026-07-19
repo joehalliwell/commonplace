@@ -11,7 +11,7 @@ from commonplace._import._chatgpt import ChatGptImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._claude_code import ClaudeCodeImporter
 from commonplace._import._gemini import GeminiImporter
-from commonplace._import._gemini_web import GeminiWebImporter
+from commonplace._import._gemini_takeout import GeminiTakeoutImporter
 from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import Importer
 from commonplace._logging import logger
@@ -21,8 +21,8 @@ from commonplace._types import Note, RepoPath
 from commonplace._utils import merge_frontmatter, slugify
 
 IMPORTERS: list[Importer] = [
+    GeminiTakeoutImporter(),
     GeminiImporter(),
-    GeminiWebImporter(),
     ClaudeImporter(),
     ClaudeCodeImporter(),
     ChatGptImporter(),

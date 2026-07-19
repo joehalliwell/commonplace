@@ -1,161 +1,82 @@
-import re
-from collections import defaultdict
-from contextlib import closing
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Iterable
-from zipfile import ZipFile
+"""Importer for the JSON produced by [[GeminiFetcher]].
 
-from bs4 import BeautifulSoup
-from bs4.element import NavigableString, PageElement, Tag
-from dateutil import parser
-from dateutil.tz import gettz
-from html_to_markdown import convert_to_markdown
-from rich.progress import track
+Deliberately fail-loud: if the fetcher's output shape drifts, we want a
+KeyError, not silent field loss.
+"""
+
+import json
+from datetime import datetime
+from pathlib import Path
 
 from commonplace._import._types import EventLog, Message, Role
-from commonplace._logging import logger
-
-_PROMPT_PREFIX = "Prompted"
-_HTML_PATH = "Takeout/My Activity/Gemini Apps/My Activity.html"
 
 
 class GeminiImporter:
-    """
-    Importer for Gemini activity logs from Google Takeout.
-
-    The input is a zip file containing `Takeout/My Activity/Gemini Apps/My
-    Activity.html`.
-
-    All message/response pairs are in the HTML in a weird format with no way to
-    tell which thread they belong to. This is fundamentally why commonplace is
-    structured around day files, rather than threads.
-    """
+    """Consumes gemini-fetch.json emitted by the fetcher."""
 
     source: str = "gemini"
 
     def required_paths(self) -> list[str]:
-        return [_HTML_PATH]
+        return []
 
     def can_import(self, path: Path) -> bool:
-        """Check if the importer can potentially handle the given file path. It
-        zip file with the expected path structure."""
-        with closing(ZipFile(path, "r")) as zip_file:
-            # Check if the expected path exists in the zip file
-            return _HTML_PATH in zip_file.namelist()
+        if path.suffix != ".json":
+            return False
+        # Fetcher output is a top-level array whose first object has `cid`.
+        head = path.read_bytes()[:2048].lstrip()
+        return head.startswith(b"[{") and b'"cid"' in head
 
     def import_(self, path: Path) -> list[EventLog]:
-        """Import activity logs from the Gemini file."""
-        with ZipFile(path, "r") as zip_file:
-            # Read the HTML file from the zip
-            with zip_file.open(_HTML_PATH) as file:
-                content = file.read().decode("utf-8")
-                return self._parse_gemini_html(content)
+        data = json.loads(path.read_text())
+        return [self._to_log(chat) for chat in data]
 
-    def _parse_gemini_html(self, html_content: str) -> list[EventLog]:
-        soup = BeautifulSoup(html_content, "lxml")
-
-        TURN_CONTAINER_SELECTOR = "div.content-cell:not(.mdl-typography--caption)"
-        all_content_cells = soup.select(TURN_CONTAINER_SELECTOR)
-
-        logger.info(f"Found {len(all_content_cells)} candidate content cells in the HTML")
-
-        # Get all messages
-        messages: list[Message] = []
-        for cell in track(all_content_cells):
-            messages.extend(self._parse_cell(cell))
-        logger.info(f"Parsed {len(messages)} messages")
-
-        # Sort and group messages into day logs
-        logs_by_date = defaultdict(list)
-        for message in sorted(messages, key=lambda m: m.created):
-            date_key = message.created.date()
-            logs_by_date[date_key].append(message)
-
-        results = []
-        for date, messages in logs_by_date.items():
-            log = EventLog(
-                source=self.source,
-                title=f"Gemini conversations from {date.isoformat()}",
-                created=messages[0].created,
-                events=messages,
+    def _to_log(self, chat: dict) -> EventLog:
+        events: list[Message] = []
+        for round_ in chat["rounds"]:
+            ts = _parse_iso(round_["timestamp"])
+            events.append(
+                Message(
+                    sender=Role.USER,
+                    content=round_["user_text"],
+                    created=ts,
+                    metadata={"rid": round_["rid"]},
+                )
             )
-            logger.debug(f"Created log for {date}: {log}")
-            results.append(log)
+            model_meta: dict = {"rcid": round_["rcid"], "language": round_["language"]}
+            if round_["model_thoughts"]:
+                model_meta["thoughts"] = round_["model_thoughts"]
+            events.append(
+                Message(
+                    sender=Role.ASSISTANT,
+                    content=round_["model_text"],
+                    created=ts,
+                    metadata=model_meta,
+                )
+            )
 
-        logger.info(f"Created {len(results)} day logs")
-        return results
+        # Rounds are in chronological order; created = first, updated_at from wire.
+        created = _parse_iso(chat["rounds"][0]["timestamp"]) if chat["rounds"] else _parse_iso(chat["updated_at"])
 
-    def _to_markdown(self, elements: Iterable[PageElement]) -> str:
-        """
-        Convert a list of BeautifulSoup elements to a Markdown string.
-        """
-        html = "".join(str(element) for element in elements).strip()
-        if not html:
-            return ""
-        return convert_to_markdown(html, heading_style="atx").strip()
+        metadata: dict = {
+            "uuid": chat["cid"],
+            "updated_at": chat["updated_at"],
+            "is_pinned": chat["is_pinned"],
+        }
+        if chat["gem_name"]:
+            metadata["gem"] = chat["gem_name"]
 
-    def _parse_timestamp(self, timestamp: str) -> datetime:
-        """
-        18 Sept 2024, 00:12:50 BST
-        """
-        # NB the below fails for timezone specifiers like "BST"
-        # timestamp = timestamp.lower().replace("sept", "sep")
-        # dt = datetime.strptime(timestamp, "%d %b %Y, %H:%M:%S %Z")
-        dt = parser.parse(timestamp, fuzzy=True, tzinfos={"BST": gettz("Europe/London")})
-        return dt.astimezone(timezone.utc)
-
-    def _parse_cell(self, cell: Tag) -> Iterable[Message]:
-        """
-        Parse the horrible HTML representation of a Gemini exchange.
-        TODO: Handle images
-        """
-
-        if len(cell) == 0:
-            return []
-
-        # print(cell.encode())
-        # logger.debug(cell.encode())  # Expensive but meh
-        children = iter(cell.children)
-
-        timestamp_match = None
-        user_bits = []
-        for child in children:
-            if isinstance(child, NavigableString):
-                timestamp_match = re.match(r"\d{1,2} \w+ \d{4}, \d{2}:\d{2}:\d{2} \w+", child.string)
-                if timestamp_match is not None:
-                    break
-            user_bits.append(child)
-
-        if timestamp_match is None:
-            logger.debug(f"Failed to parse cell {cell})")
-            return []
-
-        timestamp = self._parse_timestamp(timestamp_match.group(0))
-
-        ai_bits = list(children)
-
-        user_prompt = self._to_markdown(user_bits)
-        ai_response = self._to_markdown(ai_bits)
-
-        if not user_prompt.startswith(_PROMPT_PREFIX):
-            logger.debug(f"Skipping cell with no user prompt: {user_prompt} (in {cell}   )")
-            return []
-        user_prompt = user_prompt[len(_PROMPT_PREFIX) :].strip()
-
-        if not ai_response:
-            logger.debug(f"Skipping cell with no AI repsonse {ai_response} (in {cell})")
-            return []
-
-        user_message = Message(
-            sender=Role.USER,
-            content=user_prompt,
-            created=timestamp,
+        return EventLog(
+            source=self.source,
+            title=chat["title"],
+            created=created,
+            events=events,
+            metadata=metadata,
         )
 
-        ai_message = Message(
-            sender=Role.ASSISTANT,
-            content=ai_response,
-            created=timestamp,
-        )
-        return user_message, ai_message
+
+def _parse_iso(s: str) -> datetime:
+    """Fetcher emits ISO 8601 with a trailing Z; datetime.fromisoformat wants
+    an explicit offset."""
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    return datetime.fromisoformat(s)

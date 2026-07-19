@@ -12,7 +12,7 @@ from commonplace._fetch._gemini import (
     _extract_rpc_body,
     _ts_to_iso,
 )
-from commonplace._import._gemini_web import GeminiWebImporter
+from commonplace._import._gemini import GeminiImporter
 
 FIXTURES = Path(__file__).parent / "resources" / "gemini-samples"
 LIST_CHATS_RAW = (FIXTURES / "list_chats.txt").read_text()
@@ -155,22 +155,22 @@ def test_fetch_incremental_skips_seen(mock_http, stub_cookies, stub_cursor, test
 
 
 def test_importer_recognizes_fetcher_output(tmp_path):
-    """GeminiWebImporter.can_import must accept the fetcher's JSON."""
+    """GeminiImporter.can_import must accept the fetcher's JSON."""
     path = tmp_path / "gemini-fetch.json"
     path.write_text(json.dumps([{"cid": "c_abc", "title": "t", "rounds": []}]))
-    assert GeminiWebImporter().can_import(path)
+    assert GeminiImporter().can_import(path)
 
 
 def test_importer_rejects_arbitrary_json(tmp_path):
     path = tmp_path / "other.json"
     path.write_text(json.dumps({"not": "a chat list"}))
-    assert not GeminiWebImporter().can_import(path)
+    assert not GeminiImporter().can_import(path)
 
 
 def test_importer_produces_events_with_shared_timestamps(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
     """User and model messages in a round share the wire timestamp."""
     archive = GeminiFetcher().fetch(tmp_path, test_repo)
-    logs = GeminiWebImporter().import_(archive)
+    logs = GeminiImporter().import_(archive)
     assert len(logs) == 10
     log = logs[0]
     assert log.source == "gemini"
@@ -184,7 +184,7 @@ def test_importer_produces_events_with_shared_timestamps(mock_http, stub_cookies
 
 def test_importer_carries_thoughts_and_language_metadata(mock_http, stub_cookies, stub_cursor, test_repo, tmp_path):
     archive = GeminiFetcher().fetch(tmp_path, test_repo)
-    logs = GeminiWebImporter().import_(archive)
+    logs = GeminiImporter().import_(archive)
     # events[1] is the earliest model message. In the wire the fixture's turns
     # are newest-first: turn[0], turn[1], turn[2]. After chronological reversal,
     # the earliest round corresponds to wire turn[2] → MODEL_THOUGHTS_2_0.

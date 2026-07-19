@@ -145,23 +145,25 @@ conversations updated since the previous fetch.
 **Supported sources:**
 
 - `claude` — reads `claude.ai` session cookie, hits internal
-  `/api/organizations/{org}/chat_conversations` endpoints.
+  `/api/organizations/{org}/chat_conversations` endpoints. Notes land at
+  `chats/claude/`.
 - `gemini` — reads `gemini.google.com` session cookie (`__Secure-1PSID`),
   hits internal `batchexecute` RPCs. Extracts per-turn timestamps, Gem
   personas, and model thought traces — richer than the Google Takeout HTML
-  export.
+  export. Notes land at `chats/gemini/`.
 
 Note: these use the providers' internal endpoints, which are unofficial and
 may change without notice. If a fetcher stops working, fall back to the
 manual export flow above.
 
-**Migrating from Google Takeout imports.** If you previously imported Gemini
-history from a Takeout ZIP (HTML format), archive it before the first
-`fetch --source gemini` so the two formats don't collide:
+**Note on `gemini` vs `gemini-takeout`.** The Google Takeout importer
+(retained for historical imports) now writes to `chats/gemini-takeout/`;
+the fetcher owns `chats/gemini/`. If you previously imported Gemini history
+from Takeout, migrate the old path before the first `fetch --source gemini`:
 
 ```bash
-git -C $COMMONPLACE_ROOT mv chats/gemini chats/gemini-html
-git -C $COMMONPLACE_ROOT commit -m "Archive Takeout Gemini imports before switching to fetch"
+git -C $COMMONPLACE_ROOT mv chats/gemini chats/gemini-takeout
+git -C $COMMONPLACE_ROOT commit -m "Migrate Takeout Gemini imports to gemini-takeout path"
 ```
 
 ### Search your conversations
