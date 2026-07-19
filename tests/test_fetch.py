@@ -5,11 +5,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from commonplace._fetch._claude import (
-    ClaudeFetcher,
-    _to_export_shape,
-    _write_archive,
-)
+from commonplace._fetch._claude import ClaudeFetcher
 from commonplace._import._claude import ClaudeImporter
 
 ORG = "org-uuid-1"
@@ -85,17 +81,14 @@ def stub_cursor(monkeypatch):
     def setter(ts):
         state["value"] = ts
 
-    monkeypatch.setattr(
-        "commonplace._fetch._claude._last_import_time",
-        lambda repo, pathspec: state["value"],
-    )
+    monkeypatch.setattr(ClaudeFetcher, "_last_import_time", lambda self, repo: state["value"])
     return setter
 
 
 def test_to_export_shape_wraps_flat_text():
     """API messages carry a flat text field; the importer expects blocks."""
     convo = {"chat_messages": [{"sender": "human", "text": "hi"}]}
-    result = _to_export_shape(convo)
+    result = ClaudeFetcher()._to_export_shape(convo)
     assert result["chat_messages"][0]["content"] == [{"type": "text", "text": "hi"}]
 
 
@@ -103,13 +96,14 @@ def test_to_export_shape_preserves_existing_content():
     """Don't clobber messages that already have content blocks."""
     blocks = [{"type": "text", "text": "hi", "citations": []}]
     convo = {"chat_messages": [{"sender": "human", "text": "hi", "content": blocks}]}
-    result = _to_export_shape(convo)
+    result = ClaudeFetcher()._to_export_shape(convo)
     assert result["chat_messages"][0]["content"] is blocks
 
 
 def test_archive_is_valid_claude_export(tmp_path):
     """Synthesized ZIP must be recognized by the existing importer."""
-    archive = _write_archive([_to_export_shape(_detail("c-1"))], tmp_path)
+    fetcher = ClaudeFetcher()
+    archive = fetcher._write_archive([fetcher._to_export_shape(_detail("c-1"))], tmp_path)
     importer = ClaudeImporter()
     assert importer.can_import(archive)
     logs = importer.import_(archive)
@@ -152,22 +146,18 @@ def test_fetch_incremental_picks_up_newer(mock_http, stub_cookies, stub_cursor, 
 
 def test_last_import_time_returns_none_on_fresh_repo(test_repo):
     """Fresh repo with no chats/claude/ commits → None cursor."""
-    from commonplace._fetch._claude import _last_import_time
-
-    assert _last_import_time(test_repo, "chats/claude/") is None
+    assert ClaudeFetcher()._last_import_time(test_repo) is None
 
 
 def test_last_import_time_returns_iso_after_commit(test_repo):
     """After importing chats, the cursor is an ISO timestamp."""
-    from commonplace._fetch._claude import _last_import_time
-
     (test_repo.root / "chats" / "claude" / "2026" / "07").mkdir(parents=True)
     note = test_repo.root / "chats" / "claude" / "2026" / "07" / "test.md"
     note.write_text("# test\n")
     test_repo.git.index.add(note.relative_to(test_repo.root).as_posix())
     test_repo.commit("Import test", auto_index=False)
 
-    ts = _last_import_time(test_repo, "chats/claude/")
+    ts = ClaudeFetcher()._last_import_time(test_repo)
     assert ts is not None
     assert "T" in ts  # rough ISO shape check
 
