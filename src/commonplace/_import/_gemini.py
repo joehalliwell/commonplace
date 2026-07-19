@@ -114,13 +114,10 @@ def _to_log(summary: dict[str, Any], body: list | None) -> EventLog:
             rcid = candidate[0]
             model_text = candidate[1][0]
             language = candidate[9]
-            thoughts: str | None = None
-            if len(candidate) > 37 and isinstance(candidate[37], list) and candidate[37]:
-                inner = candidate[37][0]
-                if isinstance(inner, list) and inner and isinstance(inner[0], str):
-                    thoughts = inner[0]
-            # Gem lives at turn[9][0]; absent on non-Gem chats (shorter turn).
-            if len(turn) > 9 and turn[9] and isinstance(turn[9][0], str) and turn[9][0]:
+            # Presence-gated: candidate slot 37 (thoughts) and turn slot 9 (gem)
+            # are optional. Once present, trust the shape — mis-shape crashes.
+            thoughts = candidate[37][0][0] if len(candidate) > 37 and candidate[37] else None
+            if len(turn) > 9 and turn[9]:
                 gem_name = turn[9][0]
 
             events.append(
