@@ -258,3 +258,37 @@ def test_last_commit_time_returns_iso_after_commit(test_repo):
     ts = test_repo.last_commit_time("chats/claude/")
     assert ts is not None
     assert "T" in ts  # rough ISO shape check
+
+
+def test_last_commit_time_ignores_rename_source_with_diff_filter(test_repo):
+    """`git mv chats/foo chats/bar` should not poison the fetch cursor for
+    chats/foo/ — with diff_filter='AM' we only see adds/modifications."""
+    import subprocess
+
+    chats = test_repo.root / "chats" / "claude" / "2026" / "07"
+    chats.mkdir(parents=True)
+    note = chats / "test.md"
+    note.write_text("# test\n")
+    test_repo.git.index.add(note.relative_to(test_repo.root).as_posix())
+    test_repo.commit("Import test", auto_index=False)
+
+    ts_before = test_repo.last_commit_time("chats/claude/", diff_filter="AM")
+    assert ts_before is not None
+
+    # Simulate a rename: mv all of chats/claude/ to chats/claude-old/
+    subprocess.run(
+        ["git", "-C", str(test_repo.root), "mv", "chats/claude", "chats/claude-old"],
+        check=True,
+    )
+    test_repo.commit("Rename claude → claude-old", auto_index=False)
+
+    # Without diff_filter, the rename commit *is* the last one touching
+    # chats/claude/ — that's the bug we're guarding against.
+    ts_touched = test_repo.last_commit_time("chats/claude/")
+    assert ts_touched is not None
+    assert ts_touched >= ts_before  # rename is newer
+
+    # With diff_filter='AM', the rename commit is skipped (it deletes from
+    # chats/claude/) so we see the earlier import commit.
+    ts_am = test_repo.last_commit_time("chats/claude/", diff_filter="AM")
+    assert ts_am == ts_before

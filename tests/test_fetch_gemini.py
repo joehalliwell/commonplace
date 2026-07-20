@@ -117,9 +117,7 @@ def test_fetch_incremental_skips_seen(tmp_path):
     assert _make_fetcher().fetch(tmp_path, since="2030-01-01T00:00:00Z") is None
 
 
-def test_fetch_retries_transient_5xx(monkeypatch, tmp_path):
-    monkeypatch.setattr("commonplace._fetch._helpers.time.sleep", lambda _: None)
-
+def test_fetch_retries_transient_5xx(no_retry_sleep, tmp_path):
     calls: dict[str, int] = {}
 
     def flaky(request: httpx.Request) -> httpx.Response:
@@ -209,16 +207,16 @@ def test_importer_reconstructs_events_from_wire(tmp_path):
     assert times == sorted(times)
 
 
-def test_importer_carries_thoughts_and_language_metadata(tmp_path):
+def test_importer_carries_thoughts_metadata(tmp_path):
     archive = _make_fetcher().fetch(tmp_path, since=None)
     logs = GeminiImporter().import_(archive)
     # events[1] is the earliest model message. Wire turns are newest-first in
     # the fixture; after chronological reversal the earliest round is wire
     # turn[2] → MODEL_THOUGHTS_2_0.
     model_msg = logs[0].events[1]
-    assert model_msg.metadata["language"] == "en"
-    assert model_msg.metadata["thoughts"] == "MODEL_THOUGHTS_2_0"
-    assert model_msg.metadata["rcid"].startswith("rc_")
+    assert model_msg.metadata == {"thoughts": "MODEL_THOUGHTS_2_0"}
+    # User messages carry no metadata — rid/rcid/language are noise.
+    assert logs[0].events[0].metadata == {}
 
 
 def test_importer_extracts_per_turn_timestamps_from_wire(tmp_path):

@@ -69,3 +69,9 @@ def test_app(test_repo):
         return app.meta([f"--root={test_repo.root}", *args], result_action="return_int_as_exit_code_else_zero")
 
     return _run_app
+
+
+@pytest.fixture
+def no_retry_sleep(monkeypatch):
+    """Skip the exponential backoff sleep in fetcher retry tests."""
+    monkeypatch.setattr("commonplace._fetch._helpers.time.sleep", lambda _: None)

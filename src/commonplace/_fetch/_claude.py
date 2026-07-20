@@ -1,13 +1,17 @@
-"""Fetch conversations directly from claude.ai using the browser session cookie."""
+"""Fetch conversations directly from claude.ai using the browser session cookie.
 
+Writes the raw API responses (list + N conversation details) as a gzipped
+JSONL file. The paired importer walks that log and produces EventLogs; the
+fetcher performs no content-shape fabrication of its own."""
+
+import gzip
 import json
 from pathlib import Path
 from typing import Any
-from zipfile import ZipFile
 
 import httpx
 
-from commonplace._fetch._helpers import read_chrome_cookies, request_with_retry
+from commonplace._fetch._helpers import raise_on_session_error, read_chrome_cookies, request_with_retry
 from commonplace._logging import logger
 from commonplace._progress import track
 
@@ -28,6 +32,7 @@ class ClaudeFetcher:
 
     _client: httpx.Client
     _org_uuid: str
+    _wire_log: list[dict[str, Any]]
 
     def __init__(
         self,
@@ -50,6 +55,7 @@ class ClaudeFetcher:
             return None
 
         self._org_uuid = org_uuid
+        self._wire_log = []
 
         with httpx.Client(
             cookies=cookies,
@@ -68,45 +74,36 @@ class ClaudeFetcher:
             if not fresh:
                 return None
 
-            conversations = [self._fetch_detail(c["uuid"]) for c in track(fresh, "Fetching conversations")]
+            for c in track(fresh, "Fetching conversations"):
+                self._fetch_detail(c["uuid"])
 
-        return self._write_archive(conversations, destination)
+        return self._write_archive(destination)
 
     def _list_conversations(self) -> list[dict[str, Any]]:
         r = self._get(f"https://claude.ai/api/organizations/{self._org_uuid}/chat_conversations")
-        return r.json()
+        data = r.json()
+        self._wire_log.append({"endpoint": "conversations", "response": data})
+        return data
 
-    def _fetch_detail(self, convo_uuid: str) -> dict[str, Any]:
+    def _fetch_detail(self, convo_uuid: str) -> None:
         r = self._get(
             f"https://claude.ai/api/organizations/{self._org_uuid}/chat_conversations/{convo_uuid}",
             params={"tree": "True", "rendering_mode": "raw"},
         )
-        return self._to_export_shape(r.json())
+        self._wire_log.append({"endpoint": "conversation", "cid": convo_uuid, "response": r.json()})
 
     def _get(self, url: str, **kwargs: Any) -> httpx.Response:
         r = request_with_retry(self._client, "GET", url, **kwargs)
-        self._check(r)
+        raise_on_session_error(r, service_name="Claude", login_url="https://claude.ai")
         return r
 
-    @staticmethod
-    def _to_export_shape(convo: dict[str, Any]) -> dict[str, Any]:
-        """The API gives each message a flat `text`; the export ZIP wraps it in
-        a `content` block list. Wrap so ClaudeImporter sees a familiar shape."""
-        for msg in convo.get("chat_messages", []):
-            if not msg.get("content"):
-                msg["content"] = [{"type": "text", "text": msg.get("text", "")}]
-        return convo
-
-    @staticmethod
-    def _write_archive(conversations: list[dict[str, Any]], destination: Path) -> Path:
-        archive = destination / "claude-fetch.zip"
-        with ZipFile(archive, "w") as zf:
-            zf.writestr("conversations.json", json.dumps(conversations))
-            zf.writestr("users.json", "[]")
+    def _write_archive(self, destination: Path) -> Path:
+        """Write the raw API responses, gzipped. This is the canonical
+        artifact: what Anthropic actually sent. Content-shape wrapping happens
+        in the importer, not here."""
+        archive = destination / "claude-wire.jsonl.gz"
+        with gzip.open(archive, "wt", encoding="utf-8") as f:
+            for entry in self._wire_log:
+                f.write(json.dumps(entry, ensure_ascii=False))
+                f.write("\n")
         return archive
-
-    @staticmethod
-    def _check(r: httpx.Response) -> None:
-        if r.status_code == 401:
-            raise RuntimeError("Claude session expired. Log in at https://claude.ai in Chrome, then retry.")
-        r.raise_for_status()

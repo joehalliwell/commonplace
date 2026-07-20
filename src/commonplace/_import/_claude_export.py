@@ -1,0 +1,46 @@
+"""Importer for the manual Claude export ZIP (Settings → Privacy → Export data).
+
+Structurally similar to [[ClaudeImporter]] — same per-thread parse — but the
+archive layout is different: a ZIP containing `conversations.json` and
+`users.json` (plus other files we ignore). Both importers write to
+`chats/claude/` under the shared `source = "claude"` tag.
+
+The manual export is worth keeping around because it preserves content the
+internal API strips (notably `<antThinking>` blocks). See issue #6.
+"""
+
+import json
+from contextlib import closing
+from pathlib import Path
+from zipfile import ZipFile
+
+from rich.progress import track
+
+from commonplace._import._claude import _to_log
+from commonplace._import._types import EventLog
+
+
+class ClaudeExportImporter:
+    source: str = "claude"
+
+    def required_paths(self) -> list[str]:
+        # Both files get extracted and blob-stored so `source_exports`
+        # captures the two primary artefacts from the export bundle.
+        return ["conversations.json", "users.json"]
+
+    def can_import(self, path: Path) -> bool:
+        if path.suffix != ".zip":
+            return False
+        try:
+            with closing(ZipFile(path, "r")) as zf:
+                names = zf.namelist()
+        except Exception:
+            return False
+        # `users.json` is the Claude-specific marker — distinguishes this
+        # from ChatGPT ZIPs, which also contain `conversations.json`.
+        return "conversations.json" in names and "users.json" in names
+
+    def import_(self, path: Path) -> list[EventLog]:
+        with closing(ZipFile(path)) as zf:
+            threads = json.loads(zf.read("conversations.json"))
+        return [_to_log(thread, self.source) for thread in track(threads)]
