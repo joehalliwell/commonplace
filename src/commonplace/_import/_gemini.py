@@ -67,9 +67,11 @@ class GeminiImporter:
             pinned = bool(payload[2][0])
             for row in body[2]:
                 seconds, nanos = row[5]
+                # Gemini titles often carry a trailing newline; strip so
+                # filenames and log lines stay clean.
                 summaries[row[0]] = {
                     "cid": row[0],
-                    "title": row[1],
+                    "title": row[1].strip(),
                     "is_pinned": pinned,
                     "updated_at": _ts_to_iso(seconds, nanos),
                 }
