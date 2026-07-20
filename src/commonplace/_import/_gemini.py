@@ -113,34 +113,23 @@ def _to_log(summary: dict[str, Any], body: list | None) -> EventLog:
             seconds, nanos = turn[4]
             ts = _ts_to_iso_dt(seconds, nanos)
             user_text = turn[2][0][0]
-            rcid = candidate[0]
             model_text = candidate[1][0]
-            language = candidate[9]
+            # Parse these so a shape change here surfaces as a crash rather
+            # than silently missing data — even though we discard them below.
+            # rid / rcid / language are noise in the rendered markdown; keep
+            # thoughts.
+            _rid = turn[0][1]  # noqa: F841
+            _rcid = candidate[0]  # noqa: F841
+            _language = candidate[9]  # noqa: F841
             # Presence-gated: candidate slot 37 (thoughts) and turn slot 9 (gem)
             # are optional. Once present, trust the shape — mis-shape crashes.
             thoughts = candidate[37][0][0] if len(candidate) > 37 and candidate[37] else None
             if len(turn) > 9 and turn[9]:
                 gem_name = turn[9][0]
 
-            events.append(
-                Message(
-                    sender=Role.USER,
-                    content=user_text,
-                    created=ts,
-                    metadata={"rid": turn[0][1]},
-                )
-            )
-            model_meta: dict = {"rcid": rcid, "language": language}
-            if thoughts:
-                model_meta["thoughts"] = thoughts
-            events.append(
-                Message(
-                    sender=Role.ASSISTANT,
-                    content=model_text,
-                    created=ts,
-                    metadata=model_meta,
-                )
-            )
+            events.append(Message(sender=Role.USER, content=user_text, created=ts))
+            model_meta: dict = {"thoughts": thoughts} if thoughts else {}
+            events.append(Message(sender=Role.ASSISTANT, content=model_text, created=ts, metadata=model_meta))
     else:
         logger.warning(f"Empty response for {summary['cid']}; recording chat with no turns.")
 

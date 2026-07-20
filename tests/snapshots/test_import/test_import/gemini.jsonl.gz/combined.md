@@ -12,17 +12,11 @@ source_exports: [.commonplace/blobs/64324d9d824c69a54ec2dce250093d9fc9a81c0c370e
 
 ## Human [created:: 2025-06-17T06:01:53+00:00]
 
-```yaml
-rid: r_8d4b0dc0051ac14e
-```
-
 USER_TEXT_2
 
 ## Gemini [created:: 2025-06-17T06:01:53+00:00]
 
 ```yaml
-rcid: rc_27cc23f5a2bb7b88
-language: en
 thoughts: MODEL_THOUGHTS_2_0
 ```
 
@@ -30,17 +24,11 @@ MODEL_TEXT_2_0
 
 ## Human [created:: 2025-06-17T06:04:32+00:00]
 
-```yaml
-rid: r_15ac38a8a9c81972
-```
-
 USER_TEXT_1
 
 ## Gemini [created:: 2025-06-17T06:04:32+00:00]
 
 ```yaml
-rcid: rc_aecbf79218e79157
-language: en
 thoughts: MODEL_THOUGHTS_1_0
 ```
 
@@ -48,17 +36,11 @@ MODEL_TEXT_1_0
 
 ## Human [created:: 2025-06-17T06:27:18+00:00]
 
-```yaml
-rid: r_96c0b2fcb81a51a5
-```
-
 USER_TEXT_0
 
 ## Gemini [created:: 2025-06-17T06:27:18+00:00]
 
 ```yaml
-rcid: rc_2453ffca5d9ae4ad
-language: en
 thoughts: MODEL_THOUGHTS_0_0
 ```
 
@@ -78,17 +60,11 @@ source_exports: [.commonplace/blobs/64324d9d824c69a54ec2dce250093d9fc9a81c0c370e
 
 ## Human [created:: 2025-06-17T06:01:53+00:00]
 
-```yaml
-rid: r_8d4b0dc0051ac14e
-```
-
 USER_TEXT_2
 
 ## Gemini [created:: 2025-06-17T06:01:53+00:00]
 
 ```yaml
-rcid: rc_27cc23f5a2bb7b88
-language: en
 thoughts: MODEL_THOUGHTS_2_0
 ```
 
@@ -96,17 +72,11 @@ MODEL_TEXT_2_0
 
 ## Human [created:: 2025-06-17T06:04:32+00:00]
 
-```yaml
-rid: r_15ac38a8a9c81972
-```
-
 USER_TEXT_1
 
 ## Gemini [created:: 2025-06-17T06:04:32+00:00]
 
 ```yaml
-rcid: rc_aecbf79218e79157
-language: en
 thoughts: MODEL_THOUGHTS_1_0
 ```
 
@@ -114,17 +84,11 @@ MODEL_TEXT_1_0
 
 ## Human [created:: 2025-06-17T06:27:18+00:00]
 
-```yaml
-rid: r_96c0b2fcb81a51a5
-```
-
 USER_TEXT_0
 
 ## Gemini [created:: 2025-06-17T06:27:18+00:00]
 
 ```yaml
-rcid: rc_2453ffca5d9ae4ad
-language: en
 thoughts: MODEL_THOUGHTS_0_0
 ```
 
