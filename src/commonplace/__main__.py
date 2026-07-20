@@ -112,6 +112,14 @@ def fetch(
         Optional[bool],
         Parameter(help="Index notes after commit (default: from config)"),
     ] = None,
+    all_: Annotated[
+        bool,
+        Parameter(
+            name=["--all"],
+            help="Ignore the git-derived cursor and fetch everything the remote has.",
+            negative="",
+        ),
+    ] = False,
     *,
     sources: Sources = [],
     repo: Repo,
@@ -120,7 +128,7 @@ def fetch(
 
     from commonplace._fetch._commands import fetch
 
-    fetch(repo, sources=sources if sources else None, auto_index=index)
+    fetch(repo, sources=sources if sources else None, auto_index=index, all_=all_)
 
 
 @app.command(alias="j", group=CREATING_SECTION)
