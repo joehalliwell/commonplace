@@ -1,5 +1,7 @@
 """Tests for the Claude fetcher (and its paired importer)."""
 
+import gzip
+import json
 from pathlib import Path
 
 import httpx
@@ -7,6 +9,7 @@ import pytest
 
 from commonplace._fetch._claude import ClaudeFetcher
 from commonplace._import._claude import ClaudeImporter
+from commonplace._import._claude_export import ClaudeExportImporter
 
 ORG = "org-uuid-1"
 
@@ -56,32 +59,9 @@ def _make_fetcher(handler=_handler, cookies=TEST_COOKIES) -> ClaudeFetcher:
     return ClaudeFetcher(cookies=cookies, transport=httpx.MockTransport(handler))
 
 
-# ---------------------------------------------------------------------------
-# Unit tests on the shape-normalisation helper.
-# ---------------------------------------------------------------------------
-
-
-def test_to_export_shape_wraps_flat_text():
-    """API messages carry a flat text field; the importer expects blocks."""
-    convo = {"chat_messages": [{"sender": "human", "text": "hi"}]}
-    result = ClaudeFetcher._to_export_shape(convo)
-    assert result["chat_messages"][0]["content"] == [{"type": "text", "text": "hi"}]
-
-
-def test_to_export_shape_preserves_existing_content():
-    """Don't clobber messages that already have content blocks."""
-    blocks = [{"type": "text", "text": "hi", "citations": []}]
-    convo = {"chat_messages": [{"sender": "human", "text": "hi", "content": blocks}]}
-    result = ClaudeFetcher._to_export_shape(convo)
-    assert result["chat_messages"][0]["content"] is blocks
-
-
-def test_archive_is_valid_claude_export(tmp_path):
-    """Synthesized ZIP must be recognized by the existing importer."""
-    archive = ClaudeFetcher._write_archive([ClaudeFetcher._to_export_shape(_detail("c-1"))], tmp_path)
-    importer = ClaudeImporter()
-    assert importer.can_import(archive)
-    assert len(importer.import_(archive)) == 1
+def _read_wire(archive: Path) -> list[dict]:
+    with gzip.open(archive, "rt", encoding="utf-8") as f:
+        return [json.loads(line) for line in f if line.strip()]
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +77,20 @@ def test_fetch_returns_none_without_session(tmp_path):
 def test_fetch_returns_none_without_org(tmp_path):
     fetcher = ClaudeFetcher(cookies={"sessionKey": "sk"})
     assert fetcher.fetch(tmp_path, since=None) is None
+
+
+def test_fetch_writes_raw_wire_only(tmp_path):
+    """Archive is a JSONL of raw API responses — no invented intermediate."""
+    archive = _make_fetcher().fetch(tmp_path, since=None)
+    assert archive is not None
+    assert archive.name == "claude-wire.jsonl.gz"
+
+    wire = _read_wire(archive)
+    # 1 list call + 2 details for the two summaries.
+    assert [e["endpoint"] for e in wire] == ["conversations", "conversation", "conversation"]
+    assert wire[0]["response"] == SUMMARIES
+    assert wire[1]["cid"] == "c-old"
+    assert wire[2]["cid"] == "c-new"
 
 
 def test_fetch_end_to_end(tmp_path):
@@ -203,3 +197,90 @@ def test_fetch_retries_transient_5xx(monkeypatch, tmp_path):
 def test_fetch_raises_on_401(tmp_path):
     with pytest.raises(RuntimeError, match="session expired"):
         _make_fetcher(handler=lambda r: httpx.Response(401)).fetch(tmp_path, since=None)
+
+
+# ---------------------------------------------------------------------------
+# Importer tests — ClaudeImporter (fetcher wire) and ClaudeExportImporter (ZIP).
+# ---------------------------------------------------------------------------
+
+
+def test_wire_importer_accepts_fetcher_output(tmp_path):
+    path = tmp_path / "claude-wire.jsonl.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        f.write(json.dumps({"endpoint": "conversations", "response": []}) + "\n")
+    assert ClaudeImporter().can_import(path)
+
+
+def test_wire_importer_rejects_arbitrary_jsonl_gz(tmp_path):
+    path = tmp_path / "other.jsonl.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        f.write(json.dumps({"not": "ours"}) + "\n")
+    assert not ClaudeImporter().can_import(path)
+
+
+def test_wire_importer_wraps_flat_text(tmp_path):
+    """Fetcher-wire messages have only `text`; the importer wraps into blocks."""
+    thread = {
+        "uuid": "abc",
+        "name": "Hi",
+        "created_at": "2026-07-15T00:00:00Z",
+        "chat_messages": [
+            {"sender": "human", "text": "hello", "created_at": "2026-07-15T00:00:00Z"},
+            {"sender": "assistant", "text": "hi back", "created_at": "2026-07-15T00:00:01Z"},
+        ],
+    }
+    path = tmp_path / "claude-wire.jsonl.gz"
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        f.write(json.dumps({"endpoint": "conversations", "response": []}) + "\n")
+        f.write(json.dumps({"endpoint": "conversation", "cid": "abc", "response": thread}) + "\n")
+
+    logs = ClaudeImporter().import_(path)
+    assert len(logs) == 1
+    assert [e.content for e in logs[0].events] == ["hello", "hi back"]
+
+
+def test_export_importer_requires_users_json(tmp_path):
+    """A ZIP with only conversations.json (like ChatGPT's export) is rejected."""
+    from zipfile import ZipFile
+
+    path = tmp_path / "not-claude.zip"
+    with ZipFile(path, "w") as zf:
+        zf.writestr("conversations.json", "[]")
+    assert not ClaudeExportImporter().can_import(path)
+
+
+def test_export_importer_accepts_full_pair(tmp_path):
+    from zipfile import ZipFile
+
+    path = tmp_path / "claude-export.zip"
+    with ZipFile(path, "w") as zf:
+        zf.writestr("conversations.json", "[]")
+        zf.writestr("users.json", "[]")
+    assert ClaudeExportImporter().can_import(path)
+
+
+def test_export_importer_preserves_content_blocks(tmp_path):
+    """Export-ZIP messages carry populated content blocks — importer uses
+    them directly rather than falling back to flat `text`."""
+    from zipfile import ZipFile
+
+    thread = {
+        "uuid": "abc",
+        "name": "Hi",
+        "created_at": "2026-07-15T00:00:00Z",
+        "chat_messages": [
+            {
+                "sender": "human",
+                "text": "ignored",  # export has both; importer prefers content
+                "created_at": "2026-07-15T00:00:00Z",
+                "content": [{"type": "text", "text": "real user text"}],
+            },
+        ],
+    }
+    path = tmp_path / "claude-export.zip"
+    with ZipFile(path, "w") as zf:
+        zf.writestr("conversations.json", json.dumps([thread]))
+        zf.writestr("users.json", "[]")
+
+    logs = ClaudeExportImporter().import_(path)
+    assert logs[0].events[0].content == "real user text"
