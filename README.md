@@ -156,6 +156,13 @@ Note: these use the providers' internal endpoints, which are unofficial and
 may change without notice. If a fetcher stops working, fall back to the
 manual export flow above.
 
+**Claude fetcher vs Takeout.** The Claude fetcher's data is a strict subset
+of the manual export: Anthropic's internal conversation endpoint currently
+strips `<antThinking>` blocks (visible in the manual export ZIP) from message
+text server-side. If preserving Claude's thought-tag meta-reasoning matters
+to you, keep using the manual export flow for the affected conversations.
+See issue #6.
+
 **Note on `gemini` vs `gemini-takeout`.** The Google Takeout importer
 (retained for historical imports) now writes to `chats/gemini-takeout/`;
 the fetcher owns `chats/gemini/`. If you previously imported Gemini history
