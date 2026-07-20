@@ -182,3 +182,23 @@ def merge_frontmatter(existing_content: str, new_metadata: dict) -> dict:
 
     # Merge: existing | new means new overwrites existing where keys overlap
     return existing_metadata | new_metadata
+
+
+def sniff_gzipped_jsonl(path: Path) -> dict | None:
+    """Peek at the first JSON object in a gzipped JSONL file.
+
+    Returns None if the file isn't a valid `.jsonl.gz`, the first line isn't
+    JSON, or that JSON isn't a dict. Used by importers to identify their own
+    fetcher output vs. arbitrary .jsonl.gz files."""
+    import gzip
+    import json
+
+    if not path.name.endswith(".jsonl.gz"):
+        return None
+    try:
+        with gzip.open(path, "rt", encoding="utf-8") as f:
+            first = f.readline()
+        entry = json.loads(first)
+    except Exception:
+        return None
+    return entry if isinstance(entry, dict) else None

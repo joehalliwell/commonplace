@@ -18,7 +18,7 @@ from rich.progress import track
 
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._logging import logger
-from commonplace._utils import truncate
+from commonplace._utils import sniff_gzipped_jsonl, truncate
 
 
 class ClaudeImporter:
@@ -28,15 +28,8 @@ class ClaudeImporter:
         return []
 
     def can_import(self, path: Path) -> bool:
-        if not path.name.endswith(".jsonl.gz"):
-            return False
-        try:
-            with gzip.open(path, "rt", encoding="utf-8") as f:
-                first = f.readline()
-            entry = json.loads(first)
-        except Exception:
-            return False
-        return isinstance(entry, dict) and entry.get("endpoint") in {"conversations", "conversation"}
+        entry = sniff_gzipped_jsonl(path)
+        return entry is not None and entry.get("endpoint") in {"conversations", "conversation"}
 
     def import_(self, path: Path) -> list[EventLog]:
         threads = list(_read_wire(path))

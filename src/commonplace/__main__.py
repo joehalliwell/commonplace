@@ -92,11 +92,11 @@ CREATING_SECTION = "Creating notes"
 @app.command(name="import", alias="i", group=CREATING_SECTION)
 def import_(
     path: Path,
+    *,
     index: Annotated[
         Optional[bool],
         Parameter(help="Index notes after commit (default: from config)"),
     ] = None,
-    *,
     repo: Repo,
 ) -> None:
     """Import AI conversation exports (Claude ZIP, Gemini Takeout) into your commonplace."""
@@ -108,10 +108,7 @@ def import_(
 
 @app.command(alias="f", group=CREATING_SECTION)
 def fetch(
-    index: Annotated[
-        Optional[bool],
-        Parameter(help="Index notes after commit (default: from config)"),
-    ] = None,
+    *,
     all_: Annotated[
         bool,
         Parameter(
@@ -120,7 +117,10 @@ def fetch(
             negative="",
         ),
     ] = False,
-    *,
+    index: Annotated[
+        Optional[bool],
+        Parameter(help="Index notes after commit (default: from config)"),
+    ] = None,
     sources: Sources = [],
     repo: Repo,
 ) -> None:
@@ -134,11 +134,11 @@ def fetch(
 @app.command(alias="j", group=CREATING_SECTION)
 def journal(
     date_str: Annotated[Optional[str], Parameter(help="Date for the journal entry (YYYY-MM-DD)")] = None,
+    *,
     index: Annotated[
         Optional[bool],
         Parameter(help="Index notes after commit (default: from config)"),
     ] = None,
-    *,
     repo: Repo,
 ) -> None:
     """Create or edit a daily journal entry."""
@@ -259,8 +259,8 @@ def init(root: Path) -> None:
 
 @app.command(group=SYSTEM_SECTION)
 def index(
-    rebuild: Annotated[bool, Parameter(help="Rebuild the index from scratch")] = False,
     *,
+    rebuild: Annotated[bool, Parameter(help="Rebuild the index from scratch")] = False,
     repo: Repo,
 ) -> None:
     """Build or rebuild the search index for semantic search."""
@@ -272,11 +272,11 @@ def index(
 
 @app.command(group=SYSTEM_SECTION)
 def sync(
-    remote: Annotated[str, Parameter(help="Remote name")] = "origin",
-    branch: Annotated[Optional[str], Parameter(help="Branch name (default: current)")] = None,
-    strategy: Annotated[str, Parameter(help="Sync strategy: rebase or merge")] = "rebase",
-    auto_commit: Annotated[bool, Parameter(help="Auto-commit uncommitted changes")] = True,
     *,
+    auto_commit: Annotated[bool, Parameter(help="Auto-commit uncommitted changes")] = True,
+    branch: Annotated[Optional[str], Parameter(help="Branch name (default: current)")] = None,
+    remote: Annotated[str, Parameter(help="Remote name")] = "origin",
+    strategy: Annotated[str, Parameter(help="Sync strategy: rebase or merge")] = "rebase",
     repo: Repo,
 ) -> None:
     """Synchronize with remote repository (add changes, pull, push)."""
@@ -314,11 +314,11 @@ def doctor(
 @app.command(group=SYSTEM_SECTION)
 def stats(
     *,
-    sources: Sources = [],
     all_time: Annotated[
         bool,
         Parameter(name=["--all"], help="Show full history (default: last 52 weeks)", negative=""),
     ] = False,
+    sources: Sources = [],
     repo: Repo,
 ) -> None:
     """Show statistics about your commonplace and search index."""

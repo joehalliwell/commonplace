@@ -117,9 +117,7 @@ def test_fetch_incremental_skips_seen(tmp_path):
     assert _make_fetcher().fetch(tmp_path, since="2030-01-01T00:00:00Z") is None
 
 
-def test_fetch_retries_transient_5xx(monkeypatch, tmp_path):
-    monkeypatch.setattr("commonplace._fetch._helpers.time.sleep", lambda _: None)
-
+def test_fetch_retries_transient_5xx(no_retry_sleep, tmp_path):
     calls: dict[str, int] = {}
 
     def flaky(request: httpx.Request) -> httpx.Response:

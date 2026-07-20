@@ -40,3 +40,13 @@ def request_with_retry(client: httpx.Client, method: str, url: str, **kwargs: An
         logger.warning(f"Got {r.status_code} from {url}; retrying in {delay:.1f}s")
         time.sleep(delay)
     return r
+
+
+def raise_on_session_error(response: httpx.Response, service_name: str, login_url: str) -> None:
+    """Raise a uniform RuntimeError on 401/403 (session expired or rejected),
+    otherwise `raise_for_status` on any other non-success. Every fetcher
+    should call this on responses that aren't already handled by
+    `request_with_retry` (which only handles transient statuses)."""
+    if response.status_code in (401, 403):
+        raise RuntimeError(f"{service_name} session rejected. Log in at {login_url} in Chrome, then retry.")
+    response.raise_for_status()

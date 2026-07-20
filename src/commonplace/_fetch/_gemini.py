@@ -15,7 +15,7 @@ from typing import Any
 
 import httpx
 
-from commonplace._fetch._helpers import read_chrome_cookies, request_with_retry
+from commonplace._fetch._helpers import raise_on_session_error, read_chrome_cookies, request_with_retry
 from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso
 from commonplace._logging import logger
 from commonplace._progress import track
@@ -141,15 +141,9 @@ class GeminiFetcher:
         data = {"at": self._access_token, "f.req": envelope}
         headers = {"Content-Type": "application/x-www-form-urlencoded;charset=utf-8"}
         r = request_with_retry(self._client, "POST", BATCH_URL, params=params, data=data, headers=headers)
-        self._check(r)
+        raise_on_session_error(r, service_name="Gemini", login_url="https://gemini.google.com")
         self._wire_log.append({"rpc": rpcid, "payload": payload, "response": r.text})
         return _extract_rpc_body(r.text, rpcid)
-
-    @staticmethod
-    def _check(r: httpx.Response) -> None:
-        if r.status_code == 401 or r.status_code == 403:
-            raise RuntimeError("Gemini session rejected. Log in at https://gemini.google.com in Chrome, then retry.")
-        r.raise_for_status()
 
     def _write_archive(self, destination: Path) -> Path:
         """Write the raw `batchexecute` responses, gzipped. This is the

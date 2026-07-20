@@ -23,6 +23,7 @@ from typing import Any
 
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._logging import logger
+from commonplace._utils import sniff_gzipped_jsonl
 
 BATCH_PREAMBLE = ")]}'\n"
 
@@ -36,20 +37,8 @@ class GeminiImporter:
         return []
 
     def can_import(self, path: Path) -> bool:
-        if not path.name.endswith(".jsonl.gz"):
-            return False
-        try:
-            with gzip.open(path, "rt", encoding="utf-8") as f:
-                first = f.readline()
-        except (OSError, gzip.BadGzipFile):
-            return False
-        if not first:
-            return False
-        try:
-            entry = json.loads(first)
-        except json.JSONDecodeError:
-            return False
-        return isinstance(entry, dict) and entry.get("rpc") in {"MaZiqc", "hNvQHb"}
+        entry = sniff_gzipped_jsonl(path)
+        return entry is not None and entry.get("rpc") in {"MaZiqc", "hNvQHb"}
 
     def import_(self, path: Path) -> list[EventLog]:
         with gzip.open(path, "rt", encoding="utf-8") as f:

@@ -172,10 +172,8 @@ def test_fetch_command_all_flag_bypasses_cursor(test_repo):
     assert calls[-1] is None, "with --all, cursor is bypassed"
 
 
-def test_fetch_retries_transient_5xx(monkeypatch, tmp_path):
+def test_fetch_retries_transient_5xx(no_retry_sleep, tmp_path):
     """A 503 followed by success should resolve without raising."""
-    monkeypatch.setattr("commonplace._fetch._helpers.time.sleep", lambda _: None)
-
     calls: dict[str, int] = {}
 
     def flaky(request: httpx.Request) -> httpx.Response:
@@ -195,7 +193,7 @@ def test_fetch_retries_transient_5xx(monkeypatch, tmp_path):
 
 
 def test_fetch_raises_on_401(tmp_path):
-    with pytest.raises(RuntimeError, match="session expired"):
+    with pytest.raises(RuntimeError, match="session rejected"):
         _make_fetcher(handler=lambda r: httpx.Response(401)).fetch(tmp_path, since=None)
 
 

@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from commonplace._fetch._helpers import read_chrome_cookies, request_with_retry
+from commonplace._fetch._helpers import raise_on_session_error, read_chrome_cookies, request_with_retry
 from commonplace._logging import logger
 from commonplace._progress import track
 
@@ -94,7 +94,7 @@ class ClaudeFetcher:
 
     def _get(self, url: str, **kwargs: Any) -> httpx.Response:
         r = request_with_retry(self._client, "GET", url, **kwargs)
-        self._check(r)
+        raise_on_session_error(r, service_name="Claude", login_url="https://claude.ai")
         return r
 
     def _write_archive(self, destination: Path) -> Path:
@@ -107,9 +107,3 @@ class ClaudeFetcher:
                 f.write(json.dumps(entry, ensure_ascii=False))
                 f.write("\n")
         return archive
-
-    @staticmethod
-    def _check(r: httpx.Response) -> None:
-        if r.status_code == 401:
-            raise RuntimeError("Claude session expired. Log in at https://claude.ai in Chrome, then retry.")
-        r.raise_for_status()
