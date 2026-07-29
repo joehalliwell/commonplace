@@ -6,11 +6,12 @@ from typing import Protocol, runtime_checkable
 @runtime_checkable
 class Fetcher(Protocol):
     """
-    Protocol for fetching raw export material directly from a provider.
+    Protocol for capturing raw material directly from a provider.
 
-    A Fetcher pulls source data into `destination` in whatever format the
-    matching Importer already understands, so the existing import pipeline
-    can consume it unchanged.
+    A Fetcher records what the provider sent and stops there: it writes a wire
+    archive (see [[commonplace._wire]]) and interprets nothing. Turning that
+    into EventLogs is the paired Importer's job. Each provider therefore has
+    both, and the seam between them is the archive on disk.
     """
 
     source: str

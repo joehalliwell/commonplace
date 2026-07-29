@@ -1,8 +1,4 @@
-"""Fetch conversations directly from claude.ai using the browser session cookie.
-
-Writes the raw API responses (list + N conversation details) as a gzipped
-JSONL file. The paired importer walks that log and produces EventLogs; the
-fetcher performs no content-shape fabrication of its own."""
+"""Fetch conversations directly from claude.ai using the browser session cookie."""
 
 from datetime import datetime
 from pathlib import Path
@@ -20,9 +16,8 @@ CLAUDE_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gec
 
 
 class ClaudeFetcher:
-    """Fetch Claude conversations via claude.ai's internal API.
-
-    Endpoints are unofficial; expect drift.
+    """Records one list call plus N conversation details from claude.ai's
+    internal API. Endpoints are unofficial; expect drift.
 
     Cookies and HTTP transport are injectable — real use passes neither and the
     fetcher discovers cookies from Chrome and uses the real network. Tests
@@ -97,6 +92,4 @@ class ClaudeFetcher:
         return r
 
     def _write_archive(self, destination: Path) -> Path:
-        """Write the raw API responses as a versioned wire archive. Content-shape
-        wrapping happens in the importer, not here."""
         return write_archive(destination / "claude-wire.jsonl.gz", self.source, self._wire_log)

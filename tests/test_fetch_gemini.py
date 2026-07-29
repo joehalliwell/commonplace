@@ -95,8 +95,7 @@ def test_fetch_returns_none_without_session(tmp_path):
 
 
 def test_fetch_writes_raw_wire_only(tmp_path):
-    """The fetcher's artifact is a JSONL of raw `batchexecute` responses —
-    no invented intermediate format."""
+    """Every `batchexecute` call is recorded, response text untouched."""
     archive = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
     assert archive.name == "gemini-wire.jsonl.gz"
