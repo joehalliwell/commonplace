@@ -144,7 +144,7 @@ def test_generate_stats_with_indexed_content(test_repo):
     index(test_repo, rebuild=True)
 
     # Generate stats
-    heatmap_output, table_output = generate_stats(test_repo, sources=None, all_time=False)
+    _heatmap_output, table_output = generate_stats(test_repo, sources=None, all_time=False)
 
     # Check that indexed chunks are shown
     assert table_output

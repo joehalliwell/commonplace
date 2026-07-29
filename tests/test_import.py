@@ -42,7 +42,7 @@ def test_import(sample_export, test_repo, snapshot):
     buffer = ""
     for path in sorted((test_repo.root / "chats").glob("**/*.md")):
         buffer += f"<!-- Contents of {path.relative_to(test_repo.root).as_posix()} -->\n"
-        buffer += open(path, "r").read() + "\n"
+        buffer += path.read_text(encoding="utf-8") + "\n"
 
     snapshot.assert_match(buffer, snapshot_name="combined.md")
 
@@ -55,13 +55,13 @@ def test_serialize_log(snapshot):
         Message(
             sender=Role.USER,
             content="Hello",
-            created=datetime(2024, 1, 1, 12, 0, 0),
+            created=datetime(2024, 1, 1, 12, 0, 0),  # noqa: DTZ001 - naive on purpose; snapshots pin the rendering
             metadata={"id": "message-0"},
         ),
         Message(
             sender=Role.ASSISTANT,
             content="Hi there!",
-            created=datetime(2024, 1, 1, 12, 0, 1),
+            created=datetime(2024, 1, 1, 12, 0, 1),  # noqa: DTZ001 - naive on purpose; snapshots pin the rendering
             metadata={"id": "message-1"},
         ),
     ]
@@ -69,7 +69,7 @@ def test_serialize_log(snapshot):
     log = EventLog(
         source="test",
         title="Test Chat",
-        created=datetime(2024, 1, 1, 12, 0, 0),
+        created=datetime(2024, 1, 1, 12, 0, 0),  # noqa: DTZ001 - naive on purpose; snapshots pin the rendering
         events=messages,
         metadata={"id": "log-0"},
     )

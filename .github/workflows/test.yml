@@ -49,8 +49,13 @@ jobs:
       #----------------------------------------------
       # Lint
       #----------------------------------------------
+      # Uses the ruff from uv.lock, so CI, pre-commit and `just lint` all
+      # agree. The previous third-party action pinned neither itself nor
+      # ruff, so a new ruff release silently changed the rules under us.
       - name: Lint with ruff
-        uses: jpetrucciani/ruff-check@main
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
 
       #----------------------------------------------
       # Run test suite

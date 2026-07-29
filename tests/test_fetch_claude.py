@@ -134,7 +134,6 @@ def test_fetch_command_filters_by_source(test_repo):
 
         def fetch(self, destination, since):
             called.append("stub")
-            return None
 
     fetch(test_repo, sources=["nonexistent"], fetchers=[Stub()], auto_index=False)
     assert called == []
@@ -155,7 +154,6 @@ def test_fetch_command_all_flag_bypasses_cursor(test_repo):
 
         def fetch(self, destination, since):
             calls.append(since)
-            return None
 
     # Seed the repo with a chats/recording/ commit so last_commit_time would
     # return a non-None cursor without --all.

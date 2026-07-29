@@ -4,7 +4,6 @@ import tempfile
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 from zipfile import ZipFile
 
 from commonplace._import._chatgpt import ChatGptImporter
@@ -44,7 +43,7 @@ def import_(path: Path, repo: Commonplace, user: str, prefix="chats", auto_index
             import_one(filepath, repo, user, prefix=prefix, auto_index=auto_index)
 
 
-def autodetect_importer(path: Path) -> Optional[Importer]:
+def autodetect_importer(path: Path) -> Importer | None:
     assert path.is_file()
     for importer in IMPORTERS:
         try:
@@ -60,11 +59,10 @@ def autodetect_importer(path: Path) -> Optional[Importer]:
 def extract_and_store(archive: Path, paths: list[str], repo: Commonplace) -> list[RepoPath]:
     """Extract specific files from archive and store each as a blob."""
     result = []
-    with tempfile.TemporaryDirectory() as tmp:
-        with ZipFile(archive) as zf:
-            for p in paths:
-                zf.extract(p, tmp)
-                result.append(repo.store_blob(Path(tmp) / p))
+    with tempfile.TemporaryDirectory() as tmp, ZipFile(archive) as zf:
+        for p in paths:
+            zf.extract(p, tmp)
+            result.append(repo.store_blob(Path(tmp) / p))
     return result
 
 
@@ -124,7 +122,7 @@ def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_in
     repo.commit(f"Import from '{path}' using '{importer.source}' importer", auto_index=auto_index)
 
 
-def make_chat_path(source: str, date: datetime, title: Optional[str], prefix="chats") -> Path:
+def make_chat_path(source: str, date: datetime, title: str | None, prefix="chats") -> Path:
     """
     Generate the relative file path for storing an activity log.
 

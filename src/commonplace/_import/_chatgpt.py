@@ -1,14 +1,14 @@
 import json
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from zipfile import ZipFile
 
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._logging import logger
 
-DEFAULT_TIME = datetime.fromtimestamp(0, tz=timezone.utc)  # Default time if not provided
+DEFAULT_TIME = datetime.fromtimestamp(0, tz=UTC)  # Default time if not provided
 
 
 class ChatGptImporter:
@@ -76,7 +76,7 @@ class ChatGptImporter:
                 logger.warning(f"Multiple children found for node {current_id}, using the first one")
             current_id = children[0]
 
-    def _to_message(self, node: dict[str, Any]) -> Optional[Message]:
+    def _to_message(self, node: dict[str, Any]) -> Message | None:
         msg = node.get("message")
         if not msg or "content" not in msg:
             return None
@@ -114,7 +114,7 @@ class ChatGptImporter:
         json_ = json.dumps(part, indent=2)
         return f"```json\n{json_}\n```"
 
-    def _timestamp(self, ts: Optional[float]) -> datetime:
+    def _timestamp(self, ts: float | None) -> datetime:
         if ts is None:
             return DEFAULT_TIME
-        return datetime.fromtimestamp(ts, tz=timezone.utc)
+        return datetime.fromtimestamp(ts, tz=UTC)

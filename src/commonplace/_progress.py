@@ -1,7 +1,6 @@
 import itertools as it
 import time
 from contextlib import contextmanager
-from typing import Optional
 
 from rich.console import Group, RenderableType
 from rich.live import Live
@@ -17,12 +16,12 @@ from rich.progress import (
 )
 from rich.text import Text
 
-_live: Optional[Live] = None
+_live: Live | None = None
 _live_renderables: list[RenderableType] = []
 
 
 def start_live(renderable):
-    global _live, _live_renderables
+    global _live
     _live_renderables.append(renderable)
     if _live is None:
         _live = Live()
@@ -32,7 +31,7 @@ def start_live(renderable):
 
 
 def stop_live(renderable):
-    global _live, _live_renderables
+    global _live
     assert renderable in _live_renderables
     _live_renderables.remove(renderable)
     if not _live_renderables:
@@ -60,7 +59,7 @@ class TaskFieldColumn(ProgressColumn):
 
 
 @contextmanager
-def checkpoint(name="", every=0.5, fields=lambda: {}, quiet=False):
+def checkpoint(name="", every=0.5, fields=dict, quiet=False):
     if quiet:
         yield it.count()
         return
@@ -93,7 +92,7 @@ def checkpoint(name="", every=0.5, fields=lambda: {}, quiet=False):
     stop_live(progress)
 
 
-def track(iterable, name="", fields=lambda: {}, every=0.5):
+def track(iterable, name="", fields=dict, every=0.5):
     progress = Progress(
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),

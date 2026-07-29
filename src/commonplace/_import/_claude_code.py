@@ -50,10 +50,10 @@ class ClaudeCodeImporter:
             "summary",
             "model",
         )
-        metadata = dict()
+        metadata = {}
         tool_calls: dict[str, ToolCall] = {}
 
-        for line in open(path, "r"):
+        for line in path.read_text(encoding="utf-8").splitlines():
             data = json.loads(line)
 
             # Extract session metadata opportunistically from envelope or message

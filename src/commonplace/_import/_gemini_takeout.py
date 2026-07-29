@@ -1,9 +1,9 @@
 import re
 from collections import defaultdict
+from collections.abc import Iterable
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
 from zipfile import ZipFile
 
 from bs4 import BeautifulSoup
@@ -46,11 +46,10 @@ class GeminiTakeoutImporter:
 
     def import_(self, path: Path) -> list[EventLog]:
         """Import activity logs from the Gemini file."""
-        with ZipFile(path, "r") as zip_file:
-            # Read the HTML file from the zip
-            with zip_file.open(_HTML_PATH) as file:
-                content = file.read().decode("utf-8")
-                return self._parse_gemini_html(content)
+        # Read the HTML file from the zip
+        with ZipFile(path, "r") as zip_file, zip_file.open(_HTML_PATH) as file:
+            content = file.read().decode("utf-8")
+            return self._parse_gemini_html(content)
 
     def _parse_gemini_html(self, html_content: str) -> list[EventLog]:
         soup = BeautifulSoup(html_content, "lxml")
@@ -103,7 +102,7 @@ class GeminiTakeoutImporter:
         # timestamp = timestamp.lower().replace("sept", "sep")
         # dt = datetime.strptime(timestamp, "%d %b %Y, %H:%M:%S %Z")
         dt = parser.parse(timestamp, fuzzy=True, tzinfos={"BST": gettz("Europe/London")})
-        return dt.astimezone(timezone.utc)
+        return dt.astimezone(UTC)
 
     def _parse_cell(self, cell: Tag) -> Iterable[Message]:
         """

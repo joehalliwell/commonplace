@@ -92,13 +92,13 @@ def test_activity_heatmap_style_selection():
     heatmap = ActivityHeatmap(activity, end_date=date(2024, 1, 31), weeks=4)
 
     # Test different activity counts
-    style_0, char_0 = heatmap._get_style_and_char(0)
+    _style_0, char_0 = heatmap._get_style_and_char(0)
     assert char_0 == "░"  # No activity
 
-    style_1, char_1 = heatmap._get_style_and_char(1)
+    _style_1, char_1 = heatmap._get_style_and_char(1)
     assert char_1 == "█"  # Activity
 
-    style_max, char_max = heatmap._get_style_and_char(5)
+    _style_max, char_max = heatmap._get_style_and_char(5)
     assert char_max == "*"  # Max activity gets special char
 
 
@@ -118,7 +118,7 @@ def test_activity_heatmap_max_count_one_gets_highest_intensity():
     heatmap = ActivityHeatmap(activity, end_date=date(2024, 1, 31), weeks=4)
 
     # Count of 1 should get the max intensity (*)
-    style, char = heatmap._get_style_and_char(1)
+    _style, char = heatmap._get_style_and_char(1)
     assert char == "*"
 
 
@@ -134,7 +134,7 @@ def test_activity_heatmap_max_gets_special_marker():
     heatmap = ActivityHeatmap(activity, end_date=date(2024, 1, 31), weeks=4)
 
     # Max value should get the special marker
-    style, char = heatmap._get_style_and_char(10)
+    _style, char = heatmap._get_style_and_char(10)
     assert char == "*"
 
     # Last level should be max with red color

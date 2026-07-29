@@ -3,7 +3,7 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Annotated, Optional, TypeAlias
+from typing import Annotated, TypeAlias
 
 from cyclopts import App, Parameter
 from platformdirs import user_data_dir
@@ -22,9 +22,14 @@ app = App(
     help="Personal knowledge management tool for the augmented self.",
 )
 
-# Type aliases for common parameters
-Repo: TypeAlias = Annotated[Commonplace, Parameter(parse=False)]
-Sources: TypeAlias = Annotated[
+# Type aliases for common parameters.
+#
+# These must stay `TypeAlias`, not PEP 695 `type` statements: cyclopts reads
+# the annotation at runtime and does not unwrap a lazy `TypeAliasType`, so the
+# embedded `Parameter(...)` is lost and `--repo` becomes a required CLI
+# argument. Covered by test_main.py::test_stats.
+Repo: TypeAlias = Annotated[Commonplace, Parameter(parse=False)]  # noqa: UP040
+Sources: TypeAlias = Annotated[  # noqa: UP040
     list[str],
     Parameter(
         name=["--source", "-s"],
@@ -50,7 +55,7 @@ def _launch(
     root: Annotated[
         Path,
         Parameter(name=["--root"], help="Path to the commonplace root directory.", env_var=f"{ENV_PREFIX}_ROOT"),
-    ] = Path(os.getenv("COMMONPLACE_ROOT", DEFAULT_ROOT)),
+    ] = Path(os.getenv("COMMONPLACE_ROOT", DEFAULT_ROOT)),  # noqa: B008 - cyclopts renders the default in --help
 ) -> None:
     """Set up common parameters for all commands."""
 
@@ -94,7 +99,7 @@ def import_(
     path: Path,
     *,
     index: Annotated[
-        Optional[bool],
+        bool | None,
         Parameter(help="Index notes after commit (default: from config)"),
     ] = None,
     repo: Repo,
@@ -118,10 +123,10 @@ def fetch(
         ),
     ] = False,
     index: Annotated[
-        Optional[bool],
+        bool | None,
         Parameter(help="Index notes after commit (default: from config)"),
     ] = None,
-    sources: Sources = [],
+    sources: Sources = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
     repo: Repo,
 ) -> None:
     """Fetch new conversations directly from each source and import them."""
@@ -133,21 +138,24 @@ def fetch(
 
 @app.command(alias="j", group=CREATING_SECTION)
 def journal(
-    date_str: Annotated[Optional[str], Parameter(help="Date for the journal entry (YYYY-MM-DD)")] = None,
+    date_str: Annotated[str | None, Parameter(help="Date for the journal entry (YYYY-MM-DD)")] = None,
     *,
     index: Annotated[
-        Optional[bool],
+        bool | None,
         Parameter(help="Index notes after commit (default: from config)"),
     ] = None,
     repo: Repo,
 ) -> None:
     """Create or edit a daily journal entry."""
 
+    # Journals are keyed by the user's local calendar day, not by instant, so
+    # both of these are deliberately naive. Using UTC here would file an entry
+    # written just after midnight under the previous day.
     if date_str is None:
-        date = dt.datetime.now()
+        date = dt.datetime.now()  # noqa: DTZ005
     else:
         try:
-            date = dt.datetime.strptime(date_str, "%Y-%m-%d")
+            date = dt.datetime.strptime(date_str, "%Y-%m-%d")  # noqa: DTZ007
         except ValueError as e:
             logger.error(f"Invalid date format '{date_str}'. Use YYYY-MM-DD (e.g., 2025-10-11)")
             raise SystemExit(1) from e
@@ -274,7 +282,7 @@ def index(
 def sync(
     *,
     auto_commit: Annotated[bool, Parameter(help="Auto-commit uncommitted changes")] = True,
-    branch: Annotated[Optional[str], Parameter(help="Branch name (default: current)")] = None,
+    branch: Annotated[str | None, Parameter(help="Branch name (default: current)")] = None,
     remote: Annotated[str, Parameter(help="Remote name")] = "origin",
     strategy: Annotated[str, Parameter(help="Sync strategy: rebase or merge")] = "rebase",
     repo: Repo,
@@ -318,7 +326,7 @@ def stats(
         bool,
         Parameter(name=["--all"], help="Show full history (default: last 52 weeks)", negative=""),
     ] = False,
-    sources: Sources = [],
+    sources: Sources = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
     repo: Repo,
 ) -> None:
     """Show statistics about your commonplace and search index."""
@@ -341,7 +349,7 @@ def stats(
         logger.error(str(e))
         # Show available sources
         all_note_paths = list(repo.note_paths())
-        available_sources = sorted(set(repo.source(path) for path in all_note_paths))
+        available_sources = sorted({repo.source(path) for path in all_note_paths})
         logger.info(f"Available sources: {', '.join(available_sources)}")
         return
 

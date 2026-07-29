@@ -87,8 +87,8 @@ class MarkdownSerializer(BaseModel):
             return
         start, end = ("---", "---") if frontmatter else ("```yaml", "```")
         lines.append(start)
-        for k in metadata:
-            lines.append(f"{k}: {metadata[k]}")
+        for k, v in metadata.items():
+            lines.append(f"{k}: {v}")
         lines.append(end)
         lines.append("")
 

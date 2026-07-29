@@ -8,18 +8,16 @@ import re
 import shlex
 import subprocess
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Optional, TypeVar
 
 import llm
 import yaml
 
 from commonplace._logging import logger
 
-T = TypeVar("T")
 
-
-def batched(iterable: Iterable[T], batch_size: int) -> Iterable[list[T]]:
+def batched[T](iterable: Iterable[T], batch_size: int) -> Iterable[list[T]]:
     """
     Batch an iterable into chunks of specified size.
 
@@ -87,7 +85,7 @@ def get_model(model_name: str) -> llm.Model:
         raise
 
 
-def edit_in_editor(content: str, editor: str) -> Optional[str]:
+def edit_in_editor(content: str, editor: str) -> str | None:
     """
     Open content in an editor for editing.
 
@@ -102,7 +100,9 @@ def edit_in_editor(content: str, editor: str) -> Optional[str]:
         subprocess.CalledProcessError: If editor exits with non-zero status
         FileNotFoundError: If editor executable is not found
     """
-    buffer = Path(tempfile.NamedTemporaryFile(prefix="commonplace", suffix=".md", delete=False).name)
+    # The file must outlive this scope for the editor to open it; the
+    # `finally: buffer.unlink()` below is the close.
+    buffer = Path(tempfile.NamedTemporaryFile(prefix="commonplace", suffix=".md", delete=False).name)  # noqa: SIM115
 
     try:
         buffer.write_text(content, encoding="utf-8")
@@ -199,6 +199,6 @@ def sniff_gzipped_jsonl(path: Path) -> dict | None:
         with gzip.open(path, "rt", encoding="utf-8") as f:
             first = f.readline()
         entry = json.loads(first)
-    except Exception:
+    except Exception:  # noqa: BLE001 - probing an arbitrary file; any failure means "not ours"
         return None
     return entry if isinstance(entry, dict) else None

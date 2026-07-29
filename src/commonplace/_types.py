@@ -7,10 +7,10 @@ the application for representing conversations, messages, and importers.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import Any
 
-Metadata: TypeAlias = dict[str, Any]
-Pathlike: TypeAlias = str | Path
+type Metadata = dict[str, Any]
+type Pathlike = str | Path
 
 
 @dataclass(frozen=True)

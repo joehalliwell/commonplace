@@ -1,10 +1,11 @@
 import hashlib
 import os
 import shutil
+from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import UTC
 from functools import cached_property, lru_cache
 from pathlib import Path
-from typing import Iterator
 
 from pygit2 import Commit, Diff, Signature, init_repository
 from pygit2.enums import FileStatus, ObjectType
@@ -80,7 +81,6 @@ class Commonplace:
 
     def close(self):
         """Close this repo. Does nothing."""
-        ...
 
     @cached_property
     def root(self) -> Path:
@@ -473,7 +473,7 @@ class Commonplace:
             ValueError: If sync operation fails
         """
         import subprocess
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         # 1. Check for remote (helpful error message)
         if not self.has_remote(remote_name):
@@ -497,7 +497,7 @@ class Commonplace:
                 if result.strip():
                     logger.info("Adding and committing changes...")
                     self._git("add", "-A")
-                    timestamp = datetime.now(timezone.utc).isoformat()
+                    timestamp = datetime.now(UTC).isoformat()
                     self._git(
                         "commit",
                         "-m",

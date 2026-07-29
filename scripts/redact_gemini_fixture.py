@@ -34,7 +34,7 @@ def parse_response(text: str) -> list[str]:
             i += 1
         if i >= len(rest):
             break
-        obj, offset = decoder.raw_decode(rest, i)
+        _obj, offset = decoder.raw_decode(rest, i)
         chunks.append(rest[i : i + offset - i])
         i += offset - i
     return chunks

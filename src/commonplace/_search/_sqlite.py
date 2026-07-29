@@ -1,8 +1,8 @@
 """Vector storage implementations for similarity search."""
 
 import sqlite3
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Iterable, Iterator
 
 import numpy as np
 from numpy.typing import NDArray
@@ -279,7 +279,7 @@ class SQLiteSearchIndex(SearchIndex):
 
         results = []
         for row in rows:
-            chunk_id, path, ref_str, section, text, offset, rank = row
+            _chunk_id, path, ref_str, section, text, offset, rank = row
             repo_path = RepoPath(path=Path(path), ref=ref_str)
             chunk = Chunk(repo_path=repo_path, section=section, text=text, offset=offset)
             # Convert BM25 rank (negative, lower is better) to positive score

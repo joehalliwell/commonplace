@@ -34,7 +34,7 @@ class ClaudeExportImporter:
         try:
             with closing(ZipFile(path, "r")) as zf:
                 names = zf.namelist()
-        except Exception:
+        except Exception:  # noqa: BLE001 - probing an arbitrary file; any failure means "not ours"
             return False
         # `users.json` is the Claude-specific marker — distinguishes this
         # from ChatGPT ZIPs, which also contain `conversations.json`.
