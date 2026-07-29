@@ -116,14 +116,6 @@ source_exports: [.commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab
 
 Can you studio ghiblify this please?
 
-## Chatgpt [created:: 2025-03-31T22:04:13+00:00]
-
-{"prompt":"A Studio Ghibli-style illustration of a bearded man with glasses
-wearing a green and white striped shirt, sitting in a cozy, warmly lit
-wooden-paneled room. The art should have soft, painterly textures, expressive
-character design, and a slightly whimsical
-atmosphere.","size":"1024x1024","referenced_image_ids":["file-BDjH9x1gsKsi8552HJ97ay"]}
-
 ## Chatgpt [created:: 2025-03-31T22:04:37+00:00]
 
 ```json
@@ -174,13 +166,6 @@ Is that it?
 
 It looks like the generated image didn’t capture what you were expecting. Let me
 try again to create a Studio Ghibli-style version of your original image.
-
-## Chatgpt [created:: 2025-03-31T22:09:25+00:00]
-
-{"prompt":"A 2D hand-drawn anime-style illustration of a middle-aged man with
-glasses, a beard, and a striped green and white shirt, in the style of Studio
-Ghibli. The background features warm wooden panels and soft lighting, evoking a
-cozy and nostalgic atmosphere.","size":"1024x1024","n":1}
 
 ## Chatgpt [created:: 2025-03-31T22:09:44+00:00]
 
