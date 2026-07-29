@@ -122,7 +122,7 @@ def _to_log(summary: dict[str, Any], body: list | None) -> EventLog:
     else:
         logger.warning(f"Empty response for {summary['cid']}; recording chat with no turns.")
 
-    created = events[0].created if events else _parse_iso(summary["updated_at"])
+    created = events[0].created if events else datetime.fromisoformat(summary["updated_at"])
 
     metadata: dict = {
         "uuid": summary["cid"],
@@ -174,9 +174,3 @@ def _ts_to_iso(seconds: int, nanos: int) -> str:
 def _ts_to_iso_dt(seconds: int, nanos: int) -> datetime:
     micros = nanos // 1000
     return datetime.fromtimestamp(seconds, tz=UTC).replace(microsecond=micros)
-
-
-def _parse_iso(s: str) -> datetime:
-    if s.endswith("Z"):
-        s = s[:-1] + "+00:00"
-    return datetime.fromisoformat(s)

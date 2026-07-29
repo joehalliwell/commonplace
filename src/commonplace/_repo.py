@@ -3,7 +3,7 @@ import os
 import shutil
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC
+from datetime import UTC, datetime
 from functools import cached_property, lru_cache
 from pathlib import Path
 
@@ -305,8 +305,8 @@ class Commonplace:
 
         return path_to_commit
 
-    def last_commit_time(self, pathspec: str, diff_filter: str | None = None) -> str | None:
-        """ISO 8601 timestamp of the most recent commit touching `pathspec`, or
+    def last_commit_time(self, pathspec: str, diff_filter: str | None = None) -> datetime | None:
+        """UTC timestamp of the most recent commit touching `pathspec`, or
         None if no commit in history has touched it.
 
         Uses git author date (`%aI`) so timestamps are stable across
@@ -332,7 +332,11 @@ class Commonplace:
             cmd.append(f"--diff-filter={diff_filter}")
         cmd += ["--", pathspec]
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        return result.stdout.strip() or None
+        raw = result.stdout.strip()
+        if not raw:
+            return None
+        # %aI carries the committer's local offset; fetchers work in UTC.
+        return datetime.fromisoformat(raw).astimezone(UTC)
 
     def source(self, repo_path: RepoPath) -> str:
         """The source of this collection of notes/chats."""

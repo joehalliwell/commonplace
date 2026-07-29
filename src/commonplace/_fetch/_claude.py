@@ -6,6 +6,7 @@ fetcher performs no content-shape fabrication of its own."""
 
 import gzip
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +44,7 @@ class ClaudeFetcher:
         self._injected_cookies = cookies
         self._transport = transport
 
-    def fetch(self, destination: Path, since: str | None) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
         cookies = self._injected_cookies if self._injected_cookies is not None else read_chrome_cookies("claude.ai")
         session_key = cookies.get("sessionKey")
         org_uuid = cookies.get("lastActiveOrg")
@@ -68,7 +69,7 @@ class ClaudeFetcher:
             transport=self._transport,
         ) as self._client:
             summaries = self._list_conversations()
-            fresh = [c for c in summaries if since is None or c["updated_at"] > since]
+            fresh = [c for c in summaries if since is None or datetime.fromisoformat(c["updated_at"]) > since]
             logger.info(f"{len(fresh)}/{len(summaries)} conversations new since {since or 'beginning'}")
 
             if not fresh:

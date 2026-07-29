@@ -2,6 +2,7 @@
 
 import gzip
 import json
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -114,7 +115,15 @@ def test_fetch_writes_raw_wire_only(tmp_path):
 
 def test_fetch_incremental_skips_seen(tmp_path):
     """A cursor >= all summaries' updated_at → nothing to fetch."""
-    assert _make_fetcher().fetch(tmp_path, since="2030-01-01T00:00:00Z") is None
+    assert _make_fetcher().fetch(tmp_path, since=datetime(2030, 1, 1, tzinfo=UTC)) is None
+
+
+def test_fetch_cursor_honours_offset(tmp_path):
+    """The same instant spelled as +01:00 behaves like its UTC spelling."""
+    zulu = datetime(2030, 1, 1, 0, 0, tzinfo=UTC)
+    bst = datetime(2030, 1, 1, 1, 0, tzinfo=timezone(timedelta(hours=1)))
+    assert _make_fetcher().fetch(tmp_path, since=zulu) is None
+    assert _make_fetcher().fetch(tmp_path, since=bst) is None
 
 
 def test_fetch_retries_transient_5xx(no_retry_sleep, tmp_path):

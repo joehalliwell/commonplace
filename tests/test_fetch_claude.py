@@ -2,6 +2,7 @@
 
 import gzip
 import json
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -19,6 +20,10 @@ SUMMARIES = [
 ]
 
 TEST_COOKIES = {"sessionKey": "sk-test", "lastActiveOrg": ORG}
+
+
+def _utc(*args) -> datetime:
+    return datetime(*args, tzinfo=UTC)
 
 
 def _detail(uuid: str) -> dict:
@@ -102,16 +107,39 @@ def test_fetch_end_to_end(tmp_path):
 
 def test_fetch_incremental_skips_seen(tmp_path):
     """Cursor at or after latest summary → nothing to fetch."""
-    assert _make_fetcher().fetch(tmp_path, since="2026-07-15T00:00:00Z") is None
+    assert _make_fetcher().fetch(tmp_path, since=_utc(2026, 7, 15)) is None
 
 
 def test_fetch_incremental_picks_up_newer(tmp_path):
     """Cursor between the two summaries → only the newer one."""
-    archive = _make_fetcher().fetch(tmp_path, since="2026-06-15T00:00:00Z")
+    archive = _make_fetcher().fetch(tmp_path, since=_utc(2026, 6, 15))
     assert archive is not None
     logs = ClaudeImporter().import_(archive)
     assert len(logs) == 1
     assert logs[0].metadata["uuid"] == "c-new"
+
+
+def test_fetch_cursor_honours_offset(tmp_path):
+    """A cursor of 00:30+01:00 is 23:30Z the previous day, so both
+    conversations are newer than it."""
+    cursor = datetime(2026, 6, 1, 0, 30, tzinfo=timezone(timedelta(hours=1)))
+    archive = _make_fetcher().fetch(tmp_path, since=cursor)
+    assert archive is not None
+    uuids = {log.metadata["uuid"] for log in ClaudeImporter().import_(archive)}
+    assert uuids == {"c-old", "c-new"}
+
+
+def test_fetch_cursor_honours_subsecond_precision(tmp_path):
+    """Claude stamps microseconds; half a second past the cursor is new."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == f"/api/organizations/{ORG}/chat_conversations":
+            return httpx.Response(200, json=[{**SUMMARIES[1], "updated_at": "2026-07-15T00:00:00.500000Z"}])
+        return _handler(request)
+
+    archive = _make_fetcher(handler=handler).fetch(tmp_path, since=_utc(2026, 7, 15))
+    assert archive is not None
+    assert len(ClaudeImporter().import_(archive)) == 1
 
 
 def test_fetch_command_dispatches(test_repo):

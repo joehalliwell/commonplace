@@ -1,5 +1,6 @@
 """Tests for repository commit functionality."""
 
+from datetime import UTC
 from pathlib import Path
 
 from commonplace._types import Note, RepoPath
@@ -247,8 +248,9 @@ def test_last_commit_time_returns_none_on_missing_pathspec(test_repo):
     assert test_repo.last_commit_time("chats/claude/") is None
 
 
-def test_last_commit_time_returns_iso_after_commit(test_repo):
-    """After a commit touching the pathspec, the timestamp is a real ISO string."""
+def test_last_commit_time_returns_utc_datetime_after_commit(test_repo):
+    """The cursor is UTC whatever offset git reports the author date in."""
+
     (test_repo.root / "chats" / "claude" / "2026" / "07").mkdir(parents=True)
     note = test_repo.root / "chats" / "claude" / "2026" / "07" / "test.md"
     note.write_text("# test\n")
@@ -257,7 +259,8 @@ def test_last_commit_time_returns_iso_after_commit(test_repo):
 
     ts = test_repo.last_commit_time("chats/claude/")
     assert ts is not None
-    assert "T" in ts  # rough ISO shape check
+    assert ts.tzinfo is not None
+    assert ts.utcoffset() == UTC.utcoffset(None)
 
 
 def test_last_commit_time_ignores_rename_source_with_diff_filter(test_repo):
