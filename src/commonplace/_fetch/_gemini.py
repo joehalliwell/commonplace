@@ -10,13 +10,14 @@ import gzip
 import json
 import random
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
 
 from commonplace._fetch._helpers import raise_on_session_error, read_chrome_cookies, request_with_retry
-from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso
+from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso_dt
 from commonplace._logging import logger
 from commonplace._progress import track
 
@@ -53,7 +54,7 @@ class GeminiFetcher:
         self._injected_cookies = cookies
         self._transport = transport
 
-    def fetch(self, destination: Path, since: str | None) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
         cookies = self._injected_cookies if self._injected_cookies is not None else read_chrome_cookies(".google.com")
         if not cookies.get("__Secure-1PSID"):
             logger.error("No Gemini session cookie found. Log in at https://gemini.google.com in Chrome first.")
@@ -99,7 +100,7 @@ class GeminiFetcher:
         self._build_label = _require_match(r.text, r'"cfb2h":"([^"]+)"', "build label (cfb2h)")
         self._session_id = _require_match(r.text, r'"FdrFJe":"(-?\d+)"', "session id (FdrFJe)")
 
-    def _list_fresh_cids(self, since: str | None):
+    def _list_fresh_cids(self, since: datetime | None):
         """Walk both pinned + unpinned buckets. Yield cids whose updated_at is
         newer than `since`. All list_chats responses are still logged verbatim
         to wire.jsonl (the importer re-parses them for title / is_pinned)."""
@@ -115,7 +116,7 @@ class GeminiFetcher:
                 rows = body[2]
                 for row in rows:
                     seconds, nanos = row[5]
-                    updated_at = _ts_to_iso(seconds, nanos)
+                    updated_at = _ts_to_iso_dt(seconds, nanos)
                     if since is None or updated_at > since:
                         yield row[0]
                 if not cursor or not rows:

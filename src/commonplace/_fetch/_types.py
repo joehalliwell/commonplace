@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
@@ -14,13 +15,14 @@ class Fetcher(Protocol):
 
     source: str
 
-    def fetch(self, destination: Path, since: str | None) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
         """Fetch new content.
 
         Args:
             destination: Directory to write the fetched artifact into.
-            since: ISO 8601 cursor — only fetch conversations updated after
-                this timestamp. `None` means fetch everything.
+            since: UTC cursor — only fetch conversations updated after this
+                instant. `None` means fetch everything. Compare parsed
+                datetimes, not ISO strings, which mis-sort across offsets.
 
         Returns:
             Path to an importable file, or None if nothing new was fetched.
