@@ -200,9 +200,12 @@ def test_edit_in_editor_editor_fails(tmp_path):
 
         mock_run.side_effect = subprocess.CalledProcessError(1, "vim")
 
-        with patch.object(Path, "write_text"), patch.object(Path, "unlink"):
-            with pytest.raises(subprocess.CalledProcessError):
-                edit_in_editor(content, "vim")
+        with (
+            patch.object(Path, "write_text"),
+            patch.object(Path, "unlink"),
+            pytest.raises(subprocess.CalledProcessError),
+        ):
+            edit_in_editor(content, "vim")
 
 
 def test_edit_in_editor_editor_not_found(tmp_path):
@@ -221,9 +224,8 @@ def test_edit_in_editor_editor_not_found(tmp_path):
 
         mock_run.side_effect = FileNotFoundError("vim not found")
 
-        with patch.object(Path, "write_text"), patch.object(Path, "unlink"):
-            with pytest.raises(FileNotFoundError):
-                edit_in_editor(content, "vim")
+        with patch.object(Path, "write_text"), patch.object(Path, "unlink"), pytest.raises(FileNotFoundError):
+            edit_in_editor(content, "vim")
 
 
 def test_parse_frontmatter_with_metadata():

@@ -17,7 +17,7 @@ and empty per-chat bodies — are the only ones we tolerate, with warnings.
 
 import gzip
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -107,9 +107,9 @@ def _to_log(summary: dict[str, Any], body: list | None) -> EventLog:
             # than silently missing data — even though we discard them below.
             # rid / rcid / language are noise in the rendered markdown; keep
             # thoughts.
-            _rid = turn[0][1]  # noqa: F841
-            _rcid = candidate[0]  # noqa: F841
-            _language = candidate[9]  # noqa: F841
+            _rid = turn[0][1]
+            _rcid = candidate[0]
+            _language = candidate[9]
             # Presence-gated: candidate slot 37 (thoughts) and turn slot 9 (gem)
             # are optional. Once present, trust the shape — mis-shape crashes.
             thoughts = candidate[37][0][0] if len(candidate) > 37 and candidate[37] else None
@@ -173,7 +173,7 @@ def _ts_to_iso(seconds: int, nanos: int) -> str:
 
 def _ts_to_iso_dt(seconds: int, nanos: int) -> datetime:
     micros = nanos // 1000
-    return datetime.fromtimestamp(seconds, tz=timezone.utc).replace(microsecond=micros)
+    return datetime.fromtimestamp(seconds, tz=UTC).replace(microsecond=micros)
 
 
 def _parse_iso(s: str) -> datetime:

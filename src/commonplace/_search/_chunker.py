@@ -1,7 +1,7 @@
 """Chunking implementations for splitting notes into searchable pieces."""
 
 import re
-from typing import Iterator
+from collections.abc import Iterator
 
 from commonplace._search._types import Chunk
 from commonplace._types import Note

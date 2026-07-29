@@ -5,9 +5,10 @@ This module defines the core abstractions for chunking notes,
 generating embeddings, and storing/searching vectors.
 """
 
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum
-from typing import Iterable, Iterator, Protocol
+from typing import Protocol
 
 import numpy as np
 from numpy.typing import NDArray

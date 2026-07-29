@@ -4,9 +4,11 @@ from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
 from commonplace._search._chunker import MarkdownChunker
-from commonplace._search._types import SearchHit as SearchHit
-from commonplace._search._types import SearchMethod as SearchMethod
+from commonplace._search._types import SearchHit, SearchMethod
 from commonplace._utils import batched
+
+# SearchHit/SearchMethod are imported for re-export, not used here.
+__all__ = ["SearchHit", "SearchMethod", "index"]
 
 
 def index(

@@ -78,7 +78,8 @@ class ActivityHeatmap:
         assert num_levels >= 1, "num_levels must be at least 1"
 
         self.activity = activity
-        self.end_date = end_date or date.today()
+        # Local calendar day: the grid is aligned to the user's days, not UTC.
+        self.end_date = end_date or date.today()  # noqa: DTZ011
         self.weeks = weeks
         self.num_levels = num_levels
 
@@ -281,7 +282,7 @@ def render_all_time_heatmap(activity: Counter[date], console: Console) -> None:
             year_end = date(year, 12, 31)
 
         # Check if this year has any activity
-        year_has_activity = any(year_start <= d <= year_end for d in activity.keys())
+        year_has_activity = any(year_start <= d <= year_end for d in activity)
         if not year_has_activity:
             continue  # Skip empty years
 

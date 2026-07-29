@@ -5,8 +5,14 @@ test:
 
 # Format and fix
 format:
-    ruff check --select I --fix .
-    ruff format .
+    uv run ruff check --fix .
+    uv run ruff format .
+
+# Check exactly what CI checks
+lint:
+    uv run ruff check .
+    uv run ruff format --check .
+    uv run mypy src/
 
 # Publish package to PyPI
 publish:

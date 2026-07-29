@@ -11,8 +11,9 @@ the fetcher, so what's on disk is what Anthropic actually sent."""
 
 import gzip
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from rich.progress import track
 
