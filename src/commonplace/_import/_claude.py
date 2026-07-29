@@ -1,14 +1,7 @@
 """Importer for the `claude-wire.jsonl.gz` archive produced by [[ClaudeFetcher]].
 
-After the archive header (see [[commonplace._wire]]), each line wraps one raw
-Claude API response, whose body is kept as the verbatim text the server sent:
-
-    {"endpoint": "conversations", "response": "[...summaries...]"}
-    {"endpoint": "conversation",  "cid": "...", "response": "{...detail...}"}
-    ...
-
-Text→content wrapping and per-message parsing happens here rather than in
-the fetcher, so what's on disk is what Anthropic actually sent."""
+Entries are `{"endpoint": "conversations"|"conversation", "cid": ..., "response": ...}`.
+Text→content wrapping and per-message parsing live here, not in the fetcher."""
 
 import json
 from collections.abc import Iterable

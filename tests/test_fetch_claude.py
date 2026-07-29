@@ -85,7 +85,7 @@ def test_fetch_returns_none_without_org(tmp_path):
 
 
 def test_fetch_writes_raw_wire_only(tmp_path):
-    """Archive is a JSONL of raw API responses — no invented intermediate."""
+    """One entry per API call, in call order."""
     archive = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
     assert archive.name == "claude-wire.jsonl.gz"

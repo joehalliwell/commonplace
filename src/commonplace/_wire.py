@@ -1,22 +1,29 @@
 """The on-disk format for the wire archives fetchers produce.
 
-A wire archive is a gzipped JSONL file. The first line is a header naming the
-provider and the format version; every line after it records one API exchange,
-whose `response` is the verbatim body text the server sent:
+A wire archive is the *primitive* artefact of a fetch: captured, not produced
+(MANIFESTO §3.2), and the point at which provenance bottoms out (§3.5). It is
+evidence of what a provider sent, so the pipeline splits in two — fetchers
+record bytes and nothing else; importers do every interpretation. Anything a
+fetcher decides is a decision no later reader can revisit.
+
+Gzipped JSONL. First line is a header naming the provider and format version;
+every line after it records one exchange, whose `response` is the verbatim
+body text:
 
     {"wire": "claude", "version": 2}
     {"endpoint": "conversations", "response": "[...]"}
     {"endpoint": "conversation", "cid": "...", "response": "{...}"}
 
-Recording the body verbatim is the point of the archive — it is evidence of
-what the provider sent, so parsing and re-serialising it (which rewrites `1e5`
-as `100000.0`, `\\/` as `/`, and resolves `\\u` escapes) would defeat it.
+Verbatim is load-bearing: parsing and re-serialising rewrites `1e5` as
+`100000.0` and `\\/` as `/`, and resolves `\\u` escapes. Gzip costs no
+inspection convenience — the content is opaque JSON either way — and saves
+~7× on disk and LFS bandwidth.
 
-Version 1 is the pre-versioning format: no header line, and for Claude a
-`response` that was already parsed. Those archives are committed in users'
-repos and referenced from note frontmatter, so readers still accept them.
-Beyond the header, entry shape is the provider's business — a version means
-the same thing to every fetcher, but what changed at each version does not.
+Version 1 is the pre-versioning format: no header, and for Claude a `response`
+already parsed. Those archives are committed in users' repos and referenced
+from note frontmatter, so readers still accept them. Beyond the header, entry
+shape is the provider's business: a version means the same thing to every
+fetcher, but what changed at each version does not.
 """
 
 import gzip

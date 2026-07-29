@@ -147,12 +147,6 @@ class GeminiFetcher:
         return _extract_rpc_body(r.text, rpcid)
 
     def _write_archive(self, destination: Path) -> Path:
-        """Write the raw `batchexecute` responses as a versioned wire archive.
-        This is the canonical artifact: what Google actually sent. The importer
-        re-parses it into EventLogs; there is no fabricated intermediate format.
-
-        Content is opaque JSON either way, so compressing costs no inspection
-        convenience and saves ~7× on disk / LFS bandwidth."""
         return write_archive(destination / "gemini-wire.jsonl.gz", self.source, self._wire_log)
 
 

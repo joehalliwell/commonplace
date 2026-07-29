@@ -34,7 +34,9 @@ uv run commonplace search "query text"
 
 **Repository** (`_repo.py`): `Commonplace` is the central object wrapping a git repo (pygit2) with cached properties: `config`, `cache`, `index`. Provides note management and indexing.
 
-**Import** (`_import/`): Provider-specific importers (Claude/Gemini/ChatGPT) → `ActivityLog` → `MarkdownSerializer` → markdown files in `chats/{provider}/{year}/{month}/{date}-{title}.md`
+**Fetch** (`_fetch/`, `_wire.py`): Fetchers capture raw provider responses into a versioned wire archive and interpret nothing — the archive is the primitive artefact (MANIFESTO §3.2, §3.5), so any decision a fetcher makes is one no later reader can revisit. `_wire.py` owns the format for both sides; don't restate its rationale elsewhere. Each provider needs a Fetcher *and* a paired Importer, with the archive as the seam.
+
+**Import** (`_import/`): Provider-specific importers (Claude/Gemini/ChatGPT) → `ActivityLog` → `MarkdownSerializer` → markdown files in `chats/{provider}/{year}/{month}/{date}-{title}.md`. All interpretation happens here.
 
 **Search** (`_search/`): Protocol-based pipeline with `Chunker` (splits by sections) → `Embedder` (SentenceTransformers) → `VectorStore` (SQLite + FTS5). Supports semantic, full-text, and hybrid search. Index: `.commonplace/cache/index.db`
 
@@ -44,7 +46,8 @@ uv run commonplace search "query text"
 
 **Data flows:**
 
-- Import: ZIP → Importer → ActivityLog → MarkdownSerializer → Note → git
+- Fetch: cookies → provider API → wire archive (gzipped JSONL) → Import
+- Import: ZIP or wire archive → Importer → ActivityLog → MarkdownSerializer → Note → git
 - Index: Notes → Chunker → Chunks → Embedder → Embeddings → VectorStore
 - Search: Query → Embedder → VectorStore → SearchHits
 
