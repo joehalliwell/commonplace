@@ -6,7 +6,6 @@ deliberately fail-loud (no `.get()` defaults on wire fields) so drift
 surfaces immediately rather than as silent data loss.
 """
 
-import gzip
 import json
 import random
 import re
@@ -20,6 +19,7 @@ from commonplace._fetch._helpers import raise_on_session_error, read_chrome_cook
 from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso_dt
 from commonplace._logging import logger
 from commonplace._progress import track
+from commonplace._wire import write_archive
 
 CHROME_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
@@ -147,18 +147,13 @@ class GeminiFetcher:
         return _extract_rpc_body(r.text, rpcid)
 
     def _write_archive(self, destination: Path) -> Path:
-        """Write the raw `batchexecute` responses, gzipped. This is the
-        canonical artifact: what Google actually sent. The importer re-parses
-        it into EventLogs; there is no fabricated intermediate format.
+        """Write the raw `batchexecute` responses as a versioned wire archive.
+        This is the canonical artifact: what Google actually sent. The importer
+        re-parses it into EventLogs; there is no fabricated intermediate format.
 
         Content is opaque JSON either way, so compressing costs no inspection
         convenience and saves ~7× on disk / LFS bandwidth."""
-        archive = destination / "gemini-wire.jsonl.gz"
-        with gzip.open(archive, "wt", encoding="utf-8") as f:
-            for entry in self._wire_log:
-                f.write(json.dumps(entry, ensure_ascii=False))
-                f.write("\n")
-        return archive
+        return write_archive(destination / "gemini-wire.jsonl.gz", self.source, self._wire_log)
 
 
 def _require_match(text: str, pattern: str, name: str) -> str:

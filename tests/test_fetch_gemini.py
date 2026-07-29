@@ -10,6 +10,7 @@ import pytest
 
 from commonplace._fetch._gemini import GeminiFetcher
 from commonplace._import._gemini import GeminiImporter, _extract_rpc_body, _ts_to_iso
+from commonplace._wire import read_entries
 
 FIXTURES = Path(__file__).parent / "resources" / "gemini-samples"
 LIST_CHATS_RAW = (FIXTURES / "list_chats.txt").read_text()
@@ -56,8 +57,7 @@ def _make_fetcher(handler=_handler, cookies=TEST_COOKIES) -> GeminiFetcher:
 
 
 def _read_wire(archive: Path) -> list[dict]:
-    with gzip.open(archive, "rt", encoding="utf-8") as f:
-        return [json.loads(line) for line in f if line.strip()]
+    return list(read_entries(archive))
 
 
 # ---------------------------------------------------------------------------

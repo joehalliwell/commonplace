@@ -11,6 +11,7 @@ import pytest
 from commonplace._fetch._claude import ClaudeFetcher
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
+from commonplace._wire import read_entries, write_archive
 
 ORG = "org-uuid-1"
 
@@ -65,8 +66,7 @@ def _make_fetcher(handler=_handler, cookies=TEST_COOKIES) -> ClaudeFetcher:
 
 
 def _read_wire(archive: Path) -> list[dict]:
-    with gzip.open(archive, "rt", encoding="utf-8") as f:
-        return [json.loads(line) for line in f if line.strip()]
+    return list(read_entries(archive))
 
 
 # ---------------------------------------------------------------------------
@@ -93,9 +93,30 @@ def test_fetch_writes_raw_wire_only(tmp_path):
     wire = _read_wire(archive)
     # 1 list call + 2 details for the two summaries.
     assert [e["endpoint"] for e in wire] == ["conversations", "conversation", "conversation"]
-    assert wire[0]["response"] == SUMMARIES
+    assert json.loads(wire[0]["response"]) == SUMMARIES
     assert wire[1]["cid"] == "c-old"
     assert wire[2]["cid"] == "c-new"
+
+
+def test_fetch_stores_response_bodies_verbatim(tmp_path):
+    """The archive is what the server sent, byte for byte. Parsing and
+    re-serialising would rewrite `1e5` as `100000.0`, `\\/` as `/` and
+    `3.140` as `3.14`, so the artifact would no longer be evidence of what
+    Anthropic actually returned."""
+    raw_list = '[{"uuid": "c-new", "name": "Caf\\u00e9",  "updated_at": "2026-07-15T00:00:00Z", "n": 1e5}]'
+    raw_detail = '{"uuid": "c-new", "name": "Caf\\u00e9", "created_at": "2026-07-15T00:00:00Z", "chat_messages": []}'
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        headers = {"content-type": "application/json"}
+        if request.url.path == f"/api/organizations/{ORG}/chat_conversations":
+            return httpx.Response(200, content=raw_list, headers=headers)
+        return httpx.Response(200, content=raw_detail, headers=headers)
+
+    archive = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
+    assert archive is not None
+    wire = _read_wire(archive)
+    assert wire[0]["response"] == raw_list
+    assert wire[1]["response"] == raw_detail
 
 
 def test_fetch_end_to_end(tmp_path):
@@ -242,21 +263,40 @@ def test_wire_importer_rejects_arbitrary_jsonl_gz(tmp_path):
     assert not ClaudeImporter().can_import(path)
 
 
+_THREAD = {
+    "uuid": "abc",
+    "name": "Hi",
+    "created_at": "2026-07-15T00:00:00Z",
+    "chat_messages": [
+        {"sender": "human", "text": "hello", "created_at": "2026-07-15T00:00:00Z"},
+        {"sender": "assistant", "text": "hi back", "created_at": "2026-07-15T00:00:01Z"},
+    ],
+}
+
+
+def _entries(response) -> list[dict]:
+    return [
+        {"endpoint": "conversations", "response": "[]"},
+        {"endpoint": "conversation", "cid": "abc", "response": response},
+    ]
+
+
 def test_wire_importer_wraps_flat_text(tmp_path):
     """Fetcher-wire messages have only `text`; the importer wraps into blocks."""
-    thread = {
-        "uuid": "abc",
-        "name": "Hi",
-        "created_at": "2026-07-15T00:00:00Z",
-        "chat_messages": [
-            {"sender": "human", "text": "hello", "created_at": "2026-07-15T00:00:00Z"},
-            {"sender": "assistant", "text": "hi back", "created_at": "2026-07-15T00:00:01Z"},
-        ],
-    }
+    path = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", _entries(json.dumps(_THREAD)))
+
+    logs = ClaudeImporter().import_(path)
+    assert len(logs) == 1
+    assert [e.content for e in logs[0].events] == ["hello", "hi back"]
+
+
+def test_wire_importer_reads_legacy_parsed_responses(tmp_path):
+    """v1 archives have no header and hold `response` already parsed. They are
+    committed in users' repos, so they must still import."""
     path = tmp_path / "claude-wire.jsonl.gz"
     with gzip.open(path, "wt", encoding="utf-8") as f:
-        f.write(json.dumps({"endpoint": "conversations", "response": []}) + "\n")
-        f.write(json.dumps({"endpoint": "conversation", "cid": "abc", "response": thread}) + "\n")
+        for entry in _entries(_THREAD):
+            f.write(json.dumps(entry) + "\n")
 
     logs = ClaudeImporter().import_(path)
     assert len(logs) == 1

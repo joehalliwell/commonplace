@@ -1,6 +1,6 @@
 """Importer for the raw `batchexecute` wire log produced by [[GeminiFetcher]].
 
-The archive is a `.jsonl` file, one line per RPC call:
+After the archive header (see [[commonplace._wire]]), one line per RPC call:
 
     {"rpc": "MaZiqc", "payload": [...], "response": "<raw batchexecute text>"}
     {"rpc": "hNvQHb", "payload": [cid, ...], "response": "..."}
@@ -15,7 +15,6 @@ not silent field loss. The two known recoverable states — blocked candidates
 and empty per-chat bodies — are the only ones we tolerate, with warnings.
 """
 
-import gzip
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -24,6 +23,7 @@ from typing import Any
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._logging import logger
 from commonplace._utils import sniff_gzipped_jsonl
+from commonplace._wire import read_entries, read_header
 
 BATCH_PREAMBLE = ")]}'\n"
 
@@ -37,12 +37,17 @@ class GeminiImporter:
         return []
 
     def can_import(self, path: Path) -> bool:
+        source, _ = read_header(path)
+        if source is not None:
+            return source == self.source
+        # v1 archives have no header; identify them by their entry keys.
         entry = sniff_gzipped_jsonl(path)
         return entry is not None and entry.get("rpc") in {"MaZiqc", "hNvQHb"}
 
     def import_(self, path: Path) -> list[EventLog]:
-        with gzip.open(path, "rt", encoding="utf-8") as f:
-            entries = [json.loads(line) for line in f if line.strip()]
+        # Response bodies have been verbatim text since v1, so no version
+        # branch is needed here — only the header has to be skipped.
+        entries = list(read_entries(path))
 
         # Pass 1: build cid → summary from every list_chats response.
         summaries: dict[str, dict[str, Any]] = {}

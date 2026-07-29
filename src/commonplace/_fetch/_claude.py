@@ -4,8 +4,6 @@ Writes the raw API responses (list + N conversation details) as a gzipped
 JSONL file. The paired importer walks that log and produces EventLogs; the
 fetcher performs no content-shape fabrication of its own."""
 
-import gzip
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -15,6 +13,7 @@ import httpx
 from commonplace._fetch._helpers import raise_on_session_error, read_chrome_cookies, request_with_retry
 from commonplace._logging import logger
 from commonplace._progress import track
+from commonplace._wire import write_archive
 
 # Full Chrome UA is required to pass Cloudflare's bot check.
 CLAUDE_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -82,16 +81,15 @@ class ClaudeFetcher:
 
     def _list_conversations(self) -> list[dict[str, Any]]:
         r = self._get(f"https://claude.ai/api/organizations/{self._org_uuid}/chat_conversations")
-        data = r.json()
-        self._wire_log.append({"endpoint": "conversations", "response": data})
-        return data
+        self._wire_log.append({"endpoint": "conversations", "response": r.text})
+        return r.json()
 
     def _fetch_detail(self, convo_uuid: str) -> None:
         r = self._get(
             f"https://claude.ai/api/organizations/{self._org_uuid}/chat_conversations/{convo_uuid}",
             params={"tree": "True", "rendering_mode": "raw"},
         )
-        self._wire_log.append({"endpoint": "conversation", "cid": convo_uuid, "response": r.json()})
+        self._wire_log.append({"endpoint": "conversation", "cid": convo_uuid, "response": r.text})
 
     def _get(self, url: str, **kwargs: Any) -> httpx.Response:
         r = request_with_retry(self._client, "GET", url, **kwargs)
@@ -99,12 +97,6 @@ class ClaudeFetcher:
         return r
 
     def _write_archive(self, destination: Path) -> Path:
-        """Write the raw API responses, gzipped. This is the canonical
-        artifact: what Anthropic actually sent. Content-shape wrapping happens
-        in the importer, not here."""
-        archive = destination / "claude-wire.jsonl.gz"
-        with gzip.open(archive, "wt", encoding="utf-8") as f:
-            for entry in self._wire_log:
-                f.write(json.dumps(entry, ensure_ascii=False))
-                f.write("\n")
-        return archive
+        """Write the raw API responses as a versioned wire archive. Content-shape
+        wrapping happens in the importer, not here."""
+        return write_archive(destination / "claude-wire.jsonl.gz", self.source, self._wire_log)

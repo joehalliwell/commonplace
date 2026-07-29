@@ -1,15 +1,15 @@
 """Importer for the `claude-wire.jsonl.gz` archive produced by [[ClaudeFetcher]].
 
-Each line is a raw Claude API response:
+After the archive header (see [[commonplace._wire]]), each line wraps one raw
+Claude API response, whose body is kept as the verbatim text the server sent:
 
-    {"endpoint": "conversations", "response": [...summaries...]}
-    {"endpoint": "conversation",  "cid": "...", "response": {...detail...}}
+    {"endpoint": "conversations", "response": "[...summaries...]"}
+    {"endpoint": "conversation",  "cid": "...", "response": "{...detail...}"}
     ...
 
 Text→content wrapping and per-message parsing happens here rather than in
 the fetcher, so what's on disk is what Anthropic actually sent."""
 
-import gzip
 import json
 from collections.abc import Iterable
 from pathlib import Path
@@ -20,6 +20,7 @@ from rich.progress import track
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._logging import logger
 from commonplace._utils import sniff_gzipped_jsonl, truncate
+from commonplace._wire import LEGACY_VERSION, read_entries, read_header
 
 
 class ClaudeImporter:
@@ -29,6 +30,10 @@ class ClaudeImporter:
         return []
 
     def can_import(self, path: Path) -> bool:
+        source, _ = read_header(path)
+        if source is not None:
+            return source == self.source
+        # v1 archives have no header; identify them by their entry keys.
         entry = sniff_gzipped_jsonl(path)
         return entry is not None and entry.get("endpoint") in {"conversations", "conversation"}
 
@@ -38,14 +43,16 @@ class ClaudeImporter:
 
 
 def _read_wire(path: Path) -> Iterable[dict[str, Any]]:
-    """Yield detail responses from the fetcher's wire log."""
-    with gzip.open(path, "rt", encoding="utf-8") as f:
-        for line in f:
-            if not line.strip():
-                continue
-            entry = json.loads(line)
-            if entry.get("endpoint") == "conversation":
-                yield entry["response"]
+    """Yield detail responses from the fetcher's wire log.
+
+    From v2 `response` is the verbatim body text the server sent; v1 stored it
+    already parsed."""
+    _, version = read_header(path)
+    for entry in read_entries(path):
+        if entry.get("endpoint") != "conversation":
+            continue
+        response = entry["response"]
+        yield response if version == LEGACY_VERSION else json.loads(response)
 
 
 def _to_log(thread: dict[str, Any], source: str) -> EventLog:
