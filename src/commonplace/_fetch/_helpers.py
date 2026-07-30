@@ -47,6 +47,26 @@ def raise_on_session_error(response: httpx.Response, service_name: str, login_ur
     otherwise `raise_for_status` on any other non-success. Every fetcher
     should call this on responses that aren't already handled by
     `request_with_retry` (which only handles transient statuses)."""
+    if is_bot_challenge(response):
+        raise RuntimeError(
+            f"{service_name} served a Cloudflare bot challenge, not a session error — logging in again won't help. "
+            f"Open {login_url} in Chrome to clear it, then retry."
+        )
     if response.status_code in (401, 403):
         raise RuntimeError(f"{service_name} session rejected. Log in at {login_url} in Chrome, then retry.")
     response.raise_for_status()
+
+
+def is_bot_challenge(response: httpx.Response) -> bool:
+    """Whether a 403 is Cloudflare's bot check rather than the provider's own
+    auth rejection.
+
+    Worth distinguishing because the remedies differ: a real session error
+    needs a fresh login, whereas a challenge needs the browser to solve it and
+    refresh `cf_clearance` — and it clears on its own. The tell is a 403 served
+    by Cloudflare with an HTML body; the provider APIs answer in JSON."""
+    return (
+        response.status_code == 403
+        and "cloudflare" in response.headers.get("server", "").lower()
+        and "html" in response.headers.get("content-type", "").lower()
+    )

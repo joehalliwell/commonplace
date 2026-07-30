@@ -3,6 +3,7 @@
 import tempfile
 from pathlib import Path
 
+from commonplace._fetch._chatgpt import ChatGptFetcher
 from commonplace._fetch._claude import ClaudeFetcher
 from commonplace._fetch._gemini import GeminiFetcher
 from commonplace._fetch._types import Fetcher
@@ -13,6 +14,7 @@ from commonplace._repo import Commonplace
 FETCHERS: list[Fetcher] = [
     ClaudeFetcher(),
     GeminiFetcher(),
+    ChatGptFetcher(),
 ]
 
 

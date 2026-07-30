@@ -134,6 +134,7 @@ commonplace fetch
 # Restrict to a specific source
 commonplace fetch --source claude
 commonplace fetch --source gemini
+commonplace fetch --source chatgpt
 ```
 
 `fetch` reads your logged-in session cookies from Chrome — log in once in the
@@ -151,6 +152,10 @@ conversations updated since the previous fetch.
   hits internal `batchexecute` RPCs. Extracts per-turn timestamps, Gem
   personas, and model thought traces — richer than the Google Takeout HTML
   export. Notes land at `chats/gemini/`.
+- `chatgpt` — reads `chatgpt.com` session cookie, trades it for a bearer token
+  at `/api/auth/session`, then walks `/backend-api/conversations`. Requests are
+  paced: chatgpt.com is behind Cloudflare, which challenges bursts. Notes land
+  at `chats/chatgpt/`.
 
 Note: these use the providers' internal endpoints, which are unofficial and
 may change without notice. If a fetcher stops working, fall back to the

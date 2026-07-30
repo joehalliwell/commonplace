@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from zipfile import ZipFile
 
-from commonplace._import._chatgpt import ChatGptImporter
+from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._claude_code import ClaudeCodeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
@@ -26,6 +26,7 @@ IMPORTERS: list[Importer] = [
     ClaudeExportImporter(),
     ClaudeImporter(),
     ClaudeCodeImporter(),
+    ChatGptWireImporter(),
     ChatGptImporter(),
 ]
 
