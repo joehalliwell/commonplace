@@ -6,7 +6,8 @@ from typing import Any
 
 import httpx
 
-from commonplace._fetch._helpers import CHROME_UA, raise_on_session_error, read_chrome_cookies, request_with_retry
+from commonplace._config import DEFAULT_UA
+from commonplace._fetch._helpers import raise_on_session_error, read_chrome_cookies, request_with_retry
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._wire import write_archive
@@ -31,9 +32,11 @@ class ClaudeFetcher:
         *,
         cookies: dict[str, str] | None = None,
         transport: httpx.BaseTransport | None = None,
+        ua: str = DEFAULT_UA,
     ):
         self._injected_cookies = cookies
         self._transport = transport
+        self._ua = ua
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
         cookies = self._injected_cookies if self._injected_cookies is not None else read_chrome_cookies("claude.ai")
@@ -52,7 +55,7 @@ class ClaudeFetcher:
         with httpx.Client(
             cookies=cookies,
             headers={
-                "User-Agent": CHROME_UA,
+                "User-Agent": self._ua,
                 "Accept": "application/json",
                 "Referer": "https://claude.ai/",
             },

@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from commonplace._fetch._claude import ClaudeFetcher
+from commonplace._fetch._helpers import FetchBlocked
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
 from commonplace._wire import read_entries, write_archive
@@ -240,7 +241,7 @@ def test_fetch_retries_transient_5xx(no_retry_sleep, tmp_path):
 
 
 def test_fetch_raises_on_401(tmp_path):
-    with pytest.raises(RuntimeError, match="session rejected"):
+    with pytest.raises(FetchBlocked):
         _make_fetcher(handler=lambda r: httpx.Response(401)).fetch(tmp_path, since=None)
 
 

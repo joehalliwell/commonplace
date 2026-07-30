@@ -161,6 +161,18 @@ Note: these use the providers' internal endpoints, which are unofficial and
 may change without notice. If a fetcher stops working, fall back to the
 manual export flow above.
 
+**If a provider starts rejecting you as a bot.** Fetchers send a Chrome
+User-Agent, because every provider fronts its internal API with a bot check
+that a terse or stale one fails. The bundled default ages, so it can be
+overridden without waiting for a release:
+
+```bash
+export COMMONPLACE_UA="Mozilla/5.0 (...) Chrome/999.0.0.0 Safari/537.36"
+```
+
+Copy the value from `navigator.userAgent` in your browser's console. It also
+works as `ua` in `.commonplace/config.toml` (per repo) or the global config.
+
 **Claude fetcher vs Takeout.** The Claude fetcher's data is a strict subset
 of the manual export: Anthropic's internal conversation endpoint currently
 strips `<antThinking>` blocks (visible in the manual export ZIP) from message
