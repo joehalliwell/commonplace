@@ -15,13 +15,11 @@ from typing import Any
 
 import httpx
 
-from commonplace._fetch._helpers import raise_on_session_error, read_chrome_cookies, request_with_retry
+from commonplace._fetch._helpers import CHROME_UA, raise_on_session_error, read_chrome_cookies, request_with_retry
 from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso_dt
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._wire import write_archive
-
-CHROME_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
 INIT_URL = "https://gemini.google.com/app"
 BATCH_URL = "https://gemini.google.com/_/BardChatUi/data/batchexecute"

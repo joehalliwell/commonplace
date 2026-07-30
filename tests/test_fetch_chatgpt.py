@@ -389,13 +389,38 @@ def test_fetch_distinguishes_a_cloudflare_challenge_from_a_dead_session(tmp_path
 
 
 def test_fetch_paces_requests(monkeypatch, tmp_path):
-    """Detail fetches are spaced; without this a full backfill trips Cloudflare."""
+    """Requests are spaced; without this a full backfill trips Cloudflare."""
     monkeypatch.setattr("commonplace._fetch._chatgpt.REQUEST_INTERVAL", 10.0)
     slept: list[float] = []
-    monkeypatch.setattr("commonplace._fetch._chatgpt.time.sleep", lambda s: slept.append(s))
+    monkeypatch.setattr("commonplace._fetch._helpers.time.sleep", lambda s: slept.append(s))
 
     _make_fetcher().fetch(tmp_path, since=None)
 
     # 1 session + 1 list + 2 details = 4 requests, so 3 gaps.
     assert len(slept) == 3
     assert all(0 < s <= 10.0 for s in slept)
+
+
+def test_fetch_widens_pacing_after_a_429(no_retry_sleep, tmp_path):
+    """A 429 is the polite signal. Retrying alone forgets it happened; the
+    remaining requests should stay slower."""
+    fetcher = _make_fetcher(handler=_throttle_once_then_ok())
+    before = fetcher._pacer.interval
+
+    archive = fetcher.fetch(tmp_path, since=None)
+
+    assert archive is not None
+    assert fetcher._pacer.interval > before
+
+
+def _throttle_once_then_ok():
+    seen: set[str] = set()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.startswith("/backend-api/conversation/") and path not in seen:
+            seen.add(path)
+            return httpx.Response(429)
+        return _handler(request)
+
+    return handler

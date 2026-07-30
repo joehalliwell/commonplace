@@ -1,19 +1,21 @@
 """Fetch conversations directly from chatgpt.com using the browser session cookie."""
 
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
 
-from commonplace._fetch._helpers import raise_on_session_error, read_chrome_cookies, request_with_retry
+from commonplace._fetch._helpers import (
+    CHROME_UA,
+    Pacer,
+    raise_on_session_error,
+    read_chrome_cookies,
+    request_with_retry,
+)
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._wire import write_archive
-
-# Full Chrome UA is required to pass Cloudflare's bot check.
-CHATGPT_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
 SESSION_URL = "https://chatgpt.com/api/auth/session"
 LIST_URL = "https://chatgpt.com/backend-api/conversations"
@@ -26,11 +28,11 @@ SESSION_COOKIE_PREFIX = "__Secure-next-auth.session-token"
 
 PAGE_SIZE = 100
 
-# chatgpt.com sits behind Cloudflare, which challenges bursts: fetching 90
-# conversations back-to-back tripped it, and a challenge can't be retried away
-# — it needs the browser to refresh `cf_clearance`. Pace requests instead. The
-# other two providers have not needed this.
-REQUEST_INTERVAL = 0.5
+# Starting gap between requests. Bursting ~3/s over 91 requests drew a
+# Cloudflare challenge, so this is deliberately non-zero; it is otherwise a
+# guess, and [[Pacer]] widens it if the server ever answers 429. The other two
+# providers have not needed pacing.
+REQUEST_INTERVAL = 0.25
 
 
 class ChatGptFetcher:
@@ -59,7 +61,7 @@ class ChatGptFetcher:
     ):
         self._injected_cookies = cookies
         self._transport = transport
-        self._last_request_at: float | None = None
+        self._pacer = Pacer(REQUEST_INTERVAL)
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
         cookies = self._injected_cookies if self._injected_cookies is not None else read_chrome_cookies("chatgpt.com")
@@ -72,7 +74,7 @@ class ChatGptFetcher:
         with httpx.Client(
             cookies=cookies,
             headers={
-                "User-Agent": CHATGPT_UA,
+                "User-Agent": CHROME_UA,
                 "Accept": "application/json",
                 "Referer": "https://chatgpt.com/",
             },
@@ -139,12 +141,8 @@ class ChatGptFetcher:
         self._wire_log.append({"endpoint": "conversation", "cid": cid, "response": r.text})
 
     def _get(self, url: str, **kwargs: Any) -> httpx.Response:
-        if self._last_request_at is not None:
-            wait = REQUEST_INTERVAL - (time.monotonic() - self._last_request_at)
-            if wait > 0:
-                time.sleep(wait)
-        self._last_request_at = time.monotonic()
-        r = request_with_retry(self._client, "GET", url, **kwargs)
+        self._pacer.wait()
+        r = request_with_retry(self._client, "GET", url, on_throttled=self._pacer.slow_down, **kwargs)
         raise_on_session_error(r, service_name="ChatGPT", login_url="https://chatgpt.com")
         return r
 
