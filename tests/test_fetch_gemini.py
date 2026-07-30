@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from commonplace._fetch._gemini import GeminiFetcher
+from commonplace._fetch._helpers import FetchBlocked
 from commonplace._import._gemini import GeminiImporter, _extract_rpc_body, _ts_to_iso
 from commonplace._wire import read_entries
 
@@ -147,7 +148,7 @@ def test_fetch_raises_on_403(tmp_path):
             return httpx.Response(200, text=_fake_app_page())
         return httpx.Response(403)
 
-    with pytest.raises(RuntimeError, match="session rejected"):
+    with pytest.raises(FetchBlocked):
         _make_fetcher(handler=handler).fetch(tmp_path, since=None)
 
 

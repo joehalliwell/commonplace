@@ -9,6 +9,7 @@ import httpx
 import pytest
 
 from commonplace._fetch._chatgpt import ChatGptFetcher
+from commonplace._fetch._helpers import FetchBlocked
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._wire import WIRE_VERSION, read_entries, read_header, write_archive
@@ -282,7 +283,7 @@ def test_fetch_raises_on_401(tmp_path):
             return httpx.Response(200, json={"accessToken": "jwt-token", "user": {}})
         return httpx.Response(401)
 
-    with pytest.raises(RuntimeError, match="session rejected"):
+    with pytest.raises(FetchBlocked):
         _make_fetcher(handler=handler).fetch(tmp_path, since=None)
 
 
@@ -373,19 +374,47 @@ def test_fetch_paginates_when_total_under_reports(tmp_path):
     assert len([e for e in read_entries(archive) if e["endpoint"] == "conversation"]) == 150
 
 
-def test_fetch_distinguishes_a_cloudflare_challenge_from_a_dead_session(tmp_path):
+def _challenge_handler(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(
+        403,
+        content="<html><body>Just a moment...</body></html>",
+        headers={"server": "cloudflare", "content-type": "text/html; charset=utf-8"},
+    )
+
+
+def test_fetch_distinguishes_a_bot_challenge_from_a_dead_session(tmp_path):
     """A 403 HTML page from Cloudflare is a bot check, not an expired session —
     logging in again does nothing, so the message must not suggest it."""
+    with pytest.raises(FetchBlocked, match="bot challenge"):
+        _make_fetcher(handler=_challenge_handler).fetch(tmp_path, since=None)
+
+
+def test_bot_challenge_message_says_what_to_do(tmp_path):
+    """The message is the whole remediation — the CLI prints it without a
+    traceback, so anything the user needs has to be in here."""
+    with pytest.raises(FetchBlocked) as excinfo:
+        _make_fetcher(handler=_challenge_handler).fetch(tmp_path, since=None)
+
+    message = str(excinfo.value)
+    assert "https://chatgpt.com" in message, "where to go"
+    assert "Wait" in message, "the block is rate-based and clears on its own"
+    assert "Re-run" in message, "what to do after"
+    assert "Nothing was imported" in message, "whether the failed run cost anything"
+    assert "COMMONPLACE_UA" in message, "the escape hatch if it keeps happening"
+
+
+def test_fetch_uses_the_configured_user_agent(tmp_path):
+    seen: list[str | None] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            403,
-            content="<html><body>Just a moment...</body></html>",
-            headers={"server": "cloudflare", "content-type": "text/html; charset=utf-8"},
-        )
+        seen.append(request.headers.get("user-agent"))
+        return _handler(request)
 
-    with pytest.raises(RuntimeError, match="Cloudflare bot challenge"):
-        _make_fetcher(handler=handler).fetch(tmp_path, since=None)
+    ChatGptFetcher(cookies=SESSION_COOKIES, transport=httpx.MockTransport(handler), ua="Custom/1.0").fetch(
+        tmp_path, since=None
+    )
+
+    assert seen and all(ua == "Custom/1.0" for ua in seen)
 
 
 def test_fetch_paces_requests(monkeypatch, tmp_path):

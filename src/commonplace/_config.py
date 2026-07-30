@@ -17,6 +17,11 @@ DEFAULT_CONFIG = Path(user_config_dir("commonplace")) / "commonplace.toml"
 DEFAULT_NAME = getpass.getuser().title()  # Get the current user's name for default human-readable name
 DEFAULT_EDITOR = os.getenv("EDITOR", default="vim")
 
+# A full, current Chrome UA — every provider fronts its internal API with a bot
+# check that a terse or stale one fails. Bump when Chrome moves on; override via
+# COMMONPLACE_UA if a provider starts rejecting it before we notice.
+DEFAULT_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
 
 class Config(BaseSettings):
     """
@@ -37,3 +42,7 @@ class Config(BaseSettings):
     wrap: int = Field(default=80, description="Target characters per line for text wrapping")
     editor: str = Field(default=DEFAULT_EDITOR, description="Default editor for opening notes")
     auto_index: bool = Field(default=True, description="Automatically index notes when they are added")
+    ua: str = Field(
+        default=DEFAULT_UA,
+        description="User-Agent sent by fetchers. Override if a provider's bot check starts rejecting the default",
+    )

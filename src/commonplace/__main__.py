@@ -8,6 +8,7 @@ from typing import Annotated, TypeAlias
 from cyclopts import App, Parameter
 from platformdirs import user_data_dir
 
+from commonplace._fetch._helpers import FetchBlocked
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._search._types import SearchMethod
@@ -68,6 +69,12 @@ def _launch(
         if "repo" in ignored:  # Inject repo if command needs it
             extras["repo"] = _open_repo(root)
         return command(*bound.args, **bound.kwargs, **extras)
+
+    except FetchBlocked as e:
+        # Not a bug: the message tells the user what to do, and a traceback
+        # would bury it.
+        logger.error(str(e))
+        raise SystemExit(1) from e
 
     except Exception as e:
         logger.exception(f"Error executing command: {e}")

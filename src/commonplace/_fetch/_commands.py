@@ -3,6 +3,7 @@
 import tempfile
 from pathlib import Path
 
+from commonplace._config import Config
 from commonplace._fetch._chatgpt import ChatGptFetcher
 from commonplace._fetch._claude import ClaudeFetcher
 from commonplace._fetch._gemini import GeminiFetcher
@@ -11,11 +12,16 @@ from commonplace._import._commands import import_
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 
-FETCHERS: list[Fetcher] = [
-    ClaudeFetcher(),
-    GeminiFetcher(),
-    ChatGptFetcher(),
-]
+
+def default_fetchers(config: Config) -> list[Fetcher]:
+    """Built per call rather than as a module constant, so the configured
+    User-Agent reaches them — including a per-repo `.commonplace/config.toml`
+    override, which a constant evaluated at import time could not see."""
+    return [
+        ClaudeFetcher(ua=config.ua),
+        GeminiFetcher(ua=config.ua),
+        ChatGptFetcher(ua=config.ua),
+    ]
 
 
 def fetch(
@@ -30,7 +36,7 @@ def fetch(
     If `all_` is True, the git-derived cursor is bypassed and every remote
     conversation is fetched. Useful for recovery when the cursor is wrong,
     or for a first-time bulk import."""
-    pool = fetchers if fetchers is not None else FETCHERS
+    pool = fetchers if fetchers is not None else default_fetchers(repo.config)
     active = pool
     if sources:
         active = [f for f in pool if f.source in sources]

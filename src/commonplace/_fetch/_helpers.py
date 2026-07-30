@@ -14,11 +14,6 @@ from commonplace._logging import logger
 # Flatpak Chrome stashes its config outside XDG_CONFIG_HOME.
 FLATPAK_CHROME_CONFIG = Path.home() / ".var" / "app" / "com.google.Chrome" / "config"
 
-# A full, current Chrome UA — every provider sits behind a bot check that a
-# terse or stale one fails. Shared so all three fetchers age together: bump it
-# here when Chrome moves on.
-CHROME_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-
 # Retry transient failures with exponential backoff.
 RETRY_STATUSES = {429, 500, 502, 503, 504}
 THROTTLE_STATUSES = {429}
@@ -100,18 +95,34 @@ class Pacer:
         self.interval = widened
 
 
+class FetchBlocked(RuntimeError):
+    """The provider turned us away for a reason only the user can clear.
+
+    Distinct from a bug: the message is the whole point, so the CLI prints it
+    without a traceback. Raise this only when the text says what to do."""
+
+
 def raise_on_session_error(response: httpx.Response, service_name: str, login_url: str) -> None:
-    """Raise a uniform RuntimeError on 401/403 (session expired or rejected),
-    otherwise `raise_for_status` on any other non-success. Every fetcher
-    should call this on responses that aren't already handled by
-    `request_with_retry` (which only handles transient statuses)."""
+    """Raise `FetchBlocked` with remediation on 401/403, otherwise
+    `raise_for_status` on any other non-success. Every fetcher should call this
+    on responses that aren't already handled by `request_with_retry` (which
+    only handles transient statuses)."""
     if is_bot_challenge(response):
-        raise RuntimeError(
-            f"{service_name} served a Cloudflare bot challenge, not a session error — logging in again won't help. "
-            f"Open {login_url} in Chrome to clear it, then retry."
+        raise FetchBlocked(
+            f"{service_name} served a bot challenge, not a session error — logging in again will not help.\n"
+            f"  1. Open {login_url} in Chrome and complete any check it shows.\n"
+            "  2. Wait a minute or two: the block is rate-based and clears on its own.\n"
+            "  3. Re-run the same command.\n"
+            "Nothing was imported, so re-running costs only the time to fetch again. If it keeps happening, "
+            "the default User-Agent may be stale — override it with COMMONPLACE_UA."
         )
     if response.status_code in (401, 403):
-        raise RuntimeError(f"{service_name} session rejected. Log in at {login_url} in Chrome, then retry.")
+        raise FetchBlocked(
+            f"{service_name} rejected the session.\n"
+            f"  1. Log in at {login_url} in Chrome.\n"
+            "  2. Re-run the same command.\n"
+            "Nothing was imported, so re-running costs only the time to fetch again."
+        )
     response.raise_for_status()
 
 
