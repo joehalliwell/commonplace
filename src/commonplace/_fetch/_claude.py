@@ -6,13 +6,10 @@ from typing import Any
 
 import httpx
 
-from commonplace._fetch._helpers import raise_on_session_error, read_chrome_cookies, request_with_retry
+from commonplace._fetch._helpers import CHROME_UA, raise_on_session_error, read_chrome_cookies, request_with_retry
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._wire import write_archive
-
-# Full Chrome UA is required to pass Cloudflare's bot check.
-CLAUDE_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
 
 class ClaudeFetcher:
@@ -55,7 +52,7 @@ class ClaudeFetcher:
         with httpx.Client(
             cookies=cookies,
             headers={
-                "User-Agent": CLAUDE_UA,
+                "User-Agent": CHROME_UA,
                 "Accept": "application/json",
                 "Referer": "https://claude.ai/",
             },
