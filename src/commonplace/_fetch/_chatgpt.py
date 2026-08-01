@@ -7,7 +7,13 @@ from typing import Any
 import httpx
 
 from commonplace._config import DEFAULT_UA
-from commonplace._fetch._helpers import Pacer, raise_on_session_error, read_chrome_cookies, request_with_retry
+from commonplace._fetch._helpers import (
+    Pacer,
+    browser_headers,
+    raise_on_session_error,
+    read_chrome_cookies,
+    request_with_retry,
+)
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._wire import write_archive
@@ -70,11 +76,7 @@ class ChatGptFetcher:
 
         with httpx.Client(
             cookies=cookies,
-            headers={
-                "User-Agent": self._ua,
-                "Accept": "application/json",
-                "Referer": "https://chatgpt.com/",
-            },
+            headers=browser_headers(self._ua, Accept="application/json", Referer="https://chatgpt.com/"),
             follow_redirects=True,
             timeout=30.0,
             transport=self._transport,

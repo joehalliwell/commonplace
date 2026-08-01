@@ -7,7 +7,12 @@ from typing import Any
 import httpx
 
 from commonplace._config import DEFAULT_UA
-from commonplace._fetch._helpers import raise_on_session_error, read_chrome_cookies, request_with_retry
+from commonplace._fetch._helpers import (
+    browser_headers,
+    raise_on_session_error,
+    read_chrome_cookies,
+    request_with_retry,
+)
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._wire import write_archive
@@ -54,11 +59,7 @@ class ClaudeFetcher:
 
         with httpx.Client(
             cookies=cookies,
-            headers={
-                "User-Agent": self._ua,
-                "Accept": "application/json",
-                "Referer": "https://claude.ai/",
-            },
+            headers=browser_headers(self._ua, Accept="application/json", Referer="https://claude.ai/"),
             timeout=30.0,
             transport=self._transport,
         ) as self._client:

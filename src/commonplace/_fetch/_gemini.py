@@ -16,7 +16,12 @@ from typing import Any
 import httpx
 
 from commonplace._config import DEFAULT_UA
-from commonplace._fetch._helpers import raise_on_session_error, read_chrome_cookies, request_with_retry
+from commonplace._fetch._helpers import (
+    browser_headers,
+    raise_on_session_error,
+    read_chrome_cookies,
+    request_with_retry,
+)
 from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso_dt
 from commonplace._logging import logger
 from commonplace._progress import track
@@ -65,14 +70,16 @@ class GeminiFetcher:
 
         with httpx.Client(
             cookies=cookies,
-            headers={
-                "User-Agent": self._ua,
-                "Origin": "https://gemini.google.com",
-                "Referer": "https://gemini.google.com/",
-                "X-Same-Domain": "1",
-                "x-goog-ext-525001261-jspb": "[1,null,null,null,null,null,null,null,[4]]",
-                "x-goog-ext-73010989-jspb": "[0]",
-            },
+            headers=browser_headers(
+                self._ua,
+                Origin="https://gemini.google.com",
+                Referer="https://gemini.google.com/",
+                **{
+                    "X-Same-Domain": "1",
+                    "x-goog-ext-525001261-jspb": "[1,null,null,null,null,null,null,null,[4]]",
+                    "x-goog-ext-73010989-jspb": "[0]",
+                },
+            ),
             follow_redirects=True,
             timeout=60.0,
             transport=self._transport,
