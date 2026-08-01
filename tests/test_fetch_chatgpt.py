@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from commonplace._fetch._chatgpt import ChatGptFetcher
-from commonplace._fetch._helpers import FetchBlocked
+from commonplace._fetch._helpers import FetchBlocked, browser_headers
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._wire import WIRE_VERSION, read_entries, read_header, write_archive
@@ -397,10 +397,32 @@ def test_bot_challenge_message_says_what_to_do(tmp_path):
 
     message = str(excinfo.value)
     assert "https://chatgpt.com" in message, "where to go"
-    assert "Wait" in message, "the block is rate-based and clears on its own"
-    assert "Re-run" in message, "what to do after"
+    assert "User-Agent" in message and "COMMONPLACE_UA" in message, "the likeliest cause and its fix"
+    assert "re-run" in message.lower(), "what to do after"
     assert "Nothing was imported" in message, "whether the failed run cost anything"
-    assert "COMMONPLACE_UA" in message, "the escape hatch if it keeps happening"
+
+
+def test_fetch_sends_accept_language(tmp_path):
+    """Cloudflare 403s a Chrome User-Agent with no Accept-Language: no real
+    browser omits it, so its absence reads as a bot."""
+    seen: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("accept-language"))
+        return _handler(request)
+
+    _make_fetcher(handler=handler).fetch(tmp_path, since=None)
+
+    assert seen and all(lang for lang in seen)
+
+
+def test_accept_language_is_sent_last():
+    """Order is part of the fingerprint, not just the set. The same headers
+    with Accept-Language ahead of Accept draw a 403 from the live API, so the
+    trailing position is load-bearing."""
+    headers = browser_headers("UA/1.0", Accept="application/json", Referer="https://chatgpt.com/")
+
+    assert list(headers) == ["User-Agent", "Accept", "Referer", "Accept-Language"]
 
 
 def test_fetch_uses_the_configured_user_agent(tmp_path):

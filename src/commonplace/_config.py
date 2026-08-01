@@ -18,9 +18,11 @@ DEFAULT_NAME = getpass.getuser().title()  # Get the current user's name for defa
 DEFAULT_EDITOR = os.getenv("EDITOR", default="vim")
 
 # A full, current Chrome UA — every provider fronts its internal API with a bot
-# check that a terse or stale one fails. Bump when Chrome moves on; override via
-# COMMONPLACE_UA if a provider starts rejecting it before we notice.
-DEFAULT_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+# check that a terse or stale one fails. Cloudflare also binds `cf_clearance` to
+# the User-Agent that solved the challenge, so one far from the user's real
+# browser risks the cookie being read as replayed. Bump when Chrome moves on;
+# override via COMMONPLACE_UA if a provider starts rejecting it before we do.
+DEFAULT_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36"
 
 
 class Config(BaseSettings):

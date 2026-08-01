@@ -9,10 +9,32 @@ from typing import Any
 import browser_cookie3  # type: ignore[import-untyped]
 import httpx
 
+from commonplace._config import DEFAULT_UA
 from commonplace._logging import logger
 
 # Flatpak Chrome stashes its config outside XDG_CONFIG_HOME.
 FLATPAK_CHROME_CONFIG = Path.home() / ".var" / "app" / "com.google.Chrome" / "config"
+
+
+def browser_headers(ua: str, **extra: str) -> dict[str, str]:
+    """Headers that make a request look like the browser it claims to be.
+
+    Two things matter, both verified against chatgpt.com by changing one
+    variable at a time:
+
+    - `Accept-Language` must be present. A Chrome User-Agent without it draws a
+      403: no real browser omits it, so its absence is a bot tell.
+    - It must come *last*. Same headers, same values, moved ahead of `Accept`
+      and the same request 403s again. Chrome emits it after `Accept-Encoding`,
+      and Cloudflare fingerprints the order, not just the set.
+
+    Hence the ordering here is deliberate: caller `extra` sits between the
+    User-Agent and the trailing `Accept-Language`. Every fetcher builds its
+    headers through this, so the next such requirement is learned once rather
+    than three times.
+    """
+    return {"User-Agent": ua, **extra, "Accept-Language": "en-GB,en;q=0.9"}
+
 
 # Retry transient failures with exponential backoff.
 RETRY_STATUSES = {429, 500, 502, 503, 504}
@@ -110,11 +132,12 @@ def raise_on_session_error(response: httpx.Response, service_name: str, login_ur
     if is_bot_challenge(response):
         raise FetchBlocked(
             f"{service_name} served a bot challenge, not a session error — logging in again will not help.\n"
-            f"  1. Open {login_url} in Chrome and complete any check it shows.\n"
-            "  2. Wait a minute or two: the block is rate-based and clears on its own.\n"
-            "  3. Re-run the same command.\n"
-            "Nothing was imported, so re-running costs only the time to fetch again. If it keeps happening, "
-            "the default User-Agent may be stale — override it with COMMONPLACE_UA."
+            "Most often the request doesn't look enough like the browser it claims to be. In order of likelihood:\n"
+            f"  1. Check the User-Agent matches your real browser. Ours is {DEFAULT_UA!r}; compare it with\n"
+            "     `navigator.userAgent` in the browser console and set COMMONPLACE_UA if they differ.\n"
+            f"  2. Open {login_url} in the browser to refresh its Cloudflare cookies, then re-run.\n"
+            "  3. If it persists, the bot check likely wants a header we don't send — see browser_headers().\n"
+            "Nothing was imported, so re-running costs only the time to fetch again."
         )
     if response.status_code in (401, 403):
         raise FetchBlocked(
@@ -130,10 +153,11 @@ def is_bot_challenge(response: httpx.Response) -> bool:
     """Whether a 403 is Cloudflare's bot check rather than the provider's own
     auth rejection.
 
-    Worth distinguishing because the remedies differ: a real session error
-    needs a fresh login, whereas a challenge needs the browser to solve it and
-    refresh `cf_clearance` — and it clears on its own. The tell is a 403 served
-    by Cloudflare with an HTML body; the provider APIs answer in JSON."""
+    Worth distinguishing because the remedies differ, and because a challenge
+    does *not* clear on its own: one persisted across 24 hours until the
+    request was made to look more like a browser. Logging in again achieves
+    nothing. The tell is a 403 served by Cloudflare with an HTML body; the
+    provider APIs answer in JSON."""
     return (
         response.status_code == 403
         and "cloudflare" in response.headers.get("server", "").lower()
