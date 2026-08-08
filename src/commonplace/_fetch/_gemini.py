@@ -74,11 +74,7 @@ class GeminiFetcher:
                 self._ua,
                 Origin="https://gemini.google.com",
                 Referer="https://gemini.google.com/",
-                **{
-                    "X-Same-Domain": "1",
-                    "x-goog-ext-525001261-jspb": "[1,null,null,null,null,null,null,null,[4]]",
-                    "x-goog-ext-73010989-jspb": "[0]",
-                },
+                **{"X-Same-Domain": "1"},
             ),
             follow_redirects=True,
             timeout=60.0,
