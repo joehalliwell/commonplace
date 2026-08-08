@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from commonplace._fetch._commands import default_fetchers
+from commonplace._import._chatgpt import ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._commands import IMPORTERS, autodetect_importer
 from commonplace._import._gemini import GeminiImporter
@@ -86,6 +87,24 @@ def test_importers_still_claim_legacy_archives(tmp_path):
     assert GeminiImporter().can_import(gemini)
     assert not ClaudeImporter().can_import(gemini)
     assert not GeminiImporter().can_import(claude)
+
+
+def test_an_importer_added_after_versioning_claims_no_headerless_archive(tmp_path):
+    """Recognising a headerless archive means guessing from entry keys, which
+    is exactly what the header exists to stop. ChatGPT arrived at v2, so every
+    archive of its own has a header and anything headerless belongs to someone
+    else — including files whose entry keys resemble its own."""
+    claude = _write_legacy(tmp_path / "claude-wire.jsonl.gz", ENTRIES)
+    gemini = _write_legacy(tmp_path / "gemini-wire.jsonl.gz", [{"rpc": "MaZiqc", "response": ""}])
+
+    assert not ChatGptWireImporter().can_import(claude)
+    assert not ChatGptWireImporter().can_import(gemini)
+
+
+def test_wire_importers_extract_nothing(tmp_path):
+    """A wire archive is gzipped JSONL, not a ZIP, so it is stored whole."""
+    for importer in (ClaudeImporter(), GeminiImporter(), ChatGptWireImporter()):
+        assert importer.required_paths() == []
 
 
 # ---------------------------------------------------------------------------
