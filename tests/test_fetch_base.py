@@ -99,6 +99,32 @@ def test_blocked_requests_name_the_service_and_login_url(tmp_path):
     assert "https://example.com" in str(excinfo.value)
 
 
+def test_connect_timeout_is_shorter_than_the_read_timeout(tmp_path):
+    """Connect is charged per resolved address, so it must stay short."""
+    fetcher = _stub(lambda r: httpx.Response(200, text="{}"))
+
+    with fetcher._session({"session": "x"}) as client:
+        assert client.timeout.connect < client.timeout.read
+        assert client.timeout.read == fetcher.timeout
+
+
+def test_unreachable_provider_is_reported_once_not_raised(no_retry_sleep):
+    """A blocked fetch, not a bug — and not retried."""
+    attempts = {"n": 0}
+
+    def unreachable(request: httpx.Request) -> httpx.Response:
+        attempts["n"] += 1
+        raise httpx.ConnectTimeout("timed out", request=request)
+
+    fetcher = _stub(unreachable)
+
+    with fetcher._session({"session": "x"}), pytest.raises(FetchBlocked) as excinfo:
+        fetcher._get("https://example.com/api")
+
+    assert "Stub" in str(excinfo.value)
+    assert attempts["n"] == 1
+
+
 def test_a_429_widens_pacing_for_every_fetcher(no_retry_sleep):
     """Claude and Gemini start at a zero interval — free until the server
     objects — but must still react when it does."""

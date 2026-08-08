@@ -27,12 +27,17 @@ from commonplace._config import DEFAULT_UA
 from commonplace._fetch._helpers import (
     Pacer,
     raise_on_session_error,
+    raise_unreachable,
     read_chrome_cookies,
     request_with_retry,
 )
 from commonplace._wire import write_archive
 
 ACCEPT_LANGUAGE = "en-GB,en;q=0.9"
+
+#: `socket.create_connection` charges its timeout per resolved address, so
+#: connect must stay short where `timeout` can be long. See #18.
+CONNECT_TIMEOUT = 5.0
 
 
 class BaseFetcher:
@@ -112,17 +117,20 @@ class BaseFetcher:
             cookies=cookies,
             headers=self._headers(),
             follow_redirects=self.follow_redirects,
-            timeout=self.timeout,
+            timeout=httpx.Timeout(self.timeout, connect=CONNECT_TIMEOUT),
             transport=self._transport,
         ) as client:
             self._client = client
             yield client
 
     def _request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
-        """Pace, send, retry transient failures, and turn a blocking response
-        into a `FetchBlocked` that says what to do about it."""
+        """Pace, send, retry transient failures, and turn anything blocking —
+        a rejecting response or an unreachable host — into a `FetchBlocked`."""
         self._pacer.wait()
-        r = request_with_retry(self._client, method, url, on_throttled=self._pacer.slow_down, **kwargs)
+        try:
+            r = request_with_retry(self._client, method, url, on_throttled=self._pacer.slow_down, **kwargs)
+        except httpx.TransportError as exc:
+            raise_unreachable(exc, service_name=self.service_name, login_url=self.login_url)
         raise_on_session_error(r, service_name=self.service_name, login_url=self.login_url)
         return r
 

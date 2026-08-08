@@ -4,7 +4,7 @@ import os
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import browser_cookie3  # type: ignore[import-untyped]
 import httpx
@@ -127,6 +127,18 @@ def raise_on_session_error(response: httpx.Response, service_name: str, login_ur
             "Nothing was imported, so re-running costs only the time to fetch again."
         )
     response.raise_for_status()
+
+
+def raise_unreachable(exc: httpx.TransportError, service_name: str, login_url: str) -> NoReturn:
+    """Turn a transport failure into `FetchBlocked`. Never retried —
+    `create_connection` has already tried every address."""
+    raise FetchBlocked(
+        f"Couldn't reach {service_name} ({type(exc).__name__}).\n"
+        "  1. Check your network connection.\n"
+        f"  2. Confirm {login_url} loads in the browser.\n"
+        "  3. If the browser works but this doesn't, suspect a broken IPv6 path.\n"
+        "Nothing was imported, so re-running costs only the time to fetch again."
+    ) from exc
 
 
 def is_bot_challenge(response: httpx.Response) -> bool:
