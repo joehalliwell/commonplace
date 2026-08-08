@@ -4,8 +4,11 @@ import gzip
 import json
 from pathlib import Path
 
+from commonplace._fetch._commands import default_fetchers
 from commonplace._import._claude import ClaudeImporter
+from commonplace._import._commands import IMPORTERS, autodetect_importer
 from commonplace._import._gemini import GeminiImporter
+from commonplace._import._types import Importer
 from commonplace._wire import LEGACY_VERSION, WIRE_VERSION, read_entries, read_header, write_archive
 
 ENTRIES = [
@@ -83,3 +86,47 @@ def test_importers_still_claim_legacy_archives(tmp_path):
     assert GeminiImporter().can_import(gemini)
     assert not ClaudeImporter().can_import(gemini)
     assert not GeminiImporter().can_import(claude)
+
+
+# ---------------------------------------------------------------------------
+# The seam itself: every fetcher's archive must reach its paired importer.
+#
+# `source` binds the two halves, but it is declared twice — once on the
+# Fetcher, once on the Importer — and the registries carrying them
+# (`default_fetchers()` and `IMPORTERS`) are maintained by hand, in different
+# modules. A provider misspelt on one side, or an importer left out of
+# `IMPORTERS`, fetches perfectly and imports nothing: the archive is written,
+# no importer claims it, and the run reports no error. These tests are derived
+# from the registries rather than from a list of their own, so a fourth
+# provider is covered without anyone remembering to add it.
+# ---------------------------------------------------------------------------
+
+
+def _claims(importer: Importer, path: Path) -> bool:
+    """`can_import` as `autodetect_importer` sees it — importers probing a
+    format they don't handle are entitled to raise."""
+    try:
+        return importer.can_import(path)
+    except Exception:  # noqa: BLE001 — mirrors autodetect_importer's own bare except
+        return False
+
+
+def _archive_for(fetcher, tmp_path: Path) -> Path:
+    return write_archive(tmp_path / f"{fetcher.source}-wire.jsonl.gz", fetcher.source, ENTRIES)
+
+
+def test_every_fetchers_archive_reaches_an_importer(tmp_path, test_repo):
+    for fetcher in default_fetchers(test_repo.config):
+        importer = autodetect_importer(_archive_for(fetcher, tmp_path))
+        assert importer is not None, f"nothing in IMPORTERS claims a {fetcher.source!r} archive"
+        assert importer.source == fetcher.source
+
+
+def test_exactly_one_importer_claims_each_fetchers_archive(tmp_path, test_repo):
+    """Two claimants would make the seam depend on `IMPORTERS` ordering, so
+    reordering the list for an unrelated reason could silently reroute a
+    provider."""
+    for fetcher in default_fetchers(test_repo.config):
+        archive = _archive_for(fetcher, tmp_path)
+        claimants = [i.source for i in IMPORTERS if _claims(i, archive)]
+        assert claimants == [fetcher.source]
