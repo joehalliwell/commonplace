@@ -2,49 +2,27 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
-import httpx
-
-from commonplace._config import DEFAULT_UA
-from commonplace._fetch._helpers import (
-    browser_headers,
-    raise_on_session_error,
-    read_chrome_cookies,
-    request_with_retry,
-)
+from commonplace._fetch._base import BaseFetcher
 from commonplace._logging import logger
 from commonplace._progress import track
-from commonplace._wire import write_archive
 
 
-class ClaudeFetcher:
+class ClaudeFetcher(BaseFetcher):
     """Records one list call plus N conversation details from claude.ai's
-    internal API. Endpoints are unofficial; expect drift.
+    internal API. Endpoints are unofficial; expect drift."""
 
-    Cookies and HTTP transport are injectable — real use passes neither and the
-    fetcher discovers cookies from Chrome and uses the real network. Tests
-    inject fakes for both."""
+    source = "claude"
+    cookie_domain = "claude.ai"
+    service_name = "Claude"
+    login_url = "https://claude.ai"
+    extra_headers: ClassVar[dict[str, str]] = {"Accept": "application/json", "Referer": "https://claude.ai/"}
 
-    source: str = "claude"
-
-    _client: httpx.Client
     _org_uuid: str
-    _wire_log: list[dict[str, Any]]
-
-    def __init__(
-        self,
-        *,
-        cookies: dict[str, str] | None = None,
-        transport: httpx.BaseTransport | None = None,
-        ua: str = DEFAULT_UA,
-    ):
-        self._injected_cookies = cookies
-        self._transport = transport
-        self._ua = ua
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        cookies = self._injected_cookies if self._injected_cookies is not None else read_chrome_cookies("claude.ai")
+        cookies = self._read_cookies()
         session_key = cookies.get("sessionKey")
         org_uuid = cookies.get("lastActiveOrg")
         if not session_key:
@@ -55,14 +33,8 @@ class ClaudeFetcher:
             return None
 
         self._org_uuid = org_uuid
-        self._wire_log = []
 
-        with httpx.Client(
-            cookies=cookies,
-            headers=browser_headers(self._ua, Accept="application/json", Referer="https://claude.ai/"),
-            timeout=30.0,
-            transport=self._transport,
-        ) as self._client:
+        with self._session(cookies):
             summaries = self._list_conversations()
             fresh = [c for c in summaries if since is None or datetime.fromisoformat(c["updated_at"]) > since]
             logger.info(f"{len(fresh)}/{len(summaries)} conversations new since {since or 'beginning'}")
@@ -77,7 +49,7 @@ class ClaudeFetcher:
 
     def _list_conversations(self) -> list[dict[str, Any]]:
         r = self._get(f"https://claude.ai/api/organizations/{self._org_uuid}/chat_conversations")
-        self._wire_log.append({"endpoint": "conversations", "response": r.text})
+        self._log(endpoint="conversations", response=r.text)
         return r.json()
 
     def _fetch_detail(self, convo_uuid: str) -> None:
@@ -85,12 +57,4 @@ class ClaudeFetcher:
             f"https://claude.ai/api/organizations/{self._org_uuid}/chat_conversations/{convo_uuid}",
             params={"tree": "True", "rendering_mode": "raw"},
         )
-        self._wire_log.append({"endpoint": "conversation", "cid": convo_uuid, "response": r.text})
-
-    def _get(self, url: str, **kwargs: Any) -> httpx.Response:
-        r = request_with_retry(self._client, "GET", url, **kwargs)
-        raise_on_session_error(r, service_name="Claude", login_url="https://claude.ai")
-        return r
-
-    def _write_archive(self, destination: Path) -> Path:
-        return write_archive(destination / "claude-wire.jsonl.gz", self.source, self._wire_log)
+        self._log(endpoint="conversation", cid=convo_uuid, response=r.text)

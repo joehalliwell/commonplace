@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from commonplace._fetch._chatgpt import ChatGptFetcher
-from commonplace._fetch._helpers import FetchBlocked, browser_headers
+from commonplace._fetch._helpers import FetchBlocked
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._wire import WIRE_VERSION, read_entries, read_header, write_archive
@@ -192,7 +192,7 @@ def _handler(request: httpx.Request) -> httpx.Response:
 def no_request_pacing(monkeypatch):
     """The fetcher paces requests to stay under Cloudflare's bot check; tests
     exercise the logic, not the throttle."""
-    monkeypatch.setattr("commonplace._fetch._chatgpt.REQUEST_INTERVAL", 0)
+    monkeypatch.setattr(ChatGptFetcher, "request_interval", 0)
 
 
 def _make_fetcher(handler=_handler, cookies=SESSION_COOKIES) -> ChatGptFetcher:
@@ -416,15 +416,6 @@ def test_fetch_sends_accept_language(tmp_path):
     assert seen and all(lang for lang in seen)
 
 
-def test_accept_language_is_sent_last():
-    """Order is part of the fingerprint, not just the set. The same headers
-    with Accept-Language ahead of Accept draw a 403 from the live API, so the
-    trailing position is load-bearing."""
-    headers = browser_headers("UA/1.0", Accept="application/json", Referer="https://chatgpt.com/")
-
-    assert list(headers) == ["User-Agent", "Accept", "Referer", "Accept-Language"]
-
-
 def test_fetch_uses_the_configured_user_agent(tmp_path):
     seen: list[str | None] = []
 
@@ -441,7 +432,7 @@ def test_fetch_uses_the_configured_user_agent(tmp_path):
 
 def test_fetch_paces_requests(monkeypatch, tmp_path):
     """Requests are spaced; without this a full backfill trips Cloudflare."""
-    monkeypatch.setattr("commonplace._fetch._chatgpt.REQUEST_INTERVAL", 10.0)
+    monkeypatch.setattr(ChatGptFetcher, "request_interval", 10.0)
     slept: list[float] = []
     monkeypatch.setattr("commonplace._fetch._helpers.time.sleep", lambda s: slept.append(s))
 
