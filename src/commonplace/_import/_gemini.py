@@ -20,27 +20,21 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from commonplace._import._base import BaseWireImporter
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._logging import logger
 from commonplace._utils import sniff_gzipped_jsonl
-from commonplace._wire import read_entries, read_header
+from commonplace._wire import read_entries
 
 BATCH_PREAMBLE = ")]}'\n"
 
 
-class GeminiImporter:
+class GeminiImporter(BaseWireImporter):
     """Consumes gemini-wire.jsonl emitted by the fetcher."""
 
     source: str = "gemini"
 
-    def required_paths(self) -> list[str]:
-        return []
-
-    def can_import(self, path: Path) -> bool:
-        source, _ = read_header(path)
-        if source is not None:
-            return source == self.source
-        # v1 archives have no header; identify them by their entry keys.
+    def _claims_legacy(self, path: Path) -> bool:
         entry = sniff_gzipped_jsonl(path)
         return entry is not None and entry.get("rpc") in {"MaZiqc", "hNvQHb"}
 

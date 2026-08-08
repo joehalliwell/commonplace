@@ -13,26 +13,21 @@ from pathlib import Path
 from typing import Any
 from zipfile import ZipFile
 
+from commonplace._import._base import BaseWireImporter
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._logging import logger
-from commonplace._wire import read_entries, read_header
+from commonplace._wire import read_entries
 
 DEFAULT_TIME = datetime.fromtimestamp(0, tz=UTC)  # Default time if not provided
 
 SOURCE = "chatgpt"
 
 
-class ChatGptWireImporter:
+class ChatGptWireImporter(BaseWireImporter):
     """Consumes the fetcher's wire archive. Born at wire version 2, so there is
-    no headerless archive to recognise."""
+    no headerless archive to recognise — hence no `_claims_legacy` override."""
 
     source: str = SOURCE
-
-    def required_paths(self) -> list[str]:
-        return []
-
-    def can_import(self, path: Path) -> bool:
-        return read_header(path)[0] == self.source
 
     def import_(self, path: Path) -> list[EventLog]:
         return [
