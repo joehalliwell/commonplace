@@ -2,21 +2,11 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
-import httpx
-
-from commonplace._config import DEFAULT_UA
-from commonplace._fetch._helpers import (
-    Pacer,
-    browser_headers,
-    raise_on_session_error,
-    read_chrome_cookies,
-    request_with_retry,
-)
+from commonplace._fetch._base import BaseFetcher
 from commonplace._logging import logger
 from commonplace._progress import track
-from commonplace._wire import write_archive
 
 SESSION_URL = "https://chatgpt.com/api/auth/session"
 LIST_URL = "https://chatgpt.com/backend-api/conversations"
@@ -29,59 +19,36 @@ SESSION_COOKIE_PREFIX = "__Secure-next-auth.session-token"
 
 PAGE_SIZE = 100
 
-# Starting gap between requests. Bursting ~3/s over 91 requests drew a
-# Cloudflare challenge, so this is deliberately non-zero; it is otherwise a
-# guess, and [[Pacer]] widens it if the server ever answers 429. The other two
-# providers have not needed pacing.
-REQUEST_INTERVAL = 0.25
 
-
-class ChatGptFetcher:
+class ChatGptFetcher(BaseFetcher):
     """Records one listing page per 100 conversations plus N conversation
     details from chatgpt.com's internal API. Endpoints are unofficial; expect
     drift.
 
     Unlike the other fetchers, the session cookie is not itself the credential:
     it buys a short-lived bearer token from `/api/auth/session`, which every
-    `backend-api` call then carries.
+    `backend-api` call then carries."""
 
-    Cookies and HTTP transport are injectable — real use passes neither and the
-    fetcher discovers cookies from Chrome and uses the real network. Tests
-    inject fakes for both."""
+    source = "chatgpt"
+    cookie_domain = "chatgpt.com"
+    service_name = "ChatGPT"
+    login_url = "https://chatgpt.com"
+    extra_headers: ClassVar[dict[str, str]] = {"Accept": "application/json", "Referer": "https://chatgpt.com/"}
+    follow_redirects = True
 
-    source: str = "chatgpt"
-
-    _client: httpx.Client
-    _wire_log: list[dict[str, Any]]
-
-    def __init__(
-        self,
-        *,
-        cookies: dict[str, str] | None = None,
-        transport: httpx.BaseTransport | None = None,
-        ua: str = DEFAULT_UA,
-    ):
-        self._injected_cookies = cookies
-        self._transport = transport
-        self._ua = ua
-        self._pacer = Pacer(REQUEST_INTERVAL)
+    # Bursting ~3/s over 91 requests drew a Cloudflare challenge, so this is
+    # deliberately non-zero; it is otherwise a guess. The other two providers
+    # have not needed pacing.
+    request_interval = 0.25
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        cookies = self._injected_cookies if self._injected_cookies is not None else read_chrome_cookies("chatgpt.com")
+        cookies = self._read_cookies()
         if not any(name.startswith(SESSION_COOKIE_PREFIX) for name in cookies):
             logger.error("No ChatGPT session cookie found. Log in at https://chatgpt.com in Chrome first.")
             return None
 
-        self._wire_log = []
-
-        with httpx.Client(
-            cookies=cookies,
-            headers=browser_headers(self._ua, Accept="application/json", Referer="https://chatgpt.com/"),
-            follow_redirects=True,
-            timeout=30.0,
-            transport=self._transport,
-        ) as self._client:
-            self._client.headers["Authorization"] = f"Bearer {self._read_access_token()}"
+        with self._session(cookies) as client:
+            client.headers["Authorization"] = f"Bearer {self._read_access_token()}"
 
             fresh = list(self._list_fresh_ids(since))
             logger.info(f"{len(fresh)} conversations new since {since or 'beginning'}")
@@ -132,18 +99,9 @@ class ChatGptFetcher:
 
     def _list_page(self, offset: int) -> dict[str, Any]:
         r = self._get(LIST_URL, params={"offset": offset, "limit": PAGE_SIZE, "order": "updated"})
-        self._wire_log.append({"endpoint": "conversations", "offset": offset, "response": r.text})
+        self._log(endpoint="conversations", offset=offset, response=r.text)
         return r.json()
 
     def _fetch_detail(self, cid: str) -> None:
         r = self._get(DETAIL_URL.format(cid=cid))
-        self._wire_log.append({"endpoint": "conversation", "cid": cid, "response": r.text})
-
-    def _get(self, url: str, **kwargs: Any) -> httpx.Response:
-        self._pacer.wait()
-        r = request_with_retry(self._client, "GET", url, on_throttled=self._pacer.slow_down, **kwargs)
-        raise_on_session_error(r, service_name="ChatGPT", login_url="https://chatgpt.com")
-        return r
-
-    def _write_archive(self, destination: Path) -> Path:
-        return write_archive(destination / "chatgpt-wire.jsonl.gz", self.source, self._wire_log)
+        self._log(endpoint="conversation", cid=cid, response=r.text)

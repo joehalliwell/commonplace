@@ -16,26 +16,6 @@ from commonplace._logging import logger
 FLATPAK_CHROME_CONFIG = Path.home() / ".var" / "app" / "com.google.Chrome" / "config"
 
 
-def browser_headers(ua: str, **extra: str) -> dict[str, str]:
-    """Headers that make a request look like the browser it claims to be.
-
-    Two things matter, both verified against chatgpt.com by changing one
-    variable at a time:
-
-    - `Accept-Language` must be present. A Chrome User-Agent without it draws a
-      403: no real browser omits it, so its absence is a bot tell.
-    - It must come *last*. Same headers, same values, moved ahead of `Accept`
-      and the same request 403s again. Chrome emits it after `Accept-Encoding`,
-      and Cloudflare fingerprints the order, not just the set.
-
-    Hence the ordering here is deliberate: caller `extra` sits between the
-    User-Agent and the trailing `Accept-Language`. Every fetcher builds its
-    headers through this, so the next such requirement is learned once rather
-    than three times.
-    """
-    return {"User-Agent": ua, **extra, "Accept-Language": "en-GB,en;q=0.9"}
-
-
 # Retry transient failures with exponential backoff.
 RETRY_STATUSES = {429, 500, 502, 503, 504}
 THROTTLE_STATUSES = {429}
@@ -136,7 +116,7 @@ def raise_on_session_error(response: httpx.Response, service_name: str, login_ur
             f"  1. Check the User-Agent matches your real browser. Ours is {DEFAULT_UA!r}; compare it with\n"
             "     `navigator.userAgent` in the browser console and set COMMONPLACE_UA if they differ.\n"
             f"  2. Open {login_url} in the browser to refresh its Cloudflare cookies, then re-run.\n"
-            "  3. If it persists, the bot check likely wants a header we don't send — see browser_headers().\n"
+            "  3. If it persists, the bot check likely wants a header we don't send — see BaseFetcher._headers().\n"
             "Nothing was imported, so re-running costs only the time to fetch again."
         )
     if response.status_code in (401, 403):

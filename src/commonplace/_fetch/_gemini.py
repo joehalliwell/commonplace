@@ -11,21 +11,12 @@ import random
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import ClassVar
 
-import httpx
-
-from commonplace._config import DEFAULT_UA
-from commonplace._fetch._helpers import (
-    browser_headers,
-    raise_on_session_error,
-    read_chrome_cookies,
-    request_with_retry,
-)
+from commonplace._fetch._base import BaseFetcher
 from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso_dt
 from commonplace._logging import logger
 from commonplace._progress import track
-from commonplace._wire import write_archive
 
 INIT_URL = "https://gemini.google.com/app"
 BATCH_URL = "https://gemini.google.com/_/BardChatUi/data/batchexecute"
@@ -34,52 +25,32 @@ RPC_LIST_CHATS = "MaZiqc"
 RPC_READ_CHAT = "hNvQHb"
 
 
-class GeminiFetcher:
-    """Fetch Gemini conversations via gemini.google.com's `batchexecute` RPC.
+class GeminiFetcher(BaseFetcher):
+    """Fetch Gemini conversations via gemini.google.com's `batchexecute` RPC."""
 
-    Cookies and HTTP transport are injectable — real use passes neither and the
-    fetcher discovers cookies from Chrome and uses the real network. Tests
-    inject fakes for both."""
+    source = "gemini"
+    cookie_domain = ".google.com"
+    service_name = "Gemini"
+    login_url = "https://gemini.google.com"
+    extra_headers: ClassVar[dict[str, str]] = {
+        "Origin": "https://gemini.google.com",
+        "Referer": "https://gemini.google.com/",
+        "X-Same-Domain": "1",
+    }
+    follow_redirects = True
+    timeout = 60.0
 
-    source: str = "gemini"
-
-    _client: httpx.Client
     _access_token: str
     _build_label: str
     _session_id: str
-    _wire_log: list[dict[str, Any]]
-
-    def __init__(
-        self,
-        *,
-        cookies: dict[str, str] | None = None,
-        transport: httpx.BaseTransport | None = None,
-        ua: str = DEFAULT_UA,
-    ):
-        self._injected_cookies = cookies
-        self._transport = transport
-        self._ua = ua
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        cookies = self._injected_cookies if self._injected_cookies is not None else read_chrome_cookies(".google.com")
+        cookies = self._read_cookies()
         if not cookies.get("__Secure-1PSID"):
             logger.error("No Gemini session cookie found. Log in at https://gemini.google.com in Chrome first.")
             return None
 
-        self._wire_log = []
-
-        with httpx.Client(
-            cookies=cookies,
-            headers=browser_headers(
-                self._ua,
-                Origin="https://gemini.google.com",
-                Referer="https://gemini.google.com/",
-                **{"X-Same-Domain": "1"},
-            ),
-            follow_redirects=True,
-            timeout=60.0,
-            transport=self._transport,
-        ) as self._client:
+        with self._session(cookies):
             self._read_session_tokens()
 
             # Walk list_chats pages to find fresh cids. Full parse of each chat
@@ -98,8 +69,7 @@ class GeminiFetcher:
     def _read_session_tokens(self) -> None:
         """Scrape SNlM0e (access token), cfb2h (build label), and FdrFJe
         (session id) from the /app page HTML."""
-        r = self._client.get(INIT_URL)
-        r.raise_for_status()
+        r = self._get(INIT_URL)
         self._access_token = _require_match(r.text, r'"SNlM0e":"([^"]+)"', "access token (SNlM0e)")
         self._build_label = _require_match(r.text, r'"cfb2h":"([^"]+)"', "build label (cfb2h)")
         self._session_id = _require_match(r.text, r'"FdrFJe":"(-?\d+)"', "session id (FdrFJe)")
@@ -145,13 +115,9 @@ class GeminiFetcher:
         envelope = json.dumps([[[rpcid, json.dumps(payload), None, "generic"]]])
         data = {"at": self._access_token, "f.req": envelope}
         headers = {"Content-Type": "application/x-www-form-urlencoded;charset=utf-8"}
-        r = request_with_retry(self._client, "POST", BATCH_URL, params=params, data=data, headers=headers)
-        raise_on_session_error(r, service_name="Gemini", login_url="https://gemini.google.com")
-        self._wire_log.append({"rpc": rpcid, "payload": payload, "response": r.text})
+        r = self._request("POST", BATCH_URL, params=params, data=data, headers=headers)
+        self._log(rpc=rpcid, payload=payload, response=r.text)
         return _extract_rpc_body(r.text, rpcid)
-
-    def _write_archive(self, destination: Path) -> Path:
-        return write_archive(destination / "gemini-wire.jsonl.gz", self.source, self._wire_log)
 
 
 def _require_match(text: str, pattern: str, name: str) -> str:
