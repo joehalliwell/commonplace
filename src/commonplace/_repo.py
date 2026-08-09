@@ -19,6 +19,8 @@ _INIT_GIT_IGNORE = """
 # Commonplace
 
 .commonplace/cache
+.obsidian
+.vscode
 """
 
 _INIT_GIT_ATTRIBUTES = """
