@@ -64,8 +64,9 @@ when importing conversations, and writes four config files:
 | `.gitattributes`           | tracks imported attachments with Git LFS                    |
 | `.claude/settings.json`    | registers the Claude Code plugins below                     |
 
-The last three are commonplace's to maintain; `commonplace doctor` will tell
-you if they drift.
+The last three are commonplace's to maintain, and their templates change as
+the tool evolves; `commonplace doctor` shows you where an existing repo has
+fallen behind.
 
 3. Configure an LLM for journal generation (optional):
 
@@ -249,5 +250,6 @@ commonplace doctor
 ```
 
 Restores any of the config files from [Setup](#setup) that have gone missing,
-and warns about the managed ones you have edited — with a diff, so you can see
-whether the change was deliberate. It never overwrites your edits.
+and diffs the managed ones against the templates `init` currently writes. Run
+it after upgrading commonplace to see what an older repo is missing. It only
+reports — applying the diff is up to you.

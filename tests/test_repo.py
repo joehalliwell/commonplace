@@ -290,8 +290,8 @@ def test_doctor_creates_missing_claude_settings(test_repo):
     assert "commonplace" in json.loads(settings.read_text())["extraKnownMarketplaces"]
 
 
-def test_doctor_warns_when_a_managed_file_is_modified(test_repo):
-    """commonplace owns .gitignore, so an edit is reported — and left alone."""
+def test_doctor_reports_a_managed_file_that_differs(test_repo):
+    """A repo behind the current template is told so — and left exactly as it was."""
     gitignore = test_repo.root / ".gitignore"
     gitignore.write_text("# Mine\nsecrets/\n")
 
@@ -303,8 +303,8 @@ def test_doctor_warns_when_a_managed_file_is_modified(test_repo):
     assert gitignore.read_text() == "# Mine\nsecrets/\n"
 
 
-def test_doctor_shows_what_changed_in_a_managed_file(test_repo):
-    """The warning carries a diff, so you can see whether the edit was deliberate."""
+def test_doctor_shows_the_diff_against_the_template(test_repo):
+    """The diff is the whole point: it says what the template has that the repo doesn't."""
     gitattributes = test_repo.root / ".gitattributes"
     gitattributes.write_text("*.md text\n")
 
@@ -315,8 +315,8 @@ def test_doctor_shows_what_changed_in_a_managed_file(test_repo):
     assert "+*.md text" in warning
 
 
-def test_doctor_warns_about_additions_to_managed_files(test_repo):
-    """Even an addition is drift from the template: nothing in these files is hand-tuned."""
+def test_doctor_reports_additions_too(test_repo):
+    """Any difference gets shown; deciding which side is right is the reader's job."""
     gitignore = test_repo.root / ".gitignore"
     gitignore.write_text(gitignore.read_text() + "secrets/\n")
 
