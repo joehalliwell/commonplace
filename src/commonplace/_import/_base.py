@@ -29,7 +29,7 @@ class BaseWireImporter:
         return []
 
     def can_import(self, path: Path) -> bool:
-        source, _ = read_header(path)
+        source = read_header(path).source
         if source is not None:
             return source == self.source
         return self._claims_legacy(path)

@@ -34,7 +34,7 @@ def _read_wire(path: Path) -> Iterable[dict[str, Any]]:
 
     From v2 `response` is the verbatim body text the server sent; v1 stored it
     already parsed."""
-    _, version = read_header(path)
+    version = read_header(path).version
     for entry in read_entries(path):
         if entry.get("endpoint") != "conversation":
             continue
