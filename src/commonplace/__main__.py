@@ -319,7 +319,7 @@ def doctor(
         logger.info(action)
     for warning in report.warnings:
         logger.warning(warning)
-    if not report:
+    if not report.actions and not report.warnings:
         logger.info("Everything looks good")
 
     logger.info("")

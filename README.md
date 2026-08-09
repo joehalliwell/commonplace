@@ -54,8 +54,18 @@ export COMMONPLACE_ROOT=/path/to/your/commonplace
 commonplace init
 ```
 
-This creates a git repository for change tracking and enables automatic commits
-when importing conversations.
+This creates a git repository for change tracking, enables automatic commits
+when importing conversations, and writes four config files:
+
+| File                       | Purpose                                                     |
+| -------------------------- | ----------------------------------------------------------- |
+| `.commonplace/config.toml` | your settings — commonplace seeds it, then leaves it to you |
+| `.gitignore`               | keeps the search index and editor cruft out of git          |
+| `.gitattributes`           | tracks imported attachments with Git LFS                    |
+| `.claude/settings.json`    | registers the Claude Code plugins below                     |
+
+The last three are commonplace's to maintain; `commonplace doctor` will tell
+you if they drift.
 
 3. Configure an LLM for journal generation (optional):
 
@@ -234,13 +244,10 @@ commonplace sync --no-auto-commit
 
 ### Check your repo
 
-`init` lays down some scaffolding — `.gitignore`, LFS tracking for blobs, and
-the Claude Code plugin config. `doctor` checks it is all still there:
-
 ```bash
 commonplace doctor
 ```
 
-Anything missing is restored and staged. Anything you have since edited is
-reported as a warning and left alone — those files are commonplace's to set up,
-but yours to change if you have a reason to.
+Restores any of the config files from [Setup](#setup) that have gone missing,
+and warns about the managed ones you have edited — with a diff, so you can see
+whether the change was deliberate. It never overwrites your edits.

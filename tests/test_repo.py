@@ -290,46 +290,59 @@ def test_doctor_creates_missing_claude_settings(test_repo):
     assert "commonplace" in json.loads(settings.read_text())["extraKnownMarketplaces"]
 
 
-def test_doctor_warns_when_gitignore_loses_a_managed_entry(test_repo):
-    """commonplace manages these entries; dropping one is worth flagging, not silently undoing."""
+def test_doctor_warns_when_a_managed_file_is_modified(test_repo):
+    """commonplace owns .gitignore, so an edit is reported — and left alone."""
     gitignore = test_repo.root / ".gitignore"
     gitignore.write_text("# Mine\nsecrets/\n")
 
     report = test_repo.doctor()
 
     assert report.actions == []
-    assert any(".gitignore" in warning and ".commonplace/cache" in warning for warning in report.warnings)
+    assert len(report.warnings) == 1
+    assert ".gitignore" in report.warnings[0]
     assert gitignore.read_text() == "# Mine\nsecrets/\n"
 
 
-def test_doctor_warns_when_lfs_filter_is_gone(test_repo):
-    """Blobs need the LFS filter, so its absence from .gitattributes is a warning."""
+def test_doctor_shows_what_changed_in_a_managed_file(test_repo):
+    """The warning carries a diff, so you can see whether the edit was deliberate."""
     gitattributes = test_repo.root / ".gitattributes"
     gitattributes.write_text("*.md text\n")
 
     report = test_repo.doctor()
 
-    assert any(".gitattributes" in warning and "filter=lfs" in warning for warning in report.warnings)
+    warning = next(w for w in report.warnings if ".gitattributes" in w)
+    assert "-.commonplace/blobs/** filter=lfs diff=lfs merge=lfs -text" in warning
+    assert "+*.md text" in warning
 
 
-def test_doctor_accepts_additions_to_managed_files(test_repo):
-    """Adding your own ignores is normal — doctor only cares that its own entries survive."""
+def test_doctor_warns_about_additions_to_managed_files(test_repo):
+    """Even an addition is drift from the template: nothing in these files is hand-tuned."""
     gitignore = test_repo.root / ".gitignore"
     gitignore.write_text(gitignore.read_text() + "secrets/\n")
 
     report = test_repo.doctor()
 
-    assert report.warnings == []
+    assert any("+secrets/" in warning for warning in report.warnings)
 
 
 def test_doctor_warns_when_marketplace_config_is_removed(test_repo):
-    """settings.json may grow other keys, but the commonplace plugin config must survive."""
+    """The plugin marketplace config is commonplace's; losing it should not be silent."""
     settings = test_repo.root / ".claude" / "settings.json"
     settings.write_text(json.dumps({"permissions": {"allow": []}}))
 
     report = test_repo.doctor()
 
     assert any("settings.json" in warning for warning in report.warnings)
+
+
+def test_doctor_ignores_edits_to_unmanaged_config(test_repo):
+    """.commonplace/config.toml is yours to set — doctor only checks it exists."""
+    config = test_repo.root / ".commonplace" / "config.toml"
+    config.write_text('user = "Joe"\nwrap = 100\n')
+
+    report = test_repo.doctor()
+
+    assert report.warnings == []
 
 
 def test_doctor_is_idempotent(test_repo):
