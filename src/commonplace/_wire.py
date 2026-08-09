@@ -10,7 +10,7 @@ Gzipped JSONL. First line is a header naming the provider, the format version,
 and when the capture was written; every line after it records one exchange,
 whose `response` is the verbatim body text:
 
-    {"wire": "claude", "version": 3, "fetched_at": "2026-08-09T11:02:57.401Z"}
+    {"wire": "claude", "version": 3, "fetched_at": "...", "commonplace_version": "0.0.5.post46+g6b1d577"}
     {"endpoint": "conversations", "response": "[...]"}
     {"endpoint": "conversation", "cid": "...", "response": "{...}"}
 
@@ -25,14 +25,27 @@ from note frontmatter, so readers still accept them. Beyond the header, entry
 shape is the provider's business: a version means the same thing to every
 fetcher, but what changed at each version does not.
 
-Version 3 adds `fetched_at`. Capture time was previously recoverable only from
-the commit that landed the archive, which dates the landing rather than the
-capture and is lost outright once the blob is detached from its history — and
-these archives are built to be detached, stored content-addressed under
+Version 3 adds `fetched_at` and `commonplace_version`: when the capture was
+made, and by what. Both were previously recoverable only from the commit that
+landed the archive, which dates the landing rather than the capture and is
+lost outright once the blob is detached from its history — and these archives
+are built to be detached, stored content-addressed under
 `.commonplace/blobs/` and referenced from frontmatter. Provenance that makes
-you leave the artefact to date it does not bottom out there (§3.5). Reading it
-is best-effort: v1 and v2 archives predate the field, so `fetched_at` is
-`None` for them.
+you leave the artefact to date it does not bottom out there (§3.5).
+
+`commonplace_version` is not `version`. That one versions the container and
+tells a reader how to parse the file; this one names the apparatus that did
+the capturing, and the two drift independently. A fetcher bug — a dropped
+page, a block the endpoint stopped returning — changes what got captured
+while the format stays put, so `version` cannot answer "which archives came
+from the build that was wrong?". The value is versioningit's, so a source
+install carries the commit it was built from and a dirty marker
+(`0.0.5.post46+g6b1d577.d20260809`) rather than a bare release number — which
+is what makes the field worth having, since fetchers are usually run from a
+working tree. `0.0.0+dev` means the package metadata was missing entirely.
+
+Reading both is best-effort: v1 and v2 archives predate them, so they are
+`None` for those.
 """
 
 import gzip
@@ -42,6 +55,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from commonplace import __version__
 from commonplace._utils import sniff_gzipped_jsonl
 
 WIRE_VERSION = 3
@@ -60,11 +74,19 @@ class WireHeader(NamedTuple):
     #: *end* of the capture, not an instant: a paced fetch of many
     #: conversations can span an hour before the archive is written.
     fetched_at: datetime | None = None
+    #: The commonplace build that captured it, or `None` before v3. From a
+    #: source tree this pins the commit; see the module docstring.
+    commonplace_version: str | None = None
 
 
 def write_archive(path: Path, source: str, entries: Iterable[dict[str, Any]]) -> Path:
     """Write `entries` to `path` as a gzipped JSONL archive with a header."""
-    header = {"wire": source, "version": WIRE_VERSION, "fetched_at": datetime.now(UTC).isoformat()}
+    header = {
+        "wire": source,
+        "version": WIRE_VERSION,
+        "fetched_at": datetime.now(UTC).isoformat(),
+        "commonplace_version": __version__,
+    }
     with gzip.open(path, "wt", encoding="utf-8") as f:
         f.write(json.dumps(header) + "\n")
         for entry in entries:
@@ -83,7 +105,12 @@ def read_header(path: Path) -> WireHeader:
     if entry is None or "wire" not in entry:
         return WireHeader(None, LEGACY_VERSION)
     fetched_at = entry.get("fetched_at")
-    return WireHeader(entry["wire"], entry["version"], datetime.fromisoformat(fetched_at) if fetched_at else None)
+    return WireHeader(
+        entry["wire"],
+        entry["version"],
+        datetime.fromisoformat(fetched_at) if fetched_at else None,
+        entry.get("commonplace_version"),
+    )
 
 
 def read_entries(path: Path) -> Iterator[dict[str, Any]]:

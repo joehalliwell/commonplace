@@ -5,6 +5,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from commonplace import __version__
 from commonplace._fetch._commands import default_fetchers
 from commonplace._import._chatgpt import ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
@@ -60,13 +61,22 @@ def test_write_archive_records_when_it_was_written(tmp_path):
     assert before <= fetched_at <= after
 
 
-def test_read_header_returns_source_version_and_capture_time(tmp_path):
+def test_write_archive_records_the_capturing_version(tmp_path):
+    """`version` is the container's; this is the apparatus's. A fetcher bug
+    changes what got captured without changing the format, so the format
+    version cannot answer "which archives came from the broken build?"."""
+    archive = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", ENTRIES)
+    assert _header_line(archive)["commonplace_version"] == __version__
+
+
+def test_read_header_returns_source_version_and_provenance(tmp_path):
     archive = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", ENTRIES)
     header = read_header(archive)
     assert header.source == "claude"
     assert header.version == WIRE_VERSION
     assert header.fetched_at is not None
     assert header.fetched_at.utcoffset() == timedelta(0)
+    assert header.commonplace_version == __version__
 
 
 def test_read_header_treats_missing_header_as_legacy(tmp_path):
@@ -83,13 +93,14 @@ def test_read_header_tolerates_an_archive_written_before_v3(tmp_path):
     header = read_header(archive)
     assert (header.source, header.version) == ("claude", 2)
     assert header.fetched_at is None
+    assert header.commonplace_version is None
 
 
 def test_read_header_on_unrelated_file(tmp_path):
     path = tmp_path / "other.jsonl.gz"
     with gzip.open(path, "wt", encoding="utf-8") as f:
         f.write(json.dumps({"not": "ours"}) + "\n")
-    assert read_header(path) == (None, LEGACY_VERSION, None)
+    assert read_header(path) == (None, LEGACY_VERSION, None, None)
 
 
 def test_read_entries_skips_the_header(tmp_path):
