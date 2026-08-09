@@ -314,11 +314,12 @@ def doctor(
     repo: Repo,
 ) -> None:
     """Check and fix repository scaffolding (settings, LFS config, etc.)."""
-    actions = repo.doctor()
-    if actions:
-        for action in actions:
-            logger.info(action)
-    else:
+    report = repo.doctor()
+    for action in report.actions:
+        logger.info(action)
+    for warning in report.warnings:
+        logger.warning(warning)
+    if not report:
         logger.info("Everything looks good")
 
     logger.info("")

@@ -1,5 +1,6 @@
 """Tests for repository commit functionality."""
 
+import json
 from datetime import UTC
 from pathlib import Path
 
@@ -241,6 +242,116 @@ def test_commit_no_changes_skips_indexing(test_repo, monkeypatch):
 
     # Verify index was NOT called (no changes means no commit means no index)
     assert len(index_called) == 0
+
+
+def test_doctor_restores_every_file_init_creates(test_repo):
+    """Whatever init() lays down, doctor() puts back — no drift between the two."""
+    scaffolding = sorted(entry.path for entry in test_repo.git.index)
+    assert scaffolding, "init() should have staged some scaffolding"
+
+    for path in scaffolding:
+        (test_repo.root / path).unlink()
+
+    test_repo.doctor()
+
+    assert [p for p in scaffolding if not (test_repo.root / p).exists()] == []
+
+
+def test_doctor_creates_missing_gitignore(test_repo):
+    """doctor() restores a deleted .gitignore, cache entry and all."""
+    gitignore = test_repo.root / ".gitignore"
+    gitignore.unlink()
+
+    report = test_repo.doctor()
+
+    assert any(".gitignore" in action for action in report.actions)
+    assert ".commonplace/cache" in gitignore.read_text()
+
+
+def test_doctor_creates_missing_config(test_repo):
+    """doctor() restores a deleted .commonplace/config.toml."""
+    config = test_repo.root / ".commonplace" / "config.toml"
+    config.unlink()
+
+    report = test_repo.doctor()
+
+    assert any("config.toml" in action for action in report.actions)
+    assert config.exists()
+
+
+def test_doctor_creates_missing_claude_settings(test_repo):
+    """doctor() restores a deleted .claude/settings.json with the marketplace config."""
+    settings = test_repo.root / ".claude" / "settings.json"
+    settings.unlink()
+
+    report = test_repo.doctor()
+
+    assert any("settings.json" in action for action in report.actions)
+    assert "commonplace" in json.loads(settings.read_text())["extraKnownMarketplaces"]
+
+
+def test_doctor_warns_when_gitignore_loses_a_managed_entry(test_repo):
+    """commonplace manages these entries; dropping one is worth flagging, not silently undoing."""
+    gitignore = test_repo.root / ".gitignore"
+    gitignore.write_text("# Mine\nsecrets/\n")
+
+    report = test_repo.doctor()
+
+    assert report.actions == []
+    assert any(".gitignore" in warning and ".commonplace/cache" in warning for warning in report.warnings)
+    assert gitignore.read_text() == "# Mine\nsecrets/\n"
+
+
+def test_doctor_warns_when_lfs_filter_is_gone(test_repo):
+    """Blobs need the LFS filter, so its absence from .gitattributes is a warning."""
+    gitattributes = test_repo.root / ".gitattributes"
+    gitattributes.write_text("*.md text\n")
+
+    report = test_repo.doctor()
+
+    assert any(".gitattributes" in warning and "filter=lfs" in warning for warning in report.warnings)
+
+
+def test_doctor_accepts_additions_to_managed_files(test_repo):
+    """Adding your own ignores is normal — doctor only cares that its own entries survive."""
+    gitignore = test_repo.root / ".gitignore"
+    gitignore.write_text(gitignore.read_text() + "secrets/\n")
+
+    report = test_repo.doctor()
+
+    assert report.warnings == []
+
+
+def test_doctor_warns_when_marketplace_config_is_removed(test_repo):
+    """settings.json may grow other keys, but the commonplace plugin config must survive."""
+    settings = test_repo.root / ".claude" / "settings.json"
+    settings.write_text(json.dumps({"permissions": {"allow": []}}))
+
+    report = test_repo.doctor()
+
+    assert any("settings.json" in warning for warning in report.warnings)
+
+
+def test_doctor_is_idempotent(test_repo):
+    """doctor() reports nothing when everything is already in place."""
+    test_repo.doctor()
+
+    report = test_repo.doctor()
+
+    assert report.actions == []
+    assert report.warnings == []
+
+
+def test_doctor_stages_what_it_creates(test_repo):
+    """A recreated file lands in the on-disk index, so the next commit picks it up."""
+    gitignore = test_repo.root / ".gitignore"
+    gitignore.unlink()
+
+    test_repo.doctor()
+    test_repo.git.index.read()
+
+    staged = test_repo.git[test_repo.git.index[".gitignore"].id].data.decode()
+    assert staged == gitignore.read_text()
 
 
 def test_last_commit_time_returns_none_on_missing_pathspec(test_repo):
