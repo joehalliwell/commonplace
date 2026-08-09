@@ -13,3 +13,5 @@ wheels/
 attic/
 output/
 samples/
+
+.claude/worktrees
