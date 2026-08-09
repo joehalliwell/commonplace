@@ -59,7 +59,7 @@ Code standards: Python 3.12+, ruff at 120 chars, mypy, type hints throughout. Up
 
 Pre-commit hooks run ruff and mdformat. If mdformat reformats a file, re-stage and retry the commit.
 
-Commits: imperative mood, concise. Keep the `Co-Authored-By` and `Claude-Session` trailers — they record provenance, not credit. Commit each logical change separately in multi-step plans.
+Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it records provenance, not credit. Commit each logical change separately in multi-step plans.
 
 ## Plugins
 
