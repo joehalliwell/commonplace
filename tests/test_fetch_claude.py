@@ -328,6 +328,45 @@ def test_wire_importer_reads_legacy_parsed_responses(tmp_path):
     assert [e.content for e in logs[0].events] == ["hello", "hi back"]
 
 
+def _thread_with_message(message: dict) -> dict:
+    return {**_THREAD, "chat_messages": [message]}
+
+
+def test_wire_importer_flags_a_message_with_no_text_at_all(tmp_path, caplog):
+    """The silent-corruption path. If Anthropic renames `text`, a message with
+    neither `content` nor `text` used to import as an empty string — no error,
+    straight into git. Say so in the log and in the note instead."""
+    import logging
+
+    message = {"sender": "human", "created_at": "2026-07-15T00:00:00Z", "prose": "renamed!"}
+    path = write_archive(
+        tmp_path / "claude-wire.jsonl.gz", "claude", _entries(json.dumps(_thread_with_message(message)))
+    )
+
+    with caplog.at_level(logging.WARNING, logger="commonplace"):
+        logs = ClaudeImporter().import_(path)
+
+    assert "no recoverable text" in logs[0].events[0].content
+    assert any("no content or text" in r.message for r in caplog.records)
+
+
+def test_wire_importer_keeps_a_deliberately_empty_message_empty(tmp_path, caplog):
+    """`text: ""` is a message that really is empty — attachments only, say.
+    Flagging it would cry wolf on every one of them."""
+    import logging
+
+    message = {"sender": "human", "created_at": "2026-07-15T00:00:00Z", "text": ""}
+    path = write_archive(
+        tmp_path / "claude-wire.jsonl.gz", "claude", _entries(json.dumps(_thread_with_message(message)))
+    )
+
+    with caplog.at_level(logging.WARNING, logger="commonplace"):
+        logs = ClaudeImporter().import_(path)
+
+    assert logs[0].events[0].content == ""
+    assert not [r for r in caplog.records if "no content or text" in r.message]
+
+
 def test_export_importer_requires_users_json(tmp_path):
     """A ZIP with only conversations.json (like ChatGPT's export) is rejected."""
     from zipfile import ZipFile
