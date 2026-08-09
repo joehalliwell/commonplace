@@ -13,6 +13,11 @@ from rich.text import Text
 
 from commonplace._types import RepoPath
 
+# Shade ramp for the intensity levels, so the gradient survives where styling doesn't — piped output, a
+# dumb terminal, NO_COLOR. Three shades cover the default num_levels exactly; ask for more levels and
+# glyphs saturate at the top while colour keeps separating them.
+INTENSITY_RAMP = "▒▓█"
+
 
 def extract_date_from_path(path: Path) -> date | None:
     """
@@ -100,7 +105,8 @@ class ActivityHeatmap:
             threshold = 1 + int((max_val - 1) * i / (num_levels))
             x = i / (num_levels - 1) if num_levels > 1 else 1
             color = f"rgb({int(50 + (0.5 - x) * 50)},{int(50 + x * 150)},{50})"  # Gradient from dark to bright green
-            self.levels.append((threshold, Style(color=color), "█"))  # Placeholder
+            glyph = INTENSITY_RAMP[round(x * (len(INTENSITY_RAMP) - 1))]
+            self.levels.append((threshold, Style(color=color), glyph))
 
         # Max activity
         self.levels.append((max_val, Style(color="red", bold=True), "*"))

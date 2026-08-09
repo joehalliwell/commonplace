@@ -91,15 +91,10 @@ def test_activity_heatmap_style_selection():
     activity = Counter({date(2024, 1, 1): 5})
     heatmap = ActivityHeatmap(activity, end_date=date(2024, 1, 31), weeks=4)
 
-    # Test different activity counts
-    _style_0, char_0 = heatmap._get_style_and_char(0)
-    assert char_0 == "░"  # No activity
+    # Counts climb the ramp: no activity, the three intensity levels, then the max marker
+    expected = {0: "░", 1: "▒", 2: "▓", 3: "█", 5: "*"}
 
-    _style_1, char_1 = heatmap._get_style_and_char(1)
-    assert char_1 == "█"  # Activity
-
-    _style_max, char_max = heatmap._get_style_and_char(5)
-    assert char_max == "*"  # Max activity gets special char
+    assert {count: heatmap._get_style_and_char(count)[1] for count in expected} == expected
 
 
 def test_activity_heatmap_thresholds_start_at_one():
@@ -140,6 +135,16 @@ def test_activity_heatmap_max_gets_special_marker():
     # Last level should be max with red color
     assert heatmap.levels[-1][0] == 10
     assert heatmap.levels[-1][2] == "*"
+
+
+def test_activity_heatmap_levels_have_distinct_glyphs():
+    """Intensity has to survive without colour, since piped and headless output carries no styling."""
+    activity = Counter({date(2024, 1, 1): 1, date(2024, 1, 2): 5, date(2024, 1, 3): 9})
+    heatmap = ActivityHeatmap(activity, end_date=date(2024, 1, 31), weeks=4)
+
+    glyphs = [char for _threshold, _style, char in heatmap.levels]
+
+    assert len(set(glyphs)) == len(glyphs), f"levels share a glyph: {glyphs}"
 
 
 def test_activity_heatmap_renders_per_terminal(sample_activity, any_terminal, snapshot):
