@@ -213,7 +213,8 @@ def test_fetch_writes_a_chatgpt_wire_archive(tmp_path):
     archive = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
     assert archive.name == "chatgpt-wire.jsonl.gz"
-    assert read_header(archive) == ("chatgpt", WIRE_VERSION)
+    header = read_header(archive)
+    assert (header.source, header.version) == ("chatgpt", WIRE_VERSION)
 
     entries = list(read_entries(archive))
     assert [e["endpoint"] for e in entries] == ["conversations", "conversation", "conversation"]

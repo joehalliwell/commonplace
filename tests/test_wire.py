@@ -2,6 +2,7 @@
 
 import gzip
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from commonplace._fetch._commands import default_fetchers
@@ -26,28 +27,69 @@ def _write_legacy(path: Path, entries: list[dict]) -> Path:
     return path
 
 
+def _write_with_header(path: Path, header: dict, entries: list[dict]) -> Path:
+    """An archive with a header we control — for spelling out older versions."""
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        f.write(json.dumps(header) + "\n")
+        for entry in entries:
+            f.write(json.dumps(entry) + "\n")
+    return path
+
+
+def _header_line(archive: Path) -> dict:
+    with gzip.open(archive, "rt", encoding="utf-8") as f:
+        return json.loads(f.readline())
+
+
 def test_write_archive_leads_with_a_header(tmp_path):
     archive = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", ENTRIES)
-    with gzip.open(archive, "rt", encoding="utf-8") as f:
-        first = json.loads(f.readline())
-    assert first == {"wire": "claude", "version": WIRE_VERSION}
+    header = _header_line(archive)
+    assert header["wire"] == "claude"
+    assert header["version"] == WIRE_VERSION
 
 
-def test_read_header_returns_source_and_version(tmp_path):
+def test_write_archive_records_when_it_was_written(tmp_path):
+    """v3's guarantee: the capture dates itself, so a blob handed to someone
+    without its commit is still datable (MANIFESTO §3.5)."""
+    before = datetime.now(UTC)
     archive = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", ENTRIES)
-    assert read_header(archive) == ("claude", WIRE_VERSION)
+    after = datetime.now(UTC)
+
+    fetched_at = datetime.fromisoformat(_header_line(archive)["fetched_at"])
+    assert fetched_at.utcoffset() == timedelta(0), "must be UTC, not naive or local"
+    assert before <= fetched_at <= after
+
+
+def test_read_header_returns_source_version_and_capture_time(tmp_path):
+    archive = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", ENTRIES)
+    header = read_header(archive)
+    assert header.source == "claude"
+    assert header.version == WIRE_VERSION
+    assert header.fetched_at is not None
+    assert header.fetched_at.utcoffset() == timedelta(0)
 
 
 def test_read_header_treats_missing_header_as_legacy(tmp_path):
     archive = _write_legacy(tmp_path / "claude-wire.jsonl.gz", ENTRIES)
-    assert read_header(archive) == (None, LEGACY_VERSION)
+    header = read_header(archive)
+    assert (header.source, header.version) == (None, LEGACY_VERSION)
+    assert header.fetched_at is None
+
+
+def test_read_header_tolerates_an_archive_written_before_v3(tmp_path):
+    """v1 and v2 archives are committed in users' repos and referenced from
+    note frontmatter, so an absent `fetched_at` is not an error."""
+    archive = _write_with_header(tmp_path / "claude-wire.jsonl.gz", {"wire": "claude", "version": 2}, ENTRIES)
+    header = read_header(archive)
+    assert (header.source, header.version) == ("claude", 2)
+    assert header.fetched_at is None
 
 
 def test_read_header_on_unrelated_file(tmp_path):
     path = tmp_path / "other.jsonl.gz"
     with gzip.open(path, "wt", encoding="utf-8") as f:
         f.write(json.dumps({"not": "ours"}) + "\n")
-    assert read_header(path) == (None, LEGACY_VERSION)
+    assert read_header(path) == (None, LEGACY_VERSION, None)
 
 
 def test_read_entries_skips_the_header(tmp_path):
