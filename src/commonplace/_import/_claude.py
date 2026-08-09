@@ -16,6 +16,10 @@ from commonplace._logging import logger
 from commonplace._utils import sniff_gzipped_jsonl, truncate
 from commonplace._wire import LEGACY_VERSION, read_entries, read_header
 
+#: Stands in for a message whose text we could not find, mirroring the marker
+#: used for content blocks we can't render.
+NO_TEXT_NOTE = "> [!NOTE]\n> Message had no recoverable text"
+
 
 class ClaudeImporter(BaseWireImporter):
     source: str = "claude"
@@ -62,7 +66,15 @@ def _to_message(message: dict[str, Any]) -> Message:
     # code paths iterate the same structure below.
     contents = message.get("content")
     if not contents:
-        contents = [{"type": "text", "text": message.get("text", "")}]
+        if "text" not in message:
+            # Neither field. Most likely the provider's shape moved under us:
+            # defaulting to "" would import a silently empty message into git,
+            # which is worse than a visibly broken one. The archive still holds
+            # what was sent, so a fixed importer can re-read it.
+            logger.warning(f"Message has no content or text field: {truncate(str(message))}")
+            return Message(sender=sender, content=NO_TEXT_NOTE, created=created)
+        # An explicit empty string is a message that really is empty.
+        contents = [{"type": "text", "text": message["text"]}]
 
     lines: list[str] = []
     for content in contents:
