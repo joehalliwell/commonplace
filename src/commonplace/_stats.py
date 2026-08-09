@@ -13,6 +13,7 @@ def generate_stats(
     repo: Commonplace,
     sources: list[str] | None = None,
     all_time: bool = False,
+    console: Console | None = None,
 ) -> tuple[str, str]:
     """
     Generate activity heatmap and stats table for a repository.
@@ -21,14 +22,16 @@ def generate_stats(
         repo: The commonplace repository
         sources: Optional list of sources to filter by
         all_time: If True, show full history; otherwise show last 52 weeks
+        console: Console to render with; defaults to one detecting the ambient terminal
 
     Returns:
         Tuple of (heatmap_output, table_output) as strings
     """
 
-    console = Console()
+    if console is None:
+        console = Console()
 
-    console.print(f"[bold]Statistics for {repo.root}[/bold]")
+    console.print(f"[bold]Statistics for {repo.root}[/bold]", highlight=False)
     console.print()
 
     # Helper function for source prefix matching (e.g., "chats" matches "chats/claude")
@@ -57,11 +60,11 @@ def generate_stats(
         with console.capture() as capture:
             if all_time:
                 title = f"Activity (all time){source_suffix}"
-                console.print(f"[bold]{title}[/bold]")
+                console.print(f"[bold]{title}[/bold]", highlight=False)
                 render_all_time_heatmap(activity, console)
             else:
                 title = f"Activity (last 52 weeks){source_suffix}"
-                console.print(f"[bold]{title}[/bold]")
+                console.print(f"[bold]{title}[/bold]", highlight=False)
                 heatmap = ActivityHeatmap(activity, weeks=52)
                 console.print(heatmap)
             console.print()

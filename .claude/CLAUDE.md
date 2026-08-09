@@ -14,7 +14,7 @@ Commonplace is a personal knowledge management tool that imports AI conversation
 # Testing
 just test                              # Run tests with coverage
 uv run pytest tests/test_import.py -v  # Run single test file
-just update-snapshots                  # Update import snapshots (test_import.py only)
+just update-snapshots                  # Update test snapshots (test_import.py, test_stats.py)
 
 # Code quality
 just format           # ruff check + format
@@ -59,7 +59,7 @@ Code standards: Python 3.12+, ruff at 120 chars, mypy, type hints throughout. Up
 
 Pre-commit hooks run ruff and mdformat. If mdformat reformats a file, re-stage and retry the commit.
 
-Commits: imperative mood, concise. Keep the `Co-Authored-By` and `Claude-Session` trailers — they record provenance, not credit. Commit each logical change separately in multi-step plans.
+Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it records provenance, not credit. Commit each logical change separately in multi-step plans.
 
 ## Plugins
 

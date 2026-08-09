@@ -22,4 +22,4 @@ publish:
 
 # Update test snapshots
 update-snapshots:
-    uv run pytest tests/test_import.py --snapshot-update --allow-snapshot-deletion
+    uv run pytest tests/ --snapshot-update --allow-snapshot-deletion
