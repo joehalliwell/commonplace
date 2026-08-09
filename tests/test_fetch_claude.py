@@ -120,6 +120,30 @@ def test_fetch_stores_response_bodies_verbatim(tmp_path):
     assert wire[1]["response"] == raw_detail
 
 
+def test_fetch_records_the_request_id(tmp_path):
+    """claude.ai returns a `request-id` on every response. It is the only
+    handle by which a capture could be correlated against Anthropic's own
+    records, and it is gone the moment the response is dropped."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        response = _handler(request)
+        response.headers["request-id"] = f"req_{request.url.path.rsplit('/', 1)[-1]}"
+        return response
+
+    archive = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
+    assert archive is not None
+    wire = _read_wire(archive)
+    assert [e["request_id"] for e in wire] == ["req_chat_conversations", "req_c-old", "req_c-new"]
+
+
+def test_fetch_omits_request_id_when_the_response_has_none(tmp_path):
+    """An absent key already says the header wasn't there; writing `null`
+    would add nothing and is a reading the fetcher has no business making."""
+    archive = _make_fetcher().fetch(tmp_path, since=None)
+    assert archive is not None
+    assert all("request_id" not in entry for entry in _read_wire(archive))
+
+
 def test_fetch_end_to_end(tmp_path):
     archive = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
