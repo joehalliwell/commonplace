@@ -61,12 +61,24 @@ def test_write_archive_records_when_it_was_written(tmp_path):
     assert before <= fetched_at <= after
 
 
-def test_write_archive_records_the_capturing_version(tmp_path):
+def test_write_archive_records_what_captured_it(tmp_path):
     """`version` is the container's; this is the apparatus's. A fetcher bug
     changes what got captured without changing the format, so the format
     version cannot answer "which archives came from the broken build?"."""
     archive = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", ENTRIES)
-    assert _header_line(archive)["commonplace_version"] == __version__
+    assert _header_line(archive)["fetched_by"] == f"commonplace/{__version__}"
+
+
+def test_fetched_by_names_the_implementation_not_just_its_version(tmp_path):
+    """A reimplementation — a Rust port, say — writes its own token here, so a
+    reader holding archives from both can tell which produced what. A bare
+    version number could not distinguish them."""
+    archive = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", ENTRIES)
+    fetched_by = read_header(archive).fetched_by
+    assert fetched_by is not None
+    tool, _, version = fetched_by.partition("/")
+    assert tool == "commonplace"
+    assert version == __version__
 
 
 def test_read_header_returns_source_version_and_provenance(tmp_path):
@@ -76,7 +88,7 @@ def test_read_header_returns_source_version_and_provenance(tmp_path):
     assert header.version == WIRE_VERSION
     assert header.fetched_at is not None
     assert header.fetched_at.utcoffset() == timedelta(0)
-    assert header.commonplace_version == __version__
+    assert header.fetched_by == f"commonplace/{__version__}"
 
 
 def test_read_header_treats_missing_header_as_legacy(tmp_path):
@@ -93,7 +105,7 @@ def test_read_header_tolerates_an_archive_written_before_v3(tmp_path):
     header = read_header(archive)
     assert (header.source, header.version) == ("claude", 2)
     assert header.fetched_at is None
-    assert header.commonplace_version is None
+    assert header.fetched_by is None
 
 
 def test_read_header_on_unrelated_file(tmp_path):
