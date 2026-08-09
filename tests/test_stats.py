@@ -100,16 +100,17 @@ def test_generate_stats_all_time(test_repo, any_terminal):
     assert table_output
 
 
-def test_generate_stats_renders_per_terminal(test_repo, any_terminal, snapshot):
+def test_generate_stats_renders_per_terminal(test_repo, sample_activity, any_terminal, snapshot):
     """
     Pin the exact rendering in each terminal mode.
 
-    The all-time view is anchored to the note dates rather than to today, so it is the one view whose
-    rendering is stable enough to snapshot.
+    The all-time view is anchored to the note dates rather than to today, so it is the view whose
+    rendering is stable enough to snapshot; `test_heatmap` pins the windowed one.
     """
-    test_repo.save(Note(RepoPath(Path("journal/2023/01/2023-01-15.md"), ""), "# Old journal\n\nContent"))
-    test_repo.save(Note(RepoPath(Path("journal/2024/01/2024-01-15.md"), ""), "# New journal\n\nContent"))
-    test_repo.save(Note(RepoPath(Path("journal/2024/01/2024-01-16.md"), ""), "# Another journal\n\nContent"))
+    for day, count in sorted(sample_activity.items()):
+        for n in range(count):
+            path = Path(f"journal/{day.year}/{day.month:02}/{day}-{n}.md")
+            test_repo.save(Note(RepoPath(path, ""), f"# Journal {day} #{n}\n\nContent"))
     test_repo.save(Note(RepoPath(Path("notes/general.md"), ""), "# General note\n\nContent"))
 
     heatmap_output, table_output = generate_stats(test_repo, sources=None, all_time=True, console=any_terminal)

@@ -142,6 +142,21 @@ def test_activity_heatmap_max_gets_special_marker():
     assert heatmap.levels[-1][2] == "*"
 
 
+def test_activity_heatmap_renders_per_terminal(sample_activity, any_terminal, snapshot):
+    """
+    Pin the 52-week rendering in each terminal mode.
+
+    The window is a view concern — `end_date` pins it here — so this needs no cooperation from the caller
+    to be reproducible.
+    """
+    heatmap = ActivityHeatmap(sample_activity, end_date=date(2024, 1, 20), weeks=52)
+
+    with any_terminal.capture() as capture:
+        any_terminal.print(heatmap)
+
+    snapshot.assert_match(capture.get(), snapshot_name="heatmap.txt")
+
+
 def test_activity_heatmap_custom_num_levels():
     """Test that custom number of levels works correctly."""
     activity = Counter(

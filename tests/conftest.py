@@ -1,6 +1,8 @@
 import os
 import tempfile
+from collections import Counter
 from contextlib import closing
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -70,6 +72,26 @@ def test_app(test_repo):
         return app.meta([f"--root={test_repo.root}", *args], result_action="return_int_as_exit_code_else_zero")
 
     return _run_app
+
+
+@pytest.fixture
+def sample_activity() -> Counter[date]:
+    """
+    A spread of activity that exercises every heatmap intensity level.
+
+    Counts have to vary: thresholds are derived from the maximum, so uniform activity collapses the whole
+    grid onto the top level and pins a degenerate rendering. Dates sit inside the 52 weeks before
+    2024-01-20 so they show up in both the windowed and the all-time view.
+    """
+    return Counter(
+        {
+            date(2023, 8, 14): 1,
+            date(2023, 11, 2): 3,
+            date(2024, 1, 3): 5,
+            date(2024, 1, 15): 9,
+            date(2024, 1, 16): 2,
+        }
+    )
 
 
 @pytest.fixture(params=[True, False], ids=["smart-terminal", "dumb-terminal"])
