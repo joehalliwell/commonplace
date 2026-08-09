@@ -131,6 +131,43 @@ def test_write_archive_preserves_non_ascii(tmp_path):
     assert list(read_entries(archive)) == entries
 
 
+# ---------------------------------------------------------------------------
+# Every version we have ever written, against the committed examples in
+# tests/resources/wire/. `any_wire_version` is parametrised over the full
+# range, so a bump without a matching example fails rather than going untested.
+# ---------------------------------------------------------------------------
+
+
+def test_every_wire_version_declares_its_own_version(any_wire_version):
+    header = read_header(any_wire_version.path)
+    assert header.version == any_wire_version.version
+    # v1 predates the header, so its provider is not declared at all.
+    assert header.source == (None if any_wire_version.version == LEGACY_VERSION else "claude")
+
+
+def test_every_wire_version_is_claimed_by_the_claude_importer(any_wire_version):
+    assert ClaudeImporter().can_import(any_wire_version.path)
+
+
+def test_every_wire_version_imports_to_the_same_conversation(any_wire_version):
+    """The back-compat guarantee itself. Old archives are committed in users'
+    repos and referenced from note frontmatter, so a format change that
+    quietly stopped reading one would corrupt history already written."""
+    logs = ClaudeImporter().import_(any_wire_version.path)
+    assert len(logs) == 1
+    assert logs[0].metadata["uuid"] == "c-example"
+    assert [e.content for e in logs[0].events] == ["hello", "hi back"]
+
+
+def test_provenance_is_absent_before_v3_and_present_from_v3(any_wire_version):
+    header = read_header(any_wire_version.path)
+    if any_wire_version.version < 3:
+        assert (header.fetched_at, header.fetched_by) == (None, None)
+    else:
+        assert header.fetched_at == datetime(2026, 8, 9, 12, tzinfo=UTC)
+        assert header.fetched_by == "commonplace/0.0.5"
+
+
 def test_importers_do_not_claim_each_others_archives(tmp_path):
     """The header makes provider identity declared rather than inferred from
     entry keys, which several providers would otherwise share."""

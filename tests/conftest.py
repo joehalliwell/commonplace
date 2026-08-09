@@ -4,6 +4,7 @@ from collections import Counter
 from contextlib import closing
 from datetime import date
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 from rich.console import Console
@@ -11,6 +12,7 @@ from rich.console import Console
 from commonplace._repo import Commonplace
 from commonplace._search._types import Chunk
 from commonplace._types import Note, RepoPath
+from commonplace._wire import LEGACY_VERSION, WIRE_VERSION
 
 # Dummy ref for tests that don't care about git history
 TEST_REF = "0" * 40
@@ -119,3 +121,29 @@ def any_terminal(request) -> Console:
 def no_retry_sleep(monkeypatch):
     """Skip the exponential backoff sleep in fetcher retry tests."""
     monkeypatch.setattr("commonplace._fetch._helpers.time.sleep", lambda _: None)
+
+
+WIRE_EXAMPLES = Path(__file__).parent / "resources" / "wire"
+
+
+class WireExample(NamedTuple):
+    """A committed example archive, and the wire version it demonstrates."""
+
+    version: int
+    path: Path
+
+
+@pytest.fixture(params=range(LEGACY_VERSION, WIRE_VERSION + 1), ids=lambda v: f"wire-v{v}")
+def any_wire_version(request) -> WireExample:
+    """One example archive per wire version, past and present.
+
+    Parametrised over the whole range rather than over the files on disk, so a
+    version bump without a matching example fails here instead of quietly
+    going untested. Every example holds the same conversation, which is what
+    lets a test assert that all of them still import to the same thing.
+    """
+    version = request.param
+    path = WIRE_EXAMPLES / f"claude-v{version}.jsonl.gz"
+    if not path.exists():
+        pytest.fail(f"wire v{version} has no example archive at {path} — add one with the version bump")
+    return WireExample(version, path)
