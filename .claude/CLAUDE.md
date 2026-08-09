@@ -14,7 +14,7 @@ Commonplace is a personal knowledge management tool that imports AI conversation
 # Testing
 just test                              # Run tests with coverage
 uv run pytest tests/test_import.py -v  # Run single test file
-just update-snapshots                  # Update import snapshots (test_import.py only)
+just update-snapshots                  # Update test snapshots (test_import.py, test_stats.py)
 
 # Code quality
 just format           # ruff check + format

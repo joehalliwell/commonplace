@@ -4,6 +4,7 @@ from contextlib import closing
 from pathlib import Path
 
 import pytest
+from rich.console import Console
 
 from commonplace._repo import Commonplace
 from commonplace._search._types import Chunk
@@ -69,6 +70,27 @@ def test_app(test_repo):
         return app.meta([f"--root={test_repo.root}", *args], result_action="return_int_as_exit_code_else_zero")
 
     return _run_app
+
+
+@pytest.fixture(params=[True, False], ids=["smart-terminal", "dumb-terminal"])
+def any_terminal(request) -> Console:
+    """
+    A rich console in each rendering mode: styled (attached to a terminal) and plain (piped or headless).
+
+    Rendering mode is otherwise inherited from the ambient terminal, so a test asserting on rendered output
+    only ever exercises whichever mode the developer happens to be in. Every knob rich would take from the
+    environment is pinned so the rendering is reproducible: the colour system (`auto` consults COLORTERM,
+    and downgrades to None under TERM=dumb even when a terminal is forced), NO_COLOR, and both dimensions
+    (TERM=dumb pins the size to 80x25 unless width *and* height are given).
+    """
+    styled: bool = request.param
+    return Console(
+        force_terminal=styled,
+        color_system="truecolor" if styled else None,
+        no_color=False,
+        width=120,
+        height=40,
+    )
 
 
 @pytest.fixture
