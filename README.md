@@ -231,3 +231,16 @@ commonplace sync --strategy merge
 # Don't auto-commit uncommitted changes
 commonplace sync --no-auto-commit
 ```
+
+### Check your repo
+
+`init` lays down some scaffolding — `.gitignore`, LFS tracking for blobs, and
+the Claude Code plugin config. `doctor` checks it is all still there:
+
+```bash
+commonplace doctor
+```
+
+Anything missing is restored and staged. Anything you have since edited is
+reported as a warning and left alone — those files are commonplace's to set up,
+but yours to change if you have a reason to.
