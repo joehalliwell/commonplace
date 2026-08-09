@@ -13,6 +13,11 @@ from rich.text import Text
 
 from commonplace._types import RepoPath
 
+# Shade ramp for the intensity levels, so the gradient survives where styling doesn't — piped output, a
+# dumb terminal, NO_COLOR. Three shades cover the default num_levels exactly; ask for more levels and
+# glyphs saturate at the top while colour keeps separating them.
+INTENSITY_RAMP = "▒▓█"
+
 
 def extract_date_from_path(path: Path) -> date | None:
     """
@@ -72,7 +77,7 @@ class ActivityHeatmap:
         Args:
             activity: Counter mapping dates to activity counts
             end_date: End date for heatmap (default: today)
-            weeks: Number of weeks to show (default: 52)
+            weeks: Number of week columns to show, the last being the week containing end_date (default: 52)
             num_levels: Number of intensity levels excluding 0 (default: 3)
         """
         assert num_levels >= 1, "num_levels must be at least 1"
@@ -83,8 +88,12 @@ class ActivityHeatmap:
         self.weeks = weeks
         self.num_levels = num_levels
 
-        # Calculate start date (weeks * 7 days before end_date)
-        self.start_date = self.end_date - timedelta(days=weeks * 7 - 1)
+        # Anchor the last column to the week containing end_date and step back, so the grid is a whole
+        # number of week columns ending with the current one. A day-exact window of weeks * 7 days cannot
+        # fit in week-aligned columns unless it happens to begin on a Sunday, and the days that fall off
+        # the end are the most recent ones. weekday() is Mon=0..Sun=6, so %7 keeps a Sunday where it is
+        # (GitHub starts weeks on Sunday).
+        self.start_date = self.end_date - timedelta(days=(self.end_date.weekday() + 1) % 7, weeks=weeks - 1)
 
         # Build the grid (7 rows for days of week, weeks columns)
         self.grid = self._build_grid()
@@ -100,16 +109,17 @@ class ActivityHeatmap:
             threshold = 1 + int((max_val - 1) * i / (num_levels))
             x = i / (num_levels - 1) if num_levels > 1 else 1
             color = f"rgb({int(50 + (0.5 - x) * 50)},{int(50 + x * 150)},{50})"  # Gradient from dark to bright green
-            self.levels.append((threshold, Style(color=color), "█"))  # Placeholder
+            glyph = INTENSITY_RAMP[round(x * (len(INTENSITY_RAMP) - 1))]
+            self.levels.append((threshold, Style(color=color), glyph))
 
         # Max activity
         self.levels.append((max_val, Style(color="red", bold=True), "*"))
 
     def _build_grid(self) -> list[list[tuple[date, int]]]:
         """Build the heatmap grid."""
-        # Start from the first day of the week containing start_date
-        # (GitHub starts weeks on Sunday)
-        current = self.start_date - timedelta(days=self.start_date.weekday() + 1)  # Go to Sunday
+        # start_date is the first cell, so each subclass owns its own alignment: whole weeks back from
+        # end_date here, Jan 1 for YearHeatmap.
+        current = self.start_date
 
         grid: list[list[tuple[date, int]]] = [[] for _ in range(7)]  # 7 rows (Sun-Sat)
 

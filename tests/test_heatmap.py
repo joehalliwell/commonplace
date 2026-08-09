@@ -1,8 +1,10 @@
 """Tests for activity heatmap."""
 
 from collections import Counter
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
+
+import pytest
 
 from commonplace._heatmap import ActivityHeatmap, build_activity_data, extract_date_from_path
 from commonplace._types import RepoPath
@@ -91,15 +93,10 @@ def test_activity_heatmap_style_selection():
     activity = Counter({date(2024, 1, 1): 5})
     heatmap = ActivityHeatmap(activity, end_date=date(2024, 1, 31), weeks=4)
 
-    # Test different activity counts
-    _style_0, char_0 = heatmap._get_style_and_char(0)
-    assert char_0 == "░"  # No activity
+    # Counts climb the ramp: no activity, the three intensity levels, then the max marker
+    expected = {0: "░", 1: "▒", 2: "▓", 3: "█", 5: "*"}
 
-    _style_1, char_1 = heatmap._get_style_and_char(1)
-    assert char_1 == "█"  # Activity
-
-    _style_max, char_max = heatmap._get_style_and_char(5)
-    assert char_max == "*"  # Max activity gets special char
+    assert {count: heatmap._get_style_and_char(count)[1] for count in expected} == expected
 
 
 def test_activity_heatmap_thresholds_start_at_one():
@@ -140,6 +137,47 @@ def test_activity_heatmap_max_gets_special_marker():
     # Last level should be max with red color
     assert heatmap.levels[-1][0] == 10
     assert heatmap.levels[-1][2] == "*"
+
+
+@pytest.mark.parametrize("end_date", [date(2024, 1, 14) + timedelta(days=n) for n in range(7)])
+def test_activity_heatmap_grid_reaches_end_date(end_date):
+    """
+    The grid has to reach end_date, whatever weekday it falls on.
+
+    Columns are week-aligned, so aligning them to the start of the window instead leaves the grid ending
+    short of end_date — and with end_date defaulting to today, the days lost are the most recent ones.
+    Parametrized over every weekday so no alignment gets special treatment.
+    """
+    heatmap = ActivityHeatmap(Counter({end_date: 1}), end_date=end_date, weeks=52)
+
+    placed = {day for row in heatmap.grid for day, _count in row}
+    window = {heatmap.start_date + timedelta(days=n) for n in range((end_date - heatmap.start_date).days + 1)}
+
+    assert end_date in placed
+    assert len(heatmap.grid[0]) == 52  # still 52 week columns, not 53
+    assert window <= placed, f"missing from grid: {sorted(window - placed)}"
+
+
+def test_activity_heatmap_renders_the_busiest_day(sample_activity, any_terminal):
+    """The max marker has to reach the output, not just the legend, in either rendering mode."""
+    heatmap = ActivityHeatmap(sample_activity, end_date=date(2024, 1, 20), weeks=52)
+
+    with any_terminal.capture() as capture:
+        any_terminal.print(heatmap)
+
+    grid, _sep, _legend = capture.get().rpartition("Less")
+
+    assert "*" in grid
+
+
+def test_activity_heatmap_levels_have_distinct_glyphs():
+    """Intensity has to survive without colour, since piped and headless output carries no styling."""
+    activity = Counter({date(2024, 1, 1): 1, date(2024, 1, 2): 5, date(2024, 1, 3): 9})
+    heatmap = ActivityHeatmap(activity, end_date=date(2024, 1, 31), weeks=4)
+
+    glyphs = [char for _threshold, _style, char in heatmap.levels]
+
+    assert len(set(glyphs)) == len(glyphs), f"levels share a glyph: {glyphs}"
 
 
 def test_activity_heatmap_renders_per_terminal(sample_activity, any_terminal, snapshot):
