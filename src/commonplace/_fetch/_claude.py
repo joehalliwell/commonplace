@@ -4,9 +4,22 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
 
+import httpx
+
 from commonplace._fetch._base import BaseFetcher
 from commonplace._logging import logger
 from commonplace._progress import track
+
+
+def _provenance(r: httpx.Response) -> dict[str, str]:
+    """The `request-id` claude.ai stamps on each response.
+
+    Provider-specific, hence here rather than in [[commonplace._wire]]: it is
+    the only identifier tying a capture to Anthropic's own records, and no
+    later reader can recover it from the body. Omitted when absent — the
+    missing key already says the header wasn't sent."""
+    request_id = r.headers.get("request-id")
+    return {"request_id": request_id} if request_id else {}
 
 
 class ClaudeFetcher(BaseFetcher):
@@ -49,7 +62,7 @@ class ClaudeFetcher(BaseFetcher):
 
     def _list_conversations(self) -> list[dict[str, Any]]:
         r = self._get(f"https://claude.ai/api/organizations/{self._org_uuid}/chat_conversations")
-        self._log(endpoint="conversations", response=r.text)
+        self._log(endpoint="conversations", **_provenance(r), response=r.text)
         return r.json()
 
     def _fetch_detail(self, convo_uuid: str) -> None:
@@ -57,4 +70,4 @@ class ClaudeFetcher(BaseFetcher):
             f"https://claude.ai/api/organizations/{self._org_uuid}/chat_conversations/{convo_uuid}",
             params={"tree": "True", "rendering_mode": "raw"},
         )
-        self._log(endpoint="conversation", cid=convo_uuid, response=r.text)
+        self._log(endpoint="conversation", cid=convo_uuid, **_provenance(r), response=r.text)
