@@ -1,5 +1,5 @@
+import difflib
 import hashlib
-import json
 import os
 import shutil
 from collections.abc import Iterator
@@ -57,58 +57,50 @@ _BOT_EMAIL = "commonplace@joehalliwell.com"
 
 
 @dataclass(frozen=True)
-class Scaffold:
-    """
-    A file `init` lays down and `doctor` checks.
-
-    Absent, it is written from `content`. Present, it belongs to the user —
-    doctor reports what commonplace put there and can no longer find, rather
-    than editing a file someone else is now responsible for.
-    """
+class ConfigFile:
+    """A config file `init` writes from a template and `doctor` checks is still there."""
 
     path: str
-    content: str
+    template: str
 
-    def missing_from(self, existing: str) -> list[str]:
-        """Describe the commonplace-managed content absent from `existing`."""
+    def divergence(self, existing: str) -> list[str]:
+        """Report how `existing` differs from the template, if that is our business."""
         return []
 
 
 @dataclass(frozen=True)
-class LineScaffold(Scaffold):
-    """A line-oriented file (.gitignore, .gitattributes): every directive it ships is managed."""
-
-    def missing_from(self, existing: str) -> list[str]:
-        present = set(existing.splitlines())
-        return [line for line in _directives(self.content) if line not in present]
+class UnmanagedConfig(ConfigFile):
+    """Seeded once and then the user's own: we only care that it exists."""
 
 
 @dataclass(frozen=True)
-class JsonScaffold(Scaffold):
-    """A JSON file: the keys it ships must survive, but the user may add their own."""
+class ManagedLineConfig(ConfigFile):
+    """
+    Commonplace owns the contents, so any edit is worth reporting.
 
-    def missing_from(self, existing: str) -> list[str]:
-        expected = json.loads(self.content)
-        try:
-            document = json.loads(existing)
-        except json.JSONDecodeError:
-            return ["valid JSON"]
-        if not isinstance(document, dict):
-            return sorted(expected)
-        return [key for key, value in expected.items() if not _contains(document.get(key), value)]
+    Nothing here is meant to be hand-tuned: the entries earn their place by
+    what the tool needs (LFS for blobs, an unversioned cache), and a change is
+    more often drift than intent. Reported as a diff, never silently undone.
+    """
+
+    def divergence(self, existing: str) -> list[str]:
+        return list(
+            difflib.unified_diff(
+                self.template.splitlines(),
+                existing.splitlines(),
+                fromfile="template",
+                tofile=self.path,
+                lineterm="",
+            )
+        )
 
 
-@dataclass(frozen=True)
-class OpaqueScaffold(Scaffold):
-    """A file commonplace only seeds: once it exists, its contents are the user's business."""
+_CONFIG_TOML = UnmanagedConfig(".commonplace/config.toml", _INIT_CONFIG_TOML)
+_GIT_IGNORE = ManagedLineConfig(".gitignore", _INIT_GIT_IGNORE)
+_GIT_ATTRIBUTES = ManagedLineConfig(".gitattributes", _INIT_GIT_ATTRIBUTES)
+_CLAUDE_SETTINGS = ManagedLineConfig(".claude/settings.json", _INIT_CLAUDE_SETTINGS)
 
-
-_CONFIG_TOML = OpaqueScaffold(".commonplace/config.toml", _INIT_CONFIG_TOML)
-_GIT_IGNORE = LineScaffold(".gitignore", _INIT_GIT_IGNORE)
-_GIT_ATTRIBUTES = LineScaffold(".gitattributes", _INIT_GIT_ATTRIBUTES)
-_CLAUDE_SETTINGS = JsonScaffold(".claude/settings.json", _INIT_CLAUDE_SETTINGS)
-
-_SCAFFOLDING: tuple[Scaffold, ...] = (_CONFIG_TOML, _GIT_IGNORE, _GIT_ATTRIBUTES, _CLAUDE_SETTINGS)
+_SCAFFOLDING: tuple[ConfigFile, ...] = (_CONFIG_TOML, _GIT_IGNORE, _GIT_ATTRIBUTES, _CLAUDE_SETTINGS)
 
 
 @dataclass(frozen=True)
@@ -118,31 +110,14 @@ class DoctorReport:
     actions: list[str]
     warnings: list[str]
 
-    def __bool__(self) -> bool:
-        return bool(self.actions or self.warnings)
 
-
-def _directives(content: str) -> list[str]:
-    """The meaningful lines of a line-oriented config: no blanks, no comments."""
-    return [line for line in content.splitlines() if line.strip() and not line.startswith("#")]
-
-
-def _contains(document: object, expected: object) -> bool:
-    """True if every key and value in `expected` also appears in `document`."""
-    if isinstance(expected, dict):
-        return isinstance(document, dict) and all(
-            key in document and _contains(document[key], value) for key, value in expected.items()
-        )
-    return document == expected
-
-
-def _create_missing(root: Path, scaffold: Scaffold) -> bool:
-    """Write the scaffold file if it is absent. Returns True if it was created."""
-    target = root / scaffold.path
+def _create_missing(root: Path, config: ConfigFile) -> bool:
+    """Write the config file if it is absent. Returns True if it was created."""
+    target = root / config.path
     if target.exists():
         return False
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(scaffold.content)
+    target.write_text(config.template)
     return True
 
 
@@ -215,17 +190,17 @@ class Commonplace:
         actions: list[str] = []
         warnings: list[str] = []
 
-        for scaffold in _SCAFFOLDING:
-            if _create_missing(self.root, scaffold):
-                self.git.index.add(scaffold.path)
-                actions.append(f"Created {scaffold.path}")
+        for config in _SCAFFOLDING:
+            if _create_missing(self.root, config):
+                self.git.index.add(config.path)
+                actions.append(f"Created {config.path}")
                 continue
 
-            missing = scaffold.missing_from((self.root / scaffold.path).read_text())
-            if missing:
+            divergence = config.divergence((self.root / config.path).read_text())
+            if divergence:
                 warnings.append(
-                    f"{scaffold.path} no longer has {', '.join(missing)} — "
-                    "commonplace manages this file, so editing it is rarely necessary"
+                    f"{config.path} has been modified — commonplace manages this file, "
+                    "so editing it is rarely necessary:\n" + "\n".join(divergence)
                 )
 
         if actions:
