@@ -25,33 +25,12 @@ from note frontmatter, so readers still accept them. Beyond the header, entry
 shape is the provider's business: a version means the same thing to every
 fetcher, but what changed at each version does not.
 
-Version 3 adds `fetched_at` and `fetched_by`: when the capture was made, and
-by what. Both were previously recoverable only from the commit that landed
-the archive, which dates the landing rather than the capture and is lost
-outright once the blob is detached from its history — and these archives are
-built to be detached, stored content-addressed under `.commonplace/blobs/`
-and referenced from frontmatter. Provenance that makes you leave the artefact
-to date it does not bottom out there (§3.5).
+Version 3 adds `fetched_at` and `fetched_by`: when the capture was made and
+what made it (`tool/version`), so a blob detached from its commit still dates
+and attributes itself. Both read back `None` on v1 and v2 archives.
 
-`fetched_by` is not `version`. That one versions the container and tells a
-reader how to parse the file; this one names the apparatus that did the
-capturing, and the two drift independently. A fetcher bug — a dropped page, a
-block the endpoint stopped returning — changes what got captured while the
-format stays put, so `version` cannot answer "which archives came from the
-build that was wrong?".
-
-It names the implementation as well as its version, User-Agent style, because
-nothing says this format has only one writer: a reimplementation records its
-own token there and a reader holding archives from both can still tell them
-apart. The version half is versioningit's, so a source install carries the
-commit it was built from and a dirty marker
-(`commonplace/0.0.5.post46+g6b1d577.d20260809`) rather than a bare release
-number — which is what makes the field worth having, since fetchers are
-usually run from a working tree. `0.0.0+dev` means the package metadata was
-missing entirely.
-
-Reading both is best-effort: v1 and v2 archives predate them, so they are
-`None` for those.
+`tests/resources/wire/` holds one example archive per version — the evidence
+of what each actually looked like. Add one with the next version bump.
 """
 
 import gzip

@@ -23,3 +23,7 @@ publish:
 # Update test snapshots
 update-snapshots:
     uv run pytest tests/ --snapshot-update --allow-snapshot-deletion
+
+# Regenerate the example wire archives (one per wire version)
+wire-examples:
+    uv run python tests/resources/wire/make_examples.py
