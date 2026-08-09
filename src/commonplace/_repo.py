@@ -76,11 +76,12 @@ class UnmanagedConfig(ConfigFile):
 @dataclass(frozen=True)
 class ManagedLineConfig(ConfigFile):
     """
-    Commonplace owns the contents, so any edit is worth reporting.
+    Commonplace maintains the contents, so `doctor` reports any difference.
 
-    Nothing here is meant to be hand-tuned: the entries earn their place by
-    what the tool needs (LFS for blobs, an unversioned cache), and a change is
-    more often drift than intent. Reported as a diff, never silently undone.
+    This is how existing repos keep up as `init`'s templates evolve: print the
+    diff and let the reader decide what to do about it. Deliberately no
+    cleverer than that — no merging, no rewriting, no guessing which side is
+    right.
     """
 
     def divergence(self, existing: str) -> list[str]:
@@ -186,7 +187,7 @@ class Commonplace:
         return self.make_repo_path(rel_path)
 
     def doctor(self) -> DoctorReport:
-        """Restore any missing scaffolding, and report scaffolding the user has since changed."""
+        """Restore missing scaffolding, and diff whatever has fallen behind `init`'s templates."""
         actions: list[str] = []
         warnings: list[str] = []
 
@@ -198,10 +199,7 @@ class Commonplace:
 
             divergence = config.divergence((self.root / config.path).read_text())
             if divergence:
-                warnings.append(
-                    f"{config.path} has been modified — commonplace manages this file, "
-                    "so editing it is rarely necessary:\n" + "\n".join(divergence)
-                )
+                warnings.append(f"{config.path} differs from the template init now writes:\n" + "\n".join(divergence))
 
         if actions:
             self.git.index.write()
