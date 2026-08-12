@@ -61,6 +61,16 @@ files — the subagent already produced the summary in the required format.
 Wait for the user to approve, request changes, or redirect. Do not proceed to
 commit without explicit approval.
 
+Two things are worth checking in the summary before you present it, because
+both are invisible once committed:
+
+- **Attributed claims.** If a Shift or Thread describes how the *user's*
+  thinking changed, the summary should make clear that's whose thinking it
+  was — not an assistant's framing the user never took up.
+- **Overstated endings.** Language like "abandoned" or "gave up on" is a
+  claim about intent. Chats stop for logistical reasons; if the subagent has
+  read silence as a decision, flag it.
+
 If the user requests changes, either ask the subagent to revise (spawn
 another subagent with the correction) or make small edits directly.
 
@@ -159,14 +169,22 @@ triage pass first: skim each source (first ~100 lines or the section around
 the search hit) and rank by relevance. Only do full reads of the top sources.
 Use background subagents to parallelise reading of large files.
 
-Read each relevant source in full (use the Read tool). For each relevant
-section:
+Read the sources that survive triage in full (use the Read tool). For each
+relevant section:
 
 - Note the date (from file path or frontmatter)
 - Extract the relevant passage
+- **Note who said it** — transcripts mark speakers with `## Human` /
+  `## Claude` (or whatever names the serializer was configured with)
 - Track the source path
 
 Order all gathered material chronologically.
+
+**Attribution is not optional.** A quote with no speaker is worse than no
+quote: an assistant's speculative riff, gathered unattributed, comes back a
+year later as evidence of how the user's own thinking evolved. Most sources
+here are conversations *with* an assistant, so this is the default failure
+mode, not an edge case. Every quote carries its speaker.
 
 ### Phase 3: Write the Gathering
 
@@ -189,13 +207,21 @@ sources:
 ## <date> — <title or context>
 *<repo-relative source path>*
 
+**<speaker>:**
+> Relevant passage text...
+
+**<speaker>:**
 > Relevant passage text...
 
 ## <date> — <title or context>
 *<repo-relative source path>*
 
+**<speaker>:**
 > Relevant passage text...
 ```
+
+Where a passage only makes sense as an exchange, quote both turns in order
+rather than collapsing them into one attributed block.
 
 **Density.** Quote generously when sources are few (\<10). For larger topics,
 quote verbatim only the most significant passages (turning points, novel
@@ -220,6 +246,26 @@ The Threads section is the most valuable part of a distillation. Give it the
 most attention. At the end of Threads, call out one **Most Pressing Thread**
 — the single open question or tension most worth the user's attention right
 now.
+
+**Chats end for logistical reasons.** Context limits, session timeouts, an
+interruption at the desk. The end of a transcript is not a conclusion, and a
+line of thought going quiet is not evidence it was abandoned. Before calling
+anything dropped:
+
+- **Search for it resuming elsewhere.** Continuation in a *later, separate
+  chat* is the normal shape here — the transcript boundary is an artefact of
+  logistics, not a boundary of thought.
+- **Distinguish closed from stopped.** *Closed*: explicitly resolved, or set
+  aside in so many words. *Stopped*: the transcript simply ends, often
+  mid-exchange or on an unanswered question. Say which you mean.
+- **When you can't tell, say so.** "Last touched 2026-03-14, no visible
+  resolution" is honest and useful. "Abandoned in March" is a fabrication
+  about the user's intent.
+
+The same caution applies to **Shifts**: an apparent change of mind is often
+just a new chat that never picked up the old framing. A framing that stops
+recurring may have been settled, superseded, or merely interrupted — and only
+the first two are shifts.
 
 Write to: `topics/{slug}/distillation.md`
 
@@ -266,6 +312,25 @@ exist, this is an update run:
 
 Git tracks the full history. The prior state is always recoverable.
 
+### Guidelines
+
+- **Attribute every quote.** Whose thought was this? See Phase 2.
+- **Interruption is not abandonment.** See Phase 4. Applies to both Threads
+  and Shifts.
+- **Quote generously** in gatherings — but scale quoting inversely with source
+  count. 5 sources: quote everything relevant. 20 sources: quote turning points,
+  summarise the rest.
+- **Be specific** in distillations. Cite dates and sources, not vague summaries.
+- **Name the threads**. The most valuable output is often what's unresolved.
+- **Don't over-synthesize**. If the material is thin, say so. A short
+  distillation noting "only 2 sources, early exploration" is more honest than
+  padding.
+- **Trajectory over state**: each synthesis run is additive. Don't try to
+  produce a "final" summary. The accumulation IS the value — now via git
+  history rather than dated filenames.
+- **Missteps remain**: if a prior distillation got something wrong, the new one
+  corrects it in place — but git preserves the prior state.
+
 ### Return Value
 
 When both artefacts are written, return **only** this compact summary — do
@@ -290,21 +355,3 @@ ______________________________________________________________________
 - `topics/{slug}/distillation.md`
 
 ______________________________________________________________________
-
-______________________________________________________________________
-
-## Guidelines
-
-- **Quote generously** in gatherings — but scale quoting inversely with source
-  count. 5 sources: quote everything relevant. 20 sources: quote turning points,
-  summarise the rest.
-- **Be specific** in distillations. Cite dates and sources, not vague summaries.
-- **Name the threads**. The most valuable output is often what's unresolved.
-- **Don't over-synthesize**. If the material is thin, say so. A short
-  distillation noting "only 2 sources, early exploration" is more honest than
-  padding.
-- **Trajectory over state**: each synthesis run is additive. Don't try to
-  produce a "final" summary. The accumulation IS the value — now via git
-  history rather than dated filenames.
-- **Missteps remain**: if a prior distillation got something wrong, the new one
-  corrects it in place — but git preserves the prior state.
