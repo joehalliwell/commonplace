@@ -164,6 +164,15 @@ directory (chats, journal, notes) — if any is unrepresented, run a targeted
 query for it. Breadth of querying matters; there is no systematic way to know
 what you missed.
 
+**Gather only from primitives.** Sources are `chats/`, `journal/`, `notes/` —
+the captured record. Never quote `topics/**` into a gathering: distillations,
+resonances and the topic index are *derived* artefacts, and prior runs commit
+and re-index them, so they will surface in your search results alongside real
+sources. Quoting one launders synthesis back into evidence, counts the same
+claim twice, and breaks the provenance chain — every claim must bottom out at
+something captured, not something previously concluded. Prior work on this
+topic is read in Phase 1 to establish coverage; it is not a source.
+
 **Triage before deep reading.** For topics with many hits (>15 sources), do a
 triage pass first: skim each source (first ~100 lines or the section around
 the search hit) and rank by relevance. Only do full reads of the top sources.
@@ -315,6 +324,7 @@ Git tracks the full history. The prior state is always recoverable.
 ### Guidelines
 
 - **Attribute every quote.** Whose thought was this? See Phase 2.
+- **Gather from primitives only.** Never cite `topics/**` as a source.
 - **Interruption is not abandonment.** See Phase 4. Applies to both Threads
   and Shifts.
 - **Quote generously** in gatherings — but scale quoting inversely with source
