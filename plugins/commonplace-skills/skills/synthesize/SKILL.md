@@ -19,11 +19,16 @@ run `commonplace index` first.
 
 ### 1. Survey
 
-Get the lay of the land:
+Get the lay of the land, and index *before* gathering rather than only after:
 
 ```bash
+commonplace index
 commonplace stats
 ```
+
+A stale index silently omits the most recent chats — exactly the material most
+likely to have moved a topic on. Indexing is incremental, so this is cheap
+when nothing has changed.
 
 If no topic argument was provided, run broad searches to discover recurring
 themes:
@@ -31,6 +36,12 @@ themes:
 ```bash
 commonplace search -n 50 "<broad query>"
 ```
+
+Seed those queries from the repository rather than from guesswork: the
+provider and date spread in `commonplace stats`, the titles of recently
+modified notes (`commonplace git -- log --oneline -20 --name-only`), and any
+existing `topics/index.md` entries — a topic already synthesized is evidence
+of what the user cares about, and its threads suggest what's adjacent.
 
 Propose 3-5 candidate topics to the user. Wait for confirmation before
 proceeding.
@@ -316,6 +327,13 @@ just a new chat that never picked up the old framing. A framing that stops
 recurring may have been settled, superseded, or merely interrupted — and only
 the first two are shifts.
 
+**Cite claims to passages, not to the gathering as a whole.** The frontmatter
+points at `gathering.md`; that's provenance to a file, which leaves a reader
+unable to check "the framing shifted in March" without re-reading everything.
+Each substantive claim carries an inline `(<date>, <source path>)`, and where
+the claim is about who thought what, name the speaker too. Provenance has to
+bottom out at a passage.
+
 Write to: `topics/{slug}/distillation.md`
 
 ```markdown
@@ -409,7 +427,8 @@ Git tracks the full history. The prior state is always recoverable.
 - **Quote generously** in gatherings — but scale quoting inversely with source
   count. 5 sources: quote everything relevant. 20 sources: quote turning points,
   summarise the rest.
-- **Be specific** in distillations. Cite dates and sources, not vague summaries.
+- **Be specific** in distillations. Every substantive claim carries an inline
+  `(<date>, <source path>)` — provenance bottoms out at a passage, not a file.
 - **Name the threads**. The most valuable output is often what's unresolved.
 - **Don't over-synthesize**. If the material is thin, say so. A short
   distillation noting "only 2 sources, early exploration" is more honest than
