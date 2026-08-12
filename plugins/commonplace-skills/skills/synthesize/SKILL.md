@@ -355,7 +355,10 @@ Key dates and evolution of the topic.
 How thinking has changed. What prompted the shifts.
 
 ## Threads
-Open questions, unresolved tensions, areas for future exploration.
+Open questions, unresolved tensions, areas for future exploration. Mark each
+thread *closed*, *stopped*, or *unclear*, with the date it was last touched:
+
+- **<Thread name>** — *stopped*, last touched <date>. <What's unresolved.>
 
 ### Most Pressing Thread
 The single open question or tension most worth the user's attention right now.
