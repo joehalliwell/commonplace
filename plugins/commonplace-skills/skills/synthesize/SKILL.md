@@ -301,9 +301,27 @@ Open questions, unresolved tensions, areas for future exploration.
 
 ### Most Pressing Thread
 The single open question or tension most worth the user's attention right now.
+
+## Revisions
+- <YYYY-MM-DD> — <what this run added, changed, or corrected>
 ```
 
 Reference the gathering in `source_gathering`.
+
+**The Revisions section carries the trajectory.** Distillations are updated in
+place, so without it every run silently overwrites the last and the only
+record of how the reading changed is a diff nobody reads — invisible to the
+search index, which sees the working tree alone. One line per run:
+
+- On a first run: `<date> — First distillation, N sources.`
+- On an update: what new material arrived and what it changed. Name
+  corrections explicitly — "March's reading of X as Y was wrong; the later
+  chats show Z" — because a correction that silently replaces its predecessor
+  erases the misstep, and the record is supposed to include missteps.
+- If a run added sources but changed no conclusions, say that. It's a real
+  finding: the reading held.
+
+Newest entries at the bottom. Never rewrite or prune existing lines.
 
 ### Incremental Mode
 
@@ -328,7 +346,17 @@ exist, this is an update run:
    if new queries were used.
 
 1. **Update `distillation.md` in place** — revise Timeline, Shifts, and
-   Threads to reflect new material. Note what changed. Update `updated`.
+   Threads to reflect new material. Update `updated`.
+
+1. **Append a Revisions line** recording what this run changed. This is the
+   only in-band record that the distillation moved.
+
+If the existing distillation has no `## Revisions` section, it predates the
+convention. Add the section and open it with a single line — e.g.
+`<date> — Revision tracking begins; entries above predate it.` — then append
+this run's line. Do not attempt to reconstruct earlier runs from git history,
+and do not retro-attribute speakers in gathering entries you haven't
+re-read: a guess in the record is worse than an acknowledged gap.
 
 Git tracks the full history. The prior state is always recoverable.
 
@@ -350,7 +378,8 @@ Git tracks the full history. The prior state is always recoverable.
   produce a "final" summary. The accumulation IS the value — now via git
   history rather than dated filenames.
 - **Missteps remain**: if a prior distillation got something wrong, the new one
-  corrects it in place — but git preserves the prior state.
+  corrects it in place — and names the correction in Revisions, so the misstep
+  stays legible to a reader rather than only to `git log`.
 
 ### Return Value
 
@@ -366,9 +395,14 @@ ______________________________________________________________________
 - Timeline: \<2-3 sentence summary>
 - Shifts: \<2-3 sentence summary>
 - Threads:
-  - <Thread name>: <one sentence>
+  - <Thread name>: <one sentence> — *(closed / stopped / unclear)*
   - *(repeat for each thread)*
   - **Most Pressing Thread**: <Thread name> — <one sentence rationale>
+
+**This run changed**: \<the Revisions line, verbatim>
+
+**Coverage**: \<thin / adequate / rich> — \<any gap worth naming, e.g. "nothing
+from journal/", "all 4 sources within one week">
 
 **Artefacts written**:
 
