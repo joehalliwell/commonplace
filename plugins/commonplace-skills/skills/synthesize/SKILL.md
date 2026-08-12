@@ -311,11 +311,22 @@ When `topics/{slug}/gathering.md` and `topics/{slug}/distillation.md` already
 exist, this is an update run:
 
 1. **Read the existing distillation** to understand current coverage.
-1. **Search for new material** — focus on dates after the gathering's most
-   recent source. You don't need to re-read already-gathered sources.
+
+1. **Search for new material** — re-run the queries recorded in the
+   gathering's frontmatter, plus any new phrasings, and compare the hits
+   against its `sources` list. Anything not already listed is new material,
+   **whatever its date**. You don't need to re-read sources already on the
+   list.
+
+   Do not filter by "newer than the last run". Imports backfill: a fresh
+   export or a fetch that reaches further back adds *old* conversations to
+   the repository, and a date cutoff skips them silently. The `sources` list
+   is the record of what has actually been read; diff against that.
+
 1. **Update `gathering.md` in place** — append new entries in chronological
    order. Update `updated` and `sources` in the frontmatter. Update `queries`
    if new queries were used.
+
 1. **Update `distillation.md` in place** — revise Timeline, Shifts, and
    Threads to reflect new material. Note what changed. Update `updated`.
 
