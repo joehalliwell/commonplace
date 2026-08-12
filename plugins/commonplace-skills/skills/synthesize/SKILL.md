@@ -74,17 +74,37 @@ both are invisible once committed:
 If the user requests changes, either ask the subagent to revise (spawn
 another subagent with the correction) or make small edits directly.
 
-### 4. Update the Map (optional)
+If the subagent returned **Stopped — overlaps `{existing-slug}`** instead of
+a summary, no artefacts were written. Put the choice to the user — extend the
+existing topic, or fork this one anyway — and re-spawn with their answer.
 
-If synthesizing multiple topics, or if a map already exists, update or create:
-`topics/map.md`
+### 4. Update the Topic Index
+
+Write or update `topics/index.md` so the topic is discoverable by the next
+run, by `/resonate`, and by the user. Same shape as `projects/index.md`:
+
+```markdown
+---
+kind: topic-index
+updated: <YYYY-MM-DD>
+---
+
+# Topics
+
+- [{slug}]({slug}/) — updated <YYYY-MM-DD>, N sources
+  **Pressing**: <the Most Pressing Thread, one line>
+```
+
+One entry per topic, alphabetical by slug. Take the source count and pressing
+thread straight from the subagent's summary — don't re-read the artefacts.
+Leave other topics' entries untouched.
 
 ### 5. Commit
 
 Stage and commit using `commonplace git`:
 
 ```bash
-commonplace git -- add topics/{slug}/
+commonplace git -- add topics/{slug}/ topics/index.md
 commonplace git -- commit -m "Synthesize: {topic name}"
 ```
 
@@ -93,7 +113,7 @@ Re-stage the reformatted files and retry — this is expected behaviour, not an
 error:
 
 ```bash
-commonplace git -- add topics/{slug}/
+commonplace git -- add topics/{slug}/ topics/index.md
 commonplace git -- commit -m "Synthesize: {topic name}"
 ```
 
@@ -150,6 +170,26 @@ Also check directly for existing artefact files:
 If prior artefacts exist, read them now — they establish existing coverage and
 determine whether this is a first-run or an update (see Incremental Mode
 below).
+
+**Check for overlap with existing topics.** An exact slug match is not enough:
+topics accrete, and nothing else stops `memory-and-continuity`, `continuity`
+and `persistence` becoming three topics that gather the same chats and never
+learn about each other. So:
+
+```bash
+ls topics/
+```
+
+Read `topics/index.md` if it exists, and the `queries` frontmatter of any
+topic whose slug or entry looks adjacent to `{slug}`. If a substantial part of
+what you'd gather is already gathered elsewhere, **stop and say so in your
+return value** rather than proceeding — name the overlapping topic and offer
+the choice between extending it and forking a new one. Two thin overlapping
+topics are worse than one thick one, and merging them later means reconciling
+two Revisions histories by hand.
+
+Proceed without asking when the overlap is incidental — shared vocabulary,
+a handful of sources in common.
 
 ### Phase 2: Gather
 
@@ -383,8 +423,20 @@ Git tracks the full history. The prior state is always recoverable.
 
 ### Return Value
 
-When both artefacts are written, return **only** this compact summary — do
-not print the file contents:
+If you stopped in Phase 1 on a substantial overlap, return only:
+
+______________________________________________________________________
+
+**Stopped — overlaps `{existing-slug}`**
+
+- What that topic already covers: <one or two sentences>
+- What `{slug}` would add that it doesn't: <one or two sentences>
+- Recommendation: \<extend `{existing-slug}` / fork `{slug}` anyway>
+
+______________________________________________________________________
+
+Otherwise, when both artefacts are written, return **only** this compact
+summary — do not print the file contents:
 
 ______________________________________________________________________
 
