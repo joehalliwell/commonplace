@@ -63,7 +63,7 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 
 ## Plugins
 
-`plugins/commonplace-skills/` contains Claude Code skills and agents (current version: 0.8.0). These are **end-user tools** — they run inside a user's *commonplace repository* (their knowledge base), not in this Python codebase. Do not use them here.
+`plugins/commonplace-skills/` contains Claude Code skills and agents (current version: 0.9.0). These are **end-user tools** — they run inside a user's *commonplace repository* (their knowledge base), not in this Python codebase. Do not use them here.
 
 **Skills:**
 
@@ -74,7 +74,7 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 
 **Artefact paths** (no dated filenames — git is the versioning layer):
 
-- `topics/{slug}/gathering.md`, `topics/{slug}/distillation.md`
+- `topics/{slug}/gathering.md`, `topics/{slug}/distillation.md`, `topics/index.md`
 - `topics/resonances/{sorted-slugs}.md`
 - `projects/{slug}/project.md`, `projects/index.md`
 
@@ -82,3 +82,5 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 
 - Heavy work (search, read, write) runs in a `general-purpose` subagent via the Task tool; the calling agent handles survey, review, and commit
 - Artefacts update in place on incremental runs; prior state is recoverable via git
+- Distillations and resonances carry a `## Revisions` section — one appended line per run, so the trajectory stays visible in-band rather than only in `git log`
+- Gatherings quote from primitives only (`chats/`, `journal/`, `notes/`) and attribute every quote to a speaker; `topics/**` is derived and is never a source
