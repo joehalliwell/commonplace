@@ -63,7 +63,7 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 
 ## Plugins
 
-`plugins/commonplace-skills/` contains Claude Code skills and agents (current version: 0.9.0). These are **end-user tools** — they run inside a user's *commonplace repository* (their knowledge base), not in this Python codebase. Do not use them here.
+`plugins/commonplace-skills/` contains Claude Code skills and agents (current version: 0.9.1). These are **end-user tools** — they run inside a user's *commonplace repository* (their knowledge base), not in this Python codebase. Do not use them here.
 
 **Skills:**
 
