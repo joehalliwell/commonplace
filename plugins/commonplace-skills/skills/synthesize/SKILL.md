@@ -81,6 +81,13 @@ both are invisible once committed:
 - **Overstated endings.** Language like "abandoned" or "gave up on" is a
   claim about intent. Chats stop for logistical reasons; if the subagent has
   read silence as a decision, flag it.
+- **Cryptic lines.** The subagent has just read everything and writes as
+  though you have too. If a thread or shift only makes sense to someone
+  holding the sources in mind — an unexplained coinage, a "this tension" with
+  no antecedent, a thread name standing in for the question — send it back to
+  be restated rather than passing it on. You cannot repair this at review
+  time: you haven't read the sources either, so guessing at what was meant
+  puts an invention into the record.
 
 If the user requests changes, either ask the subagent to revise (spawn
 another subagent with the correction) or make small edits directly.
@@ -327,6 +334,31 @@ just a new chat that never picked up the old framing. A framing that stops
 recurring may have been settled, superseded, or merely interrupted — and only
 the first two are shifts.
 
+**Write to be read cold.** You are finishing a run in which you have just read
+every source, so the compressed phrase feels sufficient — it isn't. The reader
+is someone months from now with none of that in mind: the user, a later
+synthesis run, `/resonate`, or a search hit that surfaces one section with no
+surrounding context. Assume they have not read the gathering and will not go
+and read it.
+
+In practice:
+
+- **Nothing refers outside the document.** No "the earlier framing", "this
+  tension", "as discussed" pointing at material the reader can't see. Name the
+  thing — "the framing of memory as storage rather than relationship" — then
+  you may refer back to it.
+- **Expand coinages on first use.** Vocabulary invented mid-chat ("the
+  legibility problem", "melange", "the archive move") is opaque outside the
+  conversation that minted it. Gloss it once, in a clause, then use it freely.
+- **Every section stands alone.** Chunking splits artefacts by section for the
+  index, so a reader can land in Threads having never seen Timeline. Don't
+  make a section depend on one above it.
+- **Prefer the concrete noun to the abstract one.** "The tension between
+  shipping and rewriting" beats "the aforementioned tension".
+
+A distillation that only its author can read is a private note, and the whole
+point is that it outlives the run that wrote it.
+
 **Cite claims to passages, not to the gathering as a whole.** The frontmatter
 points at `gathering.md`; that's provenance to a file, which leaves a reader
 unable to check "the framing shifted in March" without re-reading everything.
@@ -358,16 +390,29 @@ How thinking has changed. What prompted the shifts.
 Open questions, unresolved tensions, areas for future exploration. Mark each
 thread *closed*, *stopped*, or *unclear*, with the date it was last touched:
 
-- **<Thread name>** — *stopped*, last touched <date>. <What's unresolved.>
+- **<Thread name>** — *stopped*, last touched <date>.
+  <The open question, stated in full and readable on its own.>
 
 ### Most Pressing Thread
-The single open question or tension most worth the user's attention right now.
+<The single question or tension most worth attention now, stated in full,
+followed by why it matters.>
 
 ## Revisions
 - <YYYY-MM-DD> — <what this run added, changed, or corrected>
 ```
 
 Reference the gathering in `source_gathering`.
+
+**Thread names are labels, not content.** "The opacity problem" tells a reader
+nothing; the line under it has to carry the question in full — "does making
+the work legible to an audience cost it the ambiguity that made it worth
+making?" A thread whose statement is shorter than its name is a bookmark for
+you, not a thread for the reader.
+
+The **Most Pressing Thread** has a mechanical reason to stand alone: step 4
+copies it verbatim into `topics/index.md`, where it appears next to other
+topics with none of this document around it. If it doesn't survive that move,
+it's too cryptic. Write it as a full sentence naming its own subject.
 
 **The Revisions section carries the trajectory.** Distillations are updated in
 place, so without it every run silently overwrites the last and the only
@@ -383,6 +428,14 @@ search index, which sees the working tree alone. One line per run:
   finding: the reading held.
 
 Newest entries at the bottom. Never rewrite or prune existing lines.
+
+Each line names what actually changed. "Updated Shifts and Threads" records
+nothing a reader can use — it describes which headings you touched, not what
+the distillation now says that it didn't before. "Added 6 chats from July;
+the Shifts section previously had the move to weekly notes as a productivity
+decision, and the July material shows it was about legibility to other
+people" is a line worth keeping. It should be intelligible to someone who
+never sees the diff.
 
 ### Incremental Mode
 
@@ -432,7 +485,12 @@ Git tracks the full history. The prior state is always recoverable.
   summarise the rest.
 - **Be specific** in distillations. Every substantive claim carries an inline
   `(<date>, <source path>)` — provenance bottoms out at a passage, not a file.
-- **Name the threads**. The most valuable output is often what's unresolved.
+- **Name the threads**. The most valuable output is often what's unresolved —
+  but a name is not a thread. State each open question in full.
+- **Write to be read cold.** See Phase 4. Nothing refers outside the document;
+  every section stands alone; coinages get glossed on first use. This applies
+  to the return summary too — it is the only thing the user sees before
+  approving the commit.
 - **Don't over-synthesize**. If the material is thin, say so. A short
   distillation noting "only 2 sources, early exploration" is more honest than
   padding.
@@ -458,7 +516,11 @@ ______________________________________________________________________
 ______________________________________________________________________
 
 Otherwise, when both artefacts are written, return **only** this compact
-summary — do not print the file contents:
+summary — do not print the file contents.
+
+Compact does not mean cryptic. This summary is what the user reads to decide
+whether to commit, and they have not read the artefacts. Each line must make
+sense to someone who has seen neither the sources nor the distillation.
 
 ______________________________________________________________________
 
@@ -469,7 +531,8 @@ ______________________________________________________________________
 - Timeline: \<2-3 sentence summary>
 - Shifts: \<2-3 sentence summary>
 - Threads:
-  - <Thread name>: <one sentence> — *(closed / stopped / unclear)*
+  - <Thread name>: \<the open question, stated in full> — *(closed / stopped
+    / unclear)*
   - *(repeat for each thread)*
   - **Most Pressing Thread**: <Thread name> — <one sentence rationale>
 
