@@ -217,19 +217,17 @@ class Commonplace:
         from commonplace._search._sqlite import SQLiteSearchIndex
 
         index_path = self.cache / "index.db"
-        return SQLiteSearchIndex(index_path, is_live=self.is_live)
+        return SQLiteSearchIndex(index_path, note_exists=self.note_exists)
 
-    def is_live(self, repo_path: RepoPath) -> bool:
+    def note_exists(self, repo_path: RepoPath) -> bool:
         """
-        Whether this exact version of a note is the one the repository holds now.
+        Whether the note a chunk came from is still in the repository.
 
-        False for a note that has been deleted, and for a version superseded by a
-        later edit: either way the text indexed under that ref is no longer
-        anywhere in the working tree, so quoting it back would be a lie.
+        Deliberately blind to which version: an edited note is still there to
+        open, so a chunk of its previous text is worth returning until indexing
+        catches up. A deleted one is not, and quoting it back would be a lie.
         """
-        if not (self.root / repo_path.path).exists():
-            return False
-        return self.make_repo_path(repo_path.path) == repo_path
+        return (self.root / repo_path.path).exists()
 
     @staticmethod
     def init(root: Path):

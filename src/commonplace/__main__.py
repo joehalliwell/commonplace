@@ -216,9 +216,7 @@ def search(
     *query: str,
     limit: Annotated[int, Parameter(name=["--limit", "-n"], help="Maximum number of results")] = 10,
     method: Annotated[SearchMethod, Parameter(help="Search method")] = SearchMethod.HYBRID,
-    include_deleted: Annotated[
-        bool, Parameter(help="Include notes that have been deleted or edited since indexing")
-    ] = False,
+    include_deleted: Annotated[bool, Parameter(help="Include notes that have been deleted since indexing")] = False,
     repo: Repo,
 ) -> None:
     """Search for semantically similar content in your commonplace."""

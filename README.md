@@ -127,14 +127,16 @@ commonplace search "explain neural networks" --method keyword
 # Limit number of results (default: 10)
 commonplace search "machine learning" --limit 5
 
-# Include notes deleted or edited since they were indexed
+# Include notes deleted since they were indexed
 commonplace search "machine learning" --include-deleted
 ```
 
-Results only ever quote text the repository still holds. A note deleted since
-the last index run, or an older version of one you have edited, is hidden
-rather than quoted back at you — `--include-deleted` reaches it while it is
-still in the index.
+Results only ever point at notes the repository still holds: one deleted since
+the last index run is hidden rather than quoted back at you, and
+`--include-deleted` reaches it while it is still in the index. A note you have
+merely *edited* keeps matching on its old text until the next index run — it is
+still there to open, so a slightly stale quote beats losing the note from
+search in the meantime.
 
 Embeddings are computed locally (fastembed, `BAAI/bge-small-en-v1.5`) — the
 model downloads on first use and nothing leaves your machine. The index lives
