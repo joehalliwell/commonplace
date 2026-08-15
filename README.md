@@ -126,7 +126,15 @@ commonplace search "explain neural networks" --method keyword
 
 # Limit number of results (default: 10)
 commonplace search "machine learning" --limit 5
+
+# Include notes deleted or edited since they were indexed
+commonplace search "machine learning" --include-deleted
 ```
+
+Results only ever quote text the repository still holds. A note deleted since
+the last index run, or an older version of one you have edited, is hidden
+rather than quoted back at you — `--include-deleted` reaches it while it is
+still in the index.
 
 Embeddings are computed locally (fastembed, `BAAI/bge-small-en-v1.5`) — the
 model downloads on first use and nothing leaves your machine. The index lives
@@ -138,7 +146,14 @@ commonplace index
 
 # Rebuild from scratch
 commonplace index --rebuild
+
+# Keep chunks for deleted and edited notes instead of dropping them
+commonplace index --no-prune
 ```
+
+Each run also drops chunks for notes that have been deleted or edited since
+they were indexed, so the index tracks the repository instead of accumulating
+every version of everything.
 
 ### Journal
 

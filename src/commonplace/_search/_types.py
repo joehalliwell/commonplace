@@ -155,13 +155,24 @@ class SearchIndex(Protocol):
         """
         ...
 
-    def search(self, query: str, limit: int = 10, method: SearchMethod = SearchMethod.HYBRID) -> list[SearchHit]:
+    def search(
+        self,
+        query: str,
+        limit: int = 10,
+        method: SearchMethod = SearchMethod.HYBRID,
+        include_deleted: bool = False,
+    ) -> list[SearchHit]:
         """
         Search for similar chunks.
 
         Args:
             query_embedding: The query embedding vector
             limit: Maximum number of results to return
+            method: Search method - semantic, keyword, or hybrid
+            include_deleted: Include hits whose note has since been deleted or
+                edited. Off by default: the index lags the repository, and
+                quoting text that is no longer there is worse than a thin result
+                set.
 
         Returns:
             List of search hits, ordered by descending similarity
