@@ -63,7 +63,15 @@ def test_repo(tmp_path):
 
 @pytest.fixture
 def test_index(test_repo):
-    return test_repo.index
+    """A bare store, with no repository to ask which chunks are still live.
+
+    Store-level tests work with synthetic paths that were never on disk, so
+    liveness filtering belongs to the tests that go through `test_repo.index`.
+    """
+    from commonplace._search._sqlite import SQLiteSearchIndex
+
+    with closing(SQLiteSearchIndex(test_repo.cache / "index.db")) as index:
+        yield index
 
 
 @pytest.fixture

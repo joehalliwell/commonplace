@@ -138,6 +138,57 @@ More content.
     assert len(indexed_paths) == 2
 
 
+def test_search_hides_deleted_notes(test_repo, make_note):
+    """A note deleted since the last index run is gone from results, index not yet pruned."""
+    test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nOzymandias king of kings.\n"))
+    test_repo.commit("Add note", auto_index=False)
+    _commands.index(test_repo)
+    assert test_repo.index.search_keyword("Ozymandias", limit=10)
+
+    _delete(test_repo, "doomed.md")
+
+    assert test_repo.index.search_keyword("Ozymandias", limit=10) == []
+    assert test_repo.index.search("Ozymandias", limit=10) == []
+
+
+def test_search_include_deleted_shows_them(test_repo, make_note):
+    """The index still holds the chunks, so --include-deleted can reach them."""
+    test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nOzymandias king of kings.\n"))
+    test_repo.commit("Add note", auto_index=False)
+    _commands.index(test_repo)
+
+    _delete(test_repo, "doomed.md")
+
+    hits = test_repo.index.search_keyword("Ozymandias", limit=10, include_deleted=True)
+    assert [str(hit.chunk.repo_path.path) for hit in hits] == ["doomed.md"]
+
+
+def test_search_hides_superseded_versions(test_repo, make_note):
+    """Text edited out of a note stops matching, even before the index catches up."""
+    test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
+    test_repo.commit("Add note", auto_index=False)
+    _commands.index(test_repo)
+
+    test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are crimson.\n"))
+    test_repo.commit("Edit note", auto_index=False)
+
+    assert test_repo.index.search_keyword("silver", limit=10) == []
+
+
+def test_search_fills_the_limit_around_deleted_notes(test_repo, make_note):
+    """Filtering happens while walking the ranking, so hidden hits don't eat the limit."""
+    for i in range(5):
+        test_repo.save(make_note(path=f"note{i}.md", content=f"# Note {i}\n\nHerrings are silver, number {i}.\n"))
+    test_repo.commit("Add notes", auto_index=False)
+    _commands.index(test_repo)
+
+    _delete(test_repo, "note0.md")
+    _delete(test_repo, "note1.md")
+
+    assert len(test_repo.index.search_keyword("herrings", limit=3)) == 3
+    assert len(test_repo.index.search_semantic("herrings", limit=3)) == 3
+
+
 def test_index_prunes_deleted_notes(test_repo, make_note):
     """A note deleted from the repo leaves the index on the next run."""
     test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nNot long for this world.\n"))
