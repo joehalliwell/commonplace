@@ -145,6 +145,23 @@ def test_get_indexed_paths(test_index, make_chunk):
     assert chunk2.repo_path in paths
 
 
+def test_remove_leaves_another_models_chunks_alone(test_index, other_model_index, make_chunk):
+    """A store is bound to an embedder, so it removes its own chunks and no one else's.
+
+    Both stores hold the same version of the same note, and removing it through
+    one has to leave the other's copy intact.
+    """
+    chunk = make_chunk(path="doomed.md", section="Section", text="Long gone", offset=0)
+    emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    test_index._add_with_embedding(chunk, emb)
+    other_model_index._add_with_embedding(chunk, emb)
+
+    assert test_index.remove([chunk.repo_path]) == 1
+
+    assert set(test_index.get_indexed_paths()) == set()
+    assert set(other_model_index.get_indexed_paths()) == {chunk.repo_path}
+
+
 def test_remove_drops_chunks_for_the_given_versions(test_index, make_chunk):
     """Removal is by (path, ref), so one version of a note can go while another stays."""
     live = make_chunk(path="live.md", section="Section", text="Still here", offset=0)
