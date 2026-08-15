@@ -278,22 +278,25 @@ class Commonplace:
             return RepoPath(path=path, ref=head_ref)
 
         # File is clean - find last commit that modified it (cached)
-        path_map = self._build_path_commit_map(self.git.workdir)
+        path_map = self._build_path_commit_map(self.git.workdir, head_ref)
         ref = path_map.get(path.as_posix(), head_ref)
         return RepoPath(path=path, ref=ref)
 
     @staticmethod
     @lru_cache(maxsize=1)
-    def _build_path_commit_map(repo_dir: str) -> dict[str, str]:
+    def _build_path_commit_map(repo_dir: str, head_ref: str) -> dict[str, str]:
         """
         Build a map of all file paths to their last modifying commit.
 
         Walks the commit history once and builds the entire mapping.
-        Cached by (repo_dir, head_ref) so we only walk once per HEAD state.
+        Cached by (repo_dir, head_ref) so we only walk once per HEAD state. The
+        ref has to be part of the key: a commit moves HEAD, and a map built
+        before it would go on reporting the superseded commit for every file
+        that commit touched.
 
         Args:
             repo_dir: Repository path
-            head_ref: Current HEAD ref
+            head_ref: Commit to walk back from, and the state this map describes
 
         Returns:
             Dict mapping file paths to commit SHAs
@@ -316,11 +319,11 @@ class Commonplace:
                     yield path
 
         # Get all files at HEAD - this is what we need to find commits for
-        last_commit = git[git.head.target]
+        last_commit = git[head_ref]
         assert isinstance(last_commit, Commit)
         remaining_files = set(walk_tree(last_commit.tree))
 
-        for commit in git.walk(git.head.target):
+        for commit in git.walk(head_ref):
             if not remaining_files:
                 # Found commits for all files, can stop early
                 break
