@@ -77,6 +77,25 @@ def test_commit_modified_file(test_repo):
     assert test_repo.git.head.peel().message == "Update note"
 
 
+def test_make_repo_path_follows_later_commits(test_repo):
+    """A note's ref tracks the commit that last modified it, even after HEAD moves on.
+
+    The path -> commit map is cached, so this is really a test that the cache is keyed
+    on HEAD: everything downstream (incremental indexing, pruning, hiding deleted hits
+    from search) decides what is current by comparing refs.
+    """
+    test_repo.save(Note(repo_path=RepoPath(path=Path("test.md"), ref=""), content="# Test\nOriginal content"))
+    test_repo.commit("Add note", auto_index=False)
+    original = test_repo.make_repo_path("test.md")
+
+    test_repo.save(Note(repo_path=RepoPath(path=Path("test.md"), ref=""), content="# Test\nModified content"))
+    test_repo.commit("Update note", auto_index=False)
+    modified = test_repo.make_repo_path("test.md")
+
+    assert original.ref == str(test_repo.git.head.peel().parents[0].id)
+    assert modified.ref == str(test_repo.git.head.target)
+
+
 def test_index_matches_head_after_commit(test_repo):
     """Test that index tree matches HEAD tree after commit (not previous HEAD)."""
     from pygit2.enums import ObjectType
