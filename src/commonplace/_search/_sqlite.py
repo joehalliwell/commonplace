@@ -382,11 +382,11 @@ class SQLiteSearchIndex(SearchIndex):
 
     def remove(self, versions: Iterable[RepoPath]) -> int:
         """
-        Remove every chunk belonging to the given versions of notes.
+        Remove this store's chunks for the given versions of notes.
 
-        Not restricted to this store's model: the caller is saying these
-        versions are gone from the repository, which is true whichever embedder
-        read them.
+        Confined to this store's model, like every other operation here: the
+        store is bound to an embedder, and chunks written by another one are not
+        its to delete.
 
         Args:
             versions: Paths/refs whose chunks should go
@@ -394,12 +394,13 @@ class SQLiteSearchIndex(SearchIndex):
         Returns:
             Number of chunks removed
         """
-        keys = [(str(repo_path.path), repo_path.ref) for repo_path in versions]
+        model_id = self._embedder.model_id
+        keys = [(str(repo_path.path), repo_path.ref, model_id) for repo_path in versions]
 
         if not keys:
             return 0
 
-        cursor = self._conn.executemany("DELETE FROM chunks WHERE path = ? AND ref = ?", keys)
+        cursor = self._conn.executemany("DELETE FROM chunks WHERE path = ? AND ref = ? AND model_id = ?", keys)
         self._conn.commit()
 
         removed = cursor.rowcount

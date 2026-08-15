@@ -74,6 +74,29 @@ def test_index(test_repo):
         yield index
 
 
+class StubEmbedder:
+    """Just enough embedder to stamp a different model_id on stored chunks.
+
+    `_add_with_embedding` reads nothing else off the embedder, which is all it
+    takes to get a second model's rows into one index.
+    """
+
+    model_id = "stub:another-model"
+
+
+@pytest.fixture
+def other_model_index(test_repo):
+    """A second view of the repo's index, writing under a different model_id.
+
+    Stands in for chunks left behind by a previous embedding model: still in the
+    database, invisible to the current model's view of what has been indexed.
+    """
+    from commonplace._search._sqlite import SQLiteSearchIndex
+
+    with closing(SQLiteSearchIndex(test_repo.cache / "index.db", embedder=StubEmbedder())) as index:
+        yield index
+
+
 @pytest.fixture
 def test_app(test_repo):
     from commonplace.__main__ import app
