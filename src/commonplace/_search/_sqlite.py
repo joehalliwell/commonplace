@@ -380,33 +380,30 @@ class SQLiteSearchIndex(SearchIndex):
         for path, ref in cursor.fetchall():
             yield (RepoPath(Path(path), ref))
 
-    def retain(self, live: Iterable[RepoPath]) -> int:
+    def remove(self, versions: Iterable[RepoPath]) -> int:
         """
-        Keep chunks for these versions of these notes, and drop every other chunk.
+        Remove every chunk belonging to the given versions of notes.
 
-        Stated as what to keep rather than what to remove, because the store is
-        the only thing that knows its full contents: the diff spans every model
-        it holds, and whether a note still exists has nothing to do with which
-        embedder read it.
+        Not restricted to this store's model: the caller is saying these
+        versions are gone from the repository, which is true whichever embedder
+        read them.
 
         Args:
-            live: Every path/ref that currently exists in the repository
+            versions: Paths/refs whose chunks should go
 
         Returns:
             Number of chunks removed
         """
-        live_keys = {(str(repo_path.path), repo_path.ref) for repo_path in live}
-        indexed = self._conn.execute("SELECT DISTINCT path, ref FROM chunks").fetchall()
-        stale = [key for key in indexed if key not in live_keys]
+        keys = [(str(repo_path.path), repo_path.ref) for repo_path in versions]
 
-        if not stale:
+        if not keys:
             return 0
 
-        cursor = self._conn.executemany("DELETE FROM chunks WHERE path = ? AND ref = ?", stale)
+        cursor = self._conn.executemany("DELETE FROM chunks WHERE path = ? AND ref = ?", keys)
         self._conn.commit()
 
         removed = cursor.rowcount
-        logger.info(f"Dropped {removed} chunks from {len(stale)} deleted or superseded notes")
+        logger.info(f"Removed {removed} chunks from {len(keys)} deleted or superseded notes")
         return removed
 
     def clear(self) -> None:

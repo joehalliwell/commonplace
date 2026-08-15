@@ -34,17 +34,15 @@ def index(
         logger.info("Clearing existing index")
         repo.index.clear()
 
-    # Every version currently in the repo. Anything else in the index is a note
-    # that has since been deleted, or an older version of one that was edited.
-    live = list(repo.note_paths())
+    # What the repo holds now, against what the index already has. The two
+    # differences say what to add, and what has been deleted or edited since.
+    # A rebuild needs no special case: clear() just emptied `indexed`.
+    live = set(repo.note_paths())
+    indexed = set(repo.index.get_indexed_paths())
 
+    to_index = live - indexed
     if prune:
-        repo.index.retain(live)
-
-    # Collect notes to index
-    to_index = set(live)
-    if not rebuild:
-        to_index.difference_update(repo.index.get_indexed_paths())
+        repo.index.remove(indexed - live)
 
     logger.info(f"Indexing {len(to_index)} notes")
 

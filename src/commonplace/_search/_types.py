@@ -182,14 +182,13 @@ class SearchIndex(Protocol):
         """
         ...
 
-    def retain(self, live: Iterable[RepoPath]) -> int:
+    def remove(self, versions: Iterable[RepoPath]) -> int:
         """
-        Keep chunks for these versions of these notes, and drop every other chunk.
+        Remove every chunk belonging to the given versions of notes.
 
         Args:
-            live: Every path/ref that currently exists in the repository. Anything
-                indexed under a path/ref outside this set has been deleted or
-                superseded by an edit, and is removed.
+            versions: Paths/refs whose chunks should go, because the note has
+                been deleted or the version superseded by an edit
 
         Returns:
             Number of chunks removed
