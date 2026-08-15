@@ -195,6 +195,20 @@ def test_search_fills_the_limit_around_deleted_notes(test_repo, make_note):
     assert len(test_repo.index.search_semantic("herrings", limit=3)) == 3
 
 
+def test_index_rebuild_reindexes_everything(test_repo, make_note):
+    """A rebuild clears first, so every live note has to come back on the same run."""
+    test_repo.save(make_note(path="one.md", content="# One\n\nFirst note.\n"))
+    test_repo.save(make_note(path="two.md", content="# Two\n\nSecond note.\n"))
+    test_repo.commit("Add notes", auto_index=False)
+    _commands.index(test_repo)
+    indexed = set(test_repo.index.get_indexed_paths())
+    assert len(indexed) == 2
+
+    _commands.index(test_repo, rebuild=True)
+
+    assert set(test_repo.index.get_indexed_paths()) == indexed
+
+
 def test_index_prunes_deleted_notes(test_repo, make_note):
     """A note deleted from the repo leaves the index on the next run."""
     test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nNot long for this world.\n"))

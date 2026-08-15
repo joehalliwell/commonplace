@@ -145,8 +145,8 @@ def test_get_indexed_paths(test_index, make_chunk):
     assert chunk2.repo_path in paths
 
 
-def test_retain_removes_chunks_that_are_not_live(test_index, make_chunk):
-    """Retaining keeps exactly the (path, ref) pairs it is told are live."""
+def test_remove_drops_chunks_for_the_given_versions(test_index, make_chunk):
+    """Removal is by (path, ref), so one version of a note can go while another stays."""
     live = make_chunk(path="live.md", section="Section", text="Still here", offset=0)
     deleted = make_chunk(path="deleted.md", section="Section", text="Long gone", offset=0)
     superseded = make_chunk(path="live.md", section="Section", text="Earlier draft", offset=0, ref="1" * 40)
@@ -155,29 +155,40 @@ def test_retain_removes_chunks_that_are_not_live(test_index, make_chunk):
     for chunk in (live, deleted, superseded):
         test_index._add_with_embedding(chunk, emb)
 
-    removed = test_index.retain([live.repo_path])
+    removed = test_index.remove([deleted.repo_path, superseded.repo_path])
 
     assert removed == 2
     assert set(test_index.get_indexed_paths()) == {live.repo_path}
 
 
-def test_retain_keeps_the_full_text_index_in_step(test_index, make_chunk):
-    """A dropped chunk has to leave FTS too, or keyword search resurrects it."""
+def test_remove_keeps_the_full_text_index_in_step(test_index, make_chunk):
+    """A removed chunk has to leave FTS too, or keyword search resurrects it."""
     chunk = make_chunk(path="deleted.md", section="Section", text="Ozymandias king of kings", offset=0)
     test_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
     assert test_index.search_keyword("Ozymandias", limit=10)
 
-    test_index.retain([])
+    test_index.remove([chunk.repo_path])
 
     assert test_index.search_keyword("Ozymandias", limit=10) == []
 
 
-def test_retain_with_nothing_stale_is_a_no_op(test_index, make_chunk):
-    """Retaining an index that is entirely live removes nothing."""
+def test_remove_nothing_leaves_the_index_alone(test_index, make_chunk):
+    """An empty removal set removes nothing — the failure mode of getting this backwards."""
     chunk = make_chunk(path="live.md", section="Section", text="Still here", offset=0)
     test_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
 
-    assert test_index.retain([chunk.repo_path]) == 0
+    assert test_index.remove([]) == 0
+    assert set(test_index.get_indexed_paths()) == {chunk.repo_path}
+
+
+def test_remove_unknown_version_is_a_no_op(test_index, make_chunk):
+    """Naming a version the index never held is harmless."""
+    chunk = make_chunk(path="live.md", section="Section", text="Still here", offset=0)
+    test_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+
+    stranger = make_chunk(path="live.md", section="Section", text="Never indexed", offset=0, ref="1" * 40)
+
+    assert test_index.remove([stranger.repo_path]) == 0
     assert set(test_index.get_indexed_paths()) == {chunk.repo_path}
 
 
