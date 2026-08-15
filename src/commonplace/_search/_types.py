@@ -182,9 +182,9 @@ class SearchIndex(Protocol):
         """
         ...
 
-    def prune(self, live: Iterable[RepoPath]) -> int:
+    def retain(self, live: Iterable[RepoPath]) -> int:
         """
-        Remove chunks whose source is no longer live.
+        Keep chunks for these versions of these notes, and drop every other chunk.
 
         Args:
             live: Every path/ref that currently exists in the repository. Anything

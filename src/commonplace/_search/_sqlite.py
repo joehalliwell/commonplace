@@ -380,13 +380,14 @@ class SQLiteSearchIndex(SearchIndex):
         for path, ref in cursor.fetchall():
             yield (RepoPath(Path(path), ref))
 
-    def prune(self, live: Iterable[RepoPath]) -> int:
+    def retain(self, live: Iterable[RepoPath]) -> int:
         """
-        Remove chunks whose source is no longer live.
+        Keep chunks for these versions of these notes, and drop every other chunk.
 
-        Deliberately not restricted to this store's model: whether a note still
-        exists has nothing to do with which embedder read it, so a prune run
-        clears stale rows for every model in the index.
+        Stated as what to keep rather than what to remove, because the store is
+        the only thing that knows its full contents: the diff spans every model
+        it holds, and whether a note still exists has nothing to do with which
+        embedder read it.
 
         Args:
             live: Every path/ref that currently exists in the repository
@@ -405,7 +406,7 @@ class SQLiteSearchIndex(SearchIndex):
         self._conn.commit()
 
         removed = cursor.rowcount
-        logger.info(f"Pruned {removed} chunks from {len(stale)} deleted or superseded notes")
+        logger.info(f"Dropped {removed} chunks from {len(stale)} deleted or superseded notes")
         return removed
 
     def clear(self) -> None:
