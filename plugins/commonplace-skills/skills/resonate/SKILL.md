@@ -73,6 +73,11 @@ Wait for the subagent to complete.
 **Present the subagent's summary to the user.** Do not re-read the artefact.
 Wait for explicit approval before committing.
 
+If a crossing, tension or question in the summary only makes sense to someone
+who has just read both distillations, send it back to be restated. You have
+not read them either, so rewriting it yourself would put a guess into the
+record.
+
 If the user requests changes, spawn a revision subagent or make small edits
 directly.
 
@@ -188,16 +193,35 @@ What does each topic ask of the others? Questions that wouldn't arise from
 any single topic alone.
 
 ### Most Live Question
-The single question thrown up by this combination that most demands attention.
+<The single question thrown up by this combination that most demands
+attention — stated in full, naming the topics it arises between, and
+readable by someone who has read none of the source material.>
 
 ## Revisions
 - <YYYY-MM-DD> — <what this run added, changed, or corrected>
 ```
 
 Resonances update in place, so the Revisions section is the only in-band
-record that this reading moved. One line per run, appended, never rewritten.
-If an existing resonance has no such section, add it and open with
+record that this reading moved. One line per run, appended, never rewritten,
+each naming what actually changed rather than which headings you touched. If
+an existing resonance has no such section, add it and open with
 `<date> — Revision tracking begins; entries above predate it.`
+
+**Write to be read cold — this artefact needs it most.** A resonance is
+written *about* distillations, which were themselves written about sources,
+so its shorthand sits two removes from anything concrete. A crossing phrased
+as "both topics circle the same legibility problem" is unreadable to anyone
+who hasn't just read both distillations, and nobody ever has.
+
+- Restate what each topic contributes, in the crossing itself. The reader has
+  not read either distillation and will not open them.
+- Gloss vocabulary that belongs to one topic before using it across both —
+  a term of art from the art topic lands in the career topic as noise.
+- Name topics explicitly rather than "the former" / "the latter" / "the
+  first topic". With three or more slugs this is the difference between a
+  legible artefact and a puzzle.
+- A Generative Question that only parses with both distillations in mind
+  isn't generative. It's a note to self.
 
 **What to avoid:**
 
@@ -219,7 +243,14 @@ If an existing resonance has no such section, add it and open with
 
 - **Name the questions precisely.** Vague questions ("how do these relate?")
   have no value. Precise ones ("does the career's need for legibility
-  contradict the art's investment in opacity?") do.
+  contradict the art's investment in opacity?") do. Note that the good example
+  names both topics and states the tension outright — precise and
+  self-contained are the same discipline here.
+
+- **Write to be read cold.** Restate what each topic contributes rather than
+  gesturing at its distillation; name topics instead of "the former"; gloss
+  one topic's vocabulary before using it about another. Short is not the same
+  as cryptic — cut words, not the referents.
 
 - **Short is better.** A resonance that tries to say everything says nothing.
   Three sharp crossings beat ten loose ones.
