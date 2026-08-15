@@ -163,8 +163,13 @@ def test_search_include_deleted_shows_them(test_repo, make_note):
     assert [str(hit.chunk.repo_path.path) for hit in hits] == ["doomed.md"]
 
 
-def test_search_hides_superseded_versions(test_repo, make_note):
-    """Text edited out of a note stops matching, even before the index catches up."""
+def test_search_keeps_finding_an_edited_note(test_repo, make_note):
+    """An edited note stays in results on its old chunks until the index catches up.
+
+    The note is still there to open, so a stale quote costs the reader less than
+    the note vanishing from search between the edit and the next index run. Only
+    deletion hides a hit.
+    """
     test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
     test_repo.commit("Add note", auto_index=False)
     _commands.index(test_repo)
@@ -172,7 +177,8 @@ def test_search_hides_superseded_versions(test_repo, make_note):
     test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are crimson.\n"))
     test_repo.commit("Edit note", auto_index=False)
 
-    assert test_repo.index.search_keyword("silver", limit=10) == []
+    hits = test_repo.index.search_keyword("silver", limit=10)
+    assert [str(hit.chunk.repo_path.path) for hit in hits] == ["draft.md"]
 
 
 def test_search_fills_the_limit_around_deleted_notes(test_repo, make_note):

@@ -25,7 +25,7 @@ class SQLiteSearchIndex(SearchIndex):
         self,
         db_path: Path,
         embedder: Embedder | None = None,
-        is_live: Callable[[RepoPath], bool] | None = None,
+        note_exists: Callable[[RepoPath], bool] | None = None,
     ):
         """
         Initialize the vector store.
@@ -33,12 +33,12 @@ class SQLiteSearchIndex(SearchIndex):
         Args:
             db_path: Path to the SQLite database file
             embedder: Embedder instance to use for generating embeddings
-            is_live: Whether an indexed version still exists in the repository.
-                Hits that fail it are hidden from results unless the caller asks
-                for deleted ones. None (the default) means this store has no
-                repository to ask, and every hit stands.
+            note_exists: Whether an indexed chunk's note is still in the
+                repository. Hits that fail it are hidden from results unless the
+                caller asks for deleted ones. None (the default) means this store
+                has no repository to ask, and every hit stands.
         """
-        self._is_live = is_live
+        self._note_exists = note_exists
 
         try:
             db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -185,7 +185,7 @@ class SQLiteSearchIndex(SearchIndex):
             query: The search query text
             limit: Maximum number of results to return
             method: Search method - semantic, keyword, or hybrid (default)
-            include_deleted: Include hits whose note has since been deleted or edited
+            include_deleted: Include hits whose note has since left the repository
 
         Returns:
             List of search hits, ordered by relevance
@@ -201,18 +201,18 @@ class SQLiteSearchIndex(SearchIndex):
         else:
             raise ValueError(f"Unknown search method: {method}")
 
-    def _take_live(self, ranked: Iterator[SearchHit], limit: int, include_deleted: bool) -> list[SearchHit]:
+    def _take_undeleted(self, ranked: Iterator[SearchHit], limit: int, include_deleted: bool) -> list[SearchHit]:
         """
-        Take the best `limit` hits, dropping any whose note is no longer in the repo.
+        Take the best `limit` hits, dropping any whose note has left the repo.
 
         Filtering as the ranking is walked, rather than after truncating it, so
         hidden hits cost the caller nothing: a query still fills its limit with
         whatever is left.
         """
-        if include_deleted or self._is_live is None:
+        if include_deleted or self._note_exists is None:
             return list(islice(ranked, limit))
-        is_live = self._is_live
-        return list(islice((hit for hit in ranked if is_live(hit.chunk.repo_path)), limit))
+        note_exists = self._note_exists
+        return list(islice((hit for hit in ranked if note_exists(hit.chunk.repo_path)), limit))
 
     def search_semantic(self, query: str, limit: int = 10, include_deleted: bool = False) -> list[SearchHit]:
         """
@@ -221,7 +221,7 @@ class SQLiteSearchIndex(SearchIndex):
         Args:
             query: The search query text
             limit: Maximum number of results to return
-            include_deleted: Include hits whose note has since been deleted or edited
+            include_deleted: Include hits whose note has since left the repository
 
         Returns:
             List of search hits, ordered by descending similarity
@@ -238,7 +238,7 @@ class SQLiteSearchIndex(SearchIndex):
         Args:
             query_embedding: The query embedding vector
             limit: Maximum number of results to return
-            include_deleted: Include hits whose note has since been deleted or edited
+            include_deleted: Include hits whose note has since left the repository
 
         Returns:
             List of search hits, ordered by descending similarity
@@ -273,7 +273,7 @@ class SQLiteSearchIndex(SearchIndex):
         ranked = (
             SearchHit(chunk=chunks[idx], score=float(similarities[idx])) for idx in np.argsort(similarities)[::-1]
         )
-        return self._take_live(ranked, limit, include_deleted)
+        return self._take_undeleted(ranked, limit, include_deleted)
 
     @staticmethod
     def _sanitize_fts5_query(query: str) -> str:
@@ -292,7 +292,7 @@ class SQLiteSearchIndex(SearchIndex):
         Args:
             query: The search query string
             limit: Maximum number of results to return
-            include_deleted: Include hits whose note has since been deleted or edited
+            include_deleted: Include hits whose note has since left the repository
 
         Returns:
             List of search hits, ordered by BM25 rank
@@ -317,7 +317,7 @@ class SQLiteSearchIndex(SearchIndex):
                 # Convert BM25 rank (negative, lower is better) to positive score
                 yield SearchHit(chunk=chunk, score=-float(rank))
 
-        return self._take_live(ranked(), limit, include_deleted)
+        return self._take_undeleted(ranked(), limit, include_deleted)
 
     def search_hybrid(
         self,
@@ -333,7 +333,7 @@ class SQLiteSearchIndex(SearchIndex):
             query: The search query string
             limit: Maximum number of results to return
             k: RRF constant (default 60, as recommended in literature)
-            include_deleted: Include hits whose note has since been deleted or edited
+            include_deleted: Include hits whose note has since left the repository
 
         Returns:
             List of search hits, ordered by fused score

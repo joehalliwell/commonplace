@@ -169,10 +169,13 @@ class SearchIndex(Protocol):
             query_embedding: The query embedding vector
             limit: Maximum number of results to return
             method: Search method - semantic, keyword, or hybrid
-            include_deleted: Include hits whose note has since been deleted or
-                edited. Off by default: the index lags the repository, and
-                quoting text that is no longer there is worse than a thin result
-                set.
+            include_deleted: Include hits whose note has since left the
+                repository. Off by default: quoting a note that is no longer
+                there is worse than a thin result set. Notes that have merely
+                been *edited* since indexing still count as present, stale chunks
+                and all — they are one click away from the reader, so a slightly
+                out-of-date quote beats dropping the note from results until the
+                index catches up.
 
         Returns:
             List of search hits, ordered by descending similarity
