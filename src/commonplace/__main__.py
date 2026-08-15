@@ -276,13 +276,14 @@ def init(root: Path) -> None:
 def index(
     *,
     rebuild: Annotated[bool, Parameter(help="Rebuild the index from scratch")] = False,
+    prune: Annotated[bool, Parameter(help="Drop chunks for deleted or edited notes")] = True,
     repo: Repo,
 ) -> None:
     """Build or rebuild the search index for semantic search."""
 
     from commonplace._search._commands import index
 
-    index(repo, rebuild=rebuild)
+    index(repo, rebuild=rebuild, prune=prune)
 
 
 @app.command(group=SYSTEM_SECTION)

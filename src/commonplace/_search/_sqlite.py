@@ -346,6 +346,34 @@ class SQLiteSearchIndex(SearchIndex):
         for path, ref in cursor.fetchall():
             yield (RepoPath(Path(path), ref))
 
+    def prune(self, live: Iterable[RepoPath]) -> int:
+        """
+        Remove chunks whose source is no longer live.
+
+        Deliberately not restricted to this store's model: whether a note still
+        exists has nothing to do with which embedder read it, so a prune run
+        clears stale rows for every model in the index.
+
+        Args:
+            live: Every path/ref that currently exists in the repository
+
+        Returns:
+            Number of chunks removed
+        """
+        live_keys = {(str(repo_path.path), repo_path.ref) for repo_path in live}
+        indexed = self._conn.execute("SELECT DISTINCT path, ref FROM chunks").fetchall()
+        stale = [key for key in indexed if key not in live_keys]
+
+        if not stale:
+            return 0
+
+        cursor = self._conn.executemany("DELETE FROM chunks WHERE path = ? AND ref = ?", stale)
+        self._conn.commit()
+
+        removed = cursor.rowcount
+        logger.info(f"Pruned {removed} chunks from {len(stale)} deleted or superseded notes")
+        return removed
+
     def clear(self) -> None:
         """Remove all chunks from the store."""
         self._conn.execute("DELETE FROM chunks")

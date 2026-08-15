@@ -3,6 +3,13 @@
 from commonplace._search import _commands
 
 
+def _delete(repo, path: str) -> None:
+    """Delete a note the way a user would: remove it and commit the removal."""
+    (repo.root / path).unlink()
+    repo.git.index.remove(path)
+    repo.commit(f"Delete {path}", auto_index=False)
+
+
 def test_search(test_repo, make_note):
     """Test the search function."""
     # Add test notes with distinct content
@@ -129,3 +136,44 @@ More content.
     _commands.index(test_repo)
     indexed_paths = set(test_repo.index.get_indexed_paths())
     assert len(indexed_paths) == 2
+
+
+def test_index_prunes_deleted_notes(test_repo, make_note):
+    """A note deleted from the repo leaves the index on the next run."""
+    test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nNot long for this world.\n"))
+    test_repo.commit("Add note", auto_index=False)
+    _commands.index(test_repo)
+    assert set(test_repo.index.get_indexed_paths())
+
+    _delete(test_repo, "doomed.md")
+    _commands.index(test_repo)
+
+    assert set(test_repo.index.get_indexed_paths()) == set()
+
+
+def test_index_prunes_superseded_versions(test_repo, make_note):
+    """Editing a note replaces its chunks rather than accumulating a version per edit."""
+    test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
+    test_repo.commit("Add note", auto_index=False)
+    _commands.index(test_repo)
+
+    test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are crimson.\n"))
+    test_repo.commit("Edit note", auto_index=False)
+    _commands.index(test_repo)
+
+    assert set(test_repo.index.get_indexed_paths()) == {test_repo.make_repo_path("draft.md")}
+    assert test_repo.index.search_keyword("crimson", limit=10)
+    assert test_repo.index.search_keyword("silver", limit=10) == []
+
+
+def test_index_no_prune_keeps_deleted_notes(test_repo, make_note):
+    """`--no-prune` leaves the index alone, for when re-embedding would cost more than the noise."""
+    test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nNot long for this world.\n"))
+    test_repo.commit("Add note", auto_index=False)
+    _commands.index(test_repo)
+    indexed = set(test_repo.index.get_indexed_paths())
+
+    _delete(test_repo, "doomed.md")
+    _commands.index(test_repo, prune=False)
+
+    assert set(test_repo.index.get_indexed_paths()) == indexed
