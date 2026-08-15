@@ -168,6 +168,20 @@ class SearchIndex(Protocol):
         """
         ...
 
+    def prune(self, live: Iterable[RepoPath]) -> int:
+        """
+        Remove chunks whose source is no longer live.
+
+        Args:
+            live: Every path/ref that currently exists in the repository. Anything
+                indexed under a path/ref outside this set has been deleted or
+                superseded by an edit, and is removed.
+
+        Returns:
+            Number of chunks removed
+        """
+        ...
+
     def clear(self) -> None:
         """Remove all chunks from the store."""
         ...

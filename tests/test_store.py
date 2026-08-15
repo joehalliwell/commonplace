@@ -145,6 +145,42 @@ def test_get_indexed_paths(test_index, make_chunk):
     assert chunk2.repo_path in paths
 
 
+def test_prune_removes_chunks_that_are_not_live(test_index, make_chunk):
+    """Pruning keeps exactly the (path, ref) pairs it is told are live."""
+    live = make_chunk(path="live.md", section="Section", text="Still here", offset=0)
+    deleted = make_chunk(path="deleted.md", section="Section", text="Long gone", offset=0)
+    superseded = make_chunk(path="live.md", section="Section", text="Earlier draft", offset=0, ref="1" * 40)
+
+    emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    for chunk in (live, deleted, superseded):
+        test_index._add_with_embedding(chunk, emb)
+
+    removed = test_index.prune([live.repo_path])
+
+    assert removed == 2
+    assert set(test_index.get_indexed_paths()) == {live.repo_path}
+
+
+def test_prune_keeps_the_full_text_index_in_step(test_index, make_chunk):
+    """A pruned chunk has to leave FTS too, or keyword search resurrects it."""
+    chunk = make_chunk(path="deleted.md", section="Section", text="Ozymandias king of kings", offset=0)
+    test_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    assert test_index.search_keyword("Ozymandias", limit=10)
+
+    test_index.prune([])
+
+    assert test_index.search_keyword("Ozymandias", limit=10) == []
+
+
+def test_prune_with_nothing_stale_is_a_no_op(test_index, make_chunk):
+    """Pruning an index that is entirely live removes nothing."""
+    chunk = make_chunk(path="live.md", section="Section", text="Still here", offset=0)
+    test_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+
+    assert test_index.prune([chunk.repo_path]) == 0
+    assert set(test_index.get_indexed_paths()) == {chunk.repo_path}
+
+
 def test_stats_empty(test_index):
     stats = list(test_index.stats())
     assert len(stats) == 0
