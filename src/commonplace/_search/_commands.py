@@ -39,7 +39,7 @@ def index(
     live = list(repo.note_paths())
 
     if prune:
-        repo.index.prune(live)
+        repo.index.retain(live)
 
     # Collect notes to index
     to_index = set(live)
