@@ -8,11 +8,10 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from rich.progress import track
-
 from commonplace._import._base import BaseWireImporter
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._logging import logger
+from commonplace._progress import track
 from commonplace._utils import sniff_gzipped_jsonl, truncate
 from commonplace._wire import LEGACY_VERSION, read_entries, read_header
 
