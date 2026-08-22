@@ -394,7 +394,8 @@ def summarize(broken: Collection[BrokenLink]) -> list[str]:
         by_source.setdefault(item.link.source, []).append(item)
     summaries = []
     for source, items in sorted(by_source.items()):
-        lines = [f"{source}: {len(items)} link{'s' if len(items) > 1 else ''} that go nowhere"]
+        count = f"{len(items)} links that go" if len(items) > 1 else "1 link that goes"
+        lines = [f"{source}: {count} nowhere"]
         for item in sorted(items, key=lambda i: i.link.line):
             suggestion = f" — moved to {item.suggestion}?" if item.suggestion else ""
             lines.append(f"  line {item.link.line}: {item.link.target} ({item.reason}){suggestion}")
