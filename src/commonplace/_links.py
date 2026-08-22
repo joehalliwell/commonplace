@@ -1,27 +1,4 @@
-"""
-Find links in markdown, and check that the ones pointing into the repository resolve.
-
-Two separate jobs, deliberately kept apart:
-
-- **Extraction** is a property of a piece of text. `extract_links` finds every
-  reference a reader could follow, in whatever form it was written: inline and
-  reference-style markdown links, images, wikilinks, raw HTML, and the bare
-  repo-relative paths that gatherings and distillations cite their sources with.
-- **Resolution** is a property of the repository the text sits in. `check_links`
-  walks a commonplace and reports the references that no longer land anywhere.
-
-Markdown itself is parsed by markdown-it — already in the tree under `mdformat`
-— rather than by hand. Link syntax has more corners than it looks, and a
-CommonMark parser is not a thing worth owning a copy of. What is left here is
-the part no parser knows about: wikilinks, and the citation forms this project
-invented.
-
-Two things this deliberately does not do. It does not check external URLs —
-that needs the network, and a checker that is slow and flaky is a checker you
-stop running. And it does not read `chats/**`: transcripts are primitives,
-quoted verbatim, and a link inside one is content the model or the user wrote,
-not a claim about this repository. Chats are link *targets*, never link sources.
-"""
+"""Find the links in a repository's markdown, and check that they land somewhere."""
 
 import os
 import re
@@ -39,13 +16,7 @@ SKIPPED_ROOTS: tuple[str, ...] = ("chats",)
 
 
 class LinkKind(StrEnum):
-    """
-    How a reference resolves.
-
-    Only three, because only three things happen. How a link was *written* —
-    inline, reference-style, an image, raw HTML — makes no difference once it
-    has been read, so it is not recorded.
-    """
+    """Where a target is measured from, which is the only thing that varies."""
 
     PATH = "path"  # Relative to the file it is written in
     CITATION = "citation"  # Relative to the repository root, wherever it appears
@@ -54,7 +25,7 @@ class LinkKind(StrEnum):
 
 @dataclass(frozen=True)
 class Link:
-    """A single reference, as written, at a known place in a known file."""
+    """A reference, as written, at a known place in a known file."""
 
     source: Path  # Relative to repo root
     line: int  # 1-based
@@ -64,7 +35,7 @@ class Link:
 
 @dataclass(frozen=True)
 class BrokenLink:
-    """A reference that does not land anywhere, and our best guess at where it meant to."""
+    """A reference that lands nowhere, and where it probably meant to."""
 
     link: Link
     reason: str
@@ -96,12 +67,7 @@ def _blank(text: str) -> str:
 
 
 def _prose(text: str, tokens: list[Token]) -> list[str]:
-    """
-    The lines of `text` with all code blanked out, for the patterns markdown-it does not know.
-
-    A note *about* markdown, showing `[[a wikilink]]` as an example, is not
-    claiming that page exists.
-    """
+    """The lines of `text` with code blanked out, so examples do not read as claims."""
     lines = text.split("\n")
     for token in tokens:
         if token.type in ("fence", "code_block") and token.map:
@@ -111,14 +77,7 @@ def _prose(text: str, tokens: list[Token]) -> list[str]:
 
 
 def _locate(lines: list[str], span: list[int] | None, needle: str) -> int:
-    """
-    The 1-based line holding `needle`, searched within the block at `span`.
-
-    markdown-it maps blocks, not the inline tokens inside them, so for anything
-    longer than a one-line paragraph the block start is not good enough to go
-    and fix the link by. Finding the text again is cruder than tracking offsets
-    through the parse, and it does not go wrong in ways that need explaining.
-    """
+    """The 1-based line holding `needle`, which markdown-it maps only as far as its block."""
     if span is None:
         return 1
     for i in range(span[0], min(span[1], len(lines))):
@@ -155,13 +114,7 @@ def _token_links(tokens: list[Token], lines: list[str]) -> Iterator[tuple[int, s
 
 
 def _pattern_links(prose: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
-    """
-    Wikilinks, and the citations this project invented.
-
-    A gathering lists the passages a distillation rests on, in frontmatter and
-    inline as `(<date>, <path>)`. Those are the references that matter most —
-    they are its evidence — and until recently they were the ones nothing checked.
-    """
+    """Wikilinks and citations: the forms no CommonMark parser knows."""
     in_frontmatter = bool(prose) and prose[0].strip() == "---"
     for number, line in enumerate(prose, start=1):
         if in_frontmatter:
@@ -187,12 +140,7 @@ def _is_repo_reference(target: str) -> bool:
 
 
 def extract_links(text: str, *, source: Path) -> list[Link]:
-    """
-    Every reference in `text` that could point into the repository, in document order.
-
-    External URLs, pure fragments and code samples are left out. References that
-    repeat the same target on the same line are reported once.
-    """
+    """Every reference in `text` that could point into the repository, in document order."""
     tokens = _MARKDOWN.parse(text)
     found = list(_token_links(tokens, text.split("\n"))) + list(_pattern_links(_prose(text, tokens)))
 
@@ -215,7 +163,7 @@ def _walk(root: Path) -> Iterator[Path]:
 
 
 def _index(root: Path) -> dict[str, list[Path]]:
-    """Every file by name and by stem: what wikilinks resolve through, and what renames are guessed from."""
+    """Every file by name and by stem."""
     index: dict[str, list[Path]] = {}
     for path in _walk(root):
         for key in {path.name, path.stem}:
@@ -251,12 +199,7 @@ def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]]) -> str:
 
 
 def check_links(root: Path, *, skip: Collection[str] = SKIPPED_ROOTS) -> list[BrokenLink]:
-    """
-    Every reference in the repository's own markdown that no longer lands anywhere.
-
-    Where a file with the target's name exists somewhere else — which is what a
-    rename looks like from here — the new location is offered as a suggestion.
-    """
+    """Every reference in the repository's own markdown that lands nowhere."""
     index = _index(root)
     skipped = tuple(skip)
     broken = []
@@ -271,7 +214,7 @@ def check_links(root: Path, *, skip: Collection[str] = SKIPPED_ROOTS) -> list[Br
 
 
 def summarize(broken: Collection[BrokenLink]) -> list[str]:
-    """One report per file, listing what no longer resolves and where it probably went."""
+    """One report per file of what no longer resolves."""
     by_source: dict[Path, list[BrokenLink]] = {}
     for item in broken:
         by_source.setdefault(item.link.source, []).append(item)
