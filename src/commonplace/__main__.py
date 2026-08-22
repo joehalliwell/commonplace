@@ -235,6 +235,31 @@ def search(
         print(f"   {hit.chunk.text[:200]}{'...' if len(hit.chunk.text) > 200 else ''}")
 
 
+@app.command(alias="l", group=ANALYZING_SECTION)
+def links(
+    *,
+    show_all: Annotated[
+        bool,
+        Parameter(name=["--all"], help="List every link, not just the broken ones", negative=""),
+    ] = False,
+    repo: Repo,
+) -> None:
+    """Report links that go nowhere. With --all, list every link in the repository."""
+
+    from commonplace._links import check_links, find_links, summarize
+
+    if show_all:
+        for link in find_links(repo.root):
+            print(f"{link.source}:{link.line} [{link.kind}] {link.target}")
+        return
+
+    broken = check_links(repo.root)
+    for summary in summarize(broken):
+        print(summary)
+    if not broken:
+        logger.info("Every link lands somewhere")
+
+
 ################################################################################
 # System commands
 ################################################################################
