@@ -10,6 +10,8 @@ from urllib.parse import unquote
 
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
+from mdformat_wikilink.mdit_wikilink_plugin import wikilink_plugin  # type: ignore[import-untyped]
+from mdit_py_plugins.front_matter import front_matter_plugin
 
 # Directories whose markdown is not a source of repository references.
 SKIPPED_ROOTS: tuple[str, ...] = ("chats",)
@@ -45,35 +47,19 @@ class BrokenLink:
 # --- Extraction -------------------------------------------------------------
 
 _EXTERNAL_SCHEME = re.compile(r"\A[a-z][a-z0-9+.-]*:", re.IGNORECASE)
-_CODE_SPAN = re.compile(r"(?P<ticks>`+)(?P<body>.+?)(?P=ticks)", re.DOTALL)
 _HTML_ATTRIBUTE = re.compile(r"""\b(?:href|src)[ \t]*=[ \t]*("[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
-_WIKILINK = re.compile(r"\[\[(?P<body>[^\]]+)\]\]")
 _YAML_PATH = re.compile(
-    r"""\A[ \t]*(?:-[ \t]*|[\w.-]+:[ \t]*)(?P<quote>["']?)(?P<path>[^\s"']+\.md)(?P=quote)[ \t]*\Z"""
+    r"""^[ \t]*(?:-[ \t]*|[\w.-]+:[ \t]*)(?P<quote>["']?)(?P<path>[^\s"']+\.md)(?P=quote)[ \t]*$""", re.MULTILINE
 )
 _DATED_CITATION = re.compile(r"\(\d{4}-\d{2}-\d{2},[ \t]*(?P<path>[^)\s]+\.md)\)")
 
-# CommonMark, minus two conveniences. markdown-it percent-encodes destinations,
-# which would have reports saying a%20note.md where the file says a note.md; and
-# it decides for itself which schemes are safe, which is _is_repo_reference's job.
-_MARKDOWN = MarkdownIt("commonmark")
+# CommonMark, taught the two syntaxes we care about that it does not have, minus
+# two conveniences: markdown-it percent-encodes destinations, which would have
+# reports saying a%20note.md where the file says a note.md, and it decides for
+# itself which schemes are safe, which is _is_repo_reference's job.
+_MARKDOWN = MarkdownIt("commonmark").use(wikilink_plugin).use(front_matter_plugin)
 _MARKDOWN.normalizeLink = lambda url: url  # type: ignore[method-assign]
 _MARKDOWN.validateLink = lambda url: True  # type: ignore[method-assign]
-
-
-def _blank(text: str) -> str:
-    """Replace `text` with spaces, preserving length and line structure."""
-    return "".join("\n" if char == "\n" else " " for char in text)
-
-
-def _prose(text: str, tokens: list[Token]) -> list[str]:
-    """The lines of `text` with code blanked out, so examples do not read as claims."""
-    lines = text.split("\n")
-    for token in tokens:
-        if token.type in ("fence", "code_block") and token.map:
-            for i in range(token.map[0], min(token.map[1], len(lines))):
-                lines[i] = _blank(lines[i])
-    return _CODE_SPAN.sub(lambda m: _blank(m.group()), "\n".join(lines)).split("\n")
 
 
 def _locate(lines: list[str], span: list[int] | None, needle: str) -> int:
@@ -93,42 +79,44 @@ def _html_targets(html: str) -> Iterator[str]:
             yield target
 
 
-def _token_links(tokens: list[Token], lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
-    """Links, images and raw HTML, as markdown-it sees them."""
+def _frontmatter_citations(token: Token) -> Iterator[tuple[int, str, LinkKind]]:
+    """The source paths a gathering lists in its frontmatter."""
+    first_line = (token.map[0] if token.map else 0) + 2  # Past the opening `---`
+    for match in _YAML_PATH.finditer(token.content):
+        yield first_line + token.content[: match.start("path")].count("\n"), match.group("path"), LinkKind.CITATION
+
+
+def _inline_references(child: Token, span: list[int] | None, lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
+    """The references in one inline token, whichever syntax carried it."""
+    if child.type == "wikilink":
+        # `page|alias` and `page#section` both name `page`.
+        if target := child.content.strip("[]").split("|")[0].split("#")[0].strip():
+            yield _locate(lines, span, child.content), target, LinkKind.WIKILINK
+    elif child.type == "html_inline":
+        for target in _html_targets(child.content):
+            yield _locate(lines, span, target), target, LinkKind.PATH
+    elif child.type == "text":
+        for match in _DATED_CITATION.finditer(child.content):
+            yield _locate(lines, span, match.group("path")), match.group("path"), LinkKind.CITATION
+    # Reference, collapsed and shortcut links arrive already resolved to their
+    # definition, so every one of them looks inline by here.
+    elif (attribute := {"link_open": "href", "image": "src"}.get(child.type)) and (
+        target := str(child.attrGet(attribute) or "")
+    ):
+        yield _locate(lines, span, target), target, LinkKind.PATH
+
+
+def _references(tokens: list[Token], lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
+    """Every reference in the token stream, now that the parser knows every syntax we use."""
     for token in tokens:
-        if token.type == "html_block":
+        if token.type == "front_matter":
+            yield from _frontmatter_citations(token)
+        elif token.type == "html_block":
             for target in _html_targets(token.content):
                 yield _locate(lines, token.map, target), target, LinkKind.PATH
-        if token.type != "inline":
-            continue
-        for child in token.children or []:
-            # Reference, collapsed and shortcut links arrive already resolved to
-            # their definition, so every one of them looks inline by here.
-            if child.type == "html_inline":
-                for target in _html_targets(child.content):
-                    yield _locate(lines, token.map, target), target, LinkKind.PATH
-                continue
-            attribute = {"link_open": "href", "image": "src"}.get(child.type)
-            if attribute and (target := str(child.attrGet(attribute) or "")):
-                yield _locate(lines, token.map, target), target, LinkKind.PATH
-
-
-def _pattern_links(prose: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
-    """Wikilinks and citations: the forms no CommonMark parser knows."""
-    in_frontmatter = bool(prose) and prose[0].strip() == "---"
-    for number, line in enumerate(prose, start=1):
-        if in_frontmatter:
-            if number > 1 and line.strip() == "---":
-                in_frontmatter = False
-            elif match := _YAML_PATH.match(line):
-                yield number, match.group("path"), LinkKind.CITATION
-            continue
-        for match in _WIKILINK.finditer(line):
-            # `page|alias` and `page#section` both name `page`.
-            if target := match.group("body").split("|")[0].split("#")[0].strip():
-                yield number, target, LinkKind.WIKILINK
-        for match in _DATED_CITATION.finditer(line):
-            yield number, match.group("path"), LinkKind.CITATION
+        elif token.type == "inline":
+            for child in token.children or []:
+                yield from _inline_references(child, token.map, lines)
 
 
 def _is_repo_reference(target: str) -> bool:
@@ -141,8 +129,7 @@ def _is_repo_reference(target: str) -> bool:
 
 def extract_links(text: str, *, source: Path) -> list[Link]:
     """Every reference in `text` that could point into the repository, in document order."""
-    tokens = _MARKDOWN.parse(text)
-    found = list(_token_links(tokens, text.split("\n"))) + list(_pattern_links(_prose(text, tokens)))
+    found = list(_references(_MARKDOWN.parse(text), text.split("\n")))
 
     links: dict[tuple[int, str], Link] = {}
     for line, target, kind in sorted(found, key=lambda item: item[0]):
