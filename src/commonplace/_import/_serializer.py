@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 import mdformat
@@ -5,6 +6,24 @@ import yaml
 from pydantic import BaseModel, Field
 
 from commonplace._import._types import EventLog, Message, Role, ToolCall
+
+_ARTIFACT = re.compile(r"(?P<open><antArtifact\b[^>]*>)\n(?P<body>.*?)\n?(?P<close></antArtifact>)", re.DOTALL)
+_LANGUAGE = re.compile(r'language="([^"]*)"')
+
+
+def _fence_artifacts(content: str) -> str:
+    """Fence artifact bodies that are not themselves markdown, so mdformat leaves them alone."""
+
+    def fence(match: re.Match[str]) -> str:
+        opening, body = match.group("open"), match.group("body")
+        if 'type="text/markdown"' in opening:
+            return match.group()
+        language = language_match.group(1) if (language_match := _LANGUAGE.search(opening)) else ""
+        # Long enough to survive a body that contains fences of its own.
+        ticks = "`" * max(3, *(len(run) + 1 for run in re.findall(r"`+", body)), 3)
+        return f"{opening}\n\n{ticks}{language}\n{body}\n{ticks}\n\n{match.group('close')}"
+
+    return _ARTIFACT.sub(fence, content)
 
 
 class MarkdownSerializer(BaseModel):
@@ -50,7 +69,7 @@ class MarkdownSerializer(BaseModel):
                 )
                 self._add_metadata(lines, event.metadata, frontmatter=False)
 
-                lines.append(event.content)
+                lines.append(_fence_artifacts(event.content))
                 lines.append("")
 
             elif isinstance(event, ToolCall):
