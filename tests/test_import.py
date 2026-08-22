@@ -197,3 +197,78 @@ def test_import_a_directory_of_stored_blobs_creates_notes(test_repo, tmp_path):
     import_(tmp_path / "blobs", test_repo, user="Human")
 
     assert list((test_repo.root / "chats").glob("**/*.md"))
+
+
+ARTIFACT_CODE = """Here is the code:
+
+<antArtifact identifier="demo" type="application/vnd.ant.code" language="python" title="Demo">
+class ConstraintSystem:
+    def __init__(self):
+        self.constraints: List[Callable[[Dict[str, any]], bool]] = []
+
+    def add_variable(self, name: str, domain: set):
+        self.variables[name] = domain
+</antArtifact>
+
+That's it.
+"""
+
+
+def _serialize_message(content: str) -> str:
+    serializer = MarkdownSerializer(human="Human", assistant="Assistant")
+    log = EventLog(
+        source="test",
+        title="Artifacts",
+        created=datetime(2024, 1, 1, 12, 0, 0),  # noqa: DTZ001 - naive on purpose
+        events=[
+            Message(
+                sender=Role.ASSISTANT,
+                content=content,
+                created=datetime(2024, 1, 1, 12, 0, 0),  # noqa: DTZ001 - naive on purpose
+                metadata={},
+            )
+        ],
+        metadata={},
+    )
+    return serializer.serialize(log)
+
+
+def test_serialize_keeps_artifact_code_line_structure():
+    """Code in an artifact must survive: reflowing it changes what the model said."""
+    out = _serialize_message(ARTIFACT_CODE)
+    assert "    def add_variable(self, name: str, domain: set):" in out
+    assert "class ConstraintSystem:" in out
+
+
+def test_serialize_keeps_unindented_artifact_code_on_its_own_lines():
+    """The corpus case: past the blank line an HTML block ends, and column-0 code became prose."""
+    content = (
+        '<antArtifact identifier="demo" type="application/vnd.ant.code" language="python" title="Demo">\n'
+        "import sys\n"
+        "\n"
+        "def main(argv: list[str]) -> int:\n"
+        "    return 0\n"
+        "</antArtifact>\n"
+    )
+    out = _serialize_message(content)
+    assert "\ndef main(argv: list[str]) -> int:\n" in out
+    assert "    return 0" in out
+
+
+def test_serialize_does_not_escape_brackets_in_artifact_code():
+    """Escaped brackets are not what was written, and not valid Python."""
+    out = _serialize_message(ARTIFACT_CODE)
+    assert "List[Callable[[Dict[str, any]], bool]]" in out
+    assert "\\[" not in out
+
+
+def test_serialize_leaves_markdown_artifacts_as_prose():
+    """A markdown artifact is markdown: fencing it would turn a document into a code block."""
+    content = (
+        '<antArtifact identifier="essay" type="text/markdown" title="Essay">\n'
+        "# Heading\n\nSome *prose* that should stay prose.\n"
+        "</antArtifact>\n"
+    )
+    out = _serialize_message(content)
+    assert "# Heading" in out
+    assert "```" not in out
