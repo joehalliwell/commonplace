@@ -183,20 +183,6 @@ commonplace stats --all
 commonplace stats --source chats/claude
 ```
 
-### Follow your links
-
-```bash
-# Links that go nowhere, with a guess at where each one moved to
-commonplace links
-
-# Every link in the repository: file, line, kind, target
-commonplace links --all
-```
-
-`--all` prints the link graph — what points at what — which is the raw material
-for backlinks and index pages. `doctor` runs the same check as part of its
-report, so this is for when you want to look at links on their own.
-
 ### Sync your commonplace
 
 If you have a git remote configured, sync your changes:
