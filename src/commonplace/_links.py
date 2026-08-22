@@ -10,16 +10,11 @@ Two separate jobs, deliberately kept apart:
 - **Resolution** is a property of the repository the text sits in. `check_links`
   walks a commonplace and reports the references that no longer land anywhere.
 
-Keeping the seam there means the same extractor can answer "what does this file
-point at?" for a backlink graph or a link suggester, not just "what is broken?".
-
 Markdown itself is parsed by markdown-it — already in the tree under `mdformat`
-— rather than by hand. Link syntax has more corners than it looks (balanced
-parens in a destination, titles in three quotings, reference definitions
-resolved from elsewhere in the file, code spans that must not be read as
-prose), and a CommonMark parser is not a thing worth owning a copy of. What is
-left here is the part no parser knows about: wikilinks, and the citation forms
-this project invented.
+— rather than by hand. Link syntax has more corners than it looks, and a
+CommonMark parser is not a thing worth owning a copy of. What is left here is
+the part no parser knows about: wikilinks, and the citation forms this project
+invented.
 
 Two things this deliberately does not do. It does not check external URLs —
 that needs the network, and a checker that is slow and flaky is a checker you
@@ -44,15 +39,17 @@ SKIPPED_ROOTS: tuple[str, ...] = ("chats",)
 
 
 class LinkKind(StrEnum):
-    """How a reference was written. Affects how it resolves, and how it reads in a report."""
+    """
+    How a reference resolves.
 
-    # No REFERENCE: the parser resolves reference-style links to their
-    # definition, and by the time we see one it is indistinguishable from inline.
-    INLINE = "inline"
-    IMAGE = "image"
-    WIKILINK = "wikilink"
-    HTML = "html"
-    CITATION = "citation"
+    Only three, because only three things happen. How a link was *written* —
+    inline, reference-style, an image, raw HTML — makes no difference once it
+    has been read, so it is not recorded.
+    """
+
+    PATH = "path"  # Relative to the file it is written in
+    CITATION = "citation"  # Relative to the repository root, wherever it appears
+    WIKILINK = "wikilink"  # Names a note rather than a location
 
 
 @dataclass(frozen=True)
@@ -80,29 +77,17 @@ _EXTERNAL_SCHEME = re.compile(r"\A[a-z][a-z0-9+.-]*:", re.IGNORECASE)
 _CODE_SPAN = re.compile(r"(?P<ticks>`+)(?P<body>.+?)(?P=ticks)", re.DOTALL)
 _HTML_ATTRIBUTE = re.compile(r"""\b(?:href|src)[ \t]*=[ \t]*("[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
 _WIKILINK = re.compile(r"\[\[(?P<body>[^\]]+)\]\]")
-_FRONTMATTER = re.compile(r"\A---\n(?P<body>.*?)\n---(?:\n|\Z)", re.DOTALL)
 _YAML_PATH = re.compile(
-    r"""^[ \t]*(?:-[ \t]*|[\w.-]+:[ \t]*)(?P<quote>["']?)(?P<path>[^\s"']+\.md)(?P=quote)[ \t]*$""", re.MULTILINE
+    r"""\A[ \t]*(?:-[ \t]*|[\w.-]+:[ \t]*)(?P<quote>["']?)(?P<path>[^\s"']+\.md)(?P=quote)[ \t]*\Z"""
 )
 _DATED_CITATION = re.compile(r"\(\d{4}-\d{2}-\d{2},[ \t]*(?P<path>[^)\s]+\.md)\)")
 
-
-def _parser() -> MarkdownIt:
-    """
-    CommonMark, with the two conveniences we do not want.
-
-    Destinations are reported exactly as written — markdown-it would otherwise
-    percent-encode them, and a report that says `a%20note.md` when the file says
-    `a note.md` is a report you have to decode before you can act on it. Which
-    schemes count as ours is decided in `_is_repo_reference`, not by the parser.
-    """
-    md = MarkdownIt("commonmark")
-    md.normalizeLink = lambda url: url  # type: ignore[method-assign]
-    md.validateLink = lambda url: True  # type: ignore[method-assign]
-    return md
-
-
-_MARKDOWN = _parser()
+# CommonMark, minus two conveniences. markdown-it percent-encodes destinations,
+# which would have reports saying a%20note.md where the file says a note.md; and
+# it decides for itself which schemes are safe, which is _is_repo_reference's job.
+_MARKDOWN = MarkdownIt("commonmark")
+_MARKDOWN.normalizeLink = lambda url: url  # type: ignore[method-assign]
+_MARKDOWN.validateLink = lambda url: True  # type: ignore[method-assign]
 
 
 def _blank(text: str) -> str:
@@ -136,76 +121,61 @@ def _locate(lines: list[str], span: list[int] | None, needle: str) -> int:
     """
     if span is None:
         return 1
-    start, end = span[0], min(span[1], len(lines))
-    for i in range(start, end):
+    for i in range(span[0], min(span[1], len(lines))):
         if needle in lines[i]:
             return i + 1
-    return start + 1
+    return span[0] + 1
 
 
-def _attribute(token: Token, name: str) -> str:
-    """A token attribute as text — markdown-it types them loosely, but a URL is a string."""
-    value = token.attrGet(name)
-    return str(value) if value is not None else ""
+def _html_targets(html: str) -> Iterator[str]:
+    """The `href` and `src` attributes in a piece of raw HTML."""
+    for attribute in _HTML_ATTRIBUTE.finditer(html):
+        if target := attribute.group(1).strip("\"'"):
+            yield target
 
 
 def _token_links(tokens: list[Token], lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
     """Links, images and raw HTML, as markdown-it sees them."""
     for token in tokens:
-        if token.type != "inline" or not token.children:
+        if token.type == "html_block":
+            for target in _html_targets(token.content):
+                yield _locate(lines, token.map, target), target, LinkKind.PATH
+        if token.type != "inline":
             continue
-        for child in token.children:
-            if child.type == "link_open":
-                # Reference, collapsed and shortcut links arrive already resolved
-                # to their definition, so every one of them looks inline by here.
-                target = _attribute(child, "href")
-                if target:
-                    yield _locate(lines, token.map, target), target, LinkKind.INLINE
-            elif child.type == "image":
-                target = _attribute(child, "src")
-                if target:
-                    yield _locate(lines, token.map, target), target, LinkKind.IMAGE
-            elif child.type == "html_inline":
-                for attribute in _HTML_ATTRIBUTE.finditer(child.content):
-                    target = attribute.group(1).strip("\"'")
-                    if target:
-                        yield _locate(lines, token.map, target), target, LinkKind.HTML
-    for token in tokens:
-        if token.type == "html_block" and token.map:
-            for offset, line in enumerate(lines[token.map[0] : min(token.map[1], len(lines))]):
-                for attribute in _HTML_ATTRIBUTE.finditer(line):
-                    target = attribute.group(1).strip("\"'")
-                    if target:
-                        yield token.map[0] + offset + 1, target, LinkKind.HTML
+        for child in token.children or []:
+            # Reference, collapsed and shortcut links arrive already resolved to
+            # their definition, so every one of them looks inline by here.
+            if child.type == "html_inline":
+                for target in _html_targets(child.content):
+                    yield _locate(lines, token.map, target), target, LinkKind.PATH
+                continue
+            attribute = {"link_open": "href", "image": "src"}.get(child.type)
+            if attribute and (target := str(child.attrGet(attribute) or "")):
+                yield _locate(lines, token.map, target), target, LinkKind.PATH
 
 
 def _pattern_links(prose: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
-    """Wikilinks and inline dated citations: prose forms no CommonMark parser knows."""
+    """
+    Wikilinks, and the citations this project invented.
+
+    A gathering lists the passages a distillation rests on, in frontmatter and
+    inline as `(<date>, <path>)`. Those are the references that matter most —
+    they are its evidence — and until recently they were the ones nothing checked.
+    """
+    in_frontmatter = bool(prose) and prose[0].strip() == "---"
     for number, line in enumerate(prose, start=1):
+        if in_frontmatter:
+            if number > 1 and line.strip() == "---":
+                in_frontmatter = False
+            elif match := _YAML_PATH.match(line):
+                yield number, match.group("path"), LinkKind.CITATION
+            continue
         for match in _WIKILINK.finditer(line):
             # `page|alias` and `page#section` both name `page`.
-            target = match.group("body").split("|")[0].split("#")[0].strip()
-            if target:
+            if target := match.group("body").split("|")[0].split("#")[0].strip():
                 yield number, target, LinkKind.WIKILINK
         for match in _DATED_CITATION.finditer(line):
             yield number, match.group("path"), LinkKind.CITATION
-
-
-def _frontmatter_citations(text: str) -> Iterator[tuple[int, str, LinkKind]]:
-    """
-    Source paths in frontmatter.
-
-    A gathering lists the passages a distillation rests on. These are the
-    references that matter most — they are its evidence — and until recently
-    they were the ones nothing checked.
-    """
-    frontmatter = _FRONTMATTER.match(text)
-    if not frontmatter:
-        return
-    first_line = text[: frontmatter.start("body")].count("\n") + 1
-    for match in _YAML_PATH.finditer(frontmatter.group("body")):
-        line = first_line + frontmatter.group("body")[: match.start("path")].count("\n")
-        yield line, match.group("path"), LinkKind.CITATION
 
 
 def _is_repo_reference(target: str) -> bool:
@@ -224,44 +194,16 @@ def extract_links(text: str, *, source: Path) -> list[Link]:
     repeat the same target on the same line are reported once.
     """
     tokens = _MARKDOWN.parse(text)
-    lines = text.split("\n")
-    prose = _prose(text, tokens)
+    found = list(_token_links(tokens, text.split("\n"))) + list(_pattern_links(_prose(text, tokens)))
 
-    found = list(_token_links(tokens, lines)) + list(_pattern_links(prose)) + list(_frontmatter_citations(text))
     links: dict[tuple[int, str], Link] = {}
     for line, target, kind in sorted(found, key=lambda item: item[0]):
-        target = target.strip()
-        if _is_repo_reference(target):
+        if _is_repo_reference(target := target.strip()):
             links.setdefault((line, target), Link(source=source, line=line, target=target, kind=kind))
     return list(links.values())
 
 
 # --- Resolution -------------------------------------------------------------
-
-
-@dataclass
-class _Corpus:
-    """Everything the resolver needs to know about what exists."""
-
-    root: Path
-    by_name: dict[str, list[Path]]  # filename -> repo-relative paths
-    by_stem: dict[str, list[Path]]  # filename without extension -> repo-relative paths
-
-    @staticmethod
-    def scan(root: Path) -> "_Corpus":
-        by_name: dict[str, list[Path]] = {}
-        by_stem: dict[str, list[Path]] = {}
-        for path in _walk(root):
-            by_name.setdefault(path.name, []).append(path)
-            by_stem.setdefault(path.stem, []).append(path)
-        return _Corpus(root=root, by_name=by_name, by_stem=by_stem)
-
-    def unique(self, name: str) -> Path | None:
-        """The one file with this name or stem, if there is exactly one."""
-        for candidates in (self.by_name.get(name, []), self.by_stem.get(name, [])):
-            if len(candidates) == 1:
-                return candidates[0]
-        return None
 
 
 def _walk(root: Path) -> Iterator[Path]:
@@ -272,63 +214,40 @@ def _walk(root: Path) -> Iterator[Path]:
             yield (Path(directory) / name).relative_to(root)
 
 
-def resolve(link: Link, corpus: _Corpus) -> tuple[Path | None, str]:
-    """
-    Where `link` lands, and why it does not land anywhere if it does not.
+def _index(root: Path) -> dict[str, list[Path]]:
+    """Every file by name and by stem: what wikilinks resolve through, and what renames are guessed from."""
+    index: dict[str, list[Path]] = {}
+    for path in _walk(root):
+        for key in {path.name, path.stem}:
+            index.setdefault(key, []).append(path)
+    return index
 
-    Returns a repo-relative path if the target exists, otherwise None and a reason.
-    """
+
+def _unique(index: dict[str, list[Path]], name: str) -> Path | None:
+    """The one file called `name`, if there is exactly one."""
+    found = index.get(name, [])
+    return found[0] if len(found) == 1 else None
+
+
+def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]]) -> str:
+    """Why `link` lands nowhere — empty if it lands somewhere."""
     if link.kind is LinkKind.WIKILINK:
-        # Wikilinks name a note, not a location: any note with that name will do.
-        found = corpus.unique(link.target) or corpus.unique(f"{link.target}.md")
-        return (found, "") if found else (None, "no note with that name")
+        # A wikilink names a note, not a location: any note with that name will do.
+        found = _unique(index, link.target) or _unique(index, f"{link.target}.md")
+        return "" if found else "no note with that name"
 
     target = unquote(link.target.split("#")[0].split("?")[0])
     if not target:
-        return None, "empty target"
+        return "empty target"
 
-    # Citations are always written from the repository root, wherever they appear.
-    if link.kind is LinkKind.CITATION or target.startswith("/"):
-        candidate = corpus.root / target.lstrip("/")
-    else:
-        candidate = corpus.root / link.source.parent / target
+    # Citations are written from the repository root, wherever they appear.
+    root_relative = link.kind is LinkKind.CITATION or target.startswith("/")
+    base = root if root_relative else root / link.source.parent
+    candidate = Path(os.path.normpath(base / target.lstrip("/")))
 
-    candidate = Path(os.path.normpath(candidate))
-    if not candidate.is_relative_to(corpus.root):
-        return None, "outside the repository"
-    if not candidate.exists():
-        return None, "no such file"
-    return candidate.relative_to(corpus.root), ""
-
-
-def summarize(broken: Collection[BrokenLink]) -> list[str]:
-    """One report per file, listing what no longer resolves and where it probably went."""
-    by_source: dict[Path, list[BrokenLink]] = {}
-    for item in broken:
-        by_source.setdefault(item.link.source, []).append(item)
-    summaries = []
-    for source, items in sorted(by_source.items()):
-        count = f"{len(items)} links that go" if len(items) > 1 else "1 link that goes"
-        lines = [f"{source}: {count} nowhere"]
-        for item in sorted(items, key=lambda i: i.link.line):
-            suggestion = f" — moved to {item.suggestion}?" if item.suggestion else ""
-            lines.append(f"  line {item.link.line}: {item.link.target} ({item.reason}){suggestion}")
-        summaries.append("\n".join(lines))
-    return summaries
-
-
-def find_links(root: Path, *, skip: Collection[str] = SKIPPED_ROOTS) -> Iterator[Link]:
-    """
-    Every reference the repository's own markdown makes, whether or not it lands.
-
-    This is the graph: what points at what, before any judgement about which
-    edges are still good.
-    """
-    skipped = tuple(skip)
-    for path in sorted(_walk(root)):
-        if path.suffix != ".md" or path.parts[0] in skipped:
-            continue
-        yield from extract_links((root / path).read_text(errors="replace"), source=path)
+    if not candidate.is_relative_to(root):
+        return "outside the repository"
+    return "" if candidate.exists() else "no such file"
 
 
 def check_links(root: Path, *, skip: Collection[str] = SKIPPED_ROOTS) -> list[BrokenLink]:
@@ -338,11 +257,31 @@ def check_links(root: Path, *, skip: Collection[str] = SKIPPED_ROOTS) -> list[Br
     Where a file with the target's name exists somewhere else — which is what a
     rename looks like from here — the new location is offered as a suggestion.
     """
-    corpus = _Corpus.scan(root)
+    index = _index(root)
+    skipped = tuple(skip)
     broken = []
-    for link in find_links(root, skip=skip):
-        found, reason = resolve(link, corpus)
-        if found is None:
-            name = Path(unquote(link.target.split("#")[0])).name
-            broken.append(BrokenLink(link=link, reason=reason, suggestion=corpus.unique(name)))
+    for path in sorted(_walk(root)):
+        if path.suffix != ".md" or path.parts[0] in skipped:
+            continue
+        for link in extract_links((root / path).read_text(errors="replace"), source=path):
+            if reason := _reason_broken(link, root, index):
+                name = Path(unquote(link.target.split("#")[0])).name
+                broken.append(BrokenLink(link=link, reason=reason, suggestion=_unique(index, name)))
     return broken
+
+
+def summarize(broken: Collection[BrokenLink]) -> list[str]:
+    """One report per file, listing what no longer resolves and where it probably went."""
+    by_source: dict[Path, list[BrokenLink]] = {}
+    for item in broken:
+        by_source.setdefault(item.link.source, []).append(item)
+
+    summaries = []
+    for source, items in sorted(by_source.items()):
+        count = f"{len(items)} links that go" if len(items) > 1 else "1 link that goes"
+        lines = [f"{source}: {count} nowhere"]
+        for item in sorted(items, key=lambda i: i.link.line):
+            suggestion = f" — moved to {item.suggestion}?" if item.suggestion else ""
+            lines.append(f"  line {item.link.line}: {item.link.target} ({item.reason}){suggestion}")
+        summaries.append("\n".join(lines))
+    return summaries

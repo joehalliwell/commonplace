@@ -38,10 +38,11 @@ def test_extract_inline_link_with_nested_brackets_in_text_yields_destination():
     assert targets("[see [this] thing](other.md)") == ["other.md"]
 
 
-def test_extract_image_is_marked_as_image():
+def test_extract_image_target_is_a_reference():
+    """An image points at a file like anything else, and resolves the same way."""
     links = extract_links("![alt](picture.png)", source=SOURCE)
     assert [link.target for link in links] == ["picture.png"]
-    assert links[0].kind is LinkKind.IMAGE
+    assert links[0].kind is LinkKind.PATH
 
 
 def test_extract_empty_destination_is_ignored():
