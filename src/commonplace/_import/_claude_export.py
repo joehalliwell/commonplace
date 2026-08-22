@@ -14,10 +14,19 @@ from contextlib import closing
 from pathlib import Path
 from zipfile import ZipFile
 
-from rich.progress import track
-
 from commonplace._import._claude import _to_log
 from commonplace._import._types import EventLog
+from commonplace._progress import track
+
+_SNIFF_BYTES = 1 << 20
+
+
+def _is_claude_conversations(path: Path) -> bool:
+    """True if this looks like Claude's conversations.json rather than ChatGPT's same-named file."""
+    # Claude names a thread's messages `chat_messages`; ChatGPT uses `mapping`.
+    # Co-location with users.json told us this inside a ZIP; on its own, only content can.
+    with path.open(encoding="utf-8", errors="replace") as f:
+        return '"chat_messages"' in f.read(_SNIFF_BYTES)
 
 
 class ClaudeExportImporter:
@@ -29,6 +38,10 @@ class ClaudeExportImporter:
         return ["conversations.json", "users.json"]
 
     def can_import(self, path: Path) -> bool:
+        # A stored blob is a bare conversations.json: the ZIP was only packaging,
+        # and the repo keeps the members, so the members have to be importable.
+        if path.suffix == ".json":
+            return _is_claude_conversations(path)
         if path.suffix != ".zip":
             return False
         try:
@@ -41,6 +54,9 @@ class ClaudeExportImporter:
         return "conversations.json" in names and "users.json" in names
 
     def import_(self, path: Path) -> list[EventLog]:
-        with closing(ZipFile(path)) as zf:
-            threads = json.loads(zf.read("conversations.json"))
+        if path.suffix == ".json":
+            threads = json.loads(path.read_text(encoding="utf-8"))
+        else:
+            with closing(ZipFile(path)) as zf:
+                threads = json.loads(zf.read("conversations.json"))
         return [_to_log(thread, self.source) for thread in track(threads)]

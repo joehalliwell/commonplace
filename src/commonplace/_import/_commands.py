@@ -4,7 +4,7 @@ import tempfile
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from zipfile import ZipFile
+from zipfile import ZipFile, is_zipfile
 
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
@@ -81,9 +81,10 @@ def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_in
         return
     serializer = MarkdownSerializer(human=user, assistant=importer.source.title())
 
-    # Store only the required files from archives, or the whole file for non-archives
+    # Store only the required files from archives, or the whole file for non-archives —
+    # which includes a member already extracted from one, re-imported from the blob store.
     required = importer.required_paths()
-    if required:
+    if required and is_zipfile(path):
         blob_paths = extract_and_store(path, required, repo)
     else:
         blob_paths = [repo.store_blob(path)]

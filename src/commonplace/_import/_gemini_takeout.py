@@ -11,10 +11,10 @@ from bs4.element import NavigableString, PageElement, Tag
 from dateutil import parser
 from dateutil.tz import gettz
 from html_to_markdown import convert_to_markdown
-from rich.progress import track
 
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._logging import logger
+from commonplace._progress import track
 
 _PROMPT_PREFIX = "Prompted"
 _HTML_PATH = "Takeout/My Activity/Gemini Apps/My Activity.html"

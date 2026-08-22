@@ -1,3 +1,4 @@
+import json
 import shutil
 from dataclasses import dataclass
 from datetime import datetime
@@ -5,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from commonplace._import._claude_export import ClaudeExportImporter
 from commonplace._import._commands import import_
 from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import EventLog, Message, Role
@@ -154,3 +156,44 @@ def test_import_cli_no_index_flag(test_app, index_spy, claude_export):
     result = test_app(["import", "--no-index", str(claude_export)])
     assert result == 0
     assert len(index_spy) == 0
+
+
+CLAUDE_CONVERSATIONS = SAMPLE_EXPORTS_DIR / "claude.zip" / "conversations.json"
+
+
+def test_can_import_a_stored_conversations_blob():
+    """A blob the repo stored must be readable back — provenance that can't be re-read isn't provenance."""
+    assert ClaudeExportImporter().can_import(CLAUDE_CONVERSATIONS)
+
+
+def test_import_a_stored_conversations_blob_yields_logs():
+    """The conversations file holds all the importer reads; the zip around it was only packaging."""
+    assert ClaudeExportImporter().import_(CLAUDE_CONVERSATIONS)
+
+
+def test_claude_importer_declines_a_chatgpt_conversations_file(tmp_path):
+    """conversations.json is not a Claude-specific name, so content has to decide."""
+    path = tmp_path / "conversations.json"
+    path.write_text(json.dumps([{"title": "x", "mapping": {}}]))
+
+    assert not ClaudeExportImporter().can_import(path)
+
+
+def test_import_a_directory_of_wire_archives_creates_notes(test_repo, tmp_path):
+    """Importing a directory is a documented flow, and nested progress bars used to crash it."""
+    shutil.copy(SAMPLE_EXPORTS_DIR / "claude.jsonl.gz", tmp_path / "claude.jsonl.gz")
+
+    import_(tmp_path, test_repo, user="Human")
+
+    assert list((test_repo.root / "chats").glob("**/*.md"))
+
+
+def test_import_a_directory_of_stored_blobs_creates_notes(test_repo, tmp_path):
+    """The re-import path: point at the blob store and get the chats back."""
+    blobs = tmp_path / "blobs" / "d34db33f"
+    blobs.mkdir(parents=True)
+    shutil.copy(CLAUDE_CONVERSATIONS, blobs / "conversations.json")
+
+    import_(tmp_path / "blobs", test_repo, user="Human")
+
+    assert list((test_repo.root / "chats").glob("**/*.md"))
