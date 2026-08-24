@@ -19,6 +19,7 @@ from commonplace._progress import track
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import merge_frontmatter, slugify
+from commonplace._wire import read_header
 
 IMPORTERS: list[Importer] = [
     GeminiTakeoutImporter(),
@@ -39,9 +40,21 @@ def import_(path: Path, repo: Commonplace, user: str, prefix="chats", auto_index
     else:
         logger.debug("Scanning '{path}' for export files")
         assert path.is_dir()
-        paths_to_import = sorted(p for p in path.rglob("*") if p.is_file())
+        paths_to_import = sorted((p for p in path.rglob("*") if p.is_file()), key=_capture_order)
         for filepath in track(paths_to_import, "Importing files"):
             import_one(filepath, repo, user, prefix=prefix, auto_index=auto_index)
+
+
+def _capture_order(path: Path) -> tuple[bool, float, str]:
+    """Sort key ordering archives by capture time, so the newest snapshot is applied last."""
+    # Later imports overwrite earlier ones at the same chat path, so directory
+    # order decides which snapshot of a conversation survives. Archives that
+    # don't say when they were captured go first, and lose to ones that do.
+    try:
+        fetched_at = read_header(path).fetched_at
+    except Exception:  # noqa: BLE001 - probing an arbitrary file; unreadable means "no capture time"
+        fetched_at = None
+    return (fetched_at is not None, fetched_at.timestamp() if fetched_at else 0.0, path.as_posix())
 
 
 def autodetect_importer(path: Path) -> Importer | None:

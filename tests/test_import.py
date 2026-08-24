@@ -1,3 +1,4 @@
+import gzip
 import json
 import shutil
 from dataclasses import dataclass
@@ -156,6 +157,50 @@ def test_import_cli_no_index_flag(test_app, index_spy, claude_export):
     result = test_app(["import", "--no-index", str(claude_export)])
     assert result == 0
     assert len(index_spy) == 0
+
+
+def _wire_archive(path: Path, fetched_at: str, marker: str) -> Path:
+    """A one-conversation Claude wire archive, captured at `fetched_at`, saying `marker`."""
+    thread = {
+        "uuid": "ordering-cid",
+        "name": "Ordering",
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+        "chat_messages": [
+            {
+                "uuid": "m1",
+                "sender": "human",
+                "text": marker,
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T00:00:00Z",
+            }
+        ],
+    }
+    lines = [
+        {"wire": "claude", "version": 3, "fetched_at": fetched_at, "fetched_by": "test/0"},
+        # From v2 the response is the verbatim body text, not a parsed object.
+        {"endpoint": "conversations", "response": json.dumps([thread])},
+        {"endpoint": "conversation", "cid": thread["uuid"], "response": json.dumps(thread)},
+    ]
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        for line in lines:
+            f.write(json.dumps(line) + "\n")
+    return path
+
+
+def test_import_directory_applies_the_newest_capture_last(test_repo, tmp_path):
+    """Directory order is arbitrary, so without this an older snapshot silently clobbers a newer one."""
+    archives = tmp_path / "archives"
+    archives.mkdir()
+    # Sorted by name, the newer capture comes first and loses.
+    _wire_archive(archives / "a.jsonl.gz", "2026-08-15T00:00:00+00:00", "NEWER")
+    _wire_archive(archives / "b.jsonl.gz", "2026-08-13T00:00:00+00:00", "OLDER")
+
+    import_(archives, test_repo, user="Human")
+
+    imported = next((test_repo.root / "chats").glob("**/*.md")).read_text()
+    assert "NEWER" in imported
+    assert "OLDER" not in imported
 
 
 CLAUDE_CONVERSATIONS = SAMPLE_EXPORTS_DIR / "claude.zip" / "conversations.json"
