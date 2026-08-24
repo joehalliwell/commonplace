@@ -1,5 +1,6 @@
 import gzip
 import json
+import os
 import shutil
 from dataclasses import dataclass
 from datetime import datetime
@@ -195,6 +196,46 @@ def test_import_directory_applies_the_newest_capture_last(test_repo, tmp_path):
     # Sorted by name, the newer capture comes first and loses.
     _wire_archive(archives / "a.jsonl.gz", "2026-08-15T00:00:00+00:00", "NEWER")
     _wire_archive(archives / "b.jsonl.gz", "2026-08-13T00:00:00+00:00", "OLDER")
+
+    import_(archives, test_repo, user="Human")
+
+    imported = next((test_repo.root / "chats").glob("**/*.md")).read_text()
+    assert "NEWER" in imported
+    assert "OLDER" not in imported
+
+
+def _legacy_wire_archive(path: Path, mtime: float, marker: str) -> Path:
+    """A headerless (v1) archive — no capture time to order by, so only mtime can say."""
+    thread = {
+        "uuid": "ordering-cid",
+        "name": "Ordering",
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+        "chat_messages": [
+            {
+                "uuid": "m1",
+                "sender": "human",
+                "text": marker,
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T00:00:00Z",
+            }
+        ],
+    }
+    with gzip.open(path, "wt", encoding="utf-8") as f:
+        # v1 stored responses already parsed, and had no header line.
+        f.write(json.dumps({"endpoint": "conversations", "response": [thread]}) + "\n")
+        f.write(json.dumps({"endpoint": "conversation", "cid": thread["uuid"], "response": thread}) + "\n")
+    os.utime(path, (mtime, mtime))
+    return path
+
+
+def test_import_directory_falls_back_to_mtime_for_headerless_archives(test_repo, tmp_path):
+    """Archives predating the v3 header don't say when they were captured; mtime is the next best thing."""
+    archives = tmp_path / "archives"
+    archives.mkdir()
+    # Sorted by name, the newer file comes first and loses.
+    _legacy_wire_archive(archives / "a.jsonl.gz", 1_800_000_000, "NEWER")
+    _legacy_wire_archive(archives / "b.jsonl.gz", 1_700_000_000, "OLDER")
 
     import_(archives, test_repo, user="Human")
 
