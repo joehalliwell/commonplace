@@ -45,21 +45,16 @@ def import_(path: Path, repo: Commonplace, user: str, prefix="chats", auto_index
             import_one(filepath, repo, user, prefix=prefix, auto_index=auto_index)
 
 
-def _capture_order(path: Path) -> tuple[float, str]:
+def _capture_order(path: Path) -> tuple[bool, float, str]:
     """Sort key ordering archives by capture time, so the newest snapshot is applied last."""
     # Later imports overwrite earlier ones at the same chat path, so directory
-    # order decides which snapshot of a conversation survives.
+    # order decides which snapshot of a conversation survives. Archives that
+    # don't say when they were captured go first, and lose to ones that do.
     try:
         fetched_at = read_header(path).fetched_at
     except Exception:  # noqa: BLE001 - probing an arbitrary file; unreadable means "no capture time"
         fetched_at = None
-    if fetched_at:
-        return (fetched_at.timestamp(), path.as_posix())
-    # Archives written before the v3 header don't say. mtime is when this copy
-    # was written, which for a content-addressed blob is when we first saw it —
-    # right on the machine that fetched it, meaningless after a fresh clone,
-    # and never worse than the arbitrary order it replaces.
-    return (path.stat().st_mtime, path.as_posix())
+    return (fetched_at is not None, fetched_at.timestamp() if fetched_at else 0.0, path.as_posix())
 
 
 def autodetect_importer(path: Path) -> Importer | None:
