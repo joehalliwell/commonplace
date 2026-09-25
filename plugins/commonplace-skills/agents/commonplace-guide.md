@@ -82,10 +82,12 @@ journal/
       {date}.md
 
 topics/
+  index.md
   {slug}/
-    {date}-gathering.md
-    {date}-distillation.md
-  {date}-map.md
+    gathering.md
+    distillation.md
+  resonances/
+    {sorted-slugs}.md
 
 .commonplace/
   config.toml           # Per-repo configuration
@@ -102,7 +104,12 @@ topics/
   source attribution. Derived artefacts.
 - **Distillations**: Synthesized analyses of a topic — timeline, shifts, and
   open threads. Derived from gatherings.
-- **Maps**: High-level overviews connecting multiple topics.
+- **Resonances**: What placing two or more topics side by side generates.
+  Derived from distillations.
+- **Topic index**: Regenerated from the distillations on every run.
+
+Derived artefacts update in place; git holds prior states. Never cite
+`topics/**` as evidence — provenance bottoms out at primitives.
 
 ## CLI Commands
 
