@@ -30,6 +30,18 @@ A stale index silently omits the most recent chats — exactly the material most
 likely to have moved a topic on. Indexing is incremental, so this is cheap
 when nothing has changed.
 
+Check which existing topics are **stale** — last synthesized under older
+conventions. Each synthesis commit carries a `Skill: synthesize@<version>`
+trailer:
+
+```bash
+commonplace git -- log -1 --format='%(trailers:key=Skill,valueonly)' \
+  --grep='^Skill: synthesize@' -- topics/{slug}/distillation.md
+```
+
+A topic is stale if that prints a version older than the newest
+**Conventions** entry below, or nothing at all.
+
 If no topic argument was provided, run broad searches to discover recurring
 themes:
 
@@ -43,13 +55,16 @@ modified notes (`commonplace git -- log --oneline -20 --name-only`), and any
 existing `topics/index.md` entries — a topic already synthesized is evidence
 of what the user cares about, and its threads suggest what's adjacent.
 
-Propose 3-5 candidate topics to the user. Wait for confirmation before
-proceeding.
+Propose 3-5 candidate topics to the user, and list any stale ones. Wait for
+confirmation before proceeding.
 
 If a topic argument WAS provided, skip discovery and proceed directly to
 step 2.
 
 ### 2. Spawn the Synthesis Subagent
+
+If the topic already exists and is stale (step 1), conform it first — see
+**Conforming a Stale Topic** below.
 
 Use the **Task tool** to spawn a `general-purpose` subagent:
 
@@ -95,10 +110,11 @@ If the subagent returned **Stopped — overlaps `{existing-slug}`** instead of
 a summary, no artefacts were written. Put the choice to the user — extend the
 existing topic, or fork this one anyway — and re-spawn with their answer.
 
-### 4. Update the Topic Index
+### 4. Regenerate the Topic Index
 
-Write or update `topics/index.md` so the topic is discoverable by the next
-run, by `/resonate`, and by the user. Same shape as `projects/index.md`:
+Rewrite `topics/index.md` from scratch so the topic is discoverable by the
+next run, by `/resonate`, and by the user. The index is a pure function of
+the distillations — never edit it by hand or patch single entries:
 
 ```markdown
 ---
@@ -109,36 +125,67 @@ updated: <YYYY-MM-DD>
 # Topics
 
 - [{slug}]({slug}/) — updated <YYYY-MM-DD>, N sources
-  **Pressing**: <the Most Pressing Thread, one line>
+  - **Pressing**: <the Most Pressing Thread's headline sentence, verbatim>
 ```
 
-One entry per topic, alphabetical by slug. Take the source count and pressing
-thread straight from the subagent's summary — don't re-read the artefacts.
-Leave other topics' entries untouched.
+One entry per `topics/*/distillation.md`, alphabetical by slug. Read only what
+the entry needs: `updated` from the distillation's frontmatter, N from the
+gathering's `sources` list, and the bold headline under `### Most Pressing Thread`. If a distillation has no such headline, write `not recorded`.
 
 ### 5. Commit
 
-Stage and commit using `commonplace git`:
+Stage and commit using `commonplace git`, with a trailer naming the newest
+Conventions entry:
 
 ```bash
 commonplace git -- add topics/{slug}/ topics/index.md
-commonplace git -- commit -m "Synthesize: {topic name}"
+commonplace git -- commit -m "Synthesize: {topic name}" -m "Skill: synthesize@{conventions version}"
 ```
 
 If a pre-commit hook (e.g. a formatter) modifies files, the commit will fail.
-Re-stage the reformatted files and retry — this is expected behaviour, not an
-error:
-
-```bash
-commonplace git -- add topics/{slug}/ topics/index.md
-commonplace git -- commit -m "Synthesize: {topic name}"
-```
+Re-stage the reformatted files and retry the same commit — this is expected
+behaviour, not an error.
 
 Then re-index so the new artefacts are searchable:
 
 ```bash
 commonplace index
 ```
+
+Resonances that include `{slug}` were written against the old distillation;
+name them to the user (`grep -l '^  - {slug}$' topics/resonances/*.md`).
+
+### Conforming a Stale Topic
+
+Bring a stale topic up to date in its own commit before adding new material,
+so `git show` on that commit is exactly what the upgrade changed. Spawn the
+subagent as in step 2, appending to the prompt:
+
+> **Conform only.** Gather no new sources. Bring both artefacts into line with
+> the rules in this prompt, paying particular attention to these changes:
+> \<the Conventions entries newer than the topic's trailer, or all of them>.
+> Where a change depends on content — a gloss, a thread's status — re-read the
+> cited passage rather than guessing. The Revisions line is
+> `<date> — Conformed to synthesize@<version>; no new sources.`
+
+Review as in step 3, then commit as
+`Conform: {topic name} to synthesize@{conventions version}` with the same
+trailer. Run a normal synthesis afterwards only if the user wants new
+material too.
+
+## Conventions
+
+What each version changed about the artefacts. Add an entry only for changes
+a reader would notice — each one makes every existing topic stale.
+
+- **0.10.0** — Threads carry *closed* / *stopped* / *unclear* and a
+  last-touched date. Each thread name is one sentence stating the question.
+  Coinages are glossed in every thread entry that uses them. The Most Pressing
+  Thread is a headline sentence plus at most one short paragraph. Revisions
+  lines are one sentence.
+- **0.9.0** — Every gathered quote carries its speaker. Only primitives are
+  sources. Distillation claims cite `(<date>, <source path>)`. The gathering
+  lists its `sources`. The distillation has a Revisions section.
 
 ______________________________________________________________________
 

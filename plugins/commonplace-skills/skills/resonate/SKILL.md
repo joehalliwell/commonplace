@@ -48,7 +48,22 @@ Sort the slugs alphabetically and join with `-` to form a stable, order-independ
 For example, `art ai-consciousness career` →
 `topics/resonances/ai-consciousness-art-career.md`
 
-Check whether this file already exists — if so, this is an update run.
+Check whether this file already exists — if so, this is an update run. Each
+resonance commit carries a `Skill: resonate@<version>` trailer:
+
+```bash
+commonplace git -- log -1 --format='%(trailers:key=Skill,valueonly) %ct' \
+  --grep='^Skill: resonate@' -- topics/resonances/{sorted_key}.md
+```
+
+Tell the user if the existing resonance is **stale**: that prints nothing, a
+version older than the newest **Conventions** entry below, or a timestamp
+older than the latest commit to any of its distillations
+(`commonplace git -- log -1 --format=%ct -- topics/{slug}/distillation.md`).
+If only the conventions are stale, conform it first in its own commit, as
+`/synthesize` does: append **Conform only** instructions naming the newer
+Conventions entries, and commit as
+`Conform: {topics} to resonate@{conventions version}`.
 
 ### 3. Spawn the Resonance Subagent
 
@@ -87,8 +102,10 @@ directly.
 
 ```bash
 commonplace git -- add topics/resonances/
-commonplace git -- commit -m "Resonate: {topics}"
+commonplace git -- commit -m "Resonate: {topics}" -m "Skill: resonate@{conventions version}"
 ```
+
+`{conventions version}` is the newest **Conventions** entry.
 
 If a pre-commit hook reformats files, re-stage and retry.
 
@@ -97,6 +114,18 @@ Then re-index:
 ```bash
 commonplace index
 ```
+
+## Conventions
+
+What each version changed about the artefact. Add an entry only for changes
+a reader would notice — each one makes every existing resonance stale.
+
+- **0.10.0** — Crossings and tensions restate what each topic contributes and
+  name the topics. The Most Live Question is a headline sentence. Revisions
+  lines are one sentence.
+- **0.9.0** — Only primitives are quoted. Attribution and citations are
+  carried through from the distillations. *Stopped* threads are never read as
+  resolved. The resonance has a Revisions section.
 
 ______________________________________________________________________
 
