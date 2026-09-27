@@ -162,7 +162,7 @@ class Commonplace:
         """Get the commonplace configuration."""
         from commonplace._config import Config
 
-        return Config()
+        return Config.load(self.root)
 
     @cached_property
     def cache(self) -> Path:

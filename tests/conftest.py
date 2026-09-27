@@ -52,6 +52,12 @@ def make_chunk():
     return _make_chunk
 
 
+@pytest.fixture(autouse=True)
+def no_global_config(tmp_path, monkeypatch):
+    """Keep the developer's own global config out of every test."""
+    monkeypatch.setattr("commonplace._config.DEFAULT_CONFIG", tmp_path / "no-global-config.toml")
+
+
 @pytest.fixture
 def test_repo(tmp_path):
     repo_path = tmp_path / "repo"
