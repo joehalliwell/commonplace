@@ -14,9 +14,8 @@ here.
 
 A project note is the **user's own note**, not a derived artefact. You draft
 it from the record; the user owns it afterwards. Running `/project` on an
-existing note **reviews and updates** it: the skill keeps its own three parts
-current (the `Status:` line, `## History`, `## Next`), and proposes any change
-to the rest of the note as a finding for the user to accept or reject.
+existing note **reviews and updates** it in place. The user approves the diff
+before commit, and git holds every prior state.
 
 The heavy work runs in a subagent. You handle slug derivation, review, and
 commit.
@@ -51,20 +50,15 @@ Wait for the subagent to complete.
 ### 3. Review
 
 Present the subagent's summary, then show the diff of
-`notes/projects/{slug}.md`. On an update run, check that the diff touches only
-the Status line, History and Next, and that no existing History line changed;
-History only grows. Check the First Next Action against the full Next list; if
-the dependency reasoning looks off, flag it.
+`notes/projects/{slug}.md`. On an update run, check that every edit outside
+Status, History and Next appears in the summary's Edits list with a source, and
+that no existing History line changed; History only grows. Check the First
+Next Action against the full Next list; if the dependency reasoning looks off,
+flag it. Put the summary's Questions to the user.
 
-On an update run, go through the subagent's **review findings** one by one.
-Each proposes a change to the user's own part of the note (tick an item, strike
-it, correct a claim). The subagent hasn't applied them. Apply only the ones the
-user accepts, and make exactly the edit proposed. As at every step, silence in
-the record is not evidence something was done or dropped; a finding that rests
-on it should be phrased as a question.
-
-Wait for explicit approval before committing. If the user requests changes,
-spawn a revision subagent or make small edits directly.
+Wait for explicit approval before committing. If the user rejects an edit,
+revert that hunk (`commonplace git -- checkout -p notes/projects/{slug}.md`) or
+make the correction directly.
 
 ### 4. Commit
 
@@ -192,18 +186,20 @@ update the parts the skill keeps.
 cite, whatever its date. Don't filter by date: imports backfill old
 conversations, and the note's citations are the record of what's been read.
 
-*Review* the rest of the note against the record, and list what's changed:
+*Review* the rest of the note against the record, and edit it where a source
+shows it's out of date:
 
-- an open item (checkbox, todo line, plan) that a source shows done or
-  explicitly set aside
-- a claim or premise a later source contradicts
-- a stated status or plan that the record has moved past
+- tick or strike an open item (checkbox, todo line, plan) that a source shows
+  done or explicitly set aside
+- correct a claim or premise a later source contradicts
+- update a stated status or plan that the record has moved past
 
-Don't edit these lines. Return each as a finding: the line verbatim, the
-proposed edit, and the source. Where the only evidence is silence, phrase the
-finding as a question ("no mention since 2025-03; still live?").
+Make the smallest edit that fixes the line, in the note's own style, and list
+each one in your return value with its source. Where the only evidence is
+silence, don't edit: silence is not evidence something was done or dropped.
+Return it as a question instead ("no mention since 2025-03; still live?").
 
-*Update* the parts the skill keeps:
+*Update* the three parts the skill keeps:
 
 - **`Status:`** line: rewrite it in place.
 - **`## History`**: append the new material's milestones, cited as above.
@@ -215,7 +211,7 @@ If the note has none of these, as with a note the user started by hand,
 add them once at the end, in the order of the new-note template. On later
 runs, update them where they are.
 
-If there's no new material and no finding, write nothing and say so.
+If there's no new material and nothing out of date, write nothing and say so.
 
 ### Phase 5: Critique
 
@@ -249,9 +245,13 @@ ______________________________________________________________________
 - *(repeat)*
 - **First Next Action**: {item} — {rationale, including what it unblocks}
 
-**Review findings** (update runs only; omit if none):
+**Edits** to the user's lines (update runs only; omit if none):
 
-- `{line, verbatim}` → {proposed edit, or a question}. Source: {path}.
+- {what changed, e.g. "ticked 'book the venue'"}: {why}. Source: {path}.
+
+**Questions** (omit if none):
+
+- {line or item}: {question}.
 
 **Note written**: `notes/projects/{slug}.md` ({new / updated / unchanged}),
 {N} new sources.
