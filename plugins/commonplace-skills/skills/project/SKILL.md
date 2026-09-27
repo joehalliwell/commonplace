@@ -1,15 +1,20 @@
 ---
 name: project
-description: Extract a project artefact from the commonplace
+description: Draft or update one project note from the commonplace
 argument-hint: <sketch or slug>
 ---
 
-# Extract a Project
+# Draft a Project Note
 
-You are extracting a project artefact from a commonplace repository. The
-argument is a sketch — it can be a slug (`commonplace`), a rough name
-(`interviewing counter cultural luminaries`), or a short description. Use it
-as a search seed.
+You are drafting or updating one project note, `notes/projects/{slug}.md`, in
+a commonplace repository. The argument is a sketch: a slug (`commonplace`), a
+rough name (`interviewing counter cultural luminaries`), or a short
+description. Use it as a search seed. `/rake` is the usual way a project gets
+here.
+
+A project note is the **user's own note**, not a derived artefact. You draft
+it from the record; the user owns it afterwards. On an update, never
+restructure or reword what's already there.
 
 The heavy work runs in a subagent. You handle slug derivation, review, and
 commit.
@@ -24,15 +29,14 @@ run `commonplace index` first.
 ### 1. Derive the Slug
 
 Convert the sketch to a kebab-case slug. If ambiguous, confirm with the user.
+Check `notes/projects/` for an existing note under this or a similar name; if
+one exists, this is an update run on that file.
 
-Check whether `projects/{slug}/project.md` already exists — if so, this is an
-update run.
-
-### 2. Spawn the Extraction Subagent
+### 2. Spawn the Drafting Subagent
 
 Use the **Task tool** to spawn a `general-purpose` subagent:
 
-- `description`: `"Extract project: {sketch}"`
+- `description`: `"Project note: {sketch}"`
 - `subagent_type`: `"general-purpose"`
 - `prompt`: Use the **Subagent Prompt Template** below, substituting:
   - `{sketch}` — the user's original sketch
@@ -44,26 +48,25 @@ Wait for the subagent to complete.
 
 ### 3. Review
 
-Read `projects/{slug}/project.md` briefly, then present a summary to the
-user. Check the subagent's Most Pressing Thread against the full Threads
-section — if the dependency reasoning looks off, flag it.
+Present the subagent's summary, then show the diff of
+`notes/projects/{slug}.md`. On an update run, check that no existing line was
+changed; only additions are allowed. Check the First Next Action against the
+full Next list; if the dependency reasoning looks off, flag it.
 
 Wait for explicit approval before committing. If the user requests changes,
 spawn a revision subagent or make small edits directly.
 
 ### 4. Commit
 
+If `notes/projects/index.md` exists, add or update the project's line there,
+following the file's own sections and style. Don't touch other entries.
+
 ```bash
-commonplace git -- add projects/{slug}/
-commonplace git -- commit -m "Extract project: {sketch}"
+commonplace git -- add notes/projects/
+commonplace git -- commit -m "Project note: {sketch}"
 ```
 
 If a pre-commit hook reformats files, re-stage and retry.
-
-**Update the project index.** If `projects/index.md` exists, update it: move
-`{slug}` from Candidates (if present) to the appropriate status section, or
-add it if it isn't listed. Stage and include in the same commit, or a
-follow-up commit if the first has already landed.
 
 Then re-index:
 
@@ -77,7 +80,7 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-You are extracting a project artefact from a commonplace repository.
+You are drafting a project note in a commonplace repository.
 
 **Context**
 
@@ -86,9 +89,9 @@ You are extracting a project artefact from a commonplace repository.
 - Slug: {slug}
 - Date: {date}
 
-Your job is to find all material related to this project and write
-`projects/{slug}/project.md`. Do **not** commit — return a compact review
-summary when done.
+Your job is to find all material related to this project and write or update
+`notes/projects/{slug}.md`. Do **not** commit; return a compact review summary
+when done.
 
 **Commonplace CLI**
 
@@ -98,118 +101,107 @@ commonplace search -n 30 "<query>"
 
 ### Phase 1: Check for Prior Work
 
-Check whether `projects/{slug}/project.md` already exists. If so, read it —
-this is an update run (see Incremental Mode below).
+Read `notes/projects/{slug}.md` if it exists: this is an update run (see
+Update Runs below). Read `notes/projects/index.md` if it exists, for the
+status words the user files projects under.
 
 ### Phase 2: Search
 
-Use the sketch to generate 3-5 search queries — expand abbreviations, try
-synonyms, try related concepts:
+Use the sketch to generate 3-5 search queries: expand abbreviations, try
+synonyms, try related concepts. Search for both the project's subject matter
+and action around it: planning, progress, blockers, decisions, completions.
+Journal entries often hold the richest project material; read them directly
+if they're underrepresented in results.
+
+For status, **decompose the sketch into its 2-3 key terms** and search each
+with status words, not the full sketch as a literal string:
 
 ```bash
-commonplace search -n 30 "<query derived from sketch>"
-```
-
-Search for both the project's subject matter and action signals around it:
-planning, progress, blockers, decisions, completions. Journal entries often
-contain the richest project material — search them directly if they're
-underrepresented in results.
-
-Also search for status signals. **Decompose the sketch into its 2-3 key
-terms** and search those individually combined with status words — do not
-search the full sketch as a literal string:
-
-```bash
-# e.g. for "genx icon interviews": search "interviews finished",
-# "icon project abandoned", "genx complete" — not "genx icon interviews finished"
+# e.g. for "genx icon interviews": "interviews finished", "icon project
+# stalled", "genx done" — not "genx icon interviews finished"
 commonplace search -n 20 "<key term> finished"
-commonplace search -n 20 "<key term> abandoned"
 commonplace search -n 20 "<key term> blocked"
+commonplace search -n 20 "<key term> gave up"
 ```
 
-**If search returns very little or nothing**, this is a stub project — the
-user has a sketch but it hasn't materialised in the commonplace yet. Proceed
-to Phase 3 with what you have; mark status as `speculative` and note the
-thinness honestly.
+**Cite primitives only.** Sources are `chats/`, `journal/`, `notes/`. Never
+cite `topics/**`: those are derived, and a distillation's reading is not
+evidence. If a distillation points you at something, follow its citation and
+cite the primitive.
 
-### Phase 3: Determine Status
+**Attribute.** Most sources are conversations with an assistant. The Why and
+every History entry about intent must rest on the user's words, or on an
+assistant's suggestion the user took up. Say who said it.
 
-Based on the most recent signals, infer project status:
+**If search returns very little**, the project is a sketch that hasn't
+materialised in the commonplace yet. Write a short note that says so; don't
+pad it.
 
-- **active**: recent mentions, ongoing work, open next steps
-- **paused**: was active, no recent signals, no clear conclusion
-- **complete**: explicit completion signals, shipped/finished language
-- **abandoned**: explicit abandonment, or long silence after active period
-- **speculative**: little or no material found; project exists as a sketch only
+### Phase 3: Status
 
-### Phase 4: Write the Artefact
+Use the status words from `notes/projects/index.md` if it exists. Whatever
+the vocabulary:
 
-Write to: `projects/{slug}/project.md`
+- **Silence is not abandonment.** A project going quiet in the record may be
+  paused, done offline, or merely unrecorded. Call it abandoned or dropped
+  only if the user said so in so many words; otherwise say when it was last
+  touched and that you can't tell.
+- A project with little material is speculative, not active.
+
+### Phase 4: Write the Note
+
+**New note.** Write `notes/projects/{slug}.md`:
 
 ```markdown
----
-kind: project
-status: active | paused | complete | abandoned | speculative
-updated: <YYYY-MM-DD>
----
+# <Name>
 
-# Project: <name>
+<One sentence: what this project is.>
 
-## What
-One sentence. What is this project?
+Status: <status>, last touched <YYYY-MM-DD>.
 
 ## Why
-The impulse or motivation. Why does this matter, or why does it exist?
-Capture this while it's live — motivation decays faster than facts.
-For speculative projects: what does the sketch suggest about the motivation?
+
+The impulse, in the user's words where possible. Motivation decays faster than
+facts; capture it while it's live.
 
 ## History
-Chronological milestones, decisions, and key moments. Every entry must
-cite a source: either a repo-relative file path or a specific date from
-the material. Uncited milestones should be marked (source unknown).
-Be specific — "decided to X (chats/claude/2024/03/2024-03-12-foo.md)"
-beats "at some point considered X".
 
-## Current State
-Where things stand as of {date}. What has been done, what hasn't.
-For speculative projects: note that this is a sketch with little prior
-material, and describe what the sketch implies.
+Chronological milestones and decisions, each citing a repo-relative source
+path and date: "decided to X (2024-03-12, chats/claude/2024/03/2024-03-12-foo.md)".
 
-## Threads
-Open questions, blockers, and next actions.
+## Next
 
-### Most Pressing Thread
-The thread that blocks the most other threads — the dependency root. If
-no dependencies exist between threads, the most urgent standalone action.
+Open questions, blockers, and next actions, one line each. The first is the
+**First Next Action**: the one that unblocks the most others.
 ```
 
-**For update runs:** revise each section to reflect new material. Be specific
-about what changed. Update `status` if it has shifted. Update `updated`.
+**Update run.** The note is the user's, often freeform. Do not change any
+existing line. Append one section at the end:
+
+```markdown
+## From the commonplace, <YYYY-MM-DD>
+
+Status: <status>, last touched <YYYY-MM-DD>.
+
+<History since the note was last touched, cited as above.>
+
+<Next, as above.>
+```
+
+Include only what the note doesn't already say. If there's nothing new, write
+nothing and say so.
 
 ### Phase 5: Critique
 
-Re-read the Threads section before finalising. Ask:
+Re-read Next before finalising:
 
-- Do any threads depend on other threads? (e.g. "decide on format" must
-  happen before "reach out to subjects")
-- Which thread, if resolved, would unblock the most others?
-- Is the current Most Pressing Thread actually the dependency root, or is
-  there something upstream of it?
+- Does any item depend on another? ("decide on format" comes before "reach
+  out to subjects")
+- Which item, if done, would unblock the most others?
+- Is the First Next Action the dependency root, or is something upstream of
+  it?
 
-Revise Most Pressing Thread if needed. This is the step that turns
-transcription into analysis.
-
-### Incremental Mode
-
-When `projects/{slug}/project.md` already exists:
-
-1. Read the existing artefact.
-1. Search for material dated after the artefact's `updated` date.
-1. Update the artefact in place — append to History (with citations), revise
-   Current State and Threads. Update `updated` and `status` if needed.
-1. Re-run the critique phase on the updated Threads.
-
-Git tracks the full history. The prior state is always recoverable.
+Reorder if needed. This is the step that turns transcription into analysis.
 
 ### Return Value
 
@@ -217,22 +209,20 @@ Return **only** this compact summary:
 
 ______________________________________________________________________
 
-**Status**: {status}
+**Status**: {status}, last touched {date}
 
 **What**: {one sentence}
 
-**Why**: {one sentence — the motivation}
+**Why**: {one sentence, attributed}
 
 **History**: {2-3 sentence summary of key milestones}
 
-**Current state**: {1-2 sentences}
+**Next**:
 
-**Threads**:
-
-- {Thread}: {one sentence}
+- {item}: {one sentence}
 - *(repeat)*
-- **Most Pressing Thread**: {thread} — {rationale, including any threads it unblocks}
+- **First Next Action**: {item} — {rationale, including what it unblocks}
 
-**Artefact written**: `projects/{slug}/project.md`
+**Note written**: `notes/projects/{slug}.md` ({new / appended / unchanged})
 
 ______________________________________________________________________
