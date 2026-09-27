@@ -13,6 +13,7 @@ from pygit2.enums import FileStatus, ObjectType
 from pygit2.repository import Repository
 
 from commonplace._config import DEFAULT_EDITOR, DEFAULT_NAME
+from commonplace._links import check_links, summarize
 from commonplace._logging import logger
 from commonplace._types import Note, Pathlike, RepoPath
 
@@ -187,7 +188,7 @@ class Commonplace:
         return self.make_repo_path(rel_path)
 
     def doctor(self) -> DoctorReport:
-        """Restore missing scaffolding, and diff whatever has fallen behind `init`'s templates."""
+        """Restore missing scaffolding, diff whatever has fallen behind `init`'s templates, and find broken links."""
         actions: list[str] = []
         warnings: list[str] = []
 
@@ -200,6 +201,8 @@ class Commonplace:
             divergence = config.divergence((self.root / config.path).read_text())
             if divergence:
                 warnings.append(f"{config.path} differs from the template init now writes:\n" + "\n".join(divergence))
+
+        warnings.extend(summarize(check_links(self.root)))
 
         if actions:
             self.git.index.write()

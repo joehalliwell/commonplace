@@ -224,6 +224,33 @@ diffs the managed files against the templates `init` currently writes. Run it
 after upgrading commonplace to see what an older repo is missing. It only
 reports — applying the diff is up to you.
 
+It also checks that links land somewhere. Every reference your own markdown
+makes into the repository is followed: inline and reference-style links,
+images, wikilinks, raw HTML `href`/`src`, and the repo-relative paths that
+gatherings and distillations cite their sources with. Anything that no longer
+resolves is reported with the file and line it was written on, and — since a
+rename is what most breakage turns out to be — where a file of that name lives
+now:
+
+```
+topics/art/gathering.md: 6 links that go nowhere
+  line 12: notes/art-in-the-age-of-mechanical-creativity.md (no such file) — same name at notes/projects/art-in-the-age-of-mechanical-creativity.md
+```
+
+External URLs are not checked: that needs the network, and a slow, flaky check
+is one you stop running. Neither is `chats/**` — a transcript quotes whatever
+the model or you happened to write, so a link inside one is content, not a
+claim about your repo. Chats are link targets, never link sources.
+
+A link resolves the way GitHub resolves it: relative to the file it is written
+in, or, with a leading `/`, relative to the repository root. Prefer the leading
+`/` for links between top-level folders — `/journal/2024/01/2024-01-01.md`
+reads the same from anywhere, where `../../journal/…` depends on where you
+wrote it. Editors mostly agree: VS Code resolves `/` from the folder you opened,
+so open the repository itself rather than a parent; Obsidian reportedly
+resolves it from the vault root. Wikilinks name a note rather than a place, so
+`[[note]]` and `[[folder/note]]` resolve to any note whose path ends that way.
+
 ## Importing exports and local logs
 
 `fetch` covers the three chat providers. Import is for everything else: local

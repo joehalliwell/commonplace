@@ -354,6 +354,53 @@ def test_doctor_warns_when_marketplace_config_is_removed(test_repo):
     assert any("settings.json" in warning for warning in report.warnings)
 
 
+def test_doctor_reports_a_broken_link(test_repo):
+    """A reference that lands nowhere is exactly what doctor is for."""
+    (test_repo.root / "notes").mkdir()
+    (test_repo.root / "notes" / "note.md").write_text("See [the other one](gone.md).\n")
+
+    report = test_repo.doctor()
+
+    warning = next(w for w in report.warnings if "notes/note.md" in w)
+    assert "gone.md" in warning
+
+
+def test_doctor_suggests_where_a_renamed_target_went(test_repo):
+    """The dominant failure is a rename, so say where the file went."""
+    (test_repo.root / "notes" / "moved").mkdir(parents=True)
+    (test_repo.root / "notes" / "moved" / "target.md").write_text("# Target\n")
+    (test_repo.root / "notes" / "note.md").write_text("See [it](target.md).\n")
+
+    report = test_repo.doctor()
+
+    warning = next(w for w in report.warnings if "notes/note.md" in w)
+    assert "notes/moved/target.md" in warning
+
+
+def test_doctor_is_quiet_when_links_resolve(test_repo):
+    """No warning for a repo whose links are all good."""
+    (test_repo.root / "notes").mkdir()
+    (test_repo.root / "notes" / "target.md").write_text("# Target\n")
+    (test_repo.root / "notes" / "note.md").write_text("See [it](target.md).\n")
+
+    report = test_repo.doctor()
+
+    assert not any("note.md" in warning for warning in report.warnings)
+
+
+def test_doctor_groups_broken_links_by_file(test_repo):
+    """One warning per file, however many links in it are broken."""
+    (test_repo.root / "notes").mkdir()
+    (test_repo.root / "notes" / "note.md").write_text("[a](gone-a.md)\n\n[b](gone-b.md)\n")
+
+    report = test_repo.doctor()
+
+    warnings = [w for w in report.warnings if "notes/note.md" in w]
+    assert len(warnings) == 1
+    assert "gone-a.md" in warnings[0]
+    assert "gone-b.md" in warnings[0]
+
+
 def test_doctor_ignores_edits_to_unmanaged_config(test_repo):
     """.commonplace/config.toml is yours to set — doctor only checks it exists."""
     config = test_repo.root / ".commonplace" / "config.toml"
