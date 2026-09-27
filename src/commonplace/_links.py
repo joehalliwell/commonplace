@@ -51,7 +51,7 @@ _HTML_ATTRIBUTE = re.compile(r"""\b(?:href|src)[ \t]*=[ \t]*("[^"]*"|'[^']*'|[^\
 _YAML_PATH = re.compile(
     r"""^[ \t]*(?:-[ \t]*|[\w.-]+:[ \t]*)(?P<quote>["']?)(?P<path>[^\s"']+\.md)(?P=quote)[ \t]*$""", re.MULTILINE
 )
-_DATED_CITATION = re.compile(r"\(\d{4}-\d{2}-\d{2},[ \t]*(?P<path>[^)\s]+\.md)\)")
+_DATED_CITATION = re.compile(r"\(\d{4}-\d{2}-\d{2},\s*(?P<path>[^)\s]+\.md)\)")
 
 # CommonMark, taught the two syntaxes we care about that it does not have, minus
 # two conveniences: markdown-it percent-encodes destinations, which would have
@@ -86,6 +86,17 @@ def _frontmatter_citations(token: Token) -> Iterator[tuple[int, str, LinkKind]]:
         yield first_line + token.content[: match.start("path")].count("\n"), match.group("path"), LinkKind.CITATION
 
 
+def _prose(token: Token) -> str:
+    """An inline token's text, code spans included, since citations are written as code and wrap anywhere."""
+    parts = []
+    for child in token.children or []:
+        if child.type in ("text", "code_inline"):
+            parts.append(child.content)
+        elif child.type in ("softbreak", "hardbreak"):
+            parts.append("\n")
+    return "".join(parts)
+
+
 def _inline_references(child: Token, span: list[int] | None, lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
     """The references in one inline token, whichever syntax carried it."""
     if child.type == "wikilink":
@@ -95,9 +106,6 @@ def _inline_references(child: Token, span: list[int] | None, lines: list[str]) -
     elif child.type == "html_inline":
         for target in _html_targets(child.content):
             yield _locate(lines, span, target), target, LinkKind.PATH
-    elif child.type == "text":
-        for match in _DATED_CITATION.finditer(child.content):
-            yield _locate(lines, span, match.group("path")), match.group("path"), LinkKind.CITATION
     # Reference, collapsed and shortcut links arrive already resolved to their
     # definition, so every one of them looks inline by here.
     elif (attribute := {"link_open": "href", "image": "src"}.get(child.type)) and (
@@ -117,6 +125,8 @@ def _references(tokens: list[Token], lines: list[str]) -> Iterator[tuple[int, st
         elif token.type == "inline":
             for child in token.children or []:
                 yield from _inline_references(child, token.map, lines)
+            for match in _DATED_CITATION.finditer(_prose(token)):
+                yield _locate(lines, token.map, match.group("path")), match.group("path"), LinkKind.CITATION
 
 
 def _is_repo_reference(target: str) -> bool:

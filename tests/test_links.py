@@ -188,6 +188,21 @@ def test_extract_inline_dated_citation_is_a_citation():
     assert links[0].kind is LinkKind.CITATION
 
 
+def test_extract_inline_citation_in_code_span_is_a_citation():
+    """The skills' agents write the path as code, so that is the common form."""
+    text = "Joe worried about drift (2026-01-01, `chats/claude/2026/01/2026-01-01-a.md`)."
+    links = extract_links(text, source=Path("topics/x/distillation.md"))
+    assert [link.target for link in links] == ["chats/claude/2026/01/2026-01-01-a.md"]
+    assert links[0].kind is LinkKind.CITATION
+
+
+def test_extract_inline_citation_wrapped_across_lines_records_the_path_line():
+    """mdformat wraps at 80 columns, and it wraps inside citations as readily as anywhere."""
+    text = 'Joe notes "a Leith B&B cum art place" (2014-08-14,\n`journal/2014/08/2014-08-14.md`).\n'
+    links = extract_links(text, source=Path("topics/x/distillation.md"))
+    assert [(link.target, link.line) for link in links] == [("journal/2014/08/2014-08-14.md", 2)]
+
+
 def test_extract_frontmatter_non_path_values_are_not_citations():
     text = '---\nkind: gathering\nqueries:\n  - "art"\nupdated: 2026-02-17\n---\n'
     assert targets(text, Path("topics/x/gathering.md")) == []
