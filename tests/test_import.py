@@ -262,6 +262,20 @@ def test_serialize_does_not_escape_brackets_in_artifact_code():
     assert "\\[" not in out
 
 
+def test_serialize_keeps_unclosed_artifact_code_to_end_of_message():
+    """An artifact whose closing tag never arrived still has a code body."""
+    content = (
+        '<antArtifact identifier="demo" type="application/vnd.ant.code" language="python" title="Demo">\n'
+        "x: Callable[[Any], bool]\n"
+        "\n"
+        "def f(self):\n"
+        "    pass\n"
+    )
+    out = _serialize_message(content)
+    assert "x: Callable[[Any], bool]" in out
+    assert "\ndef f(self):\n    pass\n" in out
+
+
 def test_serialize_leaves_markdown_artifacts_as_prose():
     """A markdown artifact is markdown: fencing it would turn a document into a code block."""
     content = (
