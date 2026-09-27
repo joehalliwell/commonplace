@@ -7,10 +7,8 @@ from pydantic import BaseModel, Field
 
 from commonplace._import._types import EventLog, Message, Role, ToolCall
 
-# A cut-off generation leaves an artifact unclosed, so a body also ends at the next artifact or the message's end.
-_ARTIFACT = re.compile(
-    r"(?P<open><antArtifact\b[^>]*>)\n(?P<body>.*?)\n?(?:(?P<close></antArtifact>)|(?=<antArtifact\b)|\Z)", re.DOTALL
-)
+# An unclosed artifact runs to the end of its message.
+_ARTIFACT = re.compile(r"(?P<open><antArtifact\b[^>]*>)\n(?P<body>.*?)\n?(?:(?P<close></antArtifact>)|\Z)", re.DOTALL)
 _LANGUAGE = re.compile(r'language="([^"]*)"')
 
 

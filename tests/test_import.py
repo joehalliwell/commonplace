@@ -263,7 +263,7 @@ def test_serialize_does_not_escape_brackets_in_artifact_code():
 
 
 def test_serialize_keeps_unclosed_artifact_code_to_end_of_message():
-    """A generation cut off mid-artifact never emits the closing tag, but the body is still code."""
+    """An artifact whose closing tag never arrived still has a code body."""
     content = (
         '<antArtifact identifier="demo" type="application/vnd.ant.code" language="python" title="Demo">\n'
         "x: Callable[[Any], bool]\n"
@@ -274,22 +274,6 @@ def test_serialize_keeps_unclosed_artifact_code_to_end_of_message():
     out = _serialize_message(content)
     assert "x: Callable[[Any], bool]" in out
     assert "\ndef f(self):\n    pass\n" in out
-
-
-def test_serialize_ends_unclosed_artifact_at_the_next_one():
-    """An unclosed artifact must not swallow the next artifact's opening tag into its code."""
-    content = (
-        '<antArtifact identifier="a" type="application/vnd.ant.code" language="python" title="A">\n'
-        "def a(self):\n"
-        "    pass\n"
-        '<antArtifact identifier="b" type="application/vnd.ant.code" language="python" title="B">\n'
-        "def b(self):\n"
-        "    pass\n"
-        "</antArtifact>\n"
-    )
-    out = _serialize_message(content)
-    assert "\ndef a(self):\n    pass\n```" in out
-    assert "\ndef b(self):\n    pass\n```" in out
 
 
 def test_serialize_leaves_markdown_artifacts_as_prose():
