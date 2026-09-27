@@ -140,7 +140,9 @@ search in the meantime.
 
 Embeddings are computed locally (fastembed, `BAAI/bge-small-en-v1.5`) — the
 model downloads on first use and nothing leaves your machine. The index lives
-at `.commonplace/cache/index.db` and is not tracked by git.
+at `.commonplace/cache/index.db` and is not tracked by git. Every `.md` file is
+indexed except those git ignores or that sit under a dot-directory
+(`.commonplace/`, `.claude/`, …), which hold tool state, not notes.
 
 ```bash
 # Index anything not yet indexed (e.g. after --no-index, or notes added by hand)

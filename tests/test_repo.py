@@ -96,6 +96,27 @@ def test_make_repo_path_follows_later_commits(test_repo):
     assert modified.ref == str(test_repo.git.head.target)
 
 
+def test_note_paths_commonplace_dir_excluded(test_repo):
+    """Skill-managed state under .commonplace/ is never a note."""
+    test_repo.save(Note(repo_path=RepoPath(path=Path("notes/idea.md"), ref=""), content="# Idea\n"))
+    test_repo.save(
+        Note(repo_path=RepoPath(path=Path(".commonplace/skills/rake/chaff.md"), ref=""), content="# Chaff\n")
+    )
+    test_repo.commit("Add notes", auto_index=False)
+
+    assert [p.path for p in test_repo.note_paths()] == [Path("notes/idea.md")]
+
+
+def test_note_paths_dot_dirs_excluded(test_repo):
+    """No dot-directory is descended, at any depth."""
+    test_repo.save(Note(repo_path=RepoPath(path=Path("notes/idea.md"), ref=""), content="# Idea\n"))
+    test_repo.save(Note(repo_path=RepoPath(path=Path(".claude/copy.md"), ref=""), content="# Copy\n"))
+    test_repo.save(Note(repo_path=RepoPath(path=Path("notes/.hidden/draft.md"), ref=""), content="# Draft\n"))
+    test_repo.commit("Add notes", auto_index=False)
+
+    assert [p.path for p in test_repo.note_paths()] == [Path("notes/idea.md")]
+
+
 def test_index_matches_head_after_commit(test_repo):
     """Test that index tree matches HEAD tree after commit (not previous HEAD)."""
     from pygit2.enums import ObjectType

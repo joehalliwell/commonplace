@@ -1,6 +1,9 @@
 """Tests for the index and search commands."""
 
+import numpy as np
+
 from commonplace._search import _commands
+from commonplace._search._types import Chunk
 
 
 def _delete(repo, path: str) -> None:
@@ -220,6 +223,19 @@ def test_index_prunes_deleted_notes(test_repo, make_note):
     _commands.index(test_repo)
 
     assert set(test_repo.index.get_indexed_paths()) == set()
+
+
+def test_index_commonplace_dir_pruned(test_repo, make_note):
+    """A chunk indexed from .commonplace/ before it was excluded leaves on the next run."""
+    test_repo.save(make_note(path=".commonplace/skills/rake/chaff.md", content="# Chaff\n\nDropped in triage.\n"))
+    test_repo.commit("Add chaff", auto_index=False)
+    stale = test_repo.make_repo_path(".commonplace/skills/rake/chaff.md")
+    chunk = Chunk(repo_path=stale, section="Chaff", text="Dropped in triage.", offset=0)
+    test_repo.index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+
+    _commands.index(test_repo)
+
+    assert stale not in set(test_repo.index.get_indexed_paths())
 
 
 def test_index_prunes_superseded_versions(test_repo, make_note):

@@ -409,8 +409,9 @@ class Commonplace:
             yield self.get_note(repo_path)
 
     def note_paths(self) -> Iterator[RepoPath]:
-        """Get an iterator over all note paths at current HEAD."""
-        for root, _, files in os.walk(self.git.workdir):
+        """Get an iterator over all note paths at current HEAD, skipping dot-directories."""
+        for root, dirs, files in os.walk(self.git.workdir):
+            dirs[:] = [d for d in dirs if not d.startswith(".")]
             for f in files:
                 abs_path = Path(root) / f
                 if self.git.path_is_ignored(abs_path.as_posix()):
