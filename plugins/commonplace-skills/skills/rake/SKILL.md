@@ -118,7 +118,9 @@ not derived artefacts, so:
   existing entries. The only changes to existing lines are ones the user
   asked for in triage (ticking, striking, editing).
 - **One line per item**, in the user's voice, followed by the primitive it
-  came from, e.g. `- [ ] Split the attention essay in two (chats/claude/2026/03/2026-03-14-attention.md)`.
+  came from as a root-relative wikilink (the path without `.md`), e.g.
+  `- [ ] Split the attention essay in two ([[/chats/claude/2026/03/2026-03-14-attention]])`.
+  Check the target exists as `<path>.md` before writing it.
 - **Project-scale items** get a line in `notes/projects/index.md` if it
   exists, following its sections. Offer to run `/project <slug>` for each; if
   the user accepts, run it in-session.
