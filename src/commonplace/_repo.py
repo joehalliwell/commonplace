@@ -35,6 +35,9 @@ _INIT_CONFIG_TOML = f"""
 
 # user = "{DEFAULT_NAME}"
 # editor = "{DEFAULT_EDITOR}"
+# wrap = 80
+# auto_index = true
+# ua = "Mozilla/5.0 ..."
 """
 
 _INIT_CLAUDE_SETTINGS = """\
