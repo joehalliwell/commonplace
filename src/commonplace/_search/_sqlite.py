@@ -277,13 +277,8 @@ class SQLiteSearchIndex(SearchIndex):
 
     @staticmethod
     def _sanitize_fts5_query(query: str) -> str:
-        """Strip FTS5 syntax from a natural language query, keeping just the words."""
-        import re
-
-        # Remove characters that FTS5 treats as operators: " * ( ) , + - ^
-        cleaned = re.sub(r'["*()\,+\-^]', " ", query)
-        # Collapse whitespace and strip
-        return re.sub(r"\s+", " ", cleaned).strip()
+        """Quote each word of a natural language query as an FTS5 string, so nothing in it parses as syntax."""
+        return " ".join('"' + token.replace('"', '""') + '"' for token in query.split())
 
     def search_keyword(self, query: str, limit: int = 10, include_deleted: bool = False) -> list[SearchHit]:
         """
