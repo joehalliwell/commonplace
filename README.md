@@ -234,7 +234,7 @@ now:
 
 ```
 topics/art/gathering.md: 6 links that go nowhere
-  line 12: notes/art-in-the-age-of-mechanical-creativity.md (no such file) — moved to notes/projects/art-in-the-age-of-mechanical-creativity.md?
+  line 12: notes/art-in-the-age-of-mechanical-creativity.md (no such file) — same name at notes/projects/art-in-the-age-of-mechanical-creativity.md
 ```
 
 External URLs are not checked: that needs the network, and a slow, flaky check
