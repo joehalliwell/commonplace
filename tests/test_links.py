@@ -306,6 +306,26 @@ def test_check_links_wikilink_resolves_to_note_anywhere_in_repository(tmp_path):
     assert check_links(tmp_path) == []
 
 
+def test_check_links_wikilink_to_ambiguous_name_resolves(tmp_path):
+    """Two notes by that name is two places it lands, not none."""
+    write(tmp_path, "notes/a/dup.md")
+    write(tmp_path, "notes/b/dup.md")
+    write(tmp_path, "notes/note.md", "See [[dup]].")
+    assert check_links(tmp_path) == []
+
+
+def test_check_links_path_qualified_wikilink_resolves(tmp_path):
+    write(tmp_path, "notes/deep/other.md")
+    write(tmp_path, "notes/note.md", "See [[deep/other]] and [[notes/deep/other.md]].")
+    assert check_links(tmp_path) == []
+
+
+def test_check_links_path_qualified_wikilink_to_wrong_folder_is_reported(tmp_path):
+    write(tmp_path, "notes/deep/other.md")
+    write(tmp_path, "notes/note.md", "See [[shallow/other]].")
+    assert [b.link.target for b in check_links(tmp_path)] == ["shallow/other"]
+
+
 def test_check_links_skips_chat_transcripts(tmp_path):
     write(tmp_path, "chats/claude/2026/01/chat.md", "The model said [text](nonexistent.md) here.")
     assert check_links(tmp_path) == []

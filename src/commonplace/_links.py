@@ -193,11 +193,19 @@ def _unique(index: dict[str, list[Path]], name: str) -> Path | None:
     return found[0] if len(found) == 1 else None
 
 
+def _is_named(path: Path, name: str) -> bool:
+    """True if `name` is how a wikilink would write `path`: its tail, with or without the extension."""
+    return any(
+        written == name or written.endswith(f"/{name}")
+        for written in (path.as_posix(), path.with_suffix("").as_posix())
+    )
+
+
 def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]]) -> str:
     """Why `link` lands nowhere — empty if it lands somewhere."""
     if link.kind is LinkKind.WIKILINK:
         # A wikilink names a note, not a location: any note with that name will do.
-        found = _unique(index, link.target) or _unique(index, f"{link.target}.md")
+        found = any(_is_named(path, link.target) for path in index.get(Path(link.target).name, []))
         return "" if found else "no note with that name"
 
     target = unquote(link.target.split("#")[0].split("?")[0])
