@@ -81,6 +81,12 @@ journal/
     {month}/
       {date}.md
 
+notes/
+  ideas.md              # Uncommitted backlog: no commitment, no date
+  todo.md               # Committed actions, by year
+  projects/
+    {slug}.md           # One note per larger effort
+
 topics/
   index.md
   {slug}/
@@ -100,6 +106,9 @@ topics/
 - **Chats**: Imported AI conversations. Primitive artefacts with provenance
   linking back to source exports in `.commonplace/blobs/`.
 - **Journal entries**: Daily notes created via the `journal` command.
+- **Notes**: The user's own writing. Primitive. `/rake` proposes entries for
+  `ideas.md`, `todo.md` and `projects/`; add only what the user approves, and
+  never reword what's there.
 - **Gatherings**: Chronological compilations of passages on a topic, with
   source attribution. Derived artefacts.
 - **Distillations**: Synthesized analyses of a topic — timeline, shifts, and

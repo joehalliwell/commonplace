@@ -69,14 +69,14 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 
 - `/synthesize [topic]` — gather and distil a topic from the commonplace
 - `/resonate <slug1> <slug2> [...]` — surface interference patterns between synthesized topics
-- `/projects` — scan for candidate projects, update `projects/index.md`
-- `/project <sketch>` — extract a project artefact from the commonplace
+- `/rake` — surface unmade ideas, todos and projects; propose where to file them in `notes/`
+- `/project <sketch>` — draft or update one project note, `notes/projects/{slug}.md`
 
 **Artefact paths** (no dated filenames — git is the versioning layer):
 
 - `topics/{slug}/gathering.md`, `topics/{slug}/distillation.md`, `topics/index.md`
 - `topics/resonances/{sorted-slugs}.md`
-- `projects/{slug}/project.md`, `projects/index.md`
+- `notes/ideas.md`, `notes/todo.md`, `notes/projects/{slug}.md` — the user's own notes; `/rake` and `/project` only add what the user approves
 
 **Conventions:**
 

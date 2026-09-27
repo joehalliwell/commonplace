@@ -36,7 +36,7 @@ antiquity.
 - 🔄 **Git integration** for change tracking and automatic commits when importing conversations
 - 🔍 **Full-text and semantic search** using local vector embeddings to find
   relevant conversations by meaning
-- 🤖 **Claude Code skills** for synthesizing topics and projects out of the archive
+- 🤖 **Claude Code skills** for synthesizing topics and raking up unmade plans from the archive
 
 ## Installation
 
@@ -280,8 +280,8 @@ To enable them, run in Claude Code:
 | --------------------------- | -------------------------------------------------------- |
 | `/synthesize [topic]`       | gather and distil a topic into `topics/{slug}/`          |
 | `/resonate <slug> <slug> …` | surface interference patterns between synthesized topics |
-| `/projects`                 | scan for candidate projects, update `projects/index.md`  |
-| `/project <sketch>`         | extract a project artefact into `projects/{slug}/`       |
+| `/rake`                     | surface unmade ideas, todos and projects for you to file |
+| `/project <sketch>`         | draft or update the note `notes/projects/{slug}.md`      |
 
 Artefacts have no dated filenames — git is the versioning layer, and repeat
 runs update them in place.
