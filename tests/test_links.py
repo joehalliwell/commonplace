@@ -181,26 +181,16 @@ def test_extract_frontmatter_source_gathering_is_a_citation():
     assert targets(text, Path("topics/x/distillation.md")) == ["topics/x/gathering.md"]
 
 
-def test_extract_inline_dated_citation_is_a_citation():
-    text = "Joe worried about drift (2026-01-01, chats/claude/2026/01/2026-01-01-a.md)."
-    links = extract_links(text, source=Path("topics/x/distillation.md"))
-    assert [link.target for link in links] == ["chats/claude/2026/01/2026-01-01-a.md"]
-    assert links[0].kind is LinkKind.CITATION
-
-
-def test_extract_inline_citation_in_code_span_is_a_citation():
-    """The skills' agents write the path as code, so that is the common form."""
-    text = "Joe worried about drift (2026-01-01, `chats/claude/2026/01/2026-01-01-a.md`)."
-    links = extract_links(text, source=Path("topics/x/distillation.md"))
-    assert [link.target for link in links] == ["chats/claude/2026/01/2026-01-01-a.md"]
-    assert links[0].kind is LinkKind.CITATION
-
-
-def test_extract_inline_citation_wrapped_across_lines_records_the_path_line():
-    """mdformat wraps at 80 columns, and it wraps inside citations as readily as anywhere."""
-    text = 'Joe notes "a Leith B&B cum art place" (2014-08-14,\n`journal/2014/08/2014-08-14.md`).\n'
-    links = extract_links(text, source=Path("topics/x/distillation.md"))
-    assert [(link.target, link.line) for link in links] == [("journal/2014/08/2014-08-14.md", 2)]
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Joe worried about drift (2026-01-01, chats/claude/2026/01/2026-01-01-a.md).",
+        "Joe worried about drift (2026-01-01, `chats/claude/2026/01/2026-01-01-a.md`).",
+    ],
+)
+def test_extract_inline_dated_path_is_prose_not_a_link(text):
+    """Inline citations are wikilinks now (#53), so the old `(date, path)` form is just text."""
+    assert targets(text, Path("topics/x/distillation.md")) == []
 
 
 def test_extract_frontmatter_flow_list_sources_are_citations():
