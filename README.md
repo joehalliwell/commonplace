@@ -281,7 +281,7 @@ To enable them, run in Claude Code:
 | `/synthesize [topic]`       | gather and distil a topic into `topics/{slug}/`          |
 | `/resonate <slug> <slug> …` | surface interference patterns between synthesized topics |
 | `/rake`                     | surface unmade ideas, todos and projects for you to file |
-| `/project <sketch>`         | draft or update the note `notes/projects/{slug}.md`      |
+| `/project <sketch>`         | draft, or review and update, `notes/projects/{slug}.md`  |
 
 Artefacts have no dated filenames — git is the versioning layer, and repeat
 runs update them in place.
