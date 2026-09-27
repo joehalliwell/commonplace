@@ -77,7 +77,7 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 - `topics/{slug}/gathering.md`, `topics/{slug}/distillation.md`, `topics/index.md`
 - `topics/resonances/{sorted-slugs}.md`
 - `notes/ideas.md`, `notes/todo.md`, `notes/projects/{slug}.md` — the user's own notes; `/rake` and `/project` only add what the user approves
-- `notes/chaff.md` — items dropped in `/rake` triage, tombstoned so they aren't re-proposed
+- `.commonplace/skills/{skill}/` — skill-managed state nobody reads for its own sake (e.g. `rake/chaff.md`, items dropped in triage); never a source. Artefacts a person reads stay visible
 
 **Conventions:**
 
