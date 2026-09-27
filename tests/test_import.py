@@ -262,6 +262,13 @@ def test_serialize_does_not_escape_brackets_in_artifact_code():
     assert "\\[" not in out
 
 
+def test_serialize_keeps_wikilinks_unescaped():
+    """Escaping `[[x]]` breaks the link, and the pre-commit hook would then fight the importer over it."""
+    out = _serialize_message("See [[foo]] and [[/chats/a/b]].")
+    assert "[[foo]]" in out
+    assert "[[/chats/a/b]]" in out
+
+
 def test_serialize_leaves_markdown_artifacts_as_prose():
     """A markdown artifact is markdown: fencing it would turn a document into a code block."""
     content = (

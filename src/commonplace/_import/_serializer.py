@@ -96,6 +96,7 @@ class MarkdownSerializer(BaseModel):
             extensions=[
                 "frontmatter",
                 "gfm",
+                "wikilink",
             ],
             options={"wrap": self.wrap, "number": True, "validate": True},
         )
