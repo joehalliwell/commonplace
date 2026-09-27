@@ -240,7 +240,6 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pygit2" },
-    { name = "python-dotenv" },
     { name = "tqdm" },
 ]
 
@@ -279,7 +278,6 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pydantic-settings", specifier = ">=2.10.0" },
     { name = "pygit2", specifier = ">=1.15.0" },
-    { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "tqdm", specifier = ">=4.66.0" },
 ]
 
