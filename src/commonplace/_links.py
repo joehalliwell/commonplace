@@ -8,6 +8,7 @@ from enum import StrEnum
 from pathlib import Path
 from urllib.parse import unquote
 
+import yaml
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
 from mdformat_wikilink.mdit_wikilink_plugin import wikilink_plugin  # type: ignore[import-untyped]
@@ -48,9 +49,6 @@ class BrokenLink:
 
 _EXTERNAL_SCHEME = re.compile(r"\A[a-z][a-z0-9+.-]*:", re.IGNORECASE)
 _HTML_ATTRIBUTE = re.compile(r"""\b(?:href|src)[ \t]*=[ \t]*("[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
-_YAML_PATH = re.compile(
-    r"""^[ \t]*(?:-[ \t]*|[\w.-]+:[ \t]*)(?P<quote>["']?)(?P<path>[^\s"']+\.md)(?P=quote)[ \t]*$""", re.MULTILINE
-)
 _DATED_CITATION = re.compile(r"\(\d{4}-\d{2}-\d{2},\s*(?P<path>[^)\s]+\.md)\)")
 
 # CommonMark, taught the two syntaxes we care about that it does not have, minus
@@ -79,11 +77,32 @@ def _html_targets(html: str) -> Iterator[str]:
             yield target
 
 
+def _scalars(node: yaml.Node) -> Iterator[yaml.ScalarNode]:
+    """Every scalar value at or under a YAML node."""
+    if isinstance(node, yaml.ScalarNode):
+        yield node
+    elif isinstance(node, yaml.SequenceNode):
+        for item in node.value:
+            yield from _scalars(item)
+    elif isinstance(node, yaml.MappingNode):
+        for _, value in node.value:
+            yield from _scalars(value)
+
+
 def _frontmatter_citations(token: Token) -> Iterator[tuple[int, str, LinkKind]]:
-    """The source paths a gathering lists in its frontmatter."""
+    """The paths an artefact's frontmatter cites under any `source*` key."""
     first_line = (token.map[0] if token.map else 0) + 2  # Past the opening `---`
-    for match in _YAML_PATH.finditer(token.content):
-        yield first_line + token.content[: match.start("path")].count("\n"), match.group("path"), LinkKind.CITATION
+    try:
+        document = yaml.compose(token.content)
+    except yaml.YAMLError:
+        return
+    if not isinstance(document, yaml.MappingNode):
+        return
+    for key, value in document.value:
+        if str(key.value).startswith("source"):
+            for scalar in _scalars(value):
+                if scalar.value.endswith(".md"):
+                    yield first_line + scalar.start_mark.line, scalar.value, LinkKind.CITATION
 
 
 def _prose(token: Token) -> str:

@@ -203,6 +203,25 @@ def test_extract_inline_citation_wrapped_across_lines_records_the_path_line():
     assert [(link.target, link.line) for link in links] == [("journal/2014/08/2014-08-14.md", 2)]
 
 
+def test_extract_frontmatter_flow_list_sources_are_citations():
+    text = "---\nkind: gathering\nsources: [journal/a.md, journal/b.md]\n---\n"
+    links = extract_links(text, source=Path("topics/x/gathering.md"))
+    assert [(link.target, link.line) for link in links] == [("journal/a.md", 3), ("journal/b.md", 3)]
+
+
+def test_extract_frontmatter_source_distillations_are_citations():
+    text = "---\nsource_distillations:\n  - topics/a/distillation.md\n---\n"
+    assert targets(text, Path("topics/resonances/a-b.md")) == ["topics/a/distillation.md"]
+
+
+def test_extract_frontmatter_md_value_under_other_key_is_not_a_citation():
+    assert targets("---\ntitle: README.md\n---\n") == []
+
+
+def test_extract_frontmatter_malformed_yaml_yields_nothing():
+    assert targets("---\nsources: [unclosed\n---\n") == []
+
+
 def test_extract_frontmatter_non_path_values_are_not_citations():
     text = '---\nkind: gathering\nqueries:\n  - "art"\nupdated: 2026-02-17\n---\n'
     assert targets(text, Path("topics/x/gathering.md")) == []
