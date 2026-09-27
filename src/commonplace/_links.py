@@ -194,9 +194,9 @@ def _unique(index: dict[str, list[Path]], name: str) -> Path | None:
 
 
 def _is_named(path: Path, name: str) -> bool:
-    """True if `name` is how a wikilink would write `path`: its tail, with or without the extension."""
+    """True if `name` is how a wikilink would write `path`: its tail, or from `/` its whole path, either extension."""
     return any(
-        written == name or written.endswith(f"/{name}")
+        f"/{written}" == name or written == name or written.endswith(f"/{name}")
         for written in (path.as_posix(), path.with_suffix("").as_posix())
     )
 

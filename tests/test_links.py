@@ -326,6 +326,23 @@ def test_check_links_path_qualified_wikilink_to_wrong_folder_is_reported(tmp_pat
     assert [b.link.target for b in check_links(tmp_path)] == ["shallow/other"]
 
 
+def test_check_links_root_relative_wikilink_resolves(tmp_path):
+    write(tmp_path, "notes/foo.md")
+    write(
+        tmp_path,
+        "journal/entry.md",
+        "See [[/notes/foo]], [[/notes/foo.md]], [[/notes/foo#Heading]], [[/notes/foo|alias]].",
+    )
+    assert check_links(tmp_path) == []
+
+
+def test_check_links_root_relative_wikilink_below_root_is_reported(tmp_path):
+    """Root-relative means from the root, not any folder ending in that path."""
+    write(tmp_path, "other/notes/foo.md")
+    write(tmp_path, "journal/entry.md", "See [[/notes/foo]].")
+    assert [b.link.target for b in check_links(tmp_path)] == ["/notes/foo"]
+
+
 def test_check_links_skips_chat_transcripts(tmp_path):
     write(tmp_path, "chats/claude/2026/01/chat.md", "The model said [text](nonexistent.md) here.")
     assert check_links(tmp_path) == []
