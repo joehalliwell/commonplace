@@ -242,6 +242,15 @@ is one you stop running. Neither is `chats/**` — a transcript quotes whatever
 the model or you happened to write, so a link inside one is content, not a
 claim about your repo. Chats are link targets, never link sources.
 
+A link resolves the way GitHub resolves it: relative to the file it is written
+in, or, with a leading `/`, relative to the repository root. Prefer the leading
+`/` for links between top-level folders — `/journal/2024/01/2024-01-01.md`
+reads the same from anywhere, where `../../journal/…` depends on where you
+wrote it. Editors mostly agree: VS Code resolves `/` from the folder you opened,
+so open the repository itself rather than a parent; Obsidian reportedly
+resolves it from the vault root. Wikilinks name a note rather than a place, so
+`[[note]]` and `[[folder/note]]` resolve to any note whose path ends that way.
+
 ## Importing exports and local logs
 
 `fetch` covers the three chat providers. Import is for everything else: local
