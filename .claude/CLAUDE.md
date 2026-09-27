@@ -40,7 +40,7 @@ uv run commonplace search "query text"
 
 **Search** (`_search/`): Protocol-based pipeline with `Chunker` (splits by sections) → `Embedder` (SentenceTransformers) → `VectorStore` (SQLite + FTS5). Supports semantic, full-text, and hybrid search. Index: `.commonplace/cache/index.db`
 
-**Config** (`_config.py`): Pydantic-settings from env/`.env` with `COMMONPLACE_` prefix. Per-repo config at `.commonplace/config.toml`
+**Config** (`_config.py`): Pydantic-settings; `Config.load(root)` overlays `COMMONPLACE_*` env over `.commonplace/config.toml` over the global `config.toml`.
 
 **CLI** (`__main__.py`): Repo-centric with global `repo` object initialized in `launch()`. Top-level exception handler catches all command errors.
 

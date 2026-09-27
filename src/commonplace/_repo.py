@@ -35,6 +35,9 @@ _INIT_CONFIG_TOML = f"""
 
 # user = "{DEFAULT_NAME}"
 # editor = "{DEFAULT_EDITOR}"
+# wrap = 80
+# auto_index = true
+# ua = "Mozilla/5.0 ..."
 """
 
 _INIT_CLAUDE_SETTINGS = """\
@@ -162,7 +165,7 @@ class Commonplace:
         """Get the commonplace configuration."""
         from commonplace._config import Config
 
-        return Config()
+        return Config.load(self.root)
 
     @cached_property
     def cache(self) -> Path:

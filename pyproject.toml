@@ -15,7 +15,6 @@ dependencies = [
     "mdformat-frontmatter>=2.0.8",
     "mdformat-gfm>=0.4.1",
     "pydantic >=2.0.0",
-    "python-dotenv >=1.0.0",
     "tqdm >=4.66.0",
     "pydantic-settings>=2.10.0",
     "pygit2>=1.15.0",

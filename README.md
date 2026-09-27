@@ -317,9 +317,19 @@ runs update them in place.
 
 ## Configuration
 
-The defaults are meant to work untouched. To change one, set an environment
-variable named after it, upper-cased with a `COMMONPLACE_` prefix — e.g.
-`COMMONPLACE_EDITOR="code --wait"`.
+The defaults are meant to work untouched. To change one, set it in a TOML file
+or in an environment variable named after it, upper-cased with a
+`COMMONPLACE_` prefix — e.g. `COMMONPLACE_EDITOR="code --wait"`. Each source
+overrides the ones below it:
+
+1. environment variables
+1. `.commonplace/config.toml` in your commonplace (seeded by `init`)
+1. `~/.config/commonplace/config.toml` (the platform config dir)
+1. the defaults below
+
+`root` is the exception: it says where the per-repo file is, so it can only
+come from `COMMONPLACE_ROOT`. An unknown key in either file is an error, so a
+typo can't silently do nothing.
 
 | Setting      | Default                     | Purpose                                    |
 | ------------ | --------------------------- | ------------------------------------------ |
@@ -333,7 +343,4 @@ variable named after it, upper-cased with a `COMMONPLACE_` prefix — e.g.
 `ua` is the one worth knowing about: every provider fronts its internal API
 with a bot check that a stale User-Agent fails, so if fetches start getting
 blocked, copy `navigator.userAgent` from your browser's console and set
-`COMMONPLACE_UA` to it — no need to wait for a release.
-
-⚠️ `init` seeds a `.commonplace/config.toml`, but nothing reads it yet; the
-environment is the only channel that currently works.
+`COMMONPLACE_UA` (or `ua`) to it — no need to wait for a release.

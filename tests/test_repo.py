@@ -1,9 +1,11 @@
 """Tests for repository commit functionality."""
 
 import json
+from contextlib import closing
 from datetime import UTC
 from pathlib import Path
 
+from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 
 
@@ -115,6 +117,16 @@ def test_note_paths_dot_dirs_excluded(test_repo):
     test_repo.commit("Add notes", auto_index=False)
 
     assert [p.path for p in test_repo.note_paths()] == [Path("notes/idea.md")]
+
+
+def test_config_reads_repo_file(tmp_path, monkeypatch):
+    """A setting in the repo's own .commonplace/config.toml reaches repo.config."""
+    monkeypatch.delenv("COMMONPLACE_USER", raising=False)
+    Commonplace.init(tmp_path)
+    (tmp_path / ".commonplace" / "config.toml").write_text('user = "Ada"\n')
+
+    with closing(Commonplace.open(tmp_path)) as repo:
+        assert repo.config.user == "Ada"
 
 
 def test_index_matches_head_after_commit(test_repo):

@@ -2,18 +2,20 @@
 Configuration management for the commonplace application.
 
 Defines the Config class for handling application settings from
-environment variables, .env files, and direct instantiation.
+environment variables and TOML config files.
 """
 
 import getpass
 import os
+import tomllib
 from pathlib import Path
+from typing import Any
 
 from platformdirs import user_config_dir
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
-DEFAULT_CONFIG = Path(user_config_dir("commonplace")) / "commonplace.toml"
+DEFAULT_CONFIG = Path(user_config_dir("commonplace")) / "config.toml"
 DEFAULT_NAME = getpass.getuser().title()  # Get the current user's name for default human-readable name
 DEFAULT_EDITOR = os.getenv("EDITOR", default="vim")
 
@@ -27,17 +29,16 @@ DEFAULT_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Ge
 
 class Config(BaseSettings):
     """
-    Configuration for a commonplace repo. This should be the result of several overlays:
-    1. Built-in defaults
-    2. Environment variables with COMMONPLACE_ prefix
+    Configuration for a commonplace repo. Each layer overrides the ones below it:
+    1. Environment variables with COMMONPLACE_ prefix
+    2. Per-repo commonplace config at ${REPO_ROOT}/.commonplace/config.toml
     3. Global commonplace config at ~/.config/commonplace/config.toml
-    4. Per-repo commonplace config at ${REPO_ROOT}/.commonplace/config.toml
+    4. Built-in defaults
     """
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="_",
         env_prefix="COMMONPLACE_",
-        toml_file=DEFAULT_CONFIG,
     )
 
     user: str = Field(default=DEFAULT_NAME, description="Human-readable name for the user e.g., Joe")
@@ -48,3 +49,25 @@ class Config(BaseSettings):
         default=DEFAULT_UA,
         description="User-Agent sent by fetchers. Override if a provider's bot check starts rejecting the default",
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """Env beats init kwargs, which is where `load` puts the TOML files."""
+        return env_settings, init_settings
+
+    @classmethod
+    def load(cls, repo_root: Path, global_file: Path | None = None) -> "Config":
+        """Overlay the per-repo config file on the global one, beneath the environment."""
+        files = [global_file or DEFAULT_CONFIG, repo_root / ".commonplace" / "config.toml"]
+        settings: dict[str, Any] = {}
+        for path in files:
+            if path.is_file():
+                settings |= tomllib.loads(path.read_text())
+        return cls(**settings)
