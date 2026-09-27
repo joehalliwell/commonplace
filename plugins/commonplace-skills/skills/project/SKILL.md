@@ -1,6 +1,6 @@
 ---
 name: project
-description: Draft or update one project note from the commonplace
+description: Draft a project note, or review and update an existing one, from the commonplace
 argument-hint: <sketch or slug>
 ---
 
@@ -13,8 +13,10 @@ description. Use it as a search seed. `/rake` is the usual way a project gets
 here.
 
 A project note is the **user's own note**, not a derived artefact. You draft
-it from the record; the user owns it afterwards. On an update, never
-restructure or reword what's already there.
+it from the record; the user owns it afterwards. Running `/project` on an
+existing note **reviews and updates** it: the skill keeps its own three parts
+current (the `Status:` line, `## History`, `## Next`), and proposes any change
+to the rest of the note as a finding for the user to accept or reject.
 
 The heavy work runs in a subagent. You handle slug derivation, review, and
 commit.
@@ -49,9 +51,17 @@ Wait for the subagent to complete.
 ### 3. Review
 
 Present the subagent's summary, then show the diff of
-`notes/projects/{slug}.md`. On an update run, check that no existing line was
-changed; only additions are allowed. Check the First Next Action against the
-full Next list; if the dependency reasoning looks off, flag it.
+`notes/projects/{slug}.md`. On an update run, check that the diff touches only
+the Status line, History and Next, and that no existing History line changed;
+History only grows. Check the First Next Action against the full Next list; if
+the dependency reasoning looks off, flag it.
+
+On an update run, go through the subagent's **review findings** one by one.
+Each proposes a change to the user's own part of the note (tick an item, strike
+it, correct a claim). The subagent hasn't applied them. Apply only the ones the
+user accepts, and make exactly the edit proposed. As at every step, silence in
+the record is not evidence something was done or dropped; a finding that rests
+on it should be phrased as a question.
 
 Wait for explicit approval before committing. If the user requests changes,
 spawn a revision subagent or make small edits directly.
@@ -102,7 +112,7 @@ commonplace search -n 30 "<query>"
 ### Phase 1: Check for Prior Work
 
 Read `notes/projects/{slug}.md` if it exists: this is an update run (see
-Update Runs below). Read `notes/projects/index.md` if it exists, for the
+**Update run** in Phase 4). Read `notes/projects/index.md` if it exists, for the
 status words the user files projects under.
 
 ### Phase 2: Search
@@ -175,21 +185,37 @@ Open questions, blockers, and next actions, one line each. The first is the
 **First Next Action**: the one that unblocks the most others.
 ```
 
-**Update run.** The note is the user's, often freeform. Do not change any
-existing line. Append one section at the end:
+**Update run.** The note is the user's, often freeform. Review it, then
+update the parts the skill keeps.
 
-```markdown
-## From the commonplace, <YYYY-MM-DD>
+*New material* is any relevant search hit whose path the note doesn't already
+cite, whatever its date. Don't filter by date: imports backfill old
+conversations, and the note's citations are the record of what's been read.
 
-Status: <status>, last touched <YYYY-MM-DD>.
+*Review* the rest of the note against the record, and list what's changed:
 
-<History since the note was last touched, cited as above.>
+- an open item (checkbox, todo line, plan) that a source shows done or
+  explicitly set aside
+- a claim or premise a later source contradicts
+- a stated status or plan that the record has moved past
 
-<Next, as above.>
-```
+Don't edit these lines. Return each as a finding: the line verbatim, the
+proposed edit, and the source. Where the only evidence is silence, phrase the
+finding as a question ("no mention since 2025-03; still live?").
 
-Include only what the note doesn't already say. If there's nothing new, write
-nothing and say so.
+*Update* the parts the skill keeps:
+
+- **`Status:`** line: rewrite it in place.
+- **`## History`**: append the new material's milestones, cited as above.
+  Never edit or remove existing History lines; the trajectory stays.
+- **`## Next`**: rewrite it in place from the current state, then run the
+  critique below.
+
+If the note has none of these, as with a note the user started by hand,
+add them once at the end, in the order of the new-note template. On later
+runs, update them where they are.
+
+If there's no new material and no finding, write nothing and say so.
 
 ### Phase 5: Critique
 
@@ -223,6 +249,11 @@ ______________________________________________________________________
 - *(repeat)*
 - **First Next Action**: {item} — {rationale, including what it unblocks}
 
-**Note written**: `notes/projects/{slug}.md` ({new / appended / unchanged})
+**Review findings** (update runs only; omit if none):
+
+- `{line, verbatim}` → {proposed edit, or a question}. Source: {path}.
+
+**Note written**: `notes/projects/{slug}.md` ({new / updated / unchanged}),
+{N} new sources.
 
 ______________________________________________________________________

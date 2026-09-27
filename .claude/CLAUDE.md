@@ -70,7 +70,7 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 - `/synthesize [topic]` — gather and distil a topic from the commonplace
 - `/resonate <slug1> <slug2> [...]` — surface interference patterns between synthesized topics
 - `/rake` — surface unmade ideas, todos and projects; propose where to file them in `notes/`
-- `/project <sketch>` — draft or update one project note, `notes/projects/{slug}.md`
+- `/project <sketch>` — draft one project note, `notes/projects/{slug}.md`, or review and update an existing one
 
 **Artefact paths** (no dated filenames — git is the versioning layer):
 
