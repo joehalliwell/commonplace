@@ -126,6 +126,13 @@ topics/
 Derived artefacts update in place; git holds prior states. Never cite
 `topics/**` as evidence — provenance bottoms out at primitives.
 
+**Citations** in body text are root-relative wikilinks, the path without
+`.md`: `[[/chats/claude/2026/09/2026-09-07-esta-renewal]]`. The leading `/`
+resolves from the repository root. No date beside it — the path carries one;
+where the date is the point, `[2026-09-07](/chats/…/2026-09-07-esta-renewal.md)`.
+Frontmatter keeps bare paths, since YAML reads `[[…]]` as a nested list. Check that a target exists before citing it;
+`commonplace doctor` reports links that go nowhere.
+
 ## CLI Commands
 
 ```bash

@@ -133,6 +133,13 @@ cite `topics/**`: those are derived, and a distillation's reading is not
 evidence. If a distillation points you at something, follow its citation and
 cite the primitive.
 
+**Cite with root-relative wikilinks**: `[[/` + the repo-relative path without
+`.md` + `]]`, e.g. `[[/journal/2026/08/2026-08-28]]`. Before returning, confirm
+each cited path exists as `<path>.md`; if one is missing, find it by name
+(`find chats journal notes -name '<basename>.md'`) and cite where it is now.
+Leave the user's existing citations alone unless they go nowhere; report
+those under Edits.
+
 **Attribute.** Most sources are conversations with an assistant. The Why and
 every History entry about intent must rest on the user's words, or on an
 assistant's suggestion the user took up. Say who said it.
@@ -170,8 +177,8 @@ facts; capture it while it's live.
 
 ## History
 
-Chronological milestones and decisions, each citing a repo-relative source
-path and date: "decided to X (2024-03-12, chats/claude/2024/03/2024-03-12-foo.md)".
+Chronological milestones and decisions, each dated and citing its source:
+"2024-03-12: decided to X ([[/chats/claude/2024/03/2024-03-12-foo]])".
 
 ## Next
 

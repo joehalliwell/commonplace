@@ -178,6 +178,11 @@ material too.
 What each version changed about the artefacts. Add an entry only for changes
 a reader would notice — each one makes every existing topic stale.
 
+- **0.12.0** — Citations in the body are root-relative wikilinks,
+  `[[/<source path without .md>]]`, with no date beside them; a date that
+  matters is written as `[<date>](/<source path>.md)`. Gathering entries
+  name their source as `*[[/<path without .md>]]*`. Frontmatter paths stay
+  bare. Every cited path resolves.
 - **0.10.0** — Threads carry *closed* / *stopped* / *unclear* and a
   last-touched date. Each thread name is one sentence stating the question.
   Coinages are glossed in every thread entry that uses them. The Most Pressing
@@ -318,7 +323,7 @@ sources:
 # Gathering: {topic}
 
 ## <date> — <title or context>
-*<repo-relative source path>*
+*[[/<repo-relative source path without .md>]]*
 
 **<speaker>:**
 > Relevant passage text...
@@ -327,7 +332,7 @@ sources:
 > Relevant passage text...
 
 ## <date> — <title or context>
-*<repo-relative source path>*
+*[[/<repo-relative source path without .md>]]*
 
 **<speaker>:**
 > Relevant passage text...
@@ -335,6 +340,15 @@ sources:
 
 Where a passage only makes sense as an exchange, quote both turns in order
 rather than collapsing them into one attributed block.
+
+**Cite with root-relative wikilinks** in the body: `[[/` + the repo-relative
+path without `.md` + `]]`, e.g. `[[/journal/2014/08/2014-08-14]]`. The
+leading `/` resolves from the repository root wherever the citing file sits.
+Don't put a date beside it: `chats/` and `journal/` paths already carry one.
+In the rare case the date itself is the point, make it the link text of a
+markdown link instead: `[2014-08-14](/journal/2014/08/2014-08-14.md)`.
+Frontmatter stays bare paths: it's YAML, and `[[…]]` parses there as a nested
+list.
 
 **Density.** Quote generously when sources are few (\<10). For larger topics,
 quote verbatim only the most significant passages (turning points, novel
@@ -401,9 +415,9 @@ it.
 **Cite claims to passages, not to the gathering as a whole.** The frontmatter
 points at `gathering.md`; that's provenance to a file, which leaves a reader
 unable to check "the framing shifted in March" without re-reading everything.
-Each substantive claim carries an inline `(<date>, <source path>)`, and where
-the claim is about who thought what, name the speaker too. Provenance has to
-bottom out at a passage.
+Each substantive claim carries an inline `[[/<source path>]]`, as in Phase 3,
+and where the claim is about who thought what, name the speaker too. Where
+*when* matters, say it in the sentence ("in March 2024, …"). Provenance has to bottom out at a passage.
 
 Write to: `topics/{slug}/distillation.md`
 
@@ -510,7 +524,13 @@ Git tracks the full history. The prior state is always recoverable.
   count. 5 sources: quote everything relevant. 20 sources: quote turning points,
   summarise the rest.
 - **Be specific** in distillations. Every substantive claim carries an inline
-  `(<date>, <source path>)` — provenance bottoms out at a passage, not a file.
+  `[[/<source path>]]` — provenance bottoms out at a passage, not a file.
+- **Check every citation resolves.** Before returning, confirm each cited
+  `[[/<path>]]` exists as `<path>.md`, and each `[<date>](/<path>.md)` as
+  written. Files move (a re-import can rename a
+  provider directory); if one is missing, find it by name
+  (`find chats journal notes -name '<basename>.md'`) and cite where it is
+  now. Never leave a link that goes nowhere.
 - **Name the threads**. The most valuable output is often what's unresolved.
 - **Write to be read cold.** See Phase 4. Applies to the return summary too.
 - **Don't over-synthesize**. If the material is thin, say so. A short

@@ -120,6 +120,9 @@ commonplace index
 What each version changed about the artefact. Add an entry only for changes
 a reader would notice — each one makes every existing resonance stale.
 
+- **0.12.0** — Citations in the body are root-relative wikilinks,
+  `[[/<source path without .md>]]`, with no date beside them. Frontmatter
+  paths stay bare. Every cited path resolves.
 - **0.10.0** — Crossings and tensions restate what each topic contributes and
   name the topics. The Most Live Question is a headline sentence. Revisions
   lines are one sentence.
@@ -188,8 +191,11 @@ commits and re-indexes; they are derived, and quoting one into a resonance
 stacks synthesis on synthesis. The distillations named above are your inputs;
 nothing else under `topics/` is.
 
-Distillations attribute claims to speakers and cite `(<date>, <source path>)`.
-Carry both through. A crossing between two topics is a different and much
+Distillations attribute claims to speakers and cite `[[/<source path>]]`: a
+root-relative wikilink, the path without `.md`. Carry both through, and cite
+anything new you quote the same way. A distillation under an older convention
+may still cite `(<date>, <path>)`; rewrite it as the plain wikilink. Where a
+date is the point, it goes in the sentence or as `[<date>](/<path>.md)`. A crossing between two topics is a different and much
 weaker thing if the two passages turn out to be an assistant's phrasing in
 both places rather than the user's own.
 
@@ -274,6 +280,10 @@ concrete. The reader has read neither distillation.
   Three sharp crossings beat ten loose ones.
 
 - **Carry attribution and citations through** from the distillations.
+
+- **Check every citation resolves.** Before returning, confirm each cited
+  `[[/<path>]]` exists as `<path>.md`. If one is missing, the file has
+  usually moved: find it by name (`find chats journal notes -name '<basename>.md'`) and cite where it is now.
 
 - **Update, don't replace.** On an update run, note what has shifted since the
   last resonance — new crossings that emerged, tensions that sharpened.
