@@ -95,7 +95,7 @@ user chooses one of:
 - **todo** — file in `notes/todo.md`, under a year the user names
 - **project** — list in `notes/projects/`, and offer `/project`
 - **done** — it happened; say where if the user wants it recorded
-- **drop** — not a live intention
+- **drop** — not a live intention; tombstone it in `notes/chaff.md`
 
 Take the suggested destination as a suggestion only. When the user hesitates
 between two scales, file at the smaller one: promoting an idea later is
@@ -122,8 +122,14 @@ not derived artefacts, so:
 - **Project-scale items** get a line in `notes/projects/index.md` if it
   exists, following its sections. Offer to run `/project <slug>` for each; if
   the user accepts, run it in-session.
-- **Missing destination.** If a destination file doesn't exist, ask before
-  creating it, and give it a one-line italic header saying what belongs there.
+- **Dropped items** go to `notes/chaff.md`, one line each, so the next rake
+  doesn't propose them again:
+  `- <headline, verbatim> — dropped <YYYY-MM-DD>. Sources: <paths>.`
+  Create the file without asking, headed
+  `*Raked up and dropped. Delete a line to let /rake propose it again.*`
+- **Missing destination.** If any other destination file doesn't exist, ask
+  before creating it, and give it a one-line italic header saying what belongs
+  there.
 
 Show the user the diff and wait for approval.
 
@@ -174,6 +180,11 @@ commonplace search -n 30 "<query>"
 Read `notes/ideas.md`, `notes/todo.md`, and every `notes/projects/*.md`
 (including `index.md`), where they exist. Note each open item, the section it
 sits in, and its checkbox state. These are what you must not re-propose.
+
+Read `notes/chaff.md` too, if it exists: items the user dropped in an earlier
+rake, each with its drop date. Don't re-propose one unless the user raised it
+again in a source dated *after* the drop. If so, propose it and say it was
+dropped on that date.
 
 ### Phase 2: Stopped Threads in Topic Distillations
 

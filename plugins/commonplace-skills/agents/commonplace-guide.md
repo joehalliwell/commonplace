@@ -84,6 +84,7 @@ journal/
 notes/
   ideas.md              # Uncommitted backlog: no commitment, no date
   todo.md               # Committed actions, by year
+  chaff.md              # Items dropped in /rake triage; not re-proposed
   projects/
     {slug}.md           # One note per larger effort
 
