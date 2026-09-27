@@ -84,7 +84,6 @@ journal/
 notes/
   ideas.md              # Uncommitted backlog: no commitment, no date
   todo.md               # Committed actions, by year
-  chaff.md              # Items dropped in /rake triage; not re-proposed
   projects/
     {slug}.md           # One note per larger effort
 
@@ -100,6 +99,8 @@ topics/
   config.toml           # Per-repo configuration
   cache/                # Search index (gitignored)
   blobs/                # Source exports (LFS-tracked)
+  skills/
+    {skill}/            # State a skill manages, e.g. rake/chaff.md
 ```
 
 ### Artefact Conventions
@@ -117,6 +118,10 @@ topics/
 - **Resonances**: What placing two or more topics side by side generates.
   Derived from distillations.
 - **Topic index**: Regenerated from the distillations on every run.
+- **Skill state**: What a skill needs to behave correctly next time, and
+  nobody reads for its own sake, lives in `.commonplace/skills/{skill}/`.
+  Neither primitive nor derived; never cite it. Anything a person reads stays
+  visible.
 
 Derived artefacts update in place; git holds prior states. Never cite
 `topics/**` as evidence — provenance bottoms out at primitives.
