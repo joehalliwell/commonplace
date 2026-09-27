@@ -315,7 +315,7 @@ def doctor(
     *,
     repo: Repo,
 ) -> None:
-    """Check and fix repository scaffolding (settings, LFS config, etc.)."""
+    """Check and fix repository scaffolding (settings, LFS config, etc.), and report broken links."""
     report = repo.doctor()
     for action in report.actions:
         logger.info(action)

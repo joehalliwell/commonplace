@@ -188,7 +188,7 @@ class Commonplace:
         return self.make_repo_path(rel_path)
 
     def doctor(self) -> DoctorReport:
-        """Restore missing scaffolding, and diff whatever has fallen behind `init`'s templates."""
+        """Restore missing scaffolding, diff whatever has fallen behind `init`'s templates, and find broken links."""
         actions: list[str] = []
         warnings: list[str] = []
 
