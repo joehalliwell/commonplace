@@ -189,6 +189,21 @@ def test_remove_keeps_the_full_text_index_in_step(test_index, make_chunk):
     assert test_index.search_keyword("Ozymandias", limit=10) == []
 
 
+@pytest.mark.parametrize(
+    "query",
+    ["I'll write", "foo: bar.baz", "see src/notes", 'say "hi"', "write -", "NEAR", "write OR"],
+)
+def test_search_keyword_fts5_syntax_in_query_matches_literally(test_index, make_chunk, query):
+    """Punctuation and FTS5 keywords in a query are words to match, not syntax to parse."""
+    text = 'I\'ll write foo: bar.baz, then see src/notes and say "hi" near or far'
+    chunk = make_chunk(path="note.md", section="Section", text=text, offset=0)
+    test_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+
+    hits = test_index.search_keyword(query, limit=10)
+
+    assert [hit.chunk for hit in hits] == [chunk]
+
+
 def test_remove_nothing_leaves_the_index_alone(test_index, make_chunk):
     """An empty removal set removes nothing — the failure mode of getting this backwards."""
     chunk = make_chunk(path="live.md", section="Section", text="Still here", offset=0)
