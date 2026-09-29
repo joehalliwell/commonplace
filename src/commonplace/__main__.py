@@ -330,6 +330,28 @@ def doctor(
 
 
 @app.command(group=SYSTEM_SECTION)
+def config(
+    key: Annotated[str | None, Parameter(help="Print only this setting's value")] = None,
+    *,
+    repo: Repo,
+) -> None:
+    """Print the settings in effect, after environment and config files are merged."""
+    import json
+
+    settings = repo.config.model_dump()
+    if key is None:
+        # JSON scalars are valid TOML values, so the output pastes into config.toml.
+        for name, value in settings.items():
+            print(f"{name} = {json.dumps(value)}")
+    elif key in settings:
+        value = settings[key]
+        print(value if isinstance(value, str) else json.dumps(value))
+    else:
+        logger.error(f"Unknown setting '{key}'. Settings: {', '.join(settings)}")
+        raise SystemExit(1)
+
+
+@app.command(group=SYSTEM_SECTION)
 def stats(
     *,
     all_time: Annotated[

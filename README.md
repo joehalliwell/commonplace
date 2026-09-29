@@ -331,6 +331,10 @@ overrides the ones below it:
 come from `COMMONPLACE_ROOT`. An unknown key in either file is an error, so a
 typo can't silently do nothing.
 
+`commonplace config` prints the settings in effect once every source is
+merged, as TOML you can paste into a config file; `commonplace config user`
+prints just that one value.
+
 | Setting      | Default                     | Purpose                                    |
 | ------------ | --------------------------- | ------------------------------------------ |
 | `root`       | platform data dir           | where your commonplace lives               |
