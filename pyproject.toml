@@ -29,6 +29,7 @@ dependencies = [
     "browser-cookie3>=0.20.1",
     "httpx>=0.28.1",
     "mdformat-wikilink>=0.3.0",
+    "tomli-w>=1.2.0",
 ]
 
 [dependency-groups]

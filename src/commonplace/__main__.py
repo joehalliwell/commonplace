@@ -336,16 +336,15 @@ def config(
     repo: Repo,
 ) -> None:
     """Print the settings in effect, after environment and config files are merged."""
-    import json
+    import tomli_w
 
-    settings = repo.config.model_dump()
+    settings = repo.config.model_dump(mode="json")
     if key is None:
-        # JSON scalars are valid TOML values, so the output pastes into config.toml.
-        for name, value in settings.items():
-            print(f"{name} = {json.dumps(value)}")
+        print(tomli_w.dumps(settings), end="")
+    elif isinstance(value := settings.get(key), str):
+        print(value)  # Unquoted, so scripts can use it directly
     elif key in settings:
-        value = settings[key]
-        print(value if isinstance(value, str) else json.dumps(value))
+        print(tomli_w.dumps({key: value}).removeprefix(f"{key} = "), end="")
     else:
         logger.error(f"Unknown setting '{key}'. Settings: {', '.join(settings)}")
         raise SystemExit(1)
