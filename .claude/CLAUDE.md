@@ -74,8 +74,9 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 
 **Artefact paths** (no dated filenames — git is the versioning layer):
 
-- `topics/{slug}/gathering.md`, `topics/{slug}/distillation.md`, `topics/index.md`
+- `topics/{slug}.md` (the distillation), `topics/index.md`
 - `topics/resonances/{sorted-slugs}.md`
+- `.commonplace/skills/synthesize/{slug}.md` — a topic's gathering
 - `notes/ideas.md`, `notes/todo.md`, `notes/projects/{slug}.md` — the user's own notes; `/rake` and `/project` only add what the user approves
 - `.commonplace/skills/{skill}/` — skill-managed state nobody reads for its own sake (e.g. `rake/chaff.md`, items dropped in triage); never a source. Artefacts a person reads stay visible
 
@@ -83,5 +84,6 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 
 - Heavy work (search, read, write) runs in a `general-purpose` subagent via the Task tool; the calling agent handles survey, review, and commit
 - Artefacts update in place on incremental runs; prior state is recoverable via git
+- Everything under `topics/` is an OKF v0.2 concept document (`type: Topic`). The repo root is the bundle; dot-directories are outside it. Staleness is `generated.by` (`<skill>/<plugin release>`) against the skill's newest Conventions entry, which is named by the release that introduced it
 - Distillations and resonances carry a `## Revisions` section — one appended line per run, so the trajectory stays visible in-band rather than only in `git log`
 - Gatherings quote from primitives only (`chats/`, `journal/`, `notes/`) and attribute every quote to a speaker; `topics/**` is derived and is never a source

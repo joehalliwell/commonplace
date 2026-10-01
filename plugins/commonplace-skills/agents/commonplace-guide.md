@@ -89,9 +89,7 @@ notes/
 
 topics/
   index.md
-  {slug}/
-    gathering.md
-    distillation.md
+  {slug}.md             # A topic's distillation
   resonances/
     {sorted-slugs}.md
 
@@ -100,7 +98,8 @@ topics/
   cache/                # Search index (gitignored)
   blobs/                # Source exports (LFS-tracked)
   skills/
-    {skill}/            # State a skill manages, e.g. rake/chaff.md
+    {skill}/            # State a skill manages, e.g. rake/chaff.md,
+                        # synthesize/{slug}.md (a topic's gathering)
 ```
 
 ### Artefact Conventions
@@ -112,7 +111,7 @@ topics/
   `ideas.md`, `todo.md` and `projects/`; add only what the user approves, and
   never reword what's there.
 - **Gatherings**: Chronological compilations of passages on a topic, with
-  source attribution. Derived artefacts.
+  source attribution. `/synthesize`'s working material, kept as skill state.
 - **Distillations**: Synthesized analyses of a topic — timeline, shifts, and
   open threads. Derived from gatherings.
 - **Resonances**: What placing two or more topics side by side generates.
@@ -123,6 +122,10 @@ topics/
   Neither primitive nor derived; never cite it. Anything a person reads stays
   visible.
 
+Everything under `topics/` is an [OKF v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+concept document: `type: Topic`, with `kind` saying which, `sources` and
+`generated` recording provenance, and `verified` recording who approved it.
+
 Derived artefacts update in place; git holds prior states. Never cite
 `topics/**` as evidence — provenance bottoms out at primitives.
 
@@ -130,7 +133,7 @@ Derived artefacts update in place; git holds prior states. Never cite
 `.md`: `[[/chats/claude/2026/09/2026-09-07-esta-renewal]]`. The leading `/`
 resolves from the repository root. No date beside it — the path carries one;
 where the date is the point, `[2026-09-07](/chats/…/2026-09-07-esta-renewal.md)`.
-Frontmatter keeps bare paths, since YAML reads `[[…]]` as a nested list. Check that a target exists before citing it;
+Frontmatter never uses `[[…]]`, since YAML reads it as a nested list. Check that a target exists before citing it;
 `commonplace doctor` reports links that go nowhere.
 
 ## CLI Commands

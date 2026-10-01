@@ -193,13 +193,14 @@ dropped on that date.
 
 ### Phase 2: Stopped Threads in Topic Distillations
 
-Every thread in a `topics/*/distillation.md` has the form
+Every thread in a topic's distillation, `topics/*.md`, has the form
 `- **<question>** — *(closed|stopped|unclear)*, last touched <date>.`
 Collect the *stopped* and *unclear* ones. Entries are line-wrapped, so find
-the status marker and read the whole entry around it:
+the status marker and read the whole entry around it. Topics not yet
+conformed to the flat layout are still `topics/*/distillation.md`:
 
 ```bash
-grep -n -E '— \*(stopped|unclear)\*' topics/*/distillation.md
+grep -n -E '— \*(stopped|unclear)\*' topics/*.md topics/*/distillation.md 2>/dev/null
 ```
 
 Most are open questions and belong to `/synthesize`, not here. Keep only those
