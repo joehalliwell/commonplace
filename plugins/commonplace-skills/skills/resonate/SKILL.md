@@ -106,8 +106,8 @@ directly.
 
 The user's approval is OKF's human review, so record it: set `verified` in
 the resonance's frontmatter, beside `generated`, to
-`{ by: human:<user>, at: <now, ISO 8601 UTC> }`. Only you write this line,
-and only after approval — never the subagent.
+`{ by: human:<user>, at: <now, e.g. 2026-10-01T14:00:00Z> }`. Only you write
+this line, and only after approval — never the subagent.
 
 ```bash
 commonplace git -- add topics/resonances/
@@ -130,8 +130,8 @@ artefact gets one: add an entry only for changes a reader would notice —
 each one makes every existing resonance stale.
 
 - **0.13.0** — A resonance is an OKF v0.2 concept document with
-  `type: Topic`, `generated` naming the release that wrote it, and
-  `verified` naming who approved it. `source_distillations` point at the
+  `type: Topic`, a `title` and one-sentence `description`, `generated`
+  naming the release that wrote it, and `verified` naming who approved it. `source_distillations` point at the
   flat `topics/<slug>.md`, and `updated` is gone.
 - **0.12.0** — Citations in the body are root-relative wikilinks,
   `[[/<source path without .md>]]`, with no date beside them. Frontmatter
@@ -221,13 +221,15 @@ Write to: `{output_path}`
 ---
 type: Topic
 kind: resonance
+title: {topics}
+description: <one sentence: the ground these topics share or contest>
 topics:
   - <slug 1>
   - <slug 2>
 source_distillations:
   - topics/<slug 1>.md
   - topics/<slug 2>.md
-generated: { by: resonate/{version}, at: <now, ISO 8601 UTC> }
+generated: { by: resonate/{version}, at: <now, e.g. 2026-10-01T14:00:00Z> }
 ---
 
 # Resonance: {topics}
@@ -252,7 +254,9 @@ question.>**
 - <YYYY-MM-DD> — <one sentence: what the resonance now says that it didn't>
 ```
 
-Write `generated` every time you write the file. Never write `verified`:
+`description` says what ground the topics share or contest, not where the
+reading has got to, so it holds from run to run. Write `generated` every
+time you write the file. Never write `verified`:
 that records the user's approval, which the calling agent adds after review.
 
 Resonances update in place, so the Revisions section is the only in-band

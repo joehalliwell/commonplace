@@ -129,22 +129,27 @@ the topics — never edit it by hand or patch single entries. It is an OKF
 ```markdown
 # Topics
 
-- [{slug}]({slug}.md) - <description> (N sources, updated <YYYY-MM-DD>)
+- [<title>]({slug}.md) - <description> (N sources, updated <YYYY-MM-DD>)
   - **Pressing**: <the Most Pressing Thread's headline sentence, verbatim>
+
+# Resonances
+
+- [Resonances](resonances/) - what placing two or more of these topics side by side generates, written by `/resonate`
 ```
 
 One entry per `topics/*.md` other than `index.md`, alphabetical by slug.
-Read only what the entry needs: `description`, the date of `generated.at`,
-N from the `sources` list, and the bold headline under
+Read only what the entry needs: `title`, `description`, the date of
+`generated.at`, N from the `sources` list, and the bold headline under
 `### Most Pressing Thread`. Where any of these is missing, write
-`not recorded`.
+`not recorded` (or the slug, for a missing title). Include the Resonances
+section only if `topics/resonances/` exists.
 
 ### 5. Commit
 
 The user's approval is OKF's human review, so record it: set `verified` in
 the topic's frontmatter, beside `generated`, to
-`{ by: human:<user>, at: <now, ISO 8601 UTC> }`. Only you write this line,
-and only after approval — never the subagent.
+`{ by: human:<user>, at: <now, e.g. 2026-10-01T14:00:00Z> }`. Only you write
+this line, and only after approval — never the subagent.
 
 Stage and commit using `commonplace git`:
 
@@ -189,8 +194,8 @@ commonplace git -- mv topics/{slug}/gathering.md .commonplace/skills/synthesize/
 ```
 
 The gathering's `queries` and `sources` move into the topic's frontmatter,
-the sources in their structured form. Take each `author` from the speakers
-the gathering quotes from that source.
+the sources in their structured form, and the topic gains a `title` and a
+`description`.
 
 Then every link to the old paths is repointed: `[[/topics/{slug}/distillation]]`
 becomes `[[/topics/{slug}]]`, and a resonance's `source_distillations` entry
@@ -212,14 +217,14 @@ artefacts gets one: add an entry only for changes a reader would notice —
 each one makes every existing topic stale.
 
 - **0.13.0** — A topic is an OKF v0.2 concept document at `topics/{slug}.md`,
-  with `type: Topic`. Its frontmatter carries a one-sentence `description`
-  (which the index lists it by), `queries`, structured
-  `sources` (`id`, `resource`, `author`), `generated` naming the release
-  that wrote it, and `verified` naming who approved it. `resource` paths are
-  root-relative, with a leading `/`. `updated` and `source_gathering` are
-  gone. The gathering is skill state at
+  with `type: Topic`. Its frontmatter carries a `title` and a one-sentence
+  `description` (which the index lists it by), `queries`, structured
+  `sources` (`resource`, plus `author` for journal and notes sources),
+  `generated` naming the release that wrote it, and `verified` naming who
+  approved it. `resource` paths are root-relative, with a leading `/`.
+  `updated` and `source_gathering` are gone. The gathering is skill state at
   `.commonplace/skills/synthesize/{slug}.md`. `topics/index.md` has no
-  frontmatter.
+  frontmatter, and lists `resonances/`.
 - **0.12.0** — Citations in the body are root-relative wikilinks,
   `[[/<source path without .md>]]`, with no date beside them; a date that
   matters is written as `[<date>](/<source path>.md)`. Gathering entries
@@ -464,15 +469,16 @@ Write to: `topics/{slug}.md`
 ---
 type: Topic
 kind: distillation
+title: {topic}
 description: <one sentence: what this topic covers>
 queries:
   - "<search query 1>"
   - "<search query 2>"
 sources:
-  - id: <source filename without .md>
-    resource: /<repo-relative source path>
-    author: <whose words the passages you quoted from it mostly are>
-generated: { by: synthesize/{version}, at: <now, ISO 8601 UTC> }
+  - resource: /<repo-relative chat path>
+  - resource: /<repo-relative journal or notes path>
+    author: human:{user}
+generated: { by: synthesize/{version}, at: <now, e.g. 2026-10-01T14:00:00Z> }
 ---
 
 # Distillation: {topic}
@@ -504,10 +510,10 @@ other keys are OKF's provenance fields. `description` is what the index
 lists the topic by: say what ground the topic covers, not where it has got
 to, so it holds from run to run. Write it to be read cold, beside other
 topics' descriptions. List every source you quoted in the
-gathering, in its order. `author` is `human:{user}` when the passages you
-quoted from that source are mostly the user's, and otherwise the assistant
-as the transcript names it, lower-cased (`claude`, `gemini`). Write
-`generated` every time you write the file. Never write `verified`: that
+gathering, in its order. Give a source an `author` only when it is
+certain: `journal/` and `notes/` are the user's own. Leave it off chats,
+which two parties wrote; the speaker on each quote already says whose words
+they are. Write `generated` every time you write the file. Never write `verified`: that
 records the user's approval, which the calling agent adds after review.
 
 The Most Pressing Thread's headline is copied verbatim into
