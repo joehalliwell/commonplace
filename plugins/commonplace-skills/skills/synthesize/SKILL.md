@@ -129,15 +129,15 @@ the topics — never edit it by hand or patch single entries. It is an OKF
 ```markdown
 # Topics
 
-Updated <YYYY-MM-DD>.
-
-- [{slug}]({slug}.md) - <the Most Pressing Thread's headline sentence, verbatim> (N sources, updated <YYYY-MM-DD>)
+- [{slug}]({slug}.md) - <description> (N sources, updated <YYYY-MM-DD>)
+  - **Pressing**: <the Most Pressing Thread's headline sentence, verbatim>
 ```
 
 One entry per `topics/*.md` other than `index.md`, alphabetical by slug.
-Read only what the entry needs: the date of `generated.at`, N from the
-`sources` list, and the bold headline under `### Most Pressing Thread`. If a
-topic has no such headline, write `not recorded`.
+Read only what the entry needs: `description`, the date of `generated.at`,
+N from the `sources` list, and the bold headline under
+`### Most Pressing Thread`. Where any of these is missing, write
+`not recorded`.
 
 ### 5. Commit
 
@@ -212,7 +212,8 @@ artefacts gets one: add an entry only for changes a reader would notice —
 each one makes every existing topic stale.
 
 - **0.13.0** — A topic is an OKF v0.2 concept document at `topics/{slug}.md`,
-  with `type: Topic`. Its frontmatter carries `queries`, structured
+  with `type: Topic`. Its frontmatter carries a one-sentence `description`
+  (which the index lists it by), `queries`, structured
   `sources` (`id`, `resource`, `author`), `generated` naming the release
   that wrote it, and `verified` naming who approved it. `resource` paths are
   root-relative, with a leading `/`. `updated` and `source_gathering` are
@@ -463,6 +464,7 @@ Write to: `topics/{slug}.md`
 ---
 type: Topic
 kind: distillation
+description: <one sentence: what this topic covers>
 queries:
   - "<search query 1>"
   - "<search query 2>"
@@ -498,7 +500,10 @@ thread *closed*, *stopped*, or *unclear*, with the date it was last touched:
 ```
 
 This is an OKF v0.2 concept document: `type` is what makes it one, and the
-other keys are OKF's provenance fields. List every source you quoted in the
+other keys are OKF's provenance fields. `description` is what the index
+lists the topic by: say what ground the topic covers, not where it has got
+to, so it holds from run to run. Write it to be read cold, beside other
+topics' descriptions. List every source you quoted in the
 gathering, in its order. `author` is `human:{user}` when the passages you
 quoted from that source are mostly the user's, and otherwise the assistant
 as the transcript names it, lower-cased (`claude`, `gemini`). Write
