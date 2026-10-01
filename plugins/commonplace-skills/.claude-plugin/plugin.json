@@ -1,6 +1,6 @@
 {
   "name": "commonplace-skills",
-  "version": "0.13.1",
+  "version": "0.13.2",
   "description": "Skills and agents for working with a commonplace repository",
   "keywords": ["knowledge-management", "commonplace", "synthesis"]
 }
