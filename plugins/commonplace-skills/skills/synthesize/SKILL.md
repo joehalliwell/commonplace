@@ -84,7 +84,6 @@ Use the **Task tool** to spawn a `general-purpose` subagent:
   - `{date}` — today as YYYY-MM-DD
   - `{working_dir}` — absolute path to the repository root
   - `{version}` — this plugin's release, from step 1
-  - `{user}` — the user's name, from step 1
 
 Wait for the subagent to complete before continuing. It will return a compact
 review summary and the paths of the written artefacts.
@@ -219,7 +218,7 @@ each one makes every existing topic stale.
 - **0.13.0** — A topic is an OKF v0.2 concept document at `topics/{slug}.md`,
   with `type: Topic`. Its frontmatter carries a `title` and a one-sentence
   `description` (which the index lists it by), `queries`, structured
-  `sources` (`resource`, plus `author` for journal and notes sources),
+  `sources` (each a `resource`, and no `author`),
   `generated` naming the release that wrote it, and `verified` naming who
   approved it. `resource` paths are root-relative, with a leading `/`.
   `updated` and `source_gathering` are gone. The gathering is skill state at
@@ -257,7 +256,6 @@ You are performing topic synthesis in a commonplace repository.
 - Slug: {slug}
 - Date: {date}
 - Plugin release: {version}
-- User: {user}
 
 Your job is to check for prior work, gather sources, and write the gathering
 and the topic's distillation. Do **not** commit — return a compact review
@@ -475,9 +473,7 @@ queries:
   - "<search query 1>"
   - "<search query 2>"
 sources:
-  - resource: /<repo-relative chat path>
-  - resource: /<repo-relative journal or notes path>
-    author: human:{user}
+  - resource: /<repo-relative source path>
 generated: { by: synthesize/{version}, at: <now, e.g. 2026-10-01T14:00:00Z> }
 ---
 
@@ -510,10 +506,10 @@ other keys are OKF's provenance fields. `description` is what the index
 lists the topic by: say what ground the topic covers, not where it has got
 to, so it holds from run to run. Write it to be read cold, beside other
 topics' descriptions. List every source you quoted in the
-gathering, in its order. Give a source an `author` only when it is
-certain: `journal/` and `notes/` are the user's own. Leave it off chats,
-which two parties wrote; the speaker on each quote already says whose words
-they are. Write `generated` every time you write the file. Never write `verified`: that
+gathering, in its order. Sources carry no `author`: commonplace doesn't
+assign its material to individuals, and a source's path already says
+whether it is a chat, a journal entry or a note. Write `generated` every
+time you write the file. Never write `verified`: that
 records the user's approval, which the calling agent adds after review.
 
 The Most Pressing Thread's headline is copied verbatim into
