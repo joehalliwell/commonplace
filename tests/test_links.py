@@ -204,6 +204,19 @@ def test_extract_frontmatter_source_distillations_are_citations():
     assert targets(text, Path("topics/resonances/a-b.md")) == ["topics/a/distillation.md"]
 
 
+def test_extract_frontmatter_structured_sources_cite_only_their_resource():
+    """OKF §5.1 sources carry an id and author beside the path; only the path is a citation."""
+    text = (
+        "---\ntype: Topic\nsources:\n"
+        "  - id: 2026-01-01-a\n    resource: /chats/claude/2026/01/2026-01-01-a.md\n    author: human:Joe\n"
+        "---\n"
+    )
+    links = extract_links(text, source=Path("topics/x.md"))
+    assert [(link.target, link.line, link.kind) for link in links] == [
+        ("/chats/claude/2026/01/2026-01-01-a.md", 5, LinkKind.CITATION)
+    ]
+
+
 def test_extract_frontmatter_md_value_under_other_key_is_not_a_citation():
     assert targets("---\ntitle: README.md\n---\n") == []
 
@@ -288,6 +301,17 @@ def test_check_links_broken_citation_is_reported(tmp_path):
     write(tmp_path, "topics/x/gathering.md", "---\nsources:\n  - chats/gemini/2024/11/a.md\n---\n")
     broken = check_links(tmp_path)
     assert [b.link.target for b in broken] == ["chats/gemini/2024/11/a.md"]
+
+
+def test_check_links_root_relative_resource_reports_only_the_missing_one(tmp_path):
+    write(tmp_path, "chats/gemini/2024/11/a.md")
+    write(
+        tmp_path,
+        "topics/x.md",
+        "---\nsources:\n  - resource: /chats/gemini/2024/11/a.md\n  - resource: /chats/gemini/2024/11/b.md\n---\n",
+    )
+    broken = check_links(tmp_path)
+    assert [b.link.target for b in broken] == ["/chats/gemini/2024/11/b.md"]
 
 
 def test_check_links_wikilink_resolves_to_note_anywhere_in_repository(tmp_path):

@@ -17,8 +17,10 @@ commit.
 
 ## Prerequisites
 
-Each topic must have a distillation at `topics/{slug}/distillation.md`. If
-any is missing, ask the user to run `/synthesize {slug}` first.
+Each topic must have a distillation at `topics/{slug}.md`. If any is
+missing, ask the user to run `/synthesize {slug}` first; if it is still at
+`topics/{slug}/distillation.md`, ask them to run `/synthesize {slug}` to
+conform it.
 
 The commonplace must have an index. If search returns errors, ask the user to
 run `commonplace index` first.
@@ -36,8 +38,12 @@ when the user is vague about what to put alongside what.
 Verify each distillation exists:
 
 ```bash
-# check e.g. topics/art/distillation.md, topics/ai-consciousness/distillation.md
+# check e.g. topics/art.md, topics/ai-consciousness.md
 ```
+
+Note this plugin's release, `version` in
+`${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`, and the user's name,
+from `commonplace config user`. Both go into the artefact.
 
 ### 2. Determine Output Path
 
@@ -49,21 +55,18 @@ For example, `art ai-consciousness career` →
 `topics/resonances/ai-consciousness-art-career.md`
 
 Check whether this file already exists — if so, this is an update run. Each
-resonance commit carries a `Skill: resonate@<version>` trailer:
+resonance records the release that wrote it and when:
 
 ```bash
-commonplace git -- log -1 --format='%(trailers:key=Skill,valueonly) %ct' \
-  --grep='^Skill: resonate@' -- topics/resonances/{sorted_key}.md
+grep -m1 '^generated:' topics/resonances/{sorted_key}.md topics/{slug}.md ...
 ```
 
-Tell the user if the existing resonance is **stale**: that prints nothing, a
-version older than the newest **Conventions** entry below, or a timestamp
-older than the latest commit to any of its distillations
-(`commonplace git -- log -1 --format=%ct -- topics/{slug}/distillation.md`).
-If only the conventions are stale, conform it first in its own commit, as
+Tell the user if the existing resonance is **stale**: it has no `generated`
+line, its `by: resonate/<version>` is older than the newest **Conventions**
+entry below, or its `at` is older than the `at` of any of its topics. If only
+the conventions are stale, conform it first in its own commit, as
 `/synthesize` does: append **Conform only** instructions naming the newer
-Conventions entries, and commit as
-`Conform: {topics} to resonate@{conventions version}`.
+Conventions entries, and commit as `Conform: {topics} to resonate@{version}`.
 
 ### 3. Spawn the Resonance Subagent
 
@@ -80,6 +83,7 @@ Use the **Task tool** to spawn a `general-purpose` subagent:
   - `{output_path}` — `topics/resonances/{sorted_key}.md`
   - `{date}` — today as YYYY-MM-DD
   - `{working_dir}` — absolute path to the repository root
+  - `{version}` — this plugin's release, from step 1
 
 Wait for the subagent to complete.
 
@@ -100,12 +104,15 @@ directly.
 
 ### 5. Commit
 
+The user's approval is OKF's human review, so record it: set `verified` in
+the resonance's frontmatter, beside `generated`, to
+`{ by: human:<user>, at: <now, e.g. 2026-10-01T14:00:00Z> }`. Only you write
+this line, and only after approval — never the subagent.
+
 ```bash
 commonplace git -- add topics/resonances/
-commonplace git -- commit -m "Resonate: {topics}" -m "Skill: resonate@{conventions version}"
+commonplace git -- commit -m "Resonate: {topics}"
 ```
-
-`{conventions version}` is the newest **Conventions** entry.
 
 If a pre-commit hook reformats files, re-stage and retry.
 
@@ -117,9 +124,15 @@ commonplace index
 
 ## Conventions
 
-What each version changed about the artefact. Add an entry only for changes
-a reader would notice — each one makes every existing resonance stale.
+What each release changed about the artefact. An entry is named by the
+plugin release that introduced it, and only a release that changed the
+artefact gets one: add an entry only for changes a reader would notice —
+each one makes every existing resonance stale.
 
+- **0.13.0** — A resonance is an OKF v0.2 concept document with
+  `type: Topic`, a `title` and one-sentence `description`, `generated`
+  naming the release that wrote it, and `verified` naming who approved it. `source_distillations` point at the
+  flat `topics/<slug>.md`, and `updated` is gone.
 - **0.12.0** — Citations in the body are root-relative wikilinks,
   `[[/<source path without .md>]]`, with no date beside them. Frontmatter
   paths stay bare. Every cited path resolves.
@@ -148,6 +161,7 @@ You are surfacing cross-topic resonance in a commonplace repository.
 - Slugs: {slugs}
 - Output path: `{output_path}`
 - Date: {date}
+- Plugin release: {version}
 
 Your job is to read the distillations, find the interference patterns between
 them, and write a resonance artefact. Do **not** commit — return a compact
@@ -163,7 +177,7 @@ commonplace search -n 20 "<query>"
 
 Read each distillation in full:
 
-- `topics/{slug}/distillation.md` for each slug
+- `topics/{slug}.md` for each slug
 
 Take notes on:
 
@@ -205,14 +219,17 @@ Write to: `{output_path}`
 
 ```markdown
 ---
+type: Topic
 kind: resonance
+title: {topics}
+description: <one sentence: the ground these topics share or contest>
 topics:
   - <slug 1>
   - <slug 2>
-updated: <YYYY-MM-DD>
 source_distillations:
-  - topics/<slug 1>/distillation.md
-  - topics/<slug 2>/distillation.md
+  - topics/<slug 1>.md
+  - topics/<slug 2>.md
+generated: { by: resonate/{version}, at: <now, e.g. 2026-10-01T14:00:00Z> }
 ---
 
 # Resonance: {topics}
@@ -236,6 +253,11 @@ question.>**
 ## Revisions
 - <YYYY-MM-DD> — <one sentence: what the resonance now says that it didn't>
 ```
+
+`description` says what ground the topics share or contest, not where the
+reading has got to, so it holds from run to run. Write `generated` every
+time you write the file. Never write `verified`:
+that records the user's approval, which the calling agent adds after review.
 
 Resonances update in place, so the Revisions section is the only in-band
 record that this reading moved. One sentence per run, appended, never

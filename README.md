@@ -228,14 +228,14 @@ reports — applying the diff is up to you.
 
 It also checks that links land somewhere. Every reference your own markdown
 makes into the repository is followed: inline and reference-style links,
-images, wikilinks, raw HTML `href`/`src`, and the repo-relative paths that
-gatherings and distillations cite their sources with. Anything that no longer
+images, wikilinks, raw HTML `href`/`src`, and the paths that topics list as
+their `sources`. Anything that no longer
 resolves is reported with the file and line it was written on, and — since a
 rename is what most breakage turns out to be — where a file of that name lives
 now:
 
 ```
-topics/art/gathering.md: 6 links that go nowhere
+topics/art.md: 6 links that go nowhere
   line 12: notes/art-in-the-age-of-mechanical-creativity.md (no such file) — same name at notes/projects/art-in-the-age-of-mechanical-creativity.md
 ```
 
@@ -307,13 +307,16 @@ To enable them, run in Claude Code:
 
 | Skill                       | What it does                                             |
 | --------------------------- | -------------------------------------------------------- |
-| `/synthesize [topic]`       | gather and distil a topic into `topics/{slug}/`          |
+| `/synthesize [topic]`       | gather and distil a topic into `topics/{slug}.md`        |
 | `/resonate <slug> <slug> …` | surface interference patterns between synthesized topics |
 | `/rake`                     | surface unmade ideas, todos and projects for you to file |
 | `/project <sketch>`         | draft, or review and update, `notes/projects/{slug}.md`  |
 
 Artefacts have no dated filenames — git is the versioning layer, and repeat
-runs update them in place.
+runs update them in place. Everything under `topics/` is an
+[OKF v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+concept document, recording its sources, the release that wrote it, and who
+approved it.
 
 ## Configuration
 
