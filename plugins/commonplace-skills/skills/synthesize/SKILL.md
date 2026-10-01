@@ -32,7 +32,9 @@ when nothing has changed.
 
 Note this plugin's release, `version` in
 `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`, and the user's name,
-from `commonplace config user`. Both go into the artefacts.
+from `commonplace config user`. Both go into the artefacts. If
+`commonplace config` is an unknown command, the installed commonplace is
+older than this plugin: ask the user to update it before going on.
 
 Check which existing topics are **stale** — last synthesized under older
 conventions. Each topic records the release that wrote it:
@@ -84,7 +86,6 @@ Use the **Task tool** to spawn a `general-purpose` subagent:
   - `{date}` — today as YYYY-MM-DD
   - `{working_dir}` — absolute path to the repository root
   - `{version}` — this plugin's release, from step 1
-  - `{user}` — the user's name, from step 1
 
 Wait for the subagent to complete before continuing. It will return a compact
 review summary and the paths of the written artefacts.
@@ -115,6 +116,22 @@ because all are invisible once committed:
 If the user requests changes, either ask the subagent to revise (spawn
 another subagent with the correction) or make small edits directly.
 
+**What the user says in review is a source.** A correction or addition made
+here — who someone is, what a passage meant, something the sources don't
+say — is recorded where the review happened, never deferred to a journal
+entry. Before revising, append it to the gathering verbatim:
+
+```markdown
+## <date> — Review
+**<user>:**
+> <their words, exactly as said>
+```
+
+It is full evidence: the distillation cites it inline as
+*(<user>, in review, <date>)* — plain text, since topics don't link into
+`.commonplace/` — and it can support a Shift or Thread like any other quote.
+Pass the entry to the revision subagent with the correction.
+
 If the subagent returned **Stopped — overlaps `{existing-slug}`** instead of
 a summary, no artefacts were written. Put the choice to the user — extend the
 existing topic, or fork this one anyway — and re-spawn with their answer.
@@ -144,11 +161,16 @@ Read only what the entry needs: `title`, `description`, the date of
 `not recorded` (or the slug, for a missing title). Include the Resonances
 section only if `topics/resonances/` exists.
 
+Topics not yet conformed are still folders. List each
+`topics/*/distillation.md` too, in the same order, as
+`- [{slug}]({slug}/distillation.md) - (stale: pre-0.13.0)`, so that
+conforming one topic doesn't drop the rest from the index.
+
 ### 5. Commit
 
 The user's approval is OKF's human review, so record it: set `verified` in
 the topic's frontmatter, beside `generated`, to
-`{ by: human:<user>, at: <now, e.g. 2026-10-01T14:00:00Z> }`. Only you write
+`{by: human:<user>, at: <now, e.g. 2026-10-01T14:00:00Z>}`. Only you write
 this line, and only after approval — never the subagent.
 
 Stage and commit using `commonplace git`:
@@ -177,6 +199,10 @@ Bring a stale topic up to date in its own commit before adding new material,
 so `git show` on that commit is exactly what the upgrade changed. Spawn the
 subagent as in step 2, appending to the prompt:
 
+If a newer Conventions entry says conforming to it needs new material, as
+0.14.0 does, skip the conform-only step: do a normal update run instead,
+and its Revisions line names the release it conforms to.
+
 > **Conform only.** Gather no new sources. Bring both artefacts into line with
 > the rules in this prompt, paying particular attention to these changes:
 > \<the Conventions entries newer than the topic's `generated.by`, or all of
@@ -201,9 +227,16 @@ Then every link to the old paths is repointed: `[[/topics/{slug}/distillation]]`
 becomes `[[/topics/{slug}]]`, and a resonance's `source_distillations` entry
 becomes `topics/{slug}.md`. Find them with
 `grep -rn 'topics/{slug}/' --include='*.md' .`. Under `topics/`, change the
-link target and nothing else — not even in a Revisions line, whose wording
-is never rewritten. Links in `notes/` and `journal/` are the user's: list
-them in your review and change them only if the user says so.
+link target and nothing else. Three exceptions:
+
+- **Revisions lines are history.** A path there says where something was
+  when the line was written, and repointing it can falsify the sentence. Make
+  each such link a code span of the path as written (`[[/topics/ethics/gathering]]`
+  becomes `` `topics/ethics/gathering` ``) and change nothing else.
+- **Links to the gathering** become code spans too, wherever they are:
+  gatherings are skill state, and topics never link into `.commonplace/`.
+- **Links in `notes/` and `journal/`** are the user's: list them in your
+  review and change them only if the user says so.
 
 Review as in step 3, and stage the moved paths and every file you repointed.
 Commit as `Conform: {topic name} to synthesize@{version}`. Run a normal
@@ -216,10 +249,14 @@ plugin release that introduced it, and only a release that changed the
 artefacts gets one: add an entry only for changes a reader would notice —
 each one makes every existing topic stale.
 
+- **0.14.0** — Gathering includes a mandatory grep pass over `journal/`,
+  `notes/` and `chats/`, and the topic records its patterns in `patterns`
+  beside `queries`; update runs repeat both. Conforming to this needs new
+  material, so it is a normal update run, not a conform-only pass.
 - **0.13.0** — A topic is an OKF v0.2 concept document at `topics/{slug}.md`,
   with `type: Topic`. Its frontmatter carries a `title` and a one-sentence
   `description` (which the index lists it by), `queries`, structured
-  `sources` (`resource`, plus `author` for journal and notes sources),
+  `sources` (each a `resource`, and no `author`),
   `generated` naming the release that wrote it, and `verified` naming who
   approved it. `resource` paths are root-relative, with a leading `/`.
   `updated` and `source_gathering` are gone. The gathering is skill state at
@@ -257,7 +294,6 @@ You are performing topic synthesis in a commonplace repository.
 - Slug: {slug}
 - Date: {date}
 - Plugin release: {version}
-- User: {user}
 
 Your job is to check for prior work, gather sources, and write the gathering
 and the topic's distillation. Do **not** commit — return a compact review
@@ -292,7 +328,7 @@ learn about each other. So:
 ls topics/
 ```
 
-Read `topics/index.md` if it exists, and the `queries` frontmatter of any
+Read `topics/index.md` if it exists, and the `queries` and `patterns` of any
 `topics/*.md` whose slug or entry looks adjacent to `{slug}`. If a substantial part of
 what you'd gather is already gathered elsewhere, **stop and say so in your
 return value** rather than proceeding — name the overlapping topic and offer
@@ -316,8 +352,20 @@ directory (chats, journal, notes) — if any is unrepresented, run a targeted
 query for it. Breadth of querying matters; there is no systematic way to know
 what you missed.
 
+**Then grep.** Search ranks short journal entries below long chats, so it
+misses much of the journal. A keyword pass is mandatory, not a fallback:
+grep for the topic's distinctive words, names (in every variant) and
+coinages across all three directories:
+
+```bash
+grep -rliE '<pattern>' journal notes chats
+```
+
+Use case-insensitive extended regexes, and record every pattern you ran in
+the topic's `patterns`, beside `queries`, so a later run can repeat it.
+
 **Gather only from primitives.** Sources are `chats/`, `journal/`, `notes/` —
-the captured record. Never quote `topics/**` into a gathering: distillations,
+the captured record — plus the gathering's Review entries (below). Never quote `topics/**` into a gathering: distillations,
 resonances and the topic index are *derived* artefacts, and prior runs commit
 and re-index them, so they will surface in your search results alongside real
 sources. Quoting one launders synthesis back into evidence, counts the same
@@ -346,6 +394,19 @@ quote: an assistant's speculative riff, gathered unattributed, comes back a
 year later as evidence of how the user's own thinking evolved. Most sources
 here are conversations *with* an assistant, so this is the default failure
 mode, not an edge case. Every quote carries its speaker.
+
+**Scope is relevance, not sensitivity.** This is the user's private record.
+Gather whatever bears on the topic, however intimate, and leave out only
+what is irrelevant. If you hold anything back, say so in your return value.
+
+**Search for every name a person goes by.** Sources spell people
+differently — nicknames, short forms, transliterations. Once you know the
+variants, search and grep for each.
+
+**Review entries are sources.** A gathering entry headed `## <date> — Review`
+records what the user said in reviewing an earlier run. It is the user's own
+words, captured, and counts as full evidence. Keep it on update runs, and
+cite it inline as *(<speaker>, in review, <date>)*, in plain text.
 
 ### Phase 3: Write the Gathering
 
@@ -474,11 +535,12 @@ description: <one sentence: what this topic covers>
 queries:
   - "<search query 1>"
   - "<search query 2>"
+patterns:
+  - '<grep -iE pattern 1>'   # single-quoted, so backslashes survive YAML
+  - '<grep -iE pattern 2>'
 sources:
-  - resource: /<repo-relative chat path>
-  - resource: /<repo-relative journal or notes path>
-    author: human:{user}
-generated: { by: synthesize/{version}, at: <now, e.g. 2026-10-01T14:00:00Z> }
+  - resource: /<repo-relative source path>
+generated: {by: synthesize/{version}, at: <now, e.g. 2026-10-01T14:00:00Z>}
 ---
 
 # Distillation: {topic}
@@ -510,10 +572,10 @@ other keys are OKF's provenance fields. `description` is what the index
 lists the topic by: say what ground the topic covers, not where it has got
 to, so it holds from run to run. Write it to be read cold, beside other
 topics' descriptions. List every source you quoted in the
-gathering, in its order. Give a source an `author` only when it is
-certain: `journal/` and `notes/` are the user's own. Leave it off chats,
-which two parties wrote; the speaker on each quote already says whose words
-they are. Write `generated` every time you write the file. Never write `verified`: that
+gathering, in its order. Sources carry no `author`: commonplace doesn't
+assign its material to individuals, and a source's path already says
+whether it is a chat, a journal entry or a note. Write `generated` every
+time you write the file. Never write `verified`: that
 records the user's approval, which the calling agent adds after review.
 
 The Most Pressing Thread's headline is copied verbatim into
@@ -543,9 +605,9 @@ When `topics/{slug}.md` already exists, this is an update run:
 1. **Read the existing distillation** to understand current coverage, and
    the gathering if there is one.
 
-1. **Search for new material** — re-run the `queries` recorded in the
-   topic's frontmatter, plus any new phrasings, and compare the hits
-   against its `sources` list. Anything not already listed is new material,
+1. **Search for new material** — re-run the `queries` and the grep
+   `patterns` recorded in the topic's frontmatter, plus any new ones, and
+   compare the hits against its `sources` list. Anything not already listed is new material,
    **whatever its date**. You don't need to re-read sources already on the
    list.
 
@@ -591,6 +653,9 @@ Git tracks the full history. The prior state is always recoverable.
   provider directory); if one is missing, find it by name
   (`find chats journal notes -name '<basename>.md'`) and cite where it is
   now. Never leave a link that goes nowhere.
+- **Never link to the gathering**, or to anything under `.commonplace/`.
+  It's skill state, which the link checker can't follow; cite its Review
+  entries in plain text instead.
 - **Name the threads**. The most valuable output is often what's unresolved.
 - **Write to be read cold.** See Phase 4. Applies to the return summary too.
 - **Don't over-synthesize**. If the material is thin, say so. A short
@@ -623,7 +688,8 @@ approving the commit, so every line must make sense without the artefacts.
 
 ______________________________________________________________________
 
-**Gathering**: N sources, {earliest date} to {latest date}
+**Gathering**: N sources, {earliest date} to {latest date}; M found only by
+the grep pass
 
 **Distillation**:
 
@@ -638,6 +704,8 @@ ______________________________________________________________________
 
 **Coverage**: \<thin / adequate / rich> — \<any gap worth naming, e.g. "nothing
 from journal/", "all 4 sources within one week">
+
+**Held back**: \<anything relevant you left out, and why — or "nothing">
 
 **Artefacts written**:
 
