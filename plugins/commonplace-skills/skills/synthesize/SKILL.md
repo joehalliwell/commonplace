@@ -681,6 +681,8 @@ ______________________________________________________________________
 **Coverage**: \<thin / adequate / rich> — \<any gap worth naming, e.g. "nothing
 from journal/", "all 4 sources within one week">
 
+**Held back**: \<anything relevant you left out, and why — or "nothing">
+
 **Artefacts written**:
 
 - `topics/{slug}.md`
