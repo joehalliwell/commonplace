@@ -314,6 +314,30 @@ def test_check_links_root_relative_resource_reports_only_the_missing_one(tmp_pat
     assert [b.link.target for b in broken] == ["/chats/gemini/2024/11/b.md"]
 
 
+def in_scratch(path: Path) -> bool:
+    return path.parts[0] == "scratch"
+
+
+def test_check_links_target_that_is_ignored_is_reported(tmp_path):
+    """An ignored file exists locally but not in any clone."""
+    write(tmp_path, "scratch/draft.md")
+    write(tmp_path, "notes/note.md", "[text](../scratch/draft.md)")
+    broken = check_links(tmp_path, ignored=in_scratch)
+    assert [b.link.target for b in broken] == ["../scratch/draft.md"]
+
+
+def test_check_links_markdown_that_is_ignored_is_not_checked(tmp_path):
+    write(tmp_path, "scratch/draft.md", "[text](gone.md)")
+    assert check_links(tmp_path, ignored=in_scratch) == []
+
+
+def test_check_links_ignored_file_is_never_suggested(tmp_path):
+    write(tmp_path, "scratch/target.md")
+    write(tmp_path, "notes/note.md", "[text](target.md)")
+    broken = check_links(tmp_path, ignored=in_scratch)
+    assert [b.suggestion for b in broken] == [None]
+
+
 def test_check_links_wikilink_resolves_to_note_anywhere_in_repository(tmp_path):
     write(tmp_path, "notes/deep/other-note.md")
     write(tmp_path, "notes/note.md", "See [[other-note]].")

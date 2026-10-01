@@ -205,7 +205,9 @@ class Commonplace:
             if divergence:
                 warnings.append(f"{config.path} differs from the template init now writes:\n" + "\n".join(divergence))
 
-        warnings.extend(summarize(check_links(self.root)))
+        warnings.extend(
+            summarize(check_links(self.root, ignored=lambda path: self.git.path_is_ignored(path.as_posix())))
+        )
 
         if actions:
             self.git.index.write()

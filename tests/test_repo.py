@@ -410,6 +410,21 @@ def test_doctor_suggests_where_a_renamed_target_went(test_repo):
     assert "notes/moved/target.md" in warning
 
 
+def test_doctor_reports_a_link_to_a_gitignored_file(test_repo):
+    """A link that resolves only on this machine is dead for anyone who clones."""
+    with open(test_repo.root / ".gitignore", "a") as fd:
+        fd.write("scratch/\n")
+    (test_repo.root / "scratch").mkdir()
+    (test_repo.root / "scratch" / "draft.md").write_text("# Draft\n")
+    (test_repo.root / "notes").mkdir()
+    (test_repo.root / "notes" / "note.md").write_text("See [the draft](../scratch/draft.md).\n")
+
+    report = test_repo.doctor()
+
+    warning = next(w for w in report.warnings if "notes/note.md" in w)
+    assert "scratch/draft.md" in warning
+
+
 def test_doctor_is_quiet_when_links_resolve(test_repo):
     """No warning for a repo whose links are all good."""
     (test_repo.root / "notes").mkdir()
