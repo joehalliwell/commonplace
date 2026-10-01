@@ -109,6 +109,23 @@ def test_note_paths_commonplace_dir_excluded(test_repo):
     assert [p.path for p in test_repo.note_paths()] == [Path("notes/idea.md")]
 
 
+def test_paths_includes_files_that_are_not_markdown(test_repo):
+    (test_repo.root / "notes").mkdir()
+    (test_repo.root / "notes" / "idea.md").write_text("# Idea\n")
+    (test_repo.root / "notes" / "sketch.png").write_bytes(b"")
+
+    assert {Path("notes/idea.md"), Path("notes/sketch.png")} <= set(test_repo.paths())
+
+
+def test_paths_gitignored_files_excluded(test_repo):
+    with open(test_repo.root / ".gitignore", "a") as fd:
+        fd.write("scratch/\n")
+    (test_repo.root / "scratch").mkdir()
+    (test_repo.root / "scratch" / "draft.md").write_text("# Draft\n")
+
+    assert not [path for path in test_repo.paths() if path.parts[0] == "scratch"]
+
+
 def test_note_paths_dot_dirs_excluded(test_repo):
     """No dot-directory is descended, at any depth."""
     test_repo.save(Note(repo_path=RepoPath(path=Path("notes/idea.md"), ref=""), content="# Idea\n"))
@@ -408,6 +425,21 @@ def test_doctor_suggests_where_a_renamed_target_went(test_repo):
 
     warning = next(w for w in report.warnings if "notes/note.md" in w)
     assert "notes/moved/target.md" in warning
+
+
+def test_doctor_reports_a_link_to_a_gitignored_file(test_repo):
+    """A link that resolves only on this machine is dead for anyone who clones."""
+    with open(test_repo.root / ".gitignore", "a") as fd:
+        fd.write("scratch/\n")
+    (test_repo.root / "scratch").mkdir()
+    (test_repo.root / "scratch" / "draft.md").write_text("# Draft\n")
+    (test_repo.root / "notes").mkdir()
+    (test_repo.root / "notes" / "note.md").write_text("See [the draft](../scratch/draft.md).\n")
+
+    report = test_repo.doctor()
+
+    warning = next(w for w in report.warnings if "notes/note.md" in w)
+    assert "scratch/draft.md" in warning
 
 
 def test_doctor_is_quiet_when_links_resolve(test_repo):
