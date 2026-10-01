@@ -205,9 +205,7 @@ class Commonplace:
             if divergence:
                 warnings.append(f"{config.path} differs from the template init now writes:\n" + "\n".join(divergence))
 
-        warnings.extend(
-            summarize(check_links(self.root, ignored=lambda path: self.git.path_is_ignored(path.as_posix())))
-        )
+        warnings.extend(summarize(check_links(self.root, list(self.paths()))))
 
         if actions:
             self.git.index.write()
@@ -413,17 +411,20 @@ class Commonplace:
         for repo_path in self.note_paths():
             yield self.get_note(repo_path)
 
+    def paths(self) -> Iterator[Path]:
+        """Every file in the working tree that git would share, relative to the root, skipping dot-directories."""
+        for root, dirs, files in os.walk(self.root):
+            here = Path(root).relative_to(self.root)
+            dirs[:] = [d for d in dirs if not d.startswith(".") and not self.git.path_is_ignored((here / d).as_posix())]
+            for f in files:
+                if not self.git.path_is_ignored((here / f).as_posix()):
+                    yield here / f
+
     def note_paths(self) -> Iterator[RepoPath]:
         """Get an iterator over all note paths at current HEAD, skipping dot-directories."""
-        for root, dirs, files in os.walk(self.git.workdir):
-            dirs[:] = [d for d in dirs if not d.startswith(".")]
-            for f in files:
-                abs_path = Path(root) / f
-                if self.git.path_is_ignored(abs_path.as_posix()):
-                    continue
-                if abs_path.suffix != ".md":
-                    continue
-                yield self.make_repo_path(abs_path)
+        for path in self.paths():
+            if path.suffix == ".md":
+                yield self.make_repo_path(path)
 
     def get_note(self, repo_path: RepoPath) -> Note:
         """

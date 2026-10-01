@@ -2,7 +2,7 @@
 
 import os
 import re
-from collections.abc import Callable, Collection, Iterator
+from collections.abc import Collection, Iterator
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -156,24 +156,10 @@ def extract_links(text: str, *, source: Path) -> list[Link]:
 # --- Resolution -------------------------------------------------------------
 
 
-def _never(path: Path) -> bool:
-    return False
-
-
-def _walk(root: Path, ignored: Callable[[Path], bool]) -> Iterator[Path]:
-    """Every file in the repository, as repo-relative paths, skipping dot directories and whatever is `ignored`."""
-    for directory, subdirectories, files in os.walk(root):
-        here = Path(directory).relative_to(root)
-        subdirectories[:] = [d for d in subdirectories if not d.startswith(".") and not ignored(here / d)]
-        for name in files:
-            if not ignored(here / name):
-                yield here / name
-
-
-def _index(root: Path, ignored: Callable[[Path], bool]) -> dict[str, list[Path]]:
+def _index(files: Collection[Path]) -> dict[str, list[Path]]:
     """Every file by name and by stem."""
     index: dict[str, list[Path]] = {}
-    for path in _walk(root, ignored):
+    for path in files:
         for key in {path.name, path.stem}:
             index.setdefault(key, []).append(path)
     return index
@@ -193,7 +179,7 @@ def _is_named(path: Path, name: str) -> bool:
     )
 
 
-def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]], ignored: Callable[[Path], bool]) -> str:
+def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]], present: set[Path]) -> str:
     """Why `link` lands nowhere — empty if it lands somewhere."""
     if link.kind is LinkKind.WIKILINK:
         # A wikilink names a note, not a location: any note with that name will do.
@@ -211,23 +197,22 @@ def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]], ignored
 
     if not candidate.is_relative_to(root):
         return "outside the repository"
-    if not candidate.exists():
-        return "no such file"
-    return "ignored, so missing from any clone" if ignored(candidate.relative_to(root)) else ""
+    if candidate.relative_to(root) in present:
+        return ""
+    return "on disk but not in the repository" if candidate.exists() else "no such file"
 
 
-def check_links(
-    root: Path, *, skip: Collection[str] = SKIPPED_ROOTS, ignored: Callable[[Path], bool] = _never
-) -> list[BrokenLink]:
-    """Every reference in the repository's own markdown that lands nowhere, or nowhere `ignored` would let it be shared."""
-    index = _index(root, ignored)
+def check_links(root: Path, files: Collection[Path], *, skip: Collection[str] = SKIPPED_ROOTS) -> list[BrokenLink]:
+    """Every reference in the markdown among `files` that lands on none of them, nor on a directory holding one."""
+    index = _index(files)
+    present = set(files) | {parent for path in files for parent in path.parents}
     skipped = tuple(skip)
     broken = []
-    for path in sorted(_walk(root, ignored)):
+    for path in sorted(files):
         if path.suffix != ".md" or path.parts[0] in skipped:
             continue
         for link in extract_links((root / path).read_text(errors="replace"), source=path):
-            if reason := _reason_broken(link, root, index, ignored):
+            if reason := _reason_broken(link, root, index, present):
                 name = Path(unquote(link.target.split("#")[0])).name
                 broken.append(BrokenLink(link=link, reason=reason, suggestion=_unique(index, name)))
     return broken

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from commonplace._links import LinkKind, check_links, extract_links
+from commonplace._links import BrokenLink, LinkKind, check_links, extract_links
 
 SOURCE = Path("notes/note.md")
 
@@ -248,58 +248,64 @@ def write(root: Path, path: str, content: str = "") -> Path:
     return target
 
 
+def check(root: Path, ignore: str | None = None) -> list[BrokenLink]:
+    """Check links over every file under `root`, minus the top-level folder `ignore`, as `paths()` would list them."""
+    files = [path.relative_to(root) for path in root.rglob("*") if path.is_file()]
+    return check_links(root, [path for path in files if path.parts[0] != ignore])
+
+
 def test_check_links_relative_target_resolves_against_containing_file(tmp_path):
     write(tmp_path, "notes/other.md")
     write(tmp_path, "notes/note.md", "[text](other.md)")
-    assert check_links(tmp_path) == []
+    assert check(tmp_path) == []
 
 
 def test_check_links_parent_relative_target_resolves(tmp_path):
     write(tmp_path, "notes/target.md")
     write(tmp_path, "journal/2026/entry.md", "[text](../../notes/target.md)")
-    assert check_links(tmp_path) == []
+    assert check(tmp_path) == []
 
 
 def test_check_links_root_relative_target_resolves_against_repository_root(tmp_path):
     write(tmp_path, "notes/target.md")
     write(tmp_path, "journal/entry.md", "[text](/notes/target.md)")
-    assert check_links(tmp_path) == []
+    assert check(tmp_path) == []
 
 
 def test_check_links_percent_encoded_target_resolves(tmp_path):
     write(tmp_path, "journal/💋.png")
     write(tmp_path, "journal/entry.md", "![💋](%F0%9F%92%8B.png)")
-    assert check_links(tmp_path) == []
+    assert check(tmp_path) == []
 
 
 def test_check_links_fragment_is_stripped_before_resolving(tmp_path):
     write(tmp_path, "notes/other.md")
     write(tmp_path, "notes/note.md", "[text](other.md#a-section)")
-    assert check_links(tmp_path) == []
+    assert check(tmp_path) == []
 
 
 def test_check_links_directory_target_resolves(tmp_path):
     write(tmp_path, "notes/ideas/one.md")
     write(tmp_path, "notes/note.md", "[text](ideas/)")
-    assert check_links(tmp_path) == []
+    assert check(tmp_path) == []
 
 
 def test_check_links_missing_target_is_reported(tmp_path):
     write(tmp_path, "notes/note.md", "[text](gone.md)")
-    broken = check_links(tmp_path)
+    broken = check(tmp_path)
     assert [(b.link.source, b.link.target) for b in broken] == [(Path("notes/note.md"), "gone.md")]
 
 
 def test_check_links_target_outside_repository_is_reported(tmp_path):
     write(tmp_path, "notes/note.md", "[text](../../outside.md)")
-    broken = check_links(tmp_path)
+    broken = check(tmp_path)
     assert len(broken) == 1
     assert "outside" in broken[0].reason
 
 
 def test_check_links_broken_citation_is_reported(tmp_path):
     write(tmp_path, "topics/x/gathering.md", "---\nsources:\n  - chats/gemini/2024/11/a.md\n---\n")
-    broken = check_links(tmp_path)
+    broken = check(tmp_path)
     assert [b.link.target for b in broken] == ["chats/gemini/2024/11/a.md"]
 
 
@@ -310,38 +316,34 @@ def test_check_links_root_relative_resource_reports_only_the_missing_one(tmp_pat
         "topics/x.md",
         "---\nsources:\n  - resource: /chats/gemini/2024/11/a.md\n  - resource: /chats/gemini/2024/11/b.md\n---\n",
     )
-    broken = check_links(tmp_path)
+    broken = check(tmp_path)
     assert [b.link.target for b in broken] == ["/chats/gemini/2024/11/b.md"]
-
-
-def in_scratch(path: Path) -> bool:
-    return path.parts[0] == "scratch"
 
 
 def test_check_links_target_that_is_ignored_is_reported(tmp_path):
     """An ignored file exists locally but not in any clone."""
     write(tmp_path, "scratch/draft.md")
     write(tmp_path, "notes/note.md", "[text](../scratch/draft.md)")
-    broken = check_links(tmp_path, ignored=in_scratch)
+    broken = check(tmp_path, ignore="scratch")
     assert [b.link.target for b in broken] == ["../scratch/draft.md"]
 
 
 def test_check_links_markdown_that_is_ignored_is_not_checked(tmp_path):
     write(tmp_path, "scratch/draft.md", "[text](gone.md)")
-    assert check_links(tmp_path, ignored=in_scratch) == []
+    assert check(tmp_path, ignore="scratch") == []
 
 
 def test_check_links_ignored_file_is_never_suggested(tmp_path):
     write(tmp_path, "scratch/target.md")
     write(tmp_path, "notes/note.md", "[text](target.md)")
-    broken = check_links(tmp_path, ignored=in_scratch)
+    broken = check(tmp_path, ignore="scratch")
     assert [b.suggestion for b in broken] == [None]
 
 
 def test_check_links_wikilink_resolves_to_note_anywhere_in_repository(tmp_path):
     write(tmp_path, "notes/deep/other-note.md")
     write(tmp_path, "notes/note.md", "See [[other-note]].")
-    assert check_links(tmp_path) == []
+    assert check(tmp_path) == []
 
 
 def test_check_links_wikilink_to_ambiguous_name_resolves(tmp_path):
@@ -349,19 +351,19 @@ def test_check_links_wikilink_to_ambiguous_name_resolves(tmp_path):
     write(tmp_path, "notes/a/dup.md")
     write(tmp_path, "notes/b/dup.md")
     write(tmp_path, "notes/note.md", "See [[dup]].")
-    assert check_links(tmp_path) == []
+    assert check(tmp_path) == []
 
 
 def test_check_links_path_qualified_wikilink_resolves(tmp_path):
     write(tmp_path, "notes/deep/other.md")
     write(tmp_path, "notes/note.md", "See [[deep/other]] and [[notes/deep/other.md]].")
-    assert check_links(tmp_path) == []
+    assert check(tmp_path) == []
 
 
 def test_check_links_path_qualified_wikilink_to_wrong_folder_is_reported(tmp_path):
     write(tmp_path, "notes/deep/other.md")
     write(tmp_path, "notes/note.md", "See [[shallow/other]].")
-    assert [b.link.target for b in check_links(tmp_path)] == ["shallow/other"]
+    assert [b.link.target for b in check(tmp_path)] == ["shallow/other"]
 
 
 def test_check_links_root_relative_wikilink_resolves(tmp_path):
@@ -371,25 +373,25 @@ def test_check_links_root_relative_wikilink_resolves(tmp_path):
         "journal/entry.md",
         "See [[/notes/foo]], [[/notes/foo.md]], [[/notes/foo#Heading]], [[/notes/foo|alias]].",
     )
-    assert check_links(tmp_path) == []
+    assert check(tmp_path) == []
 
 
 def test_check_links_root_relative_wikilink_below_root_is_reported(tmp_path):
     """Root-relative means from the root, not any folder ending in that path."""
     write(tmp_path, "other/notes/foo.md")
     write(tmp_path, "journal/entry.md", "See [[/notes/foo]].")
-    assert [b.link.target for b in check_links(tmp_path)] == ["/notes/foo"]
+    assert [b.link.target for b in check(tmp_path)] == ["/notes/foo"]
 
 
 def test_check_links_skips_chat_transcripts(tmp_path):
     write(tmp_path, "chats/claude/2026/01/chat.md", "The model said [text](nonexistent.md) here.")
-    assert check_links(tmp_path) == []
+    assert check(tmp_path) == []
 
 
 def test_check_links_suggests_renamed_file_with_matching_basename(tmp_path):
     write(tmp_path, "chats/gemini-takeout/2024/11/2024-11-22-a.md")
     write(tmp_path, "topics/x/gathering.md", "---\nsources:\n  - chats/gemini/2024/11/2024-11-22-a.md\n---\n")
-    broken = check_links(tmp_path)
+    broken = check(tmp_path)
     assert len(broken) == 1
     assert broken[0].suggestion == Path("chats/gemini-takeout/2024/11/2024-11-22-a.md")
 
@@ -398,12 +400,6 @@ def test_check_links_ambiguous_basename_yields_no_suggestion(tmp_path):
     write(tmp_path, "notes/a/index.md")
     write(tmp_path, "notes/b/index.md")
     write(tmp_path, "notes/note.md", "[text](missing/index.md)")
-    broken = check_links(tmp_path)
+    broken = check(tmp_path)
     assert len(broken) == 1
     assert broken[0].suggestion is None
-
-
-def test_check_links_ignores_git_internals(tmp_path):
-    write(tmp_path, ".git/description", "[text](gone.md)")
-    write(tmp_path, ".commonplace/cache/x.md", "[text](gone.md)")
-    assert check_links(tmp_path) == []
