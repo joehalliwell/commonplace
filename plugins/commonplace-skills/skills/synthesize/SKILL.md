@@ -30,17 +30,21 @@ A stale index silently omits the most recent chats — exactly the material most
 likely to have moved a topic on. Indexing is incremental, so this is cheap
 when nothing has changed.
 
+Note this plugin's release, `version` in
+`${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`, and the user's name,
+from `commonplace config user`. Both go into the artefacts.
+
 Check which existing topics are **stale** — last synthesized under older
-conventions. Each synthesis commit carries a `Skill: synthesize@<version>`
-trailer:
+conventions. Each topic records the release that wrote it:
 
 ```bash
-commonplace git -- log -1 --format='%(trailers:key=Skill,valueonly)' \
-  --grep='^Skill: synthesize@' -- topics/{slug}/distillation.md
+grep -m1 '^generated:' topics/{slug}.md
 ```
 
-A topic is stale if that prints a version older than the newest
-**Conventions** entry below, or nothing at all.
+A topic is stale if the version in `by: synthesize/<version>` is older than
+the newest **Conventions** entry below, if it has no `generated` line, or if
+it is still a folder (`topics/{slug}/distillation.md`), the layout before
+0.13.0.
 
 If no topic argument was provided, run broad searches to discover recurring
 themes:
@@ -61,6 +65,9 @@ confirmation before proceeding.
 If a topic argument WAS provided, skip discovery and proceed directly to
 step 2.
 
+Refuse the slugs `index`, `log` and `resonances`: OKF reserves `index.md`
+and `log.md`, and `topics/resonances/` is taken.
+
 ### 2. Spawn the Synthesis Subagent
 
 If the topic already exists and is stale (step 1), conform it first — see
@@ -76,6 +83,8 @@ Use the **Task tool** to spawn a `general-purpose` subagent:
   - `{slug}` — kebab-case slug (e.g. "memory-and-continuity")
   - `{date}` — today as YYYY-MM-DD
   - `{working_dir}` — absolute path to the repository root
+  - `{version}` — this plugin's release, from step 1
+  - `{user}` — the user's name, from step 1
 
 Wait for the subagent to complete before continuing. It will return a compact
 review summary and the paths of the written artefacts.
@@ -114,32 +123,34 @@ existing topic, or fork this one anyway — and re-spawn with their answer.
 
 Rewrite `topics/index.md` from scratch so the topic is discoverable by the
 next run, by `/resonate`, and by the user. The index is a pure function of
-the distillations — never edit it by hand or patch single entries:
+the topics — never edit it by hand or patch single entries. It is an OKF
+§8 index, so it has no frontmatter:
 
 ```markdown
----
-kind: topic-index
-updated: <YYYY-MM-DD>
----
-
 # Topics
 
-- [{slug}]({slug}/) — updated <YYYY-MM-DD>, N sources
-  - **Pressing**: <the Most Pressing Thread's headline sentence, verbatim>
+Updated <YYYY-MM-DD>.
+
+- [{slug}]({slug}.md) - <the Most Pressing Thread's headline sentence, verbatim> (N sources, updated <YYYY-MM-DD>)
 ```
 
-One entry per `topics/*/distillation.md`, alphabetical by slug. Read only what
-the entry needs: `updated` from the distillation's frontmatter, N from the
-gathering's `sources` list, and the bold headline under `### Most Pressing Thread`. If a distillation has no such headline, write `not recorded`.
+One entry per `topics/*.md` other than `index.md`, alphabetical by slug.
+Read only what the entry needs: the date of `generated.at`, N from the
+`sources` list, and the bold headline under `### Most Pressing Thread`. If a
+topic has no such headline, write `not recorded`.
 
 ### 5. Commit
 
-Stage and commit using `commonplace git`, with a trailer naming the newest
-Conventions entry:
+The user's approval is OKF's human review, so record it: set `verified` in
+the topic's frontmatter, beside `generated`, to
+`{ by: human:<user>, at: <now, ISO 8601 UTC> }`. Only you write this line,
+and only after approval — never the subagent.
+
+Stage and commit using `commonplace git`:
 
 ```bash
-commonplace git -- add topics/{slug}/ topics/index.md
-commonplace git -- commit -m "Synthesize: {topic name}" -m "Skill: synthesize@{conventions version}"
+commonplace git -- add topics/{slug}.md topics/index.md .commonplace/skills/synthesize/{slug}.md
+commonplace git -- commit -m "Synthesize: {topic name}"
 ```
 
 If a pre-commit hook (e.g. a formatter) modifies files, the commit will fail.
@@ -163,21 +174,51 @@ subagent as in step 2, appending to the prompt:
 
 > **Conform only.** Gather no new sources. Bring both artefacts into line with
 > the rules in this prompt, paying particular attention to these changes:
-> \<the Conventions entries newer than the topic's trailer, or all of them>.
-> Where a change depends on content — a gloss, a thread's status — re-read the
-> cited passage rather than guessing. The Revisions line is
+> \<the Conventions entries newer than the topic's `generated.by`, or all of
+> them>. Where a change depends on content — a gloss, a thread's status —
+> re-read the cited passage rather than guessing. The Revisions line is
 > `<date> — Conformed to synthesize@<version>; no new sources.`
 
-Review as in step 3, then commit as
-`Conform: {topic name} to synthesize@{conventions version}` with the same
-trailer. Run a normal synthesis afterwards only if the user wants new
-material too.
+A topic still in the folder layout moves first, with `git mv` so history
+follows it:
+
+```bash
+mkdir -p .commonplace/skills/synthesize
+commonplace git -- mv topics/{slug}/distillation.md topics/{slug}.md
+commonplace git -- mv topics/{slug}/gathering.md .commonplace/skills/synthesize/{slug}.md
+```
+
+The gathering's `queries` and `sources` move into the topic's frontmatter,
+the sources in their structured form. Take each `author` from the speakers
+the gathering quotes from that source.
+
+Then every link to the old paths is repointed: `[[/topics/{slug}/distillation]]`
+becomes `[[/topics/{slug}]]`, and a resonance's `source_distillations` entry
+becomes `topics/{slug}.md`. Find them with
+`grep -rn 'topics/{slug}/' --include='*.md' .`. Under `topics/`, change the
+link target and nothing else — not even in a Revisions line, whose wording
+is never rewritten. Links in `notes/` and `journal/` are the user's: list
+them in your review and change them only if the user says so.
+
+Review as in step 3, and stage the moved paths and every file you repointed.
+Commit as `Conform: {topic name} to synthesize@{version}`. Run a normal
+synthesis afterwards only if the user wants new material too.
 
 ## Conventions
 
-What each version changed about the artefacts. Add an entry only for changes
-a reader would notice — each one makes every existing topic stale.
+What each release changed about the artefacts. An entry is named by the
+plugin release that introduced it, and only a release that changed the
+artefacts gets one: add an entry only for changes a reader would notice —
+each one makes every existing topic stale.
 
+- **0.13.0** — A topic is an OKF v0.2 concept document at `topics/{slug}.md`,
+  with `type: Topic`. Its frontmatter carries `queries`, structured
+  `sources` (`id`, `resource`, `author`), `generated` naming the release
+  that wrote it, and `verified` naming who approved it. `resource` paths are
+  root-relative, with a leading `/`. `updated` and `source_gathering` are
+  gone. The gathering is skill state at
+  `.commonplace/skills/synthesize/{slug}.md`. `topics/index.md` has no
+  frontmatter.
 - **0.12.0** — Citations in the body are root-relative wikilinks,
   `[[/<source path without .md>]]`, with no date beside them; a date that
   matters is written as `[<date>](/<source path>.md)`. Gathering entries
@@ -209,9 +250,11 @@ You are performing topic synthesis in a commonplace repository.
 - Topic: {topic}
 - Slug: {slug}
 - Date: {date}
+- Plugin release: {version}
+- User: {user}
 
 Your job is to check for prior work, gather sources, and write the gathering
-and distillation artefacts. Do **not** commit — return a compact review
+and the topic's distillation. Do **not** commit — return a compact review
 summary when done and the calling agent will handle review and commit.
 
 **Commonplace CLI**
@@ -224,17 +267,11 @@ commonplace search -n 5 "<query>"
 
 ### Phase 1: Check for Prior Work
 
-Before searching sources, check whether this topic has already been distilled:
+Before searching sources, check whether this topic has already been
+distilled, by looking for its files:
 
-```bash
-commonplace search -n 5 "gathering {topic}"
-commonplace search -n 5 "distillation {topic}"
-```
-
-Also check directly for existing artefact files:
-
-- `topics/{slug}/gathering.md`
-- `topics/{slug}/distillation.md`
+- `topics/{slug}.md` — the distillation
+- `.commonplace/skills/synthesize/{slug}.md` — the gathering
 
 If prior artefacts exist, read them now — they establish existing coverage and
 determine whether this is a first-run or an update (see Incremental Mode
@@ -250,7 +287,7 @@ ls topics/
 ```
 
 Read `topics/index.md` if it exists, and the `queries` frontmatter of any
-topic whose slug or entry looks adjacent to `{slug}`. If a substantial part of
+`topics/*.md` whose slug or entry looks adjacent to `{slug}`. If a substantial part of
 what you'd gather is already gathered elsewhere, **stop and say so in your
 return value** rather than proceeding — name the overlapping topic and offer
 the choice between extending it and forking a new one. Two thin overlapping
@@ -306,18 +343,17 @@ mode, not an edge case. Every quote carries its speaker.
 
 ### Phase 3: Write the Gathering
 
-Write to: `topics/{slug}/gathering.md`
+Write to: `.commonplace/skills/synthesize/{slug}.md`
+
+The gathering is your working material, kept for the next run: nobody reads
+it for its own sake, and the search index skips it. The queries and the
+source list that a later run diffs against live in the topic's frontmatter
+(Phase 4), so the gathering holds only the quotes.
 
 ```markdown
 ---
 kind: gathering
-queries:
-  - "<search query 1>"
-  - "<search query 2>"
-updated: <YYYY-MM-DD>
-sources:
-  - <repo-relative path to source 1>
-  - <repo-relative path to source 2>
+topic: {slug}
 ---
 
 # Gathering: {topic}
@@ -347,8 +383,8 @@ leading `/` resolves from the repository root wherever the citing file sits.
 Don't put a date beside it: `chats/` and `journal/` paths already carry one.
 In the rare case the date itself is the point, make it the link text of a
 markdown link instead: `[2014-08-14](/journal/2014/08/2014-08-14.md)`.
-Frontmatter stays bare paths: it's YAML, and `[[…]]` parses there as a nested
-list.
+Frontmatter never uses `[[…]]`: it's YAML, and `[[…]]` parses there as a
+nested list.
 
 **Density.** Quote generously when sources are few (\<10). For larger topics,
 quote verbatim only the most significant passages (turning points, novel
@@ -412,23 +448,29 @@ it.
 - **Short.** Detail belongs in Timeline and Shifts, with citations; a thread
   entry says what's open and the evidence either way.
 
-**Cite claims to passages, not to the gathering as a whole.** The frontmatter
-points at `gathering.md`; that's provenance to a file, which leaves a reader
-unable to check "the framing shifted in March" without re-reading everything.
+**Cite claims to passages, not to the source list.** The frontmatter's
+`sources` is provenance to files, which leaves a reader unable to check "the
+framing shifted in March" without re-reading everything. OKF would key
+per-claim footnotes to it; don't, because a search hit is one chunk, and a
+footnote whose definition sits in another chunk tells the reader nothing.
 Each substantive claim carries an inline `[[/<source path>]]`, as in Phase 3,
 and where the claim is about who thought what, name the speaker too. Where
 *when* matters, say it in the sentence ("in March 2024, …"). Provenance has to bottom out at a passage.
 
-Write to: `topics/{slug}/distillation.md`
+Write to: `topics/{slug}.md`
 
 ```markdown
 ---
+type: Topic
 kind: distillation
 queries:
   - "<search query 1>"
   - "<search query 2>"
-updated: <YYYY-MM-DD>
-source_gathering: topics/{slug}/gathering.md
+sources:
+  - id: <source filename without .md>
+    resource: /<repo-relative source path>
+    author: <whose words the passages you quoted from it mostly are>
+generated: { by: synthesize/{version}, at: <now, ISO 8601 UTC> }
 ---
 
 # Distillation: {topic}
@@ -455,7 +497,13 @@ thread *closed*, *stopped*, or *unclear*, with the date it was last touched:
 - <YYYY-MM-DD> — <one sentence: what the distillation now says that it didn't>
 ```
 
-Reference the gathering in `source_gathering`.
+This is an OKF v0.2 concept document: `type` is what makes it one, and the
+other keys are OKF's provenance fields. List every source you quoted in the
+gathering, in its order. `author` is `human:{user}` when the passages you
+quoted from that source are mostly the user's, and otherwise the assistant
+as the transcript names it, lower-cased (`claude`, `gemini`). Write
+`generated` every time you write the file. Never write `verified`: that
+records the user's approval, which the calling agent adds after review.
 
 The Most Pressing Thread's headline is copied verbatim into
 `topics/index.md`, beside other topics and with none of this document around
@@ -479,13 +527,13 @@ Newest entries at the bottom. Never rewrite or prune existing lines.
 
 ### Incremental Mode
 
-When `topics/{slug}/gathering.md` and `topics/{slug}/distillation.md` already
-exist, this is an update run:
+When `topics/{slug}.md` already exists, this is an update run:
 
-1. **Read the existing distillation** to understand current coverage.
+1. **Read the existing distillation** to understand current coverage, and
+   the gathering if there is one.
 
-1. **Search for new material** — re-run the queries recorded in the
-   gathering's frontmatter, plus any new phrasings, and compare the hits
+1. **Search for new material** — re-run the `queries` recorded in the
+   topic's frontmatter, plus any new phrasings, and compare the hits
    against its `sources` list. Anything not already listed is new material,
    **whatever its date**. You don't need to re-read sources already on the
    list.
@@ -495,12 +543,13 @@ exist, this is an update run:
    the repository, and a date cutoff skips them silently. The `sources` list
    is the record of what has actually been read; diff against that.
 
-1. **Update `gathering.md` in place** — append new entries in chronological
-   order. Update `updated` and `sources` in the frontmatter. Update `queries`
-   if new queries were used.
+1. **Update the gathering in place** — append new entries in chronological
+   order.
 
-1. **Update `distillation.md` in place** — revise Timeline, Shifts, and
-   Threads to reflect new material. Update `updated`.
+1. **Update the distillation in place** — revise Timeline, Shifts, and
+   Threads to reflect new material. Add the new `sources`, add any new
+   `queries`, and rewrite `generated`. Leave `verified` alone; the calling
+   agent updates it after review.
 
 1. **Append a Revisions line** recording what this run changed. This is the
    only in-band record that the distillation moved.
@@ -526,8 +575,8 @@ Git tracks the full history. The prior state is always recoverable.
 - **Be specific** in distillations. Every substantive claim carries an inline
   `[[/<source path>]]` — provenance bottoms out at a passage, not a file.
 - **Check every citation resolves.** Before returning, confirm each cited
-  `[[/<path>]]` exists as `<path>.md`, and each `[<date>](/<path>.md)` as
-  written. Files move (a re-import can rename a
+  `[[/<path>]]` exists as `<path>.md`, and each `[<date>](/<path>.md)` and
+  each `resource` as written. Files move (a re-import can rename a
   provider directory); if one is missing, find it by name
   (`find chats journal notes -name '<basename>.md'`) and cite where it is
   now. Never leave a link that goes nowhere.
@@ -581,7 +630,7 @@ from journal/", "all 4 sources within one week">
 
 **Artefacts written**:
 
-- `topics/{slug}/gathering.md`
-- `topics/{slug}/distillation.md`
+- `topics/{slug}.md`
+- `.commonplace/skills/synthesize/{slug}.md`
 
 ______________________________________________________________________
