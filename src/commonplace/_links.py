@@ -49,11 +49,11 @@ class BrokenLink:
 
 _EXTERNAL_SCHEME = re.compile(r"\A[a-z][a-z0-9+.-]*:", re.IGNORECASE)
 _HTML_ATTRIBUTE = re.compile(r"""\b(?:href|src)[ \t]*=[ \t]*("[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
-_WIKILINK = re.compile(r"\[\[[^[|\]\n]+(?:\|[^]\n]+)?]]")
+_WIKILINK = re.compile(r"\[\[[^[\]\n]+]]")
 
 
 def _wikilink(state: StateInline, silent: bool) -> bool:
-    """Consume a `[[page|alias]]` as one `wikilink` token, pushing nothing when markdown-it is only looking ahead."""
+    """Consume a `[[page]]` as one `wikilink` token, pushing nothing when markdown-it is only looking ahead."""
     match = _WIKILINK.match(state.src, state.pos)
     if not match:
         return False
@@ -121,8 +121,8 @@ def _frontmatter_citations(token: Token) -> Iterator[tuple[int, str, LinkKind]]:
 def _inline_references(child: Token, span: list[int] | None, lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
     """The references in one inline token, whichever syntax carried it."""
     if child.type == "wikilink":
-        # `page|alias` and `page#section` both name `page`.
-        if target := child.content.strip("[]").split("|")[0].split("#")[0].strip():
+        # `page#section` names `page`.
+        if target := child.content.strip("[]").split("#")[0].strip():
             yield _locate(lines, span, child.content), target, LinkKind.WIKILINK
     elif child.type == "html_inline":
         for target in _html_targets(child.content):
