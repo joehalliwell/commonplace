@@ -170,18 +170,10 @@ def extract_links(text: str, *, source: Path) -> list[Link]:
 # --- Resolution -------------------------------------------------------------
 
 
-def _walk(root: Path) -> Iterator[Path]:
-    """Every file in the repository, as repo-relative paths, skipping dot directories."""
-    for directory, subdirectories, files in os.walk(root):
-        subdirectories[:] = [d for d in subdirectories if not d.startswith(".")]
-        for name in files:
-            yield (Path(directory) / name).relative_to(root)
-
-
-def _index(root: Path) -> dict[str, list[Path]]:
+def _index(files: Collection[Path]) -> dict[str, list[Path]]:
     """Every file by name and by stem."""
     index: dict[str, list[Path]] = {}
-    for path in _walk(root):
+    for path in files:
         for key in {path.name, path.stem}:
             index.setdefault(key, []).append(path)
     return index
@@ -201,7 +193,7 @@ def _is_named(path: Path, name: str) -> bool:
     )
 
 
-def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]]) -> str:
+def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]], present: set[Path]) -> str:
     """Why `link` lands nowhere — empty if it lands somewhere."""
     if link.kind is LinkKind.WIKILINK:
         # A wikilink names a note, not a location: any note with that name will do.
@@ -219,19 +211,22 @@ def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]]) -> str:
 
     if not candidate.is_relative_to(root):
         return "outside the repository"
-    return "" if candidate.exists() else "no such file"
+    if candidate.relative_to(root) in present:
+        return ""
+    return "on disk but not in the repository" if candidate.exists() else "no such file"
 
 
-def check_links(root: Path, *, skip: Collection[str] = SKIPPED_ROOTS) -> list[BrokenLink]:
-    """Every reference in the repository's own markdown that lands nowhere."""
-    index = _index(root)
+def check_links(root: Path, files: Collection[Path], *, skip: Collection[str] = SKIPPED_ROOTS) -> list[BrokenLink]:
+    """Every reference in the markdown among `files` that lands on none of them, nor on a directory holding one."""
+    index = _index(files)
+    present = set(files) | {parent for path in files for parent in path.parents}
     skipped = tuple(skip)
     broken = []
-    for path in sorted(_walk(root)):
+    for path in sorted(files):
         if path.suffix != ".md" or path.parts[0] in skipped:
             continue
         for link in extract_links((root / path).read_text(errors="replace"), source=path):
-            if reason := _reason_broken(link, root, index):
+            if reason := _reason_broken(link, root, index, present):
                 name = Path(unquote(link.target.split("#")[0])).name
                 broken.append(BrokenLink(link=link, reason=reason, suggestion=_unique(index, name)))
     return broken
