@@ -199,6 +199,10 @@ Bring a stale topic up to date in its own commit before adding new material,
 so `git show` on that commit is exactly what the upgrade changed. Spawn the
 subagent as in step 2, appending to the prompt:
 
+If a newer Conventions entry says conforming to it needs new material, as
+0.14.0 does, skip the conform-only step: do a normal update run instead,
+and its Revisions line names the release it conforms to.
+
 > **Conform only.** Gather no new sources. Bring both artefacts into line with
 > the rules in this prompt, paying particular attention to these changes:
 > \<the Conventions entries newer than the topic's `generated.by`, or all of
@@ -245,6 +249,10 @@ plugin release that introduced it, and only a release that changed the
 artefacts gets one: add an entry only for changes a reader would notice —
 each one makes every existing topic stale.
 
+- **0.14.0** — Gathering includes a mandatory grep pass over `journal/`,
+  `notes/` and `chats/`, and the topic records its patterns in `patterns`
+  beside `queries`; update runs repeat both. Conforming to this needs new
+  material, so it is a normal update run, not a conform-only pass.
 - **0.13.0** — A topic is an OKF v0.2 concept document at `topics/{slug}.md`,
   with `type: Topic`. Its frontmatter carries a `title` and a one-sentence
   `description` (which the index lists it by), `queries`, structured
@@ -320,7 +328,7 @@ learn about each other. So:
 ls topics/
 ```
 
-Read `topics/index.md` if it exists, and the `queries` frontmatter of any
+Read `topics/index.md` if it exists, and the `queries` and `patterns` of any
 `topics/*.md` whose slug or entry looks adjacent to `{slug}`. If a substantial part of
 what you'd gather is already gathered elsewhere, **stop and say so in your
 return value** rather than proceeding — name the overlapping topic and offer
@@ -343,6 +351,18 @@ commonplace search -n 30 "<specific query>"
 directory (chats, journal, notes) — if any is unrepresented, run a targeted
 query for it. Breadth of querying matters; there is no systematic way to know
 what you missed.
+
+**Then grep.** Search ranks short journal entries below long chats, so it
+misses much of the journal. A keyword pass is mandatory, not a fallback:
+grep for the topic's distinctive words, names (in every variant) and
+coinages across all three directories:
+
+```bash
+grep -rliE '<pattern>' journal notes chats
+```
+
+Use case-insensitive extended regexes, and record every pattern you ran in
+the topic's `patterns`, beside `queries`, so a later run can repeat it.
 
 **Gather only from primitives.** Sources are `chats/`, `journal/`, `notes/` —
 the captured record — plus the gathering's Review entries (below). Never quote `topics/**` into a gathering: distillations,
@@ -515,6 +535,9 @@ description: <one sentence: what this topic covers>
 queries:
   - "<search query 1>"
   - "<search query 2>"
+patterns:
+  - '<grep -iE pattern 1>'   # single-quoted, so backslashes survive YAML
+  - '<grep -iE pattern 2>'
 sources:
   - resource: /<repo-relative source path>
 generated: {by: synthesize/{version}, at: <now, e.g. 2026-10-01T14:00:00Z>}
@@ -582,9 +605,9 @@ When `topics/{slug}.md` already exists, this is an update run:
 1. **Read the existing distillation** to understand current coverage, and
    the gathering if there is one.
 
-1. **Search for new material** — re-run the `queries` recorded in the
-   topic's frontmatter, plus any new phrasings, and compare the hits
-   against its `sources` list. Anything not already listed is new material,
+1. **Search for new material** — re-run the `queries` and the grep
+   `patterns` recorded in the topic's frontmatter, plus any new ones, and
+   compare the hits against its `sources` list. Anything not already listed is new material,
    **whatever its date**. You don't need to re-read sources already on the
    list.
 
@@ -665,7 +688,8 @@ approving the commit, so every line must make sense without the artefacts.
 
 ______________________________________________________________________
 
-**Gathering**: N sources, {earliest date} to {latest date}
+**Gathering**: N sources, {earliest date} to {latest date}; M found only by
+the grep pass
 
 **Distillation**:
 
