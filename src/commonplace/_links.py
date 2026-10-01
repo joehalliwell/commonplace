@@ -10,8 +10,8 @@ from urllib.parse import unquote
 
 import yaml
 from markdown_it import MarkdownIt
+from markdown_it.rules_inline import StateInline
 from markdown_it.token import Token
-from mdformat_wikilink.mdit_wikilink_plugin import wikilink_plugin  # type: ignore[import-untyped]
 from mdit_py_plugins.front_matter import front_matter_plugin
 
 # Directories whose markdown is not a source of repository references.
@@ -49,12 +49,26 @@ class BrokenLink:
 
 _EXTERNAL_SCHEME = re.compile(r"\A[a-z][a-z0-9+.-]*:", re.IGNORECASE)
 _HTML_ATTRIBUTE = re.compile(r"""\b(?:href|src)[ \t]*=[ \t]*("[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
+_WIKILINK = re.compile(r"\[\[[^[\]\n]+]]")
+
+
+def _wikilink(state: StateInline, silent: bool) -> bool:
+    """Consume a `[[page]]` as one `wikilink` token, pushing nothing when markdown-it is only looking ahead."""
+    match = _WIKILINK.match(state.src, state.pos)
+    if not match:
+        return False
+    if not silent:
+        state.push("wikilink", "", 0).content = match.group()
+    state.pos = match.end()
+    return True
+
 
 # CommonMark, taught the two syntaxes we care about that it does not have, minus
 # two conveniences: markdown-it percent-encodes destinations, which would have
 # reports saying a%20note.md where the file says a note.md, and it decides for
 # itself which schemes are safe, which is _is_repo_reference's job.
-_MARKDOWN = MarkdownIt("commonmark").use(wikilink_plugin).use(front_matter_plugin)
+_MARKDOWN = MarkdownIt("commonmark").use(front_matter_plugin)
+_MARKDOWN.inline.ruler.push("wikilink", _wikilink)
 _MARKDOWN.normalizeLink = lambda url: url  # type: ignore[method-assign]
 _MARKDOWN.validateLink = lambda url: True  # type: ignore[method-assign]
 
@@ -107,8 +121,8 @@ def _frontmatter_citations(token: Token) -> Iterator[tuple[int, str, LinkKind]]:
 def _inline_references(child: Token, span: list[int] | None, lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
     """The references in one inline token, whichever syntax carried it."""
     if child.type == "wikilink":
-        # `page|alias` and `page#section` both name `page`.
-        if target := child.content.strip("[]").split("|")[0].split("#")[0].strip():
+        # `page#section` names `page`.
+        if target := child.content.strip("[]").split("#")[0].strip():
             yield _locate(lines, span, child.content), target, LinkKind.WIKILINK
     elif child.type == "html_inline":
         for target in _html_targets(child.content):

@@ -94,8 +94,9 @@ def test_extract_wikilink_yields_page_name():
     assert links[0].kind is LinkKind.WIKILINK
 
 
-def test_extract_wikilink_with_alias_yields_page_name():
-    assert targets("See [[other note|that thing]].") == ["other note"]
+def test_extract_wikilink_with_pipe_is_taken_literally():
+    """Aliases are unused, so a pipe is part of the name and the link shows up as broken rather than vanishing."""
+    assert targets("See [[other note|that thing]].") == ["other note|that thing"]
 
 
 def test_extract_wikilink_with_heading_yields_page_name():
@@ -104,6 +105,11 @@ def test_extract_wikilink_with_heading_yields_page_name():
 
 def test_extract_wikilink_embed_yields_page_name():
     assert targets("![[picture.png]]") == ["picture.png"]
+
+
+@pytest.mark.parametrize("text", ["[[]]", "[[a]b]]", "[[x\ny]]", "\\[[escaped]]"])
+def test_extract_malformed_wikilink_is_not_a_link(text):
+    assert targets(text) == []
 
 
 # --- HTML -------------------------------------------------------------------
@@ -371,7 +377,7 @@ def test_check_links_root_relative_wikilink_resolves(tmp_path):
     write(
         tmp_path,
         "journal/entry.md",
-        "See [[/notes/foo]], [[/notes/foo.md]], [[/notes/foo#Heading]], [[/notes/foo|alias]].",
+        "See [[/notes/foo]], [[/notes/foo.md]], [[/notes/foo#Heading]].",
     )
     assert check(tmp_path) == []
 
