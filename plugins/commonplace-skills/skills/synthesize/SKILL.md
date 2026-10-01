@@ -32,7 +32,9 @@ when nothing has changed.
 
 Note this plugin's release, `version` in
 `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`, and the user's name,
-from `commonplace config user`. Both go into the artefacts.
+from `commonplace config user`. Both go into the artefacts. If
+`commonplace config` is an unknown command, the installed commonplace is
+older than this plugin: ask the user to update it before going on.
 
 Check which existing topics are **stale** — last synthesized under older
 conventions. Each topic records the release that wrote it:
@@ -114,6 +116,22 @@ because all are invisible once committed:
 If the user requests changes, either ask the subagent to revise (spawn
 another subagent with the correction) or make small edits directly.
 
+**What the user says in review is a source.** A correction or addition made
+here — who someone is, what a passage meant, something the sources don't
+say — is recorded where the review happened, never deferred to a journal
+entry. Before revising, append it to the gathering verbatim:
+
+```markdown
+## <date> — Review
+**<user>:**
+> <their words, exactly as said>
+```
+
+It is full evidence: the distillation cites it inline as
+*(<user>, in review, <date>)* — plain text, since topics don't link into
+`.commonplace/` — and it can support a Shift or Thread like any other quote.
+Pass the entry to the revision subagent with the correction.
+
 If the subagent returned **Stopped — overlaps `{existing-slug}`** instead of
 a summary, no artefacts were written. Put the choice to the user — extend the
 existing topic, or fork this one anyway — and re-spawn with their answer.
@@ -143,11 +161,16 @@ Read only what the entry needs: `title`, `description`, the date of
 `not recorded` (or the slug, for a missing title). Include the Resonances
 section only if `topics/resonances/` exists.
 
+Topics not yet conformed are still folders. List each
+`topics/*/distillation.md` too, in the same order, as
+`- [{slug}]({slug}/distillation.md) - (stale: pre-0.13.0)`, so that
+conforming one topic doesn't drop the rest from the index.
+
 ### 5. Commit
 
 The user's approval is OKF's human review, so record it: set `verified` in
 the topic's frontmatter, beside `generated`, to
-`{ by: human:<user>, at: <now, e.g. 2026-10-01T14:00:00Z> }`. Only you write
+`{by: human:<user>, at: <now, e.g. 2026-10-01T14:00:00Z>}`. Only you write
 this line, and only after approval — never the subagent.
 
 Stage and commit using `commonplace git`:
@@ -200,9 +223,16 @@ Then every link to the old paths is repointed: `[[/topics/{slug}/distillation]]`
 becomes `[[/topics/{slug}]]`, and a resonance's `source_distillations` entry
 becomes `topics/{slug}.md`. Find them with
 `grep -rn 'topics/{slug}/' --include='*.md' .`. Under `topics/`, change the
-link target and nothing else — not even in a Revisions line, whose wording
-is never rewritten. Links in `notes/` and `journal/` are the user's: list
-them in your review and change them only if the user says so.
+link target and nothing else. Three exceptions:
+
+- **Revisions lines are history.** A path there says where something was
+  when the line was written, and repointing it can falsify the sentence. Make
+  each such link a code span of the path as written (`[[/topics/ethics/gathering]]`
+  becomes `` `topics/ethics/gathering` ``) and change nothing else.
+- **Links to the gathering** become code spans too, wherever they are:
+  gatherings are skill state, and topics never link into `.commonplace/`.
+- **Links in `notes/` and `journal/`** are the user's: list them in your
+  review and change them only if the user says so.
 
 Review as in step 3, and stage the moved paths and every file you repointed.
 Commit as `Conform: {topic name} to synthesize@{version}`. Run a normal
@@ -315,7 +345,7 @@ query for it. Breadth of querying matters; there is no systematic way to know
 what you missed.
 
 **Gather only from primitives.** Sources are `chats/`, `journal/`, `notes/` —
-the captured record. Never quote `topics/**` into a gathering: distillations,
+the captured record — plus the gathering's Review entries (below). Never quote `topics/**` into a gathering: distillations,
 resonances and the topic index are *derived* artefacts, and prior runs commit
 and re-index them, so they will surface in your search results alongside real
 sources. Quoting one launders synthesis back into evidence, counts the same
@@ -344,6 +374,19 @@ quote: an assistant's speculative riff, gathered unattributed, comes back a
 year later as evidence of how the user's own thinking evolved. Most sources
 here are conversations *with* an assistant, so this is the default failure
 mode, not an edge case. Every quote carries its speaker.
+
+**Scope is relevance, not sensitivity.** This is the user's private record.
+Gather whatever bears on the topic, however intimate, and leave out only
+what is irrelevant. If you hold anything back, say so in your return value.
+
+**Search for every name a person goes by.** Sources spell people
+differently — nicknames, short forms, transliterations. Once you know the
+variants, search and grep for each.
+
+**Review entries are sources.** A gathering entry headed `## <date> — Review`
+records what the user said in reviewing an earlier run. It is the user's own
+words, captured, and counts as full evidence. Keep it on update runs, and
+cite it inline as *(<speaker>, in review, <date>)*, in plain text.
 
 ### Phase 3: Write the Gathering
 
@@ -474,7 +517,7 @@ queries:
   - "<search query 2>"
 sources:
   - resource: /<repo-relative source path>
-generated: { by: synthesize/{version}, at: <now, e.g. 2026-10-01T14:00:00Z> }
+generated: {by: synthesize/{version}, at: <now, e.g. 2026-10-01T14:00:00Z>}
 ---
 
 # Distillation: {topic}
@@ -587,6 +630,9 @@ Git tracks the full history. The prior state is always recoverable.
   provider directory); if one is missing, find it by name
   (`find chats journal notes -name '<basename>.md'`) and cite where it is
   now. Never leave a link that goes nowhere.
+- **Never link to the gathering**, or to anything under `.commonplace/`.
+  It's skill state, which the link checker can't follow; cite its Review
+  entries in plain text instead.
 - **Name the threads**. The most valuable output is often what's unresolved.
 - **Write to be read cold.** See Phase 4. Applies to the return summary too.
 - **Don't over-synthesize**. If the material is thin, say so. A short

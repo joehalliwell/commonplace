@@ -43,7 +43,9 @@ Verify each distillation exists:
 
 Note this plugin's release, `version` in
 `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`, and the user's name,
-from `commonplace config user`. Both go into the artefact.
+from `commonplace config user`. Both go into the artefact. If
+`commonplace config` is an unknown command, the installed commonplace is
+older than this plugin: ask the user to update it before going on.
 
 ### 2. Determine Output Path
 
@@ -106,7 +108,7 @@ directly.
 
 The user's approval is OKF's human review, so record it: set `verified` in
 the resonance's frontmatter, beside `generated`, to
-`{ by: human:<user>, at: <now, e.g. 2026-10-01T14:00:00Z> }`. Only you write
+`{by: human:<user>, at: <now, e.g. 2026-10-01T14:00:00Z>}`. Only you write
 this line, and only after approval — never the subagent.
 
 ```bash
@@ -229,7 +231,7 @@ topics:
 source_distillations:
   - topics/<slug 1>.md
   - topics/<slug 2>.md
-generated: { by: resonate/{version}, at: <now, e.g. 2026-10-01T14:00:00Z> }
+generated: {by: resonate/{version}, at: <now, e.g. 2026-10-01T14:00:00Z>}
 ---
 
 # Resonance: {topics}
@@ -301,7 +303,10 @@ concrete. The reader has read neither distillation.
 - **Short is better.** A resonance that tries to say everything says nothing.
   Three sharp crossings beat ten loose ones.
 
-- **Carry attribution and citations through** from the distillations.
+- **Carry attribution and citations through** from the distillations,
+  including *(<speaker>, in review, <date>)* citations, which stay plain
+  text: they point at a review recorded in skill state, which is never
+  linked.
 
 - **Check every citation resolves.** Before returning, confirm each cited
   `[[/<path>]]` exists as `<path>.md`. If one is missing, the file has
