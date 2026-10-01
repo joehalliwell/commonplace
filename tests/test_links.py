@@ -106,6 +106,11 @@ def test_extract_wikilink_embed_yields_page_name():
     assert targets("![[picture.png]]") == ["picture.png"]
 
 
+@pytest.mark.parametrize("text", ["[[]]", "[[a]b]]", "[[x\ny]]", "\\[[escaped]]"])
+def test_extract_malformed_wikilink_is_not_a_link(text):
+    assert targets(text) == []
+
+
 # --- HTML -------------------------------------------------------------------
 
 
