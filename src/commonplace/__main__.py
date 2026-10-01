@@ -330,6 +330,27 @@ def doctor(
 
 
 @app.command(group=SYSTEM_SECTION)
+def config(
+    key: Annotated[str | None, Parameter(help="Print only this setting's value")] = None,
+    *,
+    repo: Repo,
+) -> None:
+    """Print the settings in effect, after environment and config files are merged."""
+    import tomli_w
+
+    settings = repo.config.model_dump(mode="json")
+    if key is None:
+        print(tomli_w.dumps(settings), end="")
+    elif isinstance(value := settings.get(key), str):
+        print(value)  # Unquoted, so scripts can use it directly
+    elif key in settings:
+        print(tomli_w.dumps({key: value}).removeprefix(f"{key} = "), end="")
+    else:
+        logger.error(f"Unknown setting '{key}'. Settings: {', '.join(settings)}")
+        raise SystemExit(1)
+
+
+@app.command(group=SYSTEM_SECTION)
 def stats(
     *,
     all_time: Annotated[
