@@ -24,7 +24,7 @@ uv run mypy src/      # Type check
 just publish          # Build and publish to PyPI
 
 # Development
-uv tool install .                           # Install locally
+just install                                # Install the CLI editable; rerun after dependency changes. Main checkout only: in a worktree it repoints the CLI there
 uv run commonplace import path/to/export.zip
 uv run commonplace index
 uv run commonplace search "query text"

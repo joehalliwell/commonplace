@@ -14,6 +14,10 @@ lint:
     uv run ruff format --check .
     uv run mypy src/
 
+# Install the CLI as an editable uv tool; rerun after dependencies change
+install:
+    uv tool install --editable . --reinstall
+
 # Publish package to PyPI
 publish:
     rm -rf dist
