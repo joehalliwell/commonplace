@@ -1,13 +1,14 @@
 import json
 import shutil
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
-from zipfile import BadZipFile
+from zipfile import BadZipFile, ZipFile
 
 import pytest
 
 from commonplace._import._chatgpt import ChatGptImporter
+from commonplace._import._claude_code import ClaudeCodeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
 from commonplace._import._commands import import_
 from commonplace._import._gemini_takeout import GeminiTakeoutImporter
@@ -175,6 +176,89 @@ def test_zip_contains_file_that_is_not_a_zip_raises(tmp_path):
 
     with pytest.raises(BadZipFile):
         zip_contains(path, "conversations.json")
+
+
+def _takeout(tmp_path: Path, *cells: str) -> Path:
+    """A Takeout ZIP whose activity page holds `cells`, each the inner HTML of one content cell."""
+    html = "".join(f'<div class="content-cell">{cell}</div>' for cell in cells)
+    path = tmp_path / "takeout.zip"
+    with ZipFile(path, "w") as zf:
+        zf.writestr(GeminiTakeoutImporter().required_paths()[0], f"<html><body>{html}</body></html>")
+    return path
+
+
+def test_takeout_import_groups_exchanges_into_day_logs_in_time_order(tmp_path):
+    export = _takeout(
+        tmp_path,
+        "Prompted second<br>8 Jun 2025, 15:00:00 BST<br><p>two</p>",
+        "Prompted next day<br>9 Jun 2025, 09:00:00 BST<br><p>three</p>",
+        "Prompted first<br>8 Jun 2025, 13:37:50 BST<br><p>one</p>",
+    )
+
+    logs = GeminiTakeoutImporter().import_(export)
+
+    assert [[(e.sender, e.content) for e in log.events] for log in logs] == [
+        [(Role.USER, "first"), (Role.ASSISTANT, "one"), (Role.USER, "second"), (Role.ASSISTANT, "two")],
+        [(Role.USER, "next day"), (Role.ASSISTANT, "three")],
+    ]
+    assert logs[0].created == datetime(2025, 6, 8, 12, 37, 50, tzinfo=UTC), "BST is read as an offset, not dropped"
+
+
+def test_takeout_import_skips_a_cell_that_is_not_a_prompt(tmp_path):
+    export = _takeout(
+        tmp_path,
+        "Used an extension<br>8 Jun 2025, 13:00:00 BST<br><p>not a reply</p>",
+        "Prompted hello<br>8 Jun 2025, 13:37:50 BST<br><p>hi</p>",
+    )
+
+    [log] = GeminiTakeoutImporter().import_(export)
+
+    assert [e.content for e in log.events] == ["hello", "hi"]
+
+
+def _claude_code_line(role: str, content, timestamp: str, **message) -> dict:
+    return {
+        "type": role,
+        "sessionId": "session-1",
+        "cwd": "/work",
+        "timestamp": timestamp,
+        "message": {"role": role, "content": content, **message},
+    }
+
+
+def _claude_code_session(tmp_path: Path, *lines: dict) -> Path:
+    path = tmp_path / "session.jsonl"
+    path.write_text("".join(json.dumps(line) + "\n" for line in lines))
+    return path
+
+
+def test_claude_code_import_pairs_a_tool_result_with_its_call(tmp_path):
+    tool_use = {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls"}}
+    tool_result = {"type": "tool_result", "tool_use_id": "t1", "content": "a.txt"}
+    session = _claude_code_session(
+        tmp_path,
+        _claude_code_line("user", "list the files", "2025-10-01T10:00:00Z"),
+        _claude_code_line("assistant", [{"type": "text", "text": "Looking."}, tool_use], "2025-10-01T10:00:01Z"),
+        _claude_code_line("user", [tool_result], "2025-10-01T10:00:02Z"),
+    )
+
+    [log] = ClaudeCodeImporter().import_(session)
+
+    user, assistant, call = log.events
+    assert (user.sender, user.content) == (Role.USER, "list the files")
+    assert (assistant.sender, assistant.content) == (Role.ASSISTANT, "Looking.")
+    assert (call.tool, call.args, call.output) == ("Bash", {"command": "ls"}, "a.txt")
+
+
+def test_claude_code_import_titles_a_session_by_its_summary_else_its_id(tmp_path):
+    message = _claude_code_line("user", "hi", "2025-10-01T10:00:00Z")
+    summary = {"type": "summary", "summary": "A greeting"}
+
+    [untitled] = ClaudeCodeImporter().import_(_claude_code_session(tmp_path, message))
+    [titled] = ClaudeCodeImporter().import_(_claude_code_session(tmp_path, summary, message))
+
+    assert (untitled.title, titled.title) == ("session-1", "A greeting")
+    assert titled.metadata == {"sessionId": "session-1", "cwd": "/work"}
 
 
 def test_claude_importer_declines_a_chatgpt_conversations_file(tmp_path):
