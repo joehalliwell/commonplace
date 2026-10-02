@@ -409,7 +409,7 @@ class Commonplace:
     def notes(self) -> Iterator[Note]:
         """Get an iterator over all notes at current HEAD."""
         for repo_path in self.note_paths():
-            yield self.get_note(repo_path)
+            yield self.load(repo_path)
 
     def paths(self) -> Iterator[Path]:
         """Every file in the working tree that git would share, relative to the root, skipping dot-directories."""
@@ -426,7 +426,7 @@ class Commonplace:
             if path.suffix == ".md":
                 yield self.make_repo_path(path)
 
-    def get_note(self, repo_path: RepoPath) -> Note:
+    def load(self, repo_path: RepoPath) -> Note:
         """
         Fetch a note at a specific repository location.
 

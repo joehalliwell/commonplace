@@ -177,7 +177,7 @@ def journal(
 
     # Load existing content or use default (but don't create file yet)
     if journal_path.exists():
-        note = repo.get_note(repo_path)
+        note = repo.load(repo_path)
         original_content = note.content
     else:
         original_content = default_content
