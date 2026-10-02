@@ -115,7 +115,7 @@ def import_(
 
     from commonplace._import._commands import import_
 
-    import_(path, repo, user=repo.config.user, prefix="chats", auto_index=index)
+    import_(path, repo, user=repo.config.user, auto_index=index)
 
 
 @app.command(alias="f", group=CREATING_SECTION)

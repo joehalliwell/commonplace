@@ -35,17 +35,17 @@ IMPORTERS: list[ChatImporter | MemoryImporter] = [
 ]
 
 
-def import_(path: Path, repo: Commonplace, user: str, prefix="chats", auto_index: bool | None = None):
+def import_(path: Path, repo: Commonplace, user: str, auto_index: bool | None = None):
     """Import an exported/local log or a directory of the same"""
     assert path.exists()
     if path.is_file():
-        import_one(path, repo, user, prefix=prefix, auto_index=auto_index)
+        import_one(path, repo, user, auto_index=auto_index)
     else:
         logger.debug(f"Scanning '{path}' for export files")
         assert path.is_dir()
         paths_to_import = sorted(p for p in path.rglob("*") if p.is_file())
         for filepath in track(paths_to_import, "Importing files"):
-            import_one(filepath, repo, user, prefix=prefix, auto_index=auto_index)
+            import_one(filepath, repo, user, auto_index=auto_index)
 
 
 def landing_tree(source: str) -> Path:
@@ -79,7 +79,7 @@ def extract_and_store(archive: Path, paths: list[str], repo: Commonplace) -> lis
     return result
 
 
-def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_index: bool | None = None):
+def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None = None):
     """
     Import chats from a supported provider into the repository, or hand a mirrored source to `mirror_one`.
 
@@ -132,7 +132,7 @@ def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_in
     repo.commit(f"Import from '{path}' using '{importer.source}' importer", auto_index=auto_index)
 
 
-def make_chat_path(source: str, date: datetime, title: str | None, prefix="chats") -> Path:
+def make_chat_path(source: str, date: datetime, title: str | None) -> Path:
     """
     Generate the relative file path for storing an activity log.
 
@@ -148,8 +148,7 @@ def make_chat_path(source: str, date: datetime, title: str | None, prefix="chats
     if title:
         slug = "-" + slugify(title)
     return (
-        Path(prefix)
-        / source
+        landing_tree(source)
         / f"{date.year:02}"
         / f"{date.month:02}"
         / f"{date.year:02}-{date.month:02}-{date.day:02}{slug}.md"
