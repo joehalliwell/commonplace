@@ -108,10 +108,10 @@ def test_import_preserves_user_metadata(test_repo, tmp_path_factory):
     import_(export_path, test_repo, user="Human")
 
     # Verify user metadata was preserved
-    from commonplace._utils import parse_frontmatter
+    from commonplace._utils import load_frontmatter
 
     final_content = imported_file.read_text()
-    final_metadata, _ = parse_frontmatter(final_content)
+    final_metadata, _ = load_frontmatter(final_content)
 
     assert "tags" in final_metadata
     assert "important" in final_metadata["tags"]

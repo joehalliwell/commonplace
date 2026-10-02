@@ -61,7 +61,7 @@ class EventLog(BaseModel):
 class Snapshot:
     """What one capture says about upstream state: the files it read, and every path that existed."""
 
-    #: Frontmatter and body, as `parse_frontmatter` returns them, by path relative to the importer's `tree`.
+    #: Frontmatter and body, as `load_frontmatter` returns them, by path relative to the importer's `tree`.
     files: dict[PurePosixPath, tuple[dict[str, Any], str]]
     #: The complete upstream listing, or `None` if the capture has none — in which case absence proves nothing.
     listed: set[PurePosixPath] | None

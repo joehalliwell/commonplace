@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 import yaml
 
-from commonplace._utils import batched, edit_in_editor, merge_frontmatter, parse_frontmatter, slugify, truncate
+from commonplace._utils import batched, edit_in_editor, load_frontmatter, merge_frontmatter, slugify, truncate
 
 
 def test_batched_basic():
@@ -228,7 +228,7 @@ def test_edit_in_editor_editor_not_found(tmp_path):
             edit_in_editor(content, "vim")
 
 
-def test_parse_frontmatter_with_metadata():
+def test_load_frontmatter_with_metadata():
     content = """---
 uuid: abc123
 model: claude-3
@@ -237,36 +237,36 @@ model: claude-3
 # Test Content
 
 Body here."""
-    metadata, body = parse_frontmatter(content)
+    metadata, body = load_frontmatter(content)
 
     assert metadata == {"uuid": "abc123", "model": "claude-3"}
     assert body.strip().startswith("# Test Content")
 
 
-def test_parse_frontmatter_no_metadata():
+def test_load_frontmatter_no_metadata():
     content = "# Test Content\n\nNo frontmatter here."
-    metadata, body = parse_frontmatter(content)
+    metadata, body = load_frontmatter(content)
 
     assert metadata == {}
     assert body == content
 
 
-def test_parse_frontmatter_invalid_yaml():
+def test_load_frontmatter_invalid_yaml():
     content = """---
 invalid: [unclosed
 ---
 
 Body"""
     with pytest.raises(yaml.YAMLError):
-        parse_frontmatter(content)
+        load_frontmatter(content)
 
 
-def test_parse_frontmatter_no_closing_delimiter():
+def test_load_frontmatter_no_closing_delimiter():
     content = """---
 uuid: abc123
 
 # This looks like content but no closing ---"""
-    metadata, body = parse_frontmatter(content)
+    metadata, body = load_frontmatter(content)
 
     # Should treat as no frontmatter
     assert metadata == {}

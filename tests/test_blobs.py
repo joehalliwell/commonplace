@@ -5,7 +5,7 @@ import pytest
 
 from commonplace._import._commands import import_
 from commonplace._repo import _hash_file
-from commonplace._utils import parse_frontmatter
+from commonplace._utils import load_frontmatter
 
 SAMPLE_EXPORTS_DIR = Path(__file__).parent / "resources" / "sample-exports"
 
@@ -120,7 +120,7 @@ def test_import_records_provenance(test_repo, tmp_path):
     assert len(md_files) > 0
 
     for md_file in md_files:
-        metadata, _ = parse_frontmatter(md_file.read_text())
+        metadata, _ = load_frontmatter(md_file.read_text())
         assert "source_exports" in metadata, f"Missing source_exports in {md_file}"
         assert isinstance(metadata["source_exports"], list)
 
@@ -136,7 +136,7 @@ def test_import_provenance_points_to_valid_blob(test_repo, tmp_path):
     md_files = sorted((test_repo.root / "chats").glob("**/*.md"))
     assert len(md_files) > 0
 
-    metadata, _ = parse_frontmatter(md_files[0].read_text())
+    metadata, _ = load_frontmatter(md_files[0].read_text())
     for blob_rel in metadata["source_exports"]:
         blob_abs = test_repo.root / blob_rel
         assert blob_abs.exists(), f"Blob not found at {blob_abs}"
@@ -169,7 +169,7 @@ def test_import_provenance_lists_all_sources(test_repo, tmp_path):
     import_(export_path, test_repo, user="Human")
 
     md_files = sorted((test_repo.root / "chats").glob("**/*.md"))
-    metadata, _ = parse_frontmatter(md_files[0].read_text())
+    metadata, _ = load_frontmatter(md_files[0].read_text())
 
     source_exports = metadata["source_exports"]
     assert len(source_exports) == 2
