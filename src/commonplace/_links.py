@@ -14,6 +14,8 @@ from markdown_it.rules_inline import StateInline
 from markdown_it.token import Token
 from mdit_py_plugins.front_matter import front_matter_plugin
 
+from commonplace._utils import load_frontmatter
+
 # Directories whose markdown is not a source of repository references.
 SKIPPED_ROOTS: tuple[str, ...] = ("chats",)
 
@@ -63,7 +65,8 @@ def _wikilink(state: StateInline, silent: bool) -> bool:
     return True
 
 
-# CommonMark, taught the two syntaxes we care about that it does not have, minus
+# CommonMark, taught the two syntaxes we care about that it does not have (front
+# matter only so that it is skipped: `load_frontmatter` is what reads it), minus
 # two conveniences: markdown-it percent-encodes destinations, which would have
 # reports saying a%20note.md where the file says a note.md, and it decides for
 # itself which schemes are safe, which is _is_repo_reference's job.
@@ -90,32 +93,32 @@ def _html_targets(html: str) -> Iterator[str]:
             yield target
 
 
-def _scalars(node: yaml.Node) -> Iterator[yaml.ScalarNode]:
-    """Every scalar value at or under a YAML node."""
-    if isinstance(node, yaml.ScalarNode):
-        yield node
-    elif isinstance(node, yaml.SequenceNode):
-        for item in node.value:
-            yield from _scalars(item)
-    elif isinstance(node, yaml.MappingNode):
-        for _, value in node.value:
-            yield from _scalars(value)
+def _strings(value: object) -> Iterator[str]:
+    """Every string at or under a frontmatter value."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, list):
+        for item in value:
+            yield from _strings(item)
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _strings(item)
 
 
-def _frontmatter_citations(token: Token) -> Iterator[tuple[int, str, LinkKind]]:
+def _frontmatter_citations(text: str, lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
     """The paths an artefact's frontmatter cites under any `source*` key."""
-    first_line = (token.map[0] if token.map else 0) + 2  # Past the opening `---`
     try:
-        document = yaml.compose(token.content)
+        metadata, _ = load_frontmatter(text)
     except yaml.YAMLError:
         return
-    if not isinstance(document, yaml.MappingNode):
+    if not isinstance(metadata, dict):
         return
-    for key, value in document.value:
-        if str(key.value).startswith("source"):
-            for scalar in _scalars(value):
-                if scalar.value.endswith(".md"):
-                    yield first_line + scalar.start_mark.line, scalar.value, LinkKind.CITATION
+    for key, value in metadata.items():
+        if str(key).startswith("source"):
+            for target in _strings(value):
+                if target.endswith(".md"):
+                    # Frontmatter comes first, so the first line to mention a path is the one that cites it.
+                    yield _locate(lines, [0, len(lines)], target), target, LinkKind.CITATION
 
 
 def _inline_references(child: Token, span: list[int] | None, lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
@@ -138,9 +141,7 @@ def _inline_references(child: Token, span: list[int] | None, lines: list[str]) -
 def _references(tokens: list[Token], lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
     """Every reference in the token stream, now that the parser knows every syntax we use."""
     for token in tokens:
-        if token.type == "front_matter":
-            yield from _frontmatter_citations(token)
-        elif token.type == "html_block":
+        if token.type == "html_block":
             for target in _html_targets(token.content):
                 yield _locate(lines, token.map, target), target, LinkKind.PATH
         elif token.type == "inline":
@@ -158,7 +159,8 @@ def _is_repo_reference(target: str) -> bool:
 
 def extract_links(text: str, *, source: Path) -> list[Link]:
     """Every reference in `text` that could point into the repository, in document order."""
-    found = list(_references(_MARKDOWN.parse(text), text.split("\n")))
+    lines = text.split("\n")
+    found = [*_frontmatter_citations(text, lines), *_references(_MARKDOWN.parse(text), lines)]
 
     links: dict[tuple[int, str], Link] = {}
     for line, target, kind in sorted(found, key=lambda item: item[0]):
