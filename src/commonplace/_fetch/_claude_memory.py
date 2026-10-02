@@ -9,7 +9,6 @@ class ClaudeMemoryFetcher(ClaudeSessionFetcher):
     """Records one complete listing plus a read per changed path; the API is strict, so bodies carry nothing extra."""
 
     source = "claude-memory"
-    noun = "memories"
     #: The listing alone is how a deletion is seen.
     archive_when_unchanged = True
 

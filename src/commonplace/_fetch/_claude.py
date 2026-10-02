@@ -33,8 +33,6 @@ class ClaudeSessionFetcher(BaseFetcher):
     login_url = "https://claude.ai"
     extra_headers: ClassVar[dict[str, str]] = {"Accept": "application/json", "Referer": "https://claude.ai/"}
 
-    #: What the items are called in messages to the user.
-    noun: str
     #: Whether a listing with nothing new is still worth an archive.
     archive_when_unchanged: bool = False
 
@@ -48,12 +46,12 @@ class ClaudeSessionFetcher(BaseFetcher):
         with self._session(cookies):
             items = self._list()
             fresh = [i for i in items if since is None or datetime.fromisoformat(i["updated_at"]) > since]
-            logger.info(f"{len(fresh)}/{len(items)} {self.noun} new since {since or 'beginning'}")
+            logger.info(f"{len(fresh)}/{len(items)} new since {since or 'beginning'}")
 
             if not fresh and not self.archive_when_unchanged:
                 return None
 
-            for item in track(fresh, f"Fetching {self.noun}"):
+            for item in track(fresh, f"Fetching {self.source}"):
                 self._read(item)
 
         return self._write_archive(destination)
@@ -92,7 +90,6 @@ class ClaudeFetcher(ClaudeSessionFetcher):
     """Records one list call plus N conversation details."""
 
     source = "claude"
-    noun = "conversations"
 
     def _list(self) -> list[dict[str, Any]]:
         return self._api("GET", "chat_conversations", endpoint="conversations").json()
