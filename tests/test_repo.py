@@ -37,6 +37,18 @@ def test_commit_no_changes(test_repo):
     assert test_repo.git.head.target == first_commit_id
 
 
+def test_remove_committed_note_is_gone_from_head(test_repo, make_note):
+    note = make_note("memory/claude/gone.md", "# Gone\n")
+    test_repo.save(note)
+    test_repo.commit("Add", auto_index=False)
+
+    test_repo.remove(note.repo_path.path)
+    test_repo.commit("Remove", auto_index=False)
+
+    assert not (test_repo.root / "memory/claude/gone.md").exists()
+    assert "memory" not in test_repo.git.head.peel().tree
+
+
 def test_commit_subsequent_changes(test_repo):
     """Test committing changes after initial commit."""
     note1 = Note(

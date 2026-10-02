@@ -452,6 +452,11 @@ class Commonplace:
             fd.write(note.content)
         self.git.index.add(note.repo_path.path.as_posix())
 
+    def remove(self, path: Path) -> None:
+        """Delete a file from the working directory and stage the deletion."""
+        (self.root / path).unlink()
+        self.git.index.remove(path.as_posix())
+
     def commit(self, message: str, auto_index: bool | None = None) -> None:
         """Commit staged changes to the repository.
 
