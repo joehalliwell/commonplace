@@ -30,7 +30,7 @@ def local_repo_with_remote(tmp_path, remote_repo):
     # Create initial commit
     note = Note(
         repo_path=RepoPath(path=Path("initial.md"), ref=""),
-        content="# Initial\nFirst note",
+        body="# Initial\nFirst note",
     )
     repo.save(note)
     repo.commit("Initial commit")
@@ -111,7 +111,7 @@ def test_sync_fast_forward(tmp_path, remote_repo):
 
     note = Note(
         repo_path=RepoPath(path=Path("test.md"), ref=""),
-        content="# Test",
+        body="# Test",
     )
     repo1.save(note)
     repo1.commit("Initial commit")
@@ -137,7 +137,7 @@ def test_sync_fast_forward(tmp_path, remote_repo):
     # Make a change in repo1 and push
     note2 = Note(
         repo_path=RepoPath(path=Path("test2.md"), ref=""),
-        content="# Test 2",
+        body="# Test 2",
     )
     repo1 = Commonplace.open(local1_path)
     repo1.save(note2)
@@ -179,7 +179,7 @@ def test_sync_with_custom_remote_name(tmp_path):
 
     note = Note(
         repo_path=RepoPath(path=Path("test.md"), ref=""),
-        content="# Test",
+        body="# Test",
     )
     repo.save(note)
     repo.commit("Initial commit")
@@ -204,7 +204,7 @@ def test_sync_merge_strategy(tmp_path, remote_repo):
 
     note = Note(
         repo_path=RepoPath(path=Path("test.md"), ref=""),
-        content="# Test",
+        body="# Test",
     )
     repo.save(note)
     repo.commit("Initial commit")

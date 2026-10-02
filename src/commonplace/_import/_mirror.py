@@ -11,7 +11,6 @@ from commonplace._import._types import MemoryImporter
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._types import Note
-from commonplace._utils import dump_frontmatter
 from commonplace._wire import read_header
 
 
@@ -46,7 +45,7 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
     provenance = {"source": importer.source, "source_exports": [repo.store_blob(path).path.as_posix()]}
     for relative, (metadata, body) in files.items():
         target = tree / relative
-        repo.save(Note(repo.make_repo_path(target), dump_frontmatter(metadata | provenance, body)))
+        repo.save(Note(repo.make_repo_path(target), body, metadata | provenance))
         logger.info(f"Mirrored '{target}'")
     for target in stale:
         repo.remove(target)

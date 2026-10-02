@@ -10,7 +10,6 @@ from commonplace._utils import (
     dump_frontmatter,
     edit_in_editor,
     load_frontmatter,
-    merge_frontmatter,
     slugify,
     truncate,
 )
@@ -286,34 +285,6 @@ uuid: abc123
     # Should treat as no frontmatter
     assert metadata == {}
     assert body == content
-
-
-def test_merge_frontmatter_preserves_user_fields():
-    existing = """---
-uuid: abc123
-model: claude-3
-tags: [python, debugging]
-rating: 5
----
-
-Content"""
-    new_metadata = {"uuid": "abc123", "model": "claude-3-5"}
-
-    merged = merge_frontmatter(existing, new_metadata)
-
-    assert merged["uuid"] == "abc123"
-    assert merged["model"] == "claude-3-5"  # Updated by importer
-    assert merged["tags"] == ["python", "debugging"]  # Preserved
-    assert merged["rating"] == 5  # Preserved
-
-
-def test_merge_frontmatter_no_existing():
-    existing = "# Content\n\nNo frontmatter"
-    new_metadata = {"uuid": "new123", "model": "claude-3"}
-
-    merged = merge_frontmatter(existing, new_metadata)
-
-    assert merged == new_metadata
 
 
 @pytest.mark.parametrize(

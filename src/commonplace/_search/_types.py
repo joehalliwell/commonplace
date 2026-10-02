@@ -38,7 +38,7 @@ class Chunk:
     """Section path (e.g. 'Meeting Notes / Action Items')"""
 
     offset: int
-    """Character offset in source"""
+    """Character offset in the note's body"""
 
 
 @dataclass

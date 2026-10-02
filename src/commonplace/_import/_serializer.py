@@ -6,7 +6,6 @@ import yaml
 from pydantic import BaseModel, Field
 
 from commonplace._import._types import EventLog, Message, Role, ToolCall
-from commonplace._utils import dump_frontmatter
 
 # An unclosed artifact runs to the end of its message.
 _ARTIFACT = re.compile(r"(?P<open><antArtifact\b[^>]*>)\n(?P<body>.*?)\n?(?:(?P<close></antArtifact>)|\Z)", re.DOTALL)
@@ -43,9 +42,9 @@ class MarkdownSerializer(BaseModel):
     wrap: int = Field(default=80, description="Target characters per line for text wrapping")
     inline_tool_output: bool = Field(default=True, description="If true, tool output will be included in full")
 
-    def serialize(self, log: EventLog, include_frontmatter=True) -> str:
+    def serialize(self, log: EventLog) -> str:
         """
-        Serializes an ActivityLog object to a Markdown string.
+        Serializes an ActivityLog object to the Markdown body of a note.
         """
 
         lines: list[str] = []
@@ -90,12 +89,11 @@ class MarkdownSerializer(BaseModel):
                 lines.append(f"```yaml\n{yaml_str}\n```")
 
         markdown = "\n".join(lines)
-        formatted = mdformat.text(
+        return mdformat.text(
             markdown,
             extensions=["gfm"],
             options={"wrap": self.wrap, "number": True, "validate": True},
         )
-        return dump_frontmatter(log.metadata, formatted) if include_frontmatter else formatted
 
     def _add_metadata(self, lines: list[str], metadata: dict[str, Any]) -> None:
         if not metadata:

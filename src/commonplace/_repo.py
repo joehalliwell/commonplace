@@ -16,6 +16,7 @@ from commonplace._config import DEFAULT_EDITOR, DEFAULT_NAME
 from commonplace._links import check_links, summarize
 from commonplace._logging import logger
 from commonplace._types import Note, Pathlike, RepoPath
+from commonplace._utils import dump_frontmatter, load_frontmatter
 
 _INIT_GIT_IGNORE = """
 # Commonplace
@@ -434,14 +435,14 @@ class Commonplace:
             repo_path: The repository path to fetch
 
         Returns:
-            Note object with content
+            Note object with its metadata and body
         """
         logger.debug(f"Fetching note at {repo_path}")
         abs_path = self.root / repo_path.path
 
         with open(abs_path) as fd:
-            content = fd.read()
-        return Note(repo_path=repo_path, content=content)
+            metadata, body = load_frontmatter(fd.read())
+        return Note(repo_path=repo_path, body=body, metadata=metadata)
 
     def save(self, note: Note) -> None:
         """Save a note to working directory and stage. Beware! This will overwrite
@@ -449,7 +450,7 @@ class Commonplace:
         abs_path = self.root / note.repo_path.path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         with open(abs_path, "w") as fd:
-            fd.write(note.content)
+            fd.write(dump_frontmatter(note.metadata, note.body))
         self.git.index.add(note.repo_path.path.as_posix())
 
     def remove(self, path: Path) -> None:

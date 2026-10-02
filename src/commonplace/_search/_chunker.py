@@ -41,7 +41,7 @@ class MarkdownChunker:
         Yields:
             Chunks extracted from the note, one per section
         """
-        lines = note.content.split("\n")
+        lines = note.body.split("\n")
         current_section: list[str] = []
         current_text: list[str] = []
         chunk_start_offset = 0

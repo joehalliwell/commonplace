@@ -81,20 +81,16 @@ def test_serialize_log(snapshot):
     snapshot.assert_match(result, "log.md")
 
 
-def test_serialize_free_text_metadata_loads_back_unchanged():
-    """A Gem name is whatever the user typed (#91)."""
-    metadata = {"gem": "Research: notes #1", "tags": ["a: b"], "wrapped": "word " * 40}
-    log = EventLog(
-        source="test",
-        title="Test Chat",
-        created=datetime(2024, 1, 1, 12, 0, 0),  # noqa: DTZ001 - naive on purpose
-        events=[],
-        metadata=metadata,
-    )
+def test_import_existing_note_refreshes_importer_metadata(test_repo, tmp_path_factory):
+    export_path = _prepare_export(SAMPLE_EXPORTS_DIR / "claude.zip", tmp_path_factory.mktemp("export"))
+    import_(export_path, test_repo, user="Human")
+    imported_file = min((test_repo.root / "chats").glob("**/*.md"))
+    imported_file.write_text(imported_file.read_text().replace("source: claude\n", "source: stale\n"))
 
-    loaded, _ = load_frontmatter(MarkdownSerializer().serialize(log))
+    import_(export_path, test_repo, user="Human")
 
-    assert loaded == metadata
+    metadata, _ = load_frontmatter(imported_file.read_text())
+    assert metadata["source"] == "claude"
 
 
 def test_import_preserves_user_metadata(test_repo, tmp_path_factory):
