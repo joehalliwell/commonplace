@@ -9,26 +9,18 @@ from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 
 
-def test_commit_initial_changes(test_repo):
+def test_commit_initial_changes(test_repo, make_note):
     """Test committing the first change to a new repository."""
-    note = Note(
-        repo_path=RepoPath(path=Path("test.md"), ref=""),
-        body="# Test\nHello world",
-    )
-    test_repo.save(note)
+    test_repo.save(make_note("test.md", "# Test\nHello world"))
     test_repo.commit("Initial commit")
 
     assert not test_repo.git.head_is_unborn
     assert test_repo.git.head.peel().message == "Initial commit"
 
 
-def test_commit_no_changes(test_repo):
+def test_commit_no_changes(test_repo, make_note):
     """Test that committing with no changes does nothing."""
-    note = Note(
-        repo_path=RepoPath(path=Path("test.md"), ref=""),
-        body="# Test\nHello world",
-    )
-    test_repo.save(note)
+    test_repo.save(make_note("test.md", "# Test\nHello world"))
     test_repo.commit("Initial commit")
 
     first_commit_id = test_repo.git.head.target
@@ -49,42 +41,26 @@ def test_remove_committed_note_is_gone_from_head(test_repo, make_note):
     assert "memory" not in test_repo.git.head.peel().tree
 
 
-def test_commit_subsequent_changes(test_repo):
+def test_commit_subsequent_changes(test_repo, make_note):
     """Test committing changes after initial commit."""
-    note1 = Note(
-        repo_path=RepoPath(path=Path("test1.md"), ref=""),
-        body="# Test 1\nFirst note",
-    )
-    test_repo.save(note1)
+    test_repo.save(make_note("test1.md", "# Test 1\nFirst note"))
     test_repo.commit("Initial commit")
     first_commit_id = test_repo.git.head.target
 
-    note2 = Note(
-        repo_path=RepoPath(path=Path("test2.md"), ref=""),
-        body="# Test 2\nSecond note",
-    )
-    test_repo.save(note2)
+    test_repo.save(make_note("test2.md", "# Test 2\nSecond note"))
     test_repo.commit("Add second note")
 
     assert test_repo.git.head.target != first_commit_id
     assert test_repo.git.head.peel().message == "Add second note"
 
 
-def test_commit_modified_file(test_repo):
+def test_commit_modified_file(test_repo, make_note):
     """Test committing modifications to an existing file."""
-    note = Note(
-        repo_path=RepoPath(path=Path("test.md"), ref=""),
-        body="# Test\nOriginal content",
-    )
-    test_repo.save(note)
+    test_repo.save(make_note("test.md", "# Test\nOriginal content"))
     test_repo.commit("Initial commit")
     first_commit_id = test_repo.git.head.target
 
-    modified_note = Note(
-        repo_path=RepoPath(path=Path("test.md"), ref=""),
-        body="# Test\nModified content",
-    )
-    test_repo.save(modified_note)
+    test_repo.save(make_note("test.md", "# Test\nModified content"))
     test_repo.commit("Update note")
 
     assert test_repo.git.head.target != first_commit_id
@@ -119,18 +95,18 @@ def test_load_file_opening_with_a_rule_is_all_body(test_repo):
     assert (test_repo.root / "test.md").read_text() == text
 
 
-def test_make_repo_path_follows_later_commits(test_repo):
+def test_make_repo_path_follows_later_commits(test_repo, make_note):
     """A note's ref tracks the commit that last modified it, even after HEAD moves on.
 
     The path -> commit map is cached, so this is really a test that the cache is keyed
     on HEAD: everything downstream (incremental indexing, pruning, hiding deleted hits
     from search) decides what is current by comparing refs.
     """
-    test_repo.save(Note(repo_path=RepoPath(path=Path("test.md"), ref=""), body="# Test\nOriginal content"))
+    test_repo.save(make_note("test.md", "# Test\nOriginal content"))
     test_repo.commit("Add note", auto_index=False)
     original = test_repo.make_repo_path("test.md")
 
-    test_repo.save(Note(repo_path=RepoPath(path=Path("test.md"), ref=""), body="# Test\nModified content"))
+    test_repo.save(make_note("test.md", "# Test\nModified content"))
     test_repo.commit("Update note", auto_index=False)
     modified = test_repo.make_repo_path("test.md")
 
@@ -138,10 +114,10 @@ def test_make_repo_path_follows_later_commits(test_repo):
     assert modified.ref == str(test_repo.git.head.target)
 
 
-def test_note_paths_commonplace_dir_excluded(test_repo):
+def test_note_paths_commonplace_dir_excluded(test_repo, make_note):
     """Skill-managed state under .commonplace/ is never a note."""
-    test_repo.save(Note(repo_path=RepoPath(path=Path("notes/idea.md"), ref=""), body="# Idea\n"))
-    test_repo.save(Note(repo_path=RepoPath(path=Path(".commonplace/skills/rake/chaff.md"), ref=""), body="# Chaff\n"))
+    test_repo.save(make_note("notes/idea.md", "# Idea\n"))
+    test_repo.save(make_note(".commonplace/skills/rake/chaff.md", "# Chaff\n"))
     test_repo.commit("Add notes", auto_index=False)
 
     assert [p.path for p in test_repo.note_paths()] == [Path("notes/idea.md")]
@@ -164,11 +140,11 @@ def test_paths_gitignored_files_excluded(test_repo):
     assert not [path for path in test_repo.paths() if path.parts[0] == "scratch"]
 
 
-def test_note_paths_dot_dirs_excluded(test_repo):
+def test_note_paths_dot_dirs_excluded(test_repo, make_note):
     """No dot-directory is descended, at any depth."""
-    test_repo.save(Note(repo_path=RepoPath(path=Path("notes/idea.md"), ref=""), body="# Idea\n"))
-    test_repo.save(Note(repo_path=RepoPath(path=Path(".claude/copy.md"), ref=""), body="# Copy\n"))
-    test_repo.save(Note(repo_path=RepoPath(path=Path("notes/.hidden/draft.md"), ref=""), body="# Draft\n"))
+    test_repo.save(make_note("notes/idea.md", "# Idea\n"))
+    test_repo.save(make_note(".claude/copy.md", "# Copy\n"))
+    test_repo.save(make_note("notes/.hidden/draft.md", "# Draft\n"))
     test_repo.commit("Add notes", auto_index=False)
 
     assert [p.path for p in test_repo.note_paths()] == [Path("notes/idea.md")]
@@ -184,24 +160,14 @@ def test_config_reads_repo_file(tmp_path, monkeypatch):
         assert repo.config.user == "Ada"
 
 
-def test_index_matches_head_after_commit(test_repo):
+def test_index_matches_head_after_commit(test_repo, make_note):
     """Test that index tree matches HEAD tree after commit (not previous HEAD)."""
     from pygit2.enums import ObjectType
 
-    # First commit
-    note1 = Note(
-        repo_path=RepoPath(path=Path("test.md"), ref=""),
-        body="# Test\nOriginal content",
-    )
-    test_repo.save(note1)
+    test_repo.save(make_note("test.md", "# Test\nOriginal content"))
     test_repo.commit("Initial commit")
 
-    # Second commit modifies the file
-    note2 = Note(
-        repo_path=RepoPath(path=Path("test.md"), ref=""),
-        body="# Test\nModified content",
-    )
-    test_repo.save(note2)
+    test_repo.save(make_note("test.md", "# Test\nModified content"))
     test_repo.commit("Update note")
 
     # Reload index from disk (simulates what happens in a new command/process)
