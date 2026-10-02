@@ -6,14 +6,12 @@ trajectory. Everything here is the same for every vendor.
 """
 
 from pathlib import Path, PurePosixPath
-from typing import Any
-
-import yaml
 
 from commonplace._import._types import MemoryImporter
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._types import Note
+from commonplace._utils import with_frontmatter
 from commonplace._wire import read_header
 
 
@@ -27,9 +25,9 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         return
 
     snapshot = importer.snapshot(path)
-    files = [f for f in snapshot.files if _inside(f.path)]
-    for refused in (f for f in snapshot.files if not _inside(f.path)):
-        logger.warning(f"Skipping file with unusable path '{refused.path}'")
+    files = {p: content for p, content in snapshot.files.items() if _inside(p)}
+    for refused in snapshot.files.keys() - files.keys():
+        logger.warning(f"Skipping file with unusable path '{refused}'")
 
     stale: list[Path] = []
     if snapshot.listed is None:
@@ -46,9 +44,9 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         return
 
     metadata = {"source": importer.source, "source_exports": [repo.store_blob(path).path.as_posix()]}
-    for file in files:
-        target = tree / file.path
-        repo.save(Note(repo.make_repo_path(target), _with_frontmatter(file.content, metadata | file.metadata)))
+    for relative, content in files.items():
+        target = tree / relative
+        repo.save(Note(repo.make_repo_path(target), with_frontmatter(content, metadata)))
         logger.info(f"Mirrored '{target}'")
     for target in stale:
         repo.remove(target)
@@ -60,14 +58,3 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
 def _inside(path: PurePosixPath) -> bool:
     """Whether a provider-supplied path stays inside the tree it is relative to."""
     return bool(path.parts) and not path.is_absolute() and ".." not in path.parts
-
-
-def _with_frontmatter(content: str, metadata: dict[str, Any]) -> str:
-    """Add `metadata` to the file's frontmatter textually, so its own lines and body stay byte-for-byte."""
-    added = yaml.safe_dump(metadata, sort_keys=False)
-    lines = content.split("\n")
-    if lines[0].strip() == "---":
-        for i, line in enumerate(lines[1:], start=1):
-            if line.strip() == "---":
-                return "\n".join(lines[:i]) + "\n" + added + "\n".join(lines[i:])
-    return f"---\n{added}---\n{content}"

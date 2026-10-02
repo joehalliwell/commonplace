@@ -68,10 +68,15 @@ def test_snapshot_example_archive_interprets_without_a_repo():
     snapshot = ClaudeMemoryImporter().snapshot(EXAMPLE)
 
     assert snapshot.listed == {PurePosixPath("topics/example.md")}
-    [file] = snapshot.files
-    assert file.path == PurePosixPath("topics/example.md")
-    assert file.content.endswith("Prefers tea. See [[other]].")
-    assert file.metadata == {
+    [(path, content)] = snapshot.files.items()
+    assert path == PurePosixPath("topics/example.md")
+    metadata, body = parse_frontmatter(content)
+    assert body == "- [stated] Prefers tea. See [[other]]."
+    assert metadata == {
+        "name": "example",
+        "description": "A synthetic memory",
+        "sources": ["backfill"],
+        "aliases": [],
         "category_id": "topics",
         "version": "a1b2c3d4e5f6",
         "updated_at": "2026-09-30T10:00:00.123456Z",

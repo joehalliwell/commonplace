@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path, PurePosixPath
@@ -58,20 +58,11 @@ class EventLog(BaseModel):
 
 
 @dataclass(frozen=True)
-class MirroredFile:
-    """One upstream file as the provider sent it, with whatever provenance the provider attached."""
-
-    #: Relative to the importer's `tree`.
-    path: PurePosixPath
-    content: str
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
 class Snapshot:
     """What one capture says about upstream state: the files it read, and every path that existed."""
 
-    files: list[MirroredFile]
+    #: Content by path relative to the importer's `tree`, the provider's provenance already in its frontmatter.
+    files: dict[PurePosixPath, str]
     #: The complete upstream listing, or `None` if the capture has none — in which case absence proves nothing.
     listed: set[PurePosixPath] | None
 

@@ -6,7 +6,8 @@ import json
 from pathlib import Path, PurePosixPath
 
 from commonplace._import._base import BaseWireImporter
-from commonplace._import._types import MirroredFile, Snapshot
+from commonplace._import._types import Snapshot
+from commonplace._utils import with_frontmatter
 from commonplace._wire import read_entries
 
 #: Fields of a `read` response carried into frontmatter.
@@ -18,7 +19,7 @@ class ClaudeMemoryImporter(BaseWireImporter):
     tree: Path = Path("memory") / "claude"
 
     def snapshot(self, path: Path) -> Snapshot:
-        files: list[MirroredFile] = []
+        files: dict[PurePosixPath, str] = {}
         listed: set[PurePosixPath] | None = None
         for entry in read_entries(path):
             response = json.loads(entry["response"])
@@ -27,7 +28,7 @@ class ClaudeMemoryImporter(BaseWireImporter):
             elif entry.get("endpoint") == "read":
                 metadata = {k: response[k] for k in PROVENANCE_KEYS if response.get(k) is not None}
                 # `content`, not `parsed`: the latter is the provider's reading of the file.
-                files.append(MirroredFile(_relative(response["path"]), response["content"], metadata))
+                files[_relative(response["path"])] = with_frontmatter(response["content"], metadata)
         return Snapshot(files, listed)
 
 
