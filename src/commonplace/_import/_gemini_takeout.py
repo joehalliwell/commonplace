@@ -65,7 +65,8 @@ class GeminiTakeoutImporter:
             messages.extend(self._parse_cell(cell))
         logger.info(f"Parsed {len(messages)} messages")
 
-        # Sort and group messages into day logs
+        # Sort and group messages into day logs. The days are UTC days, so a prompt just after local
+        # midnight files under the day before. Known and left: this importer is vestigial.
         logs_by_date = defaultdict(list)
         for message in sorted(messages, key=lambda m: m.created):
             date_key = message.created.date()
