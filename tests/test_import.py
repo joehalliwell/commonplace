@@ -140,20 +140,6 @@ def claude_export(tmp_path_factory):
     return _prepare_export(SAMPLE_EXPORTS_DIR / "claude.zip", tmp_path_factory.mktemp("export"))
 
 
-@pytest.fixture
-def index_spy(monkeypatch):
-    """Mock the index function and return a list that records calls."""
-    calls = []
-
-    def mock_index(repo, rebuild):
-        calls.append((repo, rebuild))
-
-    import commonplace._search._commands
-
-    monkeypatch.setattr(commonplace._search._commands, "index", mock_index)
-    return calls
-
-
 def test_import_no_index_skips_indexing(test_repo, index_spy, claude_export):
     """Test that import with auto_index=False does not trigger indexing."""
     import_(claude_export, test_repo, user="Human", auto_index=False)

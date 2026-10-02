@@ -53,6 +53,14 @@ def make_chunk():
 
 
 @pytest.fixture
+def index_spy(monkeypatch):
+    """Replace indexing with a list recording each `(repo, rebuild)` call."""
+    calls: list[tuple[Commonplace, bool]] = []
+    monkeypatch.setattr("commonplace._search._commands.index", lambda repo, rebuild: calls.append((repo, rebuild)))
+    return calls
+
+
+@pytest.fixture
 def claims():
     """`can_import` as `autodetect_importer` sees it: an importer probing a format it doesn't handle may raise."""
 
