@@ -3,13 +3,17 @@ import shutil
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from zipfile import BadZipFile
 
 import pytest
 
+from commonplace._import._chatgpt import ChatGptImporter
 from commonplace._import._claude_export import ClaudeExportImporter
 from commonplace._import._commands import import_
+from commonplace._import._gemini_takeout import GeminiTakeoutImporter
 from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import EventLog, Message, Role
+from commonplace._import._zip import zip_contains
 from commonplace._utils import load_frontmatter
 
 SAMPLE_EXPORTS_DIR = Path(__file__).parent / "resources" / "sample-exports"
@@ -180,6 +184,30 @@ def test_can_import_a_stored_conversations_blob():
 def test_import_a_stored_conversations_blob_yields_logs():
     """The conversations file holds all the importer reads; the zip around it was only packaging."""
     assert ClaudeExportImporter().import_(CLAUDE_CONVERSATIONS)
+
+
+ZIP_IMPORTERS = {
+    "chatgpt.zip": ChatGptImporter,
+    "claude.zip": ClaudeExportImporter,
+    "gemini-takeout.zip": GeminiTakeoutImporter,
+}
+
+
+@pytest.mark.parametrize("claimed", ZIP_IMPORTERS)
+@pytest.mark.parametrize("importer_class", ZIP_IMPORTERS.values(), ids=lambda c: c.__name__)
+def test_zip_importer_claims_only_its_own_export(importer_class, claimed, tmp_path, claims):
+    export = _prepare_export(SAMPLE_EXPORTS_DIR / claimed, tmp_path)
+
+    assert claims(importer_class(), export) == (ZIP_IMPORTERS[claimed] is importer_class)
+
+
+def test_zip_contains_file_that_is_not_a_zip_raises(tmp_path):
+    """Raising is how a probe says "not mine": autodetect treats any exception as a decline."""
+    path = tmp_path / "export.zip"
+    path.write_text("not a zip")
+
+    with pytest.raises(BadZipFile):
+        zip_contains(path, "conversations.json")
 
 
 def test_claude_importer_declines_a_chatgpt_conversations_file(tmp_path):

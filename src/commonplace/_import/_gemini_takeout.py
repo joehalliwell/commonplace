@@ -1,7 +1,6 @@
 import re
 from collections import defaultdict
 from collections.abc import Iterable
-from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from zipfile import ZipFile
@@ -13,6 +12,7 @@ from dateutil.tz import gettz
 from html_to_markdown import convert_to_markdown
 
 from commonplace._import._types import EventLog, Message, Role
+from commonplace._import._zip import zip_contains
 from commonplace._logging import logger
 from commonplace._progress import track
 
@@ -40,9 +40,7 @@ class GeminiTakeoutImporter:
     def can_import(self, path: Path) -> bool:
         """Check if the importer can potentially handle the given file path. It
         zip file with the expected path structure."""
-        with closing(ZipFile(path, "r")) as zip_file:
-            # Check if the expected path exists in the zip file
-            return _HTML_PATH in zip_file.namelist()
+        return zip_contains(path, *self.required_paths())
 
     def import_(self, path: Path) -> list[EventLog]:
         """Import activity logs from the Gemini file."""
