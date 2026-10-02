@@ -8,7 +8,6 @@ import httpx
 
 from commonplace._fetch._base import BaseFetcher
 from commonplace._logging import logger
-from commonplace._progress import track
 
 
 def _provenance(r: httpx.Response) -> dict[str, str]:
@@ -46,15 +45,9 @@ class ClaudeSessionFetcher(BaseFetcher):
         with self._session(cookies):
             items = self._list()
             fresh = [i for i in items if since is None or datetime.fromisoformat(i["updated_at"]) > since]
-            logger.info(f"{len(fresh)}/{len(items)} new since {since or 'beginning'}")
+            self._read_fresh(fresh, since, self._read)
 
-            if not fresh and not self.archive_when_unchanged:
-                return None
-
-            for item in track(fresh, f"Fetching {self.source}"):
-                self._read(item)
-
-        return self._write_archive(destination)
+        return self._write_archive(destination) if fresh or self.archive_when_unchanged else None
 
     def _list(self) -> list[dict[str, Any]]:
         """Record the listing and return its items, each carrying `updated_at`."""

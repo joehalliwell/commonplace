@@ -22,8 +22,9 @@ shared implementation, not a type. A fetcher that has no use for it can satisfy
 the Protocol without inheriting.
 """
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -37,6 +38,8 @@ from commonplace._fetch._helpers import (
     read_chrome_cookies,
     request_with_retry,
 )
+from commonplace._logging import logger
+from commonplace._progress import track
 from commonplace._wire import write_archive
 
 ACCEPT_LANGUAGE = "en-GB,en;q=0.9"
@@ -142,6 +145,14 @@ class BaseFetcher:
 
     def _get(self, url: str, **kwargs: Any) -> httpx.Response:
         return self._request("GET", url, **kwargs)
+
+    def _read_fresh[T](self, fresh: Sequence[T], since: datetime | None, read: Callable[[T], object]) -> None:
+        """Say how much is new since the cursor, then `read` each item behind a progress bar."""
+        logger.info(f"{len(fresh)} new since {since or 'beginning'}")
+        if not fresh:
+            return
+        for item in track(fresh, f"Fetching {self.source}"):
+            read(item)
 
     def _log(self, **entry: Any) -> None:
         """Record one provider response verbatim. Fetchers interpret nothing;

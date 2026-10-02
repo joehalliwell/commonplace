@@ -16,7 +16,6 @@ from typing import ClassVar
 from commonplace._fetch._base import BaseFetcher
 from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso_dt
 from commonplace._logging import logger
-from commonplace._progress import track
 
 INIT_URL = "https://gemini.google.com/app"
 BATCH_URL = "https://gemini.google.com/_/BardChatUi/data/batchexecute"
@@ -55,16 +54,12 @@ class GeminiFetcher(BaseFetcher):
 
             # Walk list_chats pages to find fresh cids. Full parse of each chat
             # happens in the importer against the same wire we're logging here.
-            fresh_cids = list(self._list_fresh_cids(since))
-            logger.info(f"{len(fresh_cids)} conversations new since {since or 'beginning'}")
+            fresh = list(self._list_fresh_cids(since))
+            self._read_fresh(
+                fresh, since, lambda cid: self._call_rpc(RPC_READ_CHAT, [cid, 1000, None, 1, [1], [4], None, 1])
+            )
 
-            if not fresh_cids:
-                return None
-
-            for cid in track(fresh_cids, "Fetching conversations"):
-                self._call_rpc(RPC_READ_CHAT, [cid, 1000, None, 1, [1], [4], None, 1])
-
-        return self._write_archive(destination)
+        return self._write_archive(destination) if fresh else None
 
     def _read_session_tokens(self) -> None:
         """Scrape SNlM0e (access token), cfb2h (build label), and FdrFJe

@@ -6,7 +6,6 @@ from typing import Any, ClassVar
 
 from commonplace._fetch._base import BaseFetcher
 from commonplace._logging import logger
-from commonplace._progress import track
 
 SESSION_URL = "https://chatgpt.com/api/auth/session"
 LIST_URL = "https://chatgpt.com/backend-api/conversations"
@@ -51,15 +50,9 @@ class ChatGptFetcher(BaseFetcher):
             client.headers["Authorization"] = f"Bearer {self._read_access_token()}"
 
             fresh = list(self._list_fresh_ids(since))
-            logger.info(f"{len(fresh)} conversations new since {since or 'beginning'}")
+            self._read_fresh(fresh, since, self._fetch_detail)
 
-            if not fresh:
-                return None
-
-            for cid in track(fresh, "Fetching conversations"):
-                self._fetch_detail(cid)
-
-        return self._write_archive(destination)
+        return self._write_archive(destination) if fresh else None
 
     def _read_access_token(self) -> str:
         """Trade the session cookie for the bearer token `backend-api` wants.
