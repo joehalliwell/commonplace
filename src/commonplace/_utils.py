@@ -187,7 +187,8 @@ def merge_frontmatter(existing_content: str, new_metadata: dict) -> dict:
 
 def dump_frontmatter(metadata: dict, body: str) -> str:
     """Markdown content from its parts: the inverse of `load_frontmatter`."""
-    return f"---\n{yaml.safe_dump(metadata, sort_keys=False, allow_unicode=True)}---\n{body}"
+    dumped = yaml.safe_dump(metadata, sort_keys=False, allow_unicode=True, width=float("inf"))
+    return f"---\n{dumped}---\n{body}"
 
 
 def sniff_gzipped_jsonl(path: Path) -> dict | None:

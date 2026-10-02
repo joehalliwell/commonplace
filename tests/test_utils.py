@@ -339,5 +339,12 @@ def test_dump_frontmatter_awkward_value_loads_back_unchanged(value):
     assert load_frontmatter(dump_frontmatter(metadata, body)) == (metadata, body)
 
 
+def test_dump_frontmatter_long_path_stays_on_one_line():
+    """A folded path cannot be found by searching for it."""
+    path = f".commonplace/blobs/{'0' * 64}/My Activity.html"
+
+    assert path in dump_frontmatter({"source_exports": [path]}, "")
+
+
 def test_dump_frontmatter_no_metadata_loads_back_unchanged():
     assert load_frontmatter(dump_frontmatter({}, "Body\n")) == ({}, "Body\n")

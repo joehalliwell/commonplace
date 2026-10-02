@@ -2,7 +2,9 @@
 ---
 id: 038fd537-ef57-4f71-8ce1-8e27aa2c61bb
 source: chatgpt
-source_exports: [.commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json, .commonplace/blobs/971a918d499d6e369dbc58850d5549139b6a02ae6a331671c2b179dd7cd7e4fd/user.json]
+source_exports:
+- .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json
+- .commonplace/blobs/971a918d499d6e369dbc58850d5549139b6a02ae6a331671c2b179dd7cd7e4fd/user.json
 ---
 
 # Big Numbers Summed [created:: 2024-02-27T13:35:45+00:00]
@@ -23,7 +25,9 @@ astronomically correct!
 ---
 id: 2cd72c1e-7631-44c7-b072-5273f45af955
 source: chatgpt
-source_exports: [.commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json, .commonplace/blobs/971a918d499d6e369dbc58850d5549139b6a02ae6a331671c2b179dd7cd7e4fd/user.json]
+source_exports:
+- .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json
+- .commonplace/blobs/971a918d499d6e369dbc58850d5549139b6a02ae6a331671c2b179dd7cd7e4fd/user.json
 ---
 
 # Conventual Life for Nuns [created:: 2024-03-06T07:47:29+00:00]
@@ -83,7 +87,9 @@ broader notions of purity and dedication.
 ---
 id: 67eb115c-ee28-8001-adbb-d8986cb6793b
 source: chatgpt
-source_exports: [.commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json, .commonplace/blobs/971a918d499d6e369dbc58850d5549139b6a02ae6a331671c2b179dd7cd7e4fd/user.json]
+source_exports:
+- .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json
+- .commonplace/blobs/971a918d499d6e369dbc58850d5549139b6a02ae6a331671c2b179dd7cd7e4fd/user.json
 ---
 
 # Ghibli-style Illustration Request [created:: 2025-03-31T22:04:13+00:00]

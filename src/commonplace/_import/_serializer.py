@@ -6,6 +6,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from commonplace._import._types import EventLog, Message, Role, ToolCall
+from commonplace._utils import dump_frontmatter
 
 # An unclosed artifact runs to the end of its message.
 _ARTIFACT = re.compile(r"(?P<open><antArtifact\b[^>]*>)\n(?P<body>.*?)\n?(?:(?P<close></antArtifact>)|\Z)", re.DOTALL)
@@ -48,9 +49,6 @@ class MarkdownSerializer(BaseModel):
         """
 
         lines: list[str] = []
-        if include_frontmatter:
-            self._add_metadata(lines, log.metadata)
-
         title = log.title or "Conversation"
         self._add_header(
             lines,
@@ -68,7 +66,7 @@ class MarkdownSerializer(BaseModel):
                     level=2,
                     created=event.created.isoformat(timespec=self.timespec),
                 )
-                self._add_metadata(lines, event.metadata, frontmatter=False)
+                self._add_metadata(lines, event.metadata)
 
                 lines.append(_fence_artifacts(event.content))
                 lines.append("")
@@ -94,22 +92,20 @@ class MarkdownSerializer(BaseModel):
         markdown = "\n".join(lines)
         formatted = mdformat.text(
             markdown,
-            extensions=[
-                "frontmatter",
-                "gfm",
-            ],
+            extensions=["gfm"],
             options={"wrap": self.wrap, "number": True, "validate": True},
         )
+        if include_frontmatter and log.metadata:
+            return dump_frontmatter(log.metadata, f"\n{formatted}")
         return formatted
 
-    def _add_metadata(self, lines: list[str], metadata: dict[str, Any], frontmatter: bool = True) -> None:
+    def _add_metadata(self, lines: list[str], metadata: dict[str, Any]) -> None:
         if not metadata:
             return
-        start, end = ("---", "---") if frontmatter else ("```yaml", "```")
-        lines.append(start)
+        lines.append("```yaml")
         for k, v in metadata.items():
             lines.append(f"{k}: {v}")
-        lines.append(end)
+        lines.append("```")
         lines.append("")
 
     def _add_header(self, lines: list[str], text: str, level: int = 1, **kwargs) -> None:

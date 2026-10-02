@@ -10,6 +10,7 @@ from commonplace._import._claude_export import ClaudeExportImporter
 from commonplace._import._commands import import_
 from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import EventLog, Message, Role
+from commonplace._utils import load_frontmatter
 
 SAMPLE_EXPORTS_DIR = Path(__file__).parent / "resources" / "sample-exports"
 SAMPLE_EXPORT_NAMES = [p.name for p in SAMPLE_EXPORTS_DIR.glob("*")]
@@ -80,6 +81,22 @@ def test_serialize_log(snapshot):
     snapshot.assert_match(result, "log.md")
 
 
+def test_serialize_free_text_metadata_loads_back_unchanged():
+    """A Gem name is whatever the user typed (#91)."""
+    metadata = {"gem": "Research: notes #1", "tags": ["a: b"], "wrapped": "word " * 40}
+    log = EventLog(
+        source="test",
+        title="Test Chat",
+        created=datetime(2024, 1, 1, 12, 0, 0),  # noqa: DTZ001 - naive on purpose
+        events=[],
+        metadata=metadata,
+    )
+
+    loaded, _ = load_frontmatter(MarkdownSerializer().serialize(log))
+
+    assert loaded == metadata
+
+
 def test_import_preserves_user_metadata(test_repo, tmp_path_factory):
     """Test that re-importing preserves user-added metadata."""
     from commonplace._import._commands import import_
@@ -108,8 +125,6 @@ def test_import_preserves_user_metadata(test_repo, tmp_path_factory):
     import_(export_path, test_repo, user="Human")
 
     # Verify user metadata was preserved
-    from commonplace._utils import load_frontmatter
-
     final_content = imported_file.read_text()
     final_metadata, _ = load_frontmatter(final_content)
 
