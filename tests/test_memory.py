@@ -71,7 +71,7 @@ def test_snapshot_example_archive_interprets_without_a_repo():
     [(path, content)] = snapshot.files.items()
     assert path == PurePosixPath("topics/example.md")
     metadata, body = parse_frontmatter(content)
-    assert body == "- [stated] Prefers tea. See [[other]]."
+    assert body == "# Example\n\n- [stated] Prefers tea. See [[other]]."
     assert metadata == {
         "name": "example",
         "description": "A synthetic memory",
@@ -81,6 +81,32 @@ def test_snapshot_example_archive_interprets_without_a_repo():
         "version": "a1b2c3d4e5f6",
         "updated_at": "2026-09-30T10:00:00.123456Z",
     }
+
+
+def _snapshot_of(tmp_path: Path, read: dict) -> str:
+    """The content a snapshot holds for a single `read` response."""
+    entries = [{"endpoint": "read", "path": read["path"], "response": json.dumps(read)}]
+    archive = write_archive(tmp_path / "claude-memory-wire.jsonl.gz", "claude-memory", entries)
+    [content] = ClaudeMemoryImporter().snapshot(archive).files.values()
+    return content
+
+
+def test_snapshot_display_name_becomes_the_title_above_a_verbatim_body(tmp_path):
+    read = {"path": "/a.md", "display_name": "AI Research", "content": "---\nname: ai-research\n---\n## Notes\n- one"}
+
+    assert _snapshot_of(tmp_path, read) == "---\nname: ai-research\n---\n# AI Research\n\n## Notes\n- one"
+
+
+def test_snapshot_display_name_titles_a_file_without_frontmatter(tmp_path):
+    read = {"path": "/a.md", "display_name": "Plain", "content": "Just a line.\n"}
+
+    assert _snapshot_of(tmp_path, read) == "# Plain\n\nJust a line.\n"
+
+
+def test_snapshot_body_that_already_has_a_title_is_left_alone(tmp_path):
+    content = "---\nname: a\n---\n\n# Its own title\n\nBody."
+
+    assert _snapshot_of(tmp_path, {"path": "/a.md", "display_name": "Other", "content": content}) == content
 
 
 def test_snapshot_archive_without_listing_has_no_listed_set(tmp_path):
@@ -112,7 +138,7 @@ def test_mirror_example_archive_adds_provenance_frontmatter(test_repo):
     _mirror(test_repo, EXAMPLE)
 
     metadata, body = parse_frontmatter((test_repo.root / "memory/claude/topics/example.md").read_text())
-    assert body == "- [stated] Prefers tea. See [[other]]."
+    assert body == "# Example\n\n- [stated] Prefers tea. See [[other]]."
     assert metadata["sources"] == ["backfill"]
     assert metadata["source"] == "claude-memory"
     assert metadata["category_id"] == "topics"

@@ -98,7 +98,8 @@ doesn't have. Claude's gets slightly less than the manual export: the endpoint
 strips `<antThinking>` blocks server-side (issue #6).
 
 A fourth source, `claude-memory`, mirrors claude.ai's file-based memory into
-`memory/claude/`, each file at the path and with the body claude.ai gives it.
+`memory/claude/`, each file at the path claude.ai gives it, its body unchanged
+under a title taken from the name claude.ai displays.
 It is a mirror rather than an import: a memory deleted upstream is deleted
 here on the next fetch, and git history keeps what it used to say. Memory is
 materially more personal than chat logs — think before syncing it to a remote,

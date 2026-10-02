@@ -28,8 +28,21 @@ class ClaudeMemoryImporter(BaseWireImporter):
             elif entry.get("endpoint") == "read":
                 metadata = {k: response[k] for k in PROVENANCE_KEYS if response.get(k) is not None}
                 # `content`, not `parsed`: the latter is the provider's reading of the file.
-                files[_relative(response["path"])] = with_frontmatter(response["content"], metadata)
+                content = _with_title(response["content"], response.get("display_name"))
+                files[_relative(response["path"])] = with_frontmatter(content, metadata)
         return Snapshot(files, listed)
+
+
+def _with_title(content: str, title: str | None) -> str:
+    """Head the body with `title`, the provider's name for the file, unless it already opens with a heading of its own."""
+    lines = content.split("\n")
+    start = 0
+    if lines[0].strip() == "---":
+        start = next((i + 1 for i, line in enumerate(lines[1:], start=1) if line.strip() == "---"), 0)
+    opening = next((line for line in lines[start:] if line.strip()), "")
+    if not title or opening.startswith("# "):
+        return content
+    return "\n".join([*lines[:start], f"# {title}", "", *lines[start:]])
 
 
 def _relative(path: str) -> PurePosixPath:
