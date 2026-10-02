@@ -402,7 +402,7 @@ class Commonplace:
         parts = repo_path.path.parts
         if len(parts) < 2:
             return "misc"
-        if parts[0] == "chats":
+        if parts[0] in ("chats", "memory"):
             return "/".join(parts[:2])
         return parts[0]
 

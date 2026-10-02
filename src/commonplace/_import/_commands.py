@@ -12,6 +12,7 @@ from commonplace._import._claude_code import ClaudeCodeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
 from commonplace._import._gemini import GeminiImporter
 from commonplace._import._gemini_takeout import GeminiTakeoutImporter
+from commonplace._import._memory import MIRRORED, mirror_
 from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import Importer
 from commonplace._logging import logger
@@ -19,6 +20,7 @@ from commonplace._progress import track
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import merge_frontmatter, slugify
+from commonplace._wire import read_header
 
 IMPORTERS: list[Importer] = [
     GeminiTakeoutImporter(),
@@ -75,6 +77,11 @@ def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_in
     - Fields provided by the importer will be updated with new values
     - User-added fields (not in importer metadata) will be preserved
     """
+    # Memory is mirrored, not imported: it has no turns for an EventLog to hold.
+    if read_header(path).source in MIRRORED:
+        mirror_(path, repo, auto_index=auto_index)
+        return
+
     importer = autodetect_importer(path)
     if not importer:
         logger.debug(f"Skipping {path}")

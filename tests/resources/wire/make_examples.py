@@ -68,14 +68,62 @@ ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
 }
 
 
+# Synthetic: real memory is personal and this directory is public.
+MEMORY_LISTED = {
+    "path": "/topics/example.md",
+    "size_bytes": 96,
+    "updated_at": "2026-09-30T10:00:00Z",
+    "memory_id": "mem_example",
+    "display_name": "Example",
+    "category_id": "topics",
+    "display_path_segments": ["Topics", "Example"],
+    "description": "A synthetic memory",
+}
+MEMORY_CONTENT = "---\nname: Example\ndescription: A synthetic memory\n---\n\nPrefers tea. See [[other]].\n"
+MEMORY_READ = MEMORY_LISTED | {
+    "memory_id": "",
+    "content": MEMORY_CONTENT,
+    "version": "a1b2c3",
+    "path_segments": ["topics", "example.md"],
+    "parsed": {"name": "Example", "description": "A synthetic memory", "metadata": {}, "body": ""},
+}
+MEMORY_CATEGORIES = [{"id": "topics", "display_name": "Topics", "sort_order": 0, "behavior_hint": None}]
+
+#: The memory wire first appeared at v3, so it has no earlier examples.
+MEMORY_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
+    3: (
+        {
+            "wire": "claude-memory",
+            "version": 3,
+            "fetched_at": "2026-10-02T12:00:00+00:00",
+            "fetched_by": "commonplace/0.0.5",
+        },
+        [
+            {
+                "endpoint": "list",
+                "request_id": "req_011example3",
+                "response": json.dumps({"data": [MEMORY_LISTED], "categories": MEMORY_CATEGORIES}),
+            },
+            {
+                "endpoint": "read",
+                "path": "/topics/example.md",
+                "request_id": "req_011example4",
+                "response": json.dumps(MEMORY_READ),
+            },
+        ],
+    ),
+}
+
+
 def main() -> None:
-    for version, (header, entries) in ARCHIVES.items():
-        lines = [] if header is None else [json.dumps(header)]
-        lines += [json.dumps(entry, ensure_ascii=False) for entry in entries]
-        body = "".join(line + "\n" for line in lines)
-        path = OUT / f"claude-v{version}.jsonl.gz"
-        path.write_bytes(gzip.compress(body.encode("utf-8"), mtime=0))
-        print(f"wrote {path.relative_to(Path.cwd())}")
+    for source, archives in (("claude", ARCHIVES), ("claude-memory", MEMORY_ARCHIVES)):
+        for version, (header, entries) in archives.items():
+            lines = [] if header is None else [json.dumps(header)]
+            lines += [json.dumps(entry, ensure_ascii=False) for entry in entries]
+            body = "".join(line + "\n" for line in lines)
+            path = OUT / f"{source}-v{version}.jsonl.gz"
+            path.write_bytes(gzip.compress(body.encode("utf-8"), mtime=0))
+            print(f"wrote {path.relative_to(Path.cwd())}")
 
 
 if __name__ == "__main__":
