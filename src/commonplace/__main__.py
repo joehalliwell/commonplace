@@ -39,6 +39,10 @@ Sources: TypeAlias = Annotated[  # noqa: UP040
         show_default=False,
     ),
 ]
+Index: TypeAlias = Annotated[  # noqa: UP040
+    bool | None,
+    Parameter(help="Index notes after commit (default: from config)"),
+]
 
 
 @app.meta.default
@@ -105,10 +109,7 @@ CREATING_SECTION = "Creating notes"
 def import_(
     path: Path,
     *,
-    index: Annotated[
-        bool | None,
-        Parameter(help="Index notes after commit (default: from config)"),
-    ] = None,
+    index: Index = None,
     repo: Repo,
 ) -> None:
     """Import AI conversation exports (Claude ZIP, Gemini Takeout) into your commonplace."""
@@ -129,10 +130,7 @@ def fetch(
             negative="",
         ),
     ] = False,
-    index: Annotated[
-        bool | None,
-        Parameter(help="Index notes after commit (default: from config)"),
-    ] = None,
+    index: Index = None,
     sources: Sources = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
     repo: Repo,
 ) -> None:
@@ -147,10 +145,7 @@ def fetch(
 def journal(
     date_str: Annotated[str | None, Parameter(help="Date for the journal entry (YYYY-MM-DD)")] = None,
     *,
-    index: Annotated[
-        bool | None,
-        Parameter(help="Index notes after commit (default: from config)"),
-    ] = None,
+    index: Index = None,
     repo: Repo,
 ) -> None:
     """Create or edit a daily journal entry."""
