@@ -7,9 +7,9 @@ from pathlib import Path, PurePosixPath
 
 import pytest
 
-from commonplace._import._claude_memory import ClaudeMemoryMirror
+from commonplace._import._claude_memory import ClaudeMemoryImporter
 from commonplace._import._commands import IMPORTERS, autodetect_importer, import_, landing_tree
-from commonplace._import._types import Importer, Mirror
+from commonplace._import._types import ChatImporter, MemoryImporter
 from commonplace._utils import parse_frontmatter
 from commonplace._wire import write_archive
 
@@ -44,28 +44,28 @@ def _blobs(repo) -> set[Path]:
 
 
 # ---------------------------------------------------------------------------
-# The contract: a Mirror is claimed like an Importer but interprets differently.
+# The contract: a MemoryImporter is claimed like a ChatImporter but interprets differently.
 # ---------------------------------------------------------------------------
 
 
-def test_claude_memory_mirror_is_a_mirror_not_an_importer():
-    mirror = ClaudeMemoryMirror()
+def test_claude_memory_importer_is_a_memory_importer_not_a_chat_importer():
+    importer = ClaudeMemoryImporter()
 
-    assert isinstance(mirror, Mirror)
-    assert not isinstance(mirror, Importer)
-
-
-def test_every_registered_claimant_is_exactly_one_kind():
-    for claimant in IMPORTERS:
-        assert isinstance(claimant, Importer) != isinstance(claimant, Mirror), claimant.source
+    assert isinstance(importer, MemoryImporter)
+    assert not isinstance(importer, ChatImporter)
 
 
-def test_autodetect_example_archive_finds_the_mirror():
-    assert isinstance(autodetect_importer(EXAMPLE), ClaudeMemoryMirror)
+def test_every_registered_importer_is_exactly_one_kind():
+    for importer in IMPORTERS:
+        assert isinstance(importer, ChatImporter) != isinstance(importer, MemoryImporter), importer.source
+
+
+def test_autodetect_example_archive_finds_the_memory_importer():
+    assert isinstance(autodetect_importer(EXAMPLE), ClaudeMemoryImporter)
 
 
 def test_snapshot_example_archive_interprets_without_a_repo():
-    snapshot = ClaudeMemoryMirror().snapshot(EXAMPLE)
+    snapshot = ClaudeMemoryImporter().snapshot(EXAMPLE)
 
     assert snapshot.listed == {PurePosixPath("topics/example.md")}
     [file] = snapshot.files
@@ -81,10 +81,10 @@ def test_snapshot_example_archive_interprets_without_a_repo():
 def test_snapshot_archive_without_listing_has_no_listed_set(tmp_path):
     archive = write_archive(tmp_path / "claude-memory-wire.jsonl.gz", "claude-memory", _entries({"/b.md": "b\n"})[1:])
 
-    assert ClaudeMemoryMirror().snapshot(archive).listed is None
+    assert ClaudeMemoryImporter().snapshot(archive).listed is None
 
 
-def test_landing_tree_mirror_lands_in_its_own_tree():
+def test_landing_tree_memory_source_lands_in_its_own_tree():
     assert landing_tree("claude-memory") == Path("memory/claude")
 
 

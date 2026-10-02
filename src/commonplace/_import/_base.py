@@ -1,12 +1,13 @@
-"""Shared plumbing for importers and mirrors that consume a fetcher's wire archive.
+"""Shared plumbing for importers that consume a fetcher's wire archive.
 
-The archive is the seam between a Fetcher and its paired Importer or Mirror (see
+The archive is the seam between a Fetcher and its paired Importer (see
 [[commonplace._wire]]), and it names its own provider in the header. So
 claiming one is the same operation for every provider: read the header,
 compare. Only the headerless v1 case needs provider knowledge, and only for
 providers that existed to write one.
 
-[[commonplace._import._types.Importer]] remains the contract. Importers that
+[[commonplace._import._types.ChatImporter]] and its `MemoryImporter` sibling
+remain the contracts. Importers that
 consume something other than a wire archive — export ZIPs, Takeout, Claude
 Code — satisfy that Protocol directly and have no business here: they identify
 themselves by archive contents, and several of them do declare

@@ -54,7 +54,7 @@ class BaseFetcher:
     fetcher discovers cookies from Chrome and uses the real network. Tests
     inject fakes for both."""
 
-    #: Source key: names the archive and `--source`, and pairs it with an Importer or Mirror.
+    #: Source key: names the archive and `--source`, and pairs it with an Importer.
     source: str
     #: Cookie domain to read from Chrome.
     cookie_domain: str

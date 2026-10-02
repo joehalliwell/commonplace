@@ -61,7 +61,7 @@ class EventLog(BaseModel):
 class MirroredFile:
     """One upstream file as the provider sent it, with whatever provenance the provider attached."""
 
-    #: Relative to the mirror's `tree`.
+    #: Relative to the importer's `tree`.
     path: PurePosixPath
     content: str
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -77,11 +77,11 @@ class Snapshot:
 
 
 @runtime_checkable
-class Mirror(Protocol):
+class MemoryImporter(Protocol):
     """
-    Protocol for mirroring live upstream state, where an Importer accumulates closed conversations.
+    Protocol for mirroring live upstream state, where a ChatImporter accumulates closed conversations.
 
-    Claimed exactly as an Importer is, but what it yields is authoritative: files land at the
+    Claimed exactly as a ChatImporter is, but what it yields is authoritative: files land at the
     paths the provider gave them, and paths missing from the listing are pruned.
     """
 
@@ -97,7 +97,7 @@ class Mirror(Protocol):
 
 
 @runtime_checkable
-class Importer(Protocol):
+class ChatImporter(Protocol):
     """
     Protocol for importing activity logs from different AI chat providers.
 

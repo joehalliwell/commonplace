@@ -11,7 +11,7 @@ from commonplace._import._chatgpt import ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._commands import IMPORTERS, autodetect_importer
 from commonplace._import._gemini import GeminiImporter
-from commonplace._import._types import Importer
+from commonplace._import._types import ChatImporter, MemoryImporter
 from commonplace._wire import LEGACY_VERSION, WIRE_VERSION, read_entries, read_header, write_archive
 
 ENTRIES = [
@@ -223,7 +223,7 @@ def test_wire_importers_extract_nothing(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def _claims(importer: Importer, path: Path) -> bool:
+def _claims(importer: ChatImporter | MemoryImporter, path: Path) -> bool:
     """`can_import` as `autodetect_importer` sees it — importers probing a
     format they don't handle are entitled to raise."""
     try:

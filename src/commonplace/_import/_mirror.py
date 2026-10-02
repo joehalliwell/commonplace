@@ -1,4 +1,4 @@
-"""Apply a [[commonplace._import._types.Mirror]]'s snapshot to the repository.
+"""Apply a [[commonplace._import._types.MemoryImporter]]'s snapshot to the repository.
 
 A mirror, not an import: the upstream state is live, rewritten and deleted in
 place, so the tree holds what the latest capture listed and git holds the
@@ -10,23 +10,23 @@ from typing import Any
 
 import yaml
 
-from commonplace._import._types import Mirror
+from commonplace._import._types import MemoryImporter
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._types import Note
 from commonplace._wire import read_header
 
 
-def mirror_one(path: Path, repo: Commonplace, mirror: Mirror, auto_index: bool | None = None) -> None:
+def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_index: bool | None = None) -> None:
     """Land the files the capture read and prune the paths its listing no longer names."""
-    tree = mirror.tree
+    tree = importer.tree
     fetched_at = read_header(path).fetched_at
     landed_at = repo.last_commit_time(f"{tree.as_posix()}/")
     if fetched_at and landed_at and fetched_at < landed_at:
         logger.error(f"Not mirroring '{path}': captured {fetched_at}, but '{tree}' was last changed {landed_at}")
         return
 
-    snapshot = mirror.snapshot(path)
+    snapshot = importer.snapshot(path)
     files = [f for f in snapshot.files if _inside(f.path)]
     for refused in (f for f in snapshot.files if not _inside(f.path)):
         logger.warning(f"Skipping file with unusable path '{refused.path}'")
@@ -45,7 +45,7 @@ def mirror_one(path: Path, repo: Commonplace, mirror: Mirror, auto_index: bool |
         logger.info(f"'{tree}' already matches '{path}'")
         return
 
-    metadata = {"source": mirror.source, "source_exports": [repo.store_blob(path).path.as_posix()]}
+    metadata = {"source": importer.source, "source_exports": [repo.store_blob(path).path.as_posix()]}
     for file in files:
         target = tree / file.path
         repo.save(Note(repo.make_repo_path(target), _with_frontmatter(file.content, metadata | file.metadata)))
@@ -54,7 +54,7 @@ def mirror_one(path: Path, repo: Commonplace, mirror: Mirror, auto_index: bool |
         repo.remove(target)
         logger.info(f"Pruned '{target}'")
 
-    repo.commit(f"Mirror '{path}' using '{mirror.source}' mirror", auto_index=auto_index)
+    repo.commit(f"Mirror '{path}' using '{importer.source}' importer", auto_index=auto_index)
 
 
 def _inside(path: PurePosixPath) -> bool:

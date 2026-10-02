@@ -1,4 +1,4 @@
-"""Mirror for the `claude-memory-wire.jsonl.gz` archive produced by [[ClaudeMemoryFetcher]].
+"""Importer for the `claude-memory-wire.jsonl.gz` archive produced by [[ClaudeMemoryFetcher]].
 
 Entries are `{"endpoint": "list"|"read", "path": ..., "response": ...}`."""
 
@@ -13,7 +13,7 @@ from commonplace._wire import read_entries
 PROVENANCE_KEYS = ("category_id", "version", "updated_at")
 
 
-class ClaudeMemoryMirror(BaseWireImporter):
+class ClaudeMemoryImporter(BaseWireImporter):
     source: str = "claude-memory"
     tree: Path = Path("memory") / "claude"
 
