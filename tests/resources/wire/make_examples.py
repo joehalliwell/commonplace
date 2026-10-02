@@ -72,18 +72,22 @@ ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
 MEMORY_LISTED = {
     "path": "/topics/example.md",
     "size_bytes": 96,
-    "updated_at": "2026-09-30T10:00:00Z",
+    "updated_at": "2026-09-30T10:00:00.123456Z",
     "memory_id": "mem_example",
     "display_name": "Example",
     "category_id": "topics",
     "display_path_segments": ["Topics", "Example"],
     "description": "A synthetic memory",
 }
-MEMORY_CONTENT = "---\nname: Example\ndescription: A synthetic memory\n---\n\nPrefers tea. See [[other]].\n"
+# Shaped like the real thing as first fetched on 2026-10-02: these four keys, no trailing newline.
+MEMORY_CONTENT = (
+    "---\nname: example\ndescription: A synthetic memory\nsources: [backfill]\naliases: []\n---\n"
+    "- [stated] Prefers tea. See [[other]]."
+)
 MEMORY_READ = MEMORY_LISTED | {
     "memory_id": "",
     "content": MEMORY_CONTENT,
-    "version": "a1b2c3",
+    "version": "a1b2c3d4e5f6",
     "path_segments": ["topics", "example.md"],
     "parsed": {"name": "Example", "description": "A synthetic memory", "metadata": {}, "body": ""},
 }

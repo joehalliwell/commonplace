@@ -70,8 +70,12 @@ def test_snapshot_example_archive_interprets_without_a_repo():
     assert snapshot.listed == {PurePosixPath("topics/example.md")}
     [file] = snapshot.files
     assert file.path == PurePosixPath("topics/example.md")
-    assert file.content.endswith("Prefers tea. See [[other]].\n")
-    assert file.metadata == {"category_id": "topics", "version": "a1b2c3", "updated_at": "2026-09-30T10:00:00Z"}
+    assert file.content.endswith("Prefers tea. See [[other]].")
+    assert file.metadata == {
+        "category_id": "topics",
+        "version": "a1b2c3d4e5f6",
+        "updated_at": "2026-09-30T10:00:00.123456Z",
+    }
 
 
 def test_snapshot_archive_without_listing_has_no_listed_set(tmp_path):
@@ -102,11 +106,13 @@ def test_mirror_example_archive_lands_under_memory_vendor(test_repo):
 def test_mirror_example_archive_adds_provenance_frontmatter(test_repo):
     _mirror(test_repo, EXAMPLE)
 
-    metadata, _ = parse_frontmatter((test_repo.root / "memory/claude/topics/example.md").read_text())
+    metadata, body = parse_frontmatter((test_repo.root / "memory/claude/topics/example.md").read_text())
+    assert body == "- [stated] Prefers tea. See [[other]]."
+    assert metadata["sources"] == ["backfill"]
     assert metadata["source"] == "claude-memory"
     assert metadata["category_id"] == "topics"
-    assert metadata["version"] == "a1b2c3"
-    assert metadata["updated_at"] == "2026-09-30T10:00:00Z"
+    assert metadata["version"] == "a1b2c3d4e5f6"
+    assert metadata["updated_at"] == "2026-09-30T10:00:00.123456Z"
     [blob] = metadata["source_exports"]
     assert (test_repo.root / blob).exists()
 
