@@ -14,12 +14,14 @@ def test_init(tmp_path):
     Commonplace.open(root)
 
 
-def test_search(test_app):
-    test_app(["search", "help"])
+def test_search_empty_index_exits_cleanly(test_app):
+    assert test_app(["search", "help"]) == 0
 
 
-def test_stats(test_app):
-    test_app(["stats"])
+def test_stats_empty_repo_prints_a_table(test_app, capsys):
+    assert test_app(["stats"]) == 0
+
+    assert capsys.readouterr().out.strip()
 
 
 @pytest.mark.parametrize("argv", [["import", "export.zip"], ["fetch"], ["journal"]], ids=lambda argv: argv[0])
