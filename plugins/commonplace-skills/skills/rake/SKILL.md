@@ -51,13 +51,6 @@ Check which destinations exist (`notes/ideas.md`, `notes/todo.md`,
 `notes/projects/`). A missing one is not an error; triage will offer to create
 it.
 
-**Ask the user about plans held outside the commonplace.** An assistant's
-memory (for example a claude.ai memory, or a Claude-held todo list) can hold
-plans that never reached the repository, and the subagent cannot see them.
-Ask: *"Is there anything an assistant is remembering for you that I should
-include? Paste it, or say no."* Pass whatever they give you through as
-`{assistant_plans}`, verbatim, or `none`.
-
 ### 2. Spawn the Rake Subagent
 
 Use the **Task tool** to spawn a `general-purpose` subagent:
@@ -68,7 +61,6 @@ Use the **Task tool** to spawn a `general-purpose` subagent:
   - `{date}` — today as YYYY-MM-DD
   - `{working_dir}` — absolute path to the repository root
   - `{last_rake}` — the date from step 1, or `never`
-  - `{assistant_plans}` — from step 1
 
 Wait for the subagent to complete.
 
@@ -96,6 +88,9 @@ user chooses one of:
 - **project** — list in `notes/projects/`, and offer `/project`
 - **done** — it happened; say where if the user wants it recorded
 - **drop** — not a live intention; tombstone it as chaff (see step 4)
+
+If your harness has a multiple-choice question tool, triage through it rather
+than a prose list.
 
 Take the suggested destination as a suggestion only. When the user hesitates
 between two scales, file at the smaller one: promoting an idea later is
@@ -168,7 +163,6 @@ ideas, committed actions, projects.
 - Repository root: `{working_dir}`
 - Date: {date}
 - Last rake: {last_rake}
-- Plans held by an assistant, pasted by the user: {assistant_plans}
 
 Your job is to find **live intentions**: things the user means to make or do
 that aren't done. Do not write or edit any file. Return proposals; the calling
@@ -209,8 +203,8 @@ release.
 
 Distillations are derived. **Never cite one.** Follow each kept thread's
 inline citation back to the primitive it names (`chats/`, `journal/`,
-`notes/`) and read the passage there. If the passage doesn't show the user
-intending to make the thing, drop it.
+`notes/`, `memory/`) and read the passage there. If the passage doesn't show
+the user intending to make the thing, drop it.
 
 ### Phase 3: Stated Plans in Chats and the Journal
 
@@ -245,12 +239,14 @@ An assistant's "next steps" list that the user didn't answer is not a plan.
 Chats are not filtered by date: imports backfill old conversations, so an old
 plan may be new to the repository. Phase 1 is what stops re-proposals.
 
-### Phase 4: Plans Held by an Assistant
+### Phase 4: Plans in Assistant Memory
 
-If `{assistant_plans}` is not `none`, treat each item as a candidate. Search
-the commonplace for where it came from; if you find the originating passage,
-cite it. If you don't, cite `assistant memory` and say so — it's evidence
-of a plan, but not a primitive.
+Assistant memory is mirrored under `memory/<vendor>/`. If it exists, read every
+file updated since the last rake, or all of them if there was none. A memory
+is an assistant's paraphrase of the user, so treat each plan in it as a
+candidate, not as the user's words: search for the originating passage and
+cite it. If you find none, cite the memory file and say the plan rests on it
+alone. If there is no `memory/`, name that gap under Coverage.
 
 ### Phase 5: Heap
 
