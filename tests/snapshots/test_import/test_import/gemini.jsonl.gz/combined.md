@@ -1,11 +1,12 @@
 <!-- Contents of chats/gemini/2025/06/2025-06-17-chattitle0.md -->
 ---
 uuid: c_60772b6269b693f9
-updated_at: 2026-07-16T08:22:02.939572Z
+updated_at: '2026-07-16T08:22:02.939572Z'
 is_pinned: false
 gem: GEM_NAME
 source: gemini
-source_exports: [.commonplace/blobs/64324d9d824c69a54ec2dce250093d9fc9a81c0c370ec33cb5221836a5272605/gemini.jsonl.gz]
+source_exports:
+- .commonplace/blobs/64324d9d824c69a54ec2dce250093d9fc9a81c0c370ec33cb5221836a5272605/gemini.jsonl.gz
 ---
 
 # CHAT_TITLE_0 [created:: 2025-06-17T06:01:53+00:00]
@@ -49,11 +50,12 @@ MODEL_TEXT_0_0
 <!-- Contents of chats/gemini/2025/06/2025-06-17-chattitle2.md -->
 ---
 uuid: c_83032b747586b587
-updated_at: 2026-07-10T07:25:49.705902Z
+updated_at: '2026-07-10T07:25:49.705902Z'
 is_pinned: false
 gem: GEM_NAME
 source: gemini
-source_exports: [.commonplace/blobs/64324d9d824c69a54ec2dce250093d9fc9a81c0c370ec33cb5221836a5272605/gemini.jsonl.gz]
+source_exports:
+- .commonplace/blobs/64324d9d824c69a54ec2dce250093d9fc9a81c0c370ec33cb5221836a5272605/gemini.jsonl.gz
 ---
 
 # CHAT_TITLE_2 [created:: 2025-06-17T06:01:53+00:00]

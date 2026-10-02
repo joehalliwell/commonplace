@@ -123,7 +123,7 @@ def edit_in_editor(content: str, editor: str) -> str | None:
         buffer.unlink()
 
 
-def parse_frontmatter(content: str) -> tuple[dict, str]:
+def load_frontmatter(content: str) -> tuple[dict, str]:
     """
     Parse YAML frontmatter from markdown content.
 
@@ -146,7 +146,8 @@ def parse_frontmatter(content: str) -> tuple[dict, str]:
     # Find closing delimiter
     end_idx = None
     for i in range(1, len(lines)):
-        if lines[i].strip() == "---":
+        # Unindented only: a `---` inside a multi-line value is indented.
+        if lines[i].rstrip() == "---":
             end_idx = i
             break
 
@@ -178,15 +179,16 @@ def merge_frontmatter(existing_content: str, new_metadata: dict) -> dict:
     Raises:
         yaml.YAMLError: If existing frontmatter cannot be parsed
     """
-    existing_metadata, _ = parse_frontmatter(existing_content)
+    existing_metadata, _ = load_frontmatter(existing_content)
 
     # Merge: existing | new means new overwrites existing where keys overlap
     return existing_metadata | new_metadata
 
 
 def dump_frontmatter(metadata: dict, body: str) -> str:
-    """Markdown content from its parts: the inverse of `parse_frontmatter`."""
-    return f"---\n{yaml.safe_dump(metadata, sort_keys=False, allow_unicode=True)}---\n{body}"
+    """Markdown content from its parts: the inverse of `load_frontmatter`."""
+    dumped = yaml.safe_dump(metadata, sort_keys=False, allow_unicode=True, width=float("inf"))
+    return f"---\n{dumped}---\n{body}"
 
 
 def sniff_gzipped_jsonl(path: Path) -> dict | None:

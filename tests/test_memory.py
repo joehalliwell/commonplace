@@ -10,7 +10,7 @@ import pytest
 from commonplace._import._claude_memory import ClaudeMemoryImporter
 from commonplace._import._commands import IMPORTERS, autodetect_importer, import_, landing_tree
 from commonplace._import._types import ChatImporter, MemoryImporter
-from commonplace._utils import parse_frontmatter
+from commonplace._utils import load_frontmatter
 from commonplace._wire import write_archive
 
 EXAMPLE = Path(__file__).parent / "resources" / "wire" / "claude-memory-v3.jsonl.gz"
@@ -120,7 +120,7 @@ def test_mirror_example_archive_lands_under_memory_vendor(test_repo):
 def test_mirror_example_archive_adds_provenance_frontmatter(test_repo):
     _mirror(test_repo, EXAMPLE)
 
-    metadata, body = parse_frontmatter((test_repo.root / "memory/claude/topics/example.md").read_text())
+    metadata, body = load_frontmatter((test_repo.root / "memory/claude/topics/example.md").read_text())
     assert body == "# Example\n\n- [stated] Prefers tea. See [[other]]."
     assert metadata["sources"] == ["backfill"]
     assert metadata["source"] == "claude-memory"
@@ -135,7 +135,7 @@ def test_mirror_file_with_frontmatter_keeps_its_own_values_beside_ours(test_repo
     content = "---\nname: a\ntags: [x, y]\n---\n\nBody   text.\n"
     _mirror(test_repo, _archive(tmp_path, {"/a.md": content}))
 
-    metadata, body = parse_frontmatter((test_repo.root / "memory/claude/a.md").read_text())
+    metadata, body = load_frontmatter((test_repo.root / "memory/claude/a.md").read_text())
     assert (metadata["name"], metadata["tags"]) == ("a", ["x", "y"])
     assert metadata["source"] == "claude-memory"
     assert body == "# Title\n\nBody   text.\n"

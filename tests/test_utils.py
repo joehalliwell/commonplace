@@ -1,11 +1,20 @@
 import subprocess
+from datetime import UTC, date, datetime
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 import yaml
 
-from commonplace._utils import batched, edit_in_editor, merge_frontmatter, parse_frontmatter, slugify, truncate
+from commonplace._utils import (
+    batched,
+    dump_frontmatter,
+    edit_in_editor,
+    load_frontmatter,
+    merge_frontmatter,
+    slugify,
+    truncate,
+)
 
 
 def test_batched_basic():
@@ -228,7 +237,7 @@ def test_edit_in_editor_editor_not_found(tmp_path):
             edit_in_editor(content, "vim")
 
 
-def test_parse_frontmatter_with_metadata():
+def test_load_frontmatter_with_metadata():
     content = """---
 uuid: abc123
 model: claude-3
@@ -237,36 +246,36 @@ model: claude-3
 # Test Content
 
 Body here."""
-    metadata, body = parse_frontmatter(content)
+    metadata, body = load_frontmatter(content)
 
     assert metadata == {"uuid": "abc123", "model": "claude-3"}
     assert body.strip().startswith("# Test Content")
 
 
-def test_parse_frontmatter_no_metadata():
+def test_load_frontmatter_no_metadata():
     content = "# Test Content\n\nNo frontmatter here."
-    metadata, body = parse_frontmatter(content)
+    metadata, body = load_frontmatter(content)
 
     assert metadata == {}
     assert body == content
 
 
-def test_parse_frontmatter_invalid_yaml():
+def test_load_frontmatter_invalid_yaml():
     content = """---
 invalid: [unclosed
 ---
 
 Body"""
     with pytest.raises(yaml.YAMLError):
-        parse_frontmatter(content)
+        load_frontmatter(content)
 
 
-def test_parse_frontmatter_no_closing_delimiter():
+def test_load_frontmatter_no_closing_delimiter():
     content = """---
 uuid: abc123
 
 # This looks like content but no closing ---"""
-    metadata, body = parse_frontmatter(content)
+    metadata, body = load_frontmatter(content)
 
     # Should treat as no frontmatter
     assert metadata == {}
@@ -299,3 +308,43 @@ def test_merge_frontmatter_no_existing():
     merged = merge_frontmatter(existing, new_metadata)
 
     assert merged == new_metadata
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "Research: a plan",
+        "issue #91",
+        "- not a list",
+        "[not, a, list]",
+        "'quoted' and \"quoted\"",
+        "2024-01-01",
+        "true",
+        "café ☕ 日本語",
+        "first line\n---\nthird line",
+        "long " * 40,
+        "",
+        date(2024, 1, 1),
+        datetime(2024, 1, 1, 12, 0, tzinfo=UTC),
+        ["a: b", "c #d"],
+        [{"id": "x", "resource": "/chats/a.md"}],
+        {"nested": {"deeper": ["value: 1"]}},
+        None,
+        5,
+    ],
+)
+def test_dump_frontmatter_awkward_value_loads_back_unchanged(value):
+    metadata, body = {"plain": "value", "awkward": value}, "\n# Title\n\nBody\n\n---\n\nAfter a rule\n"
+
+    assert load_frontmatter(dump_frontmatter(metadata, body)) == (metadata, body)
+
+
+def test_dump_frontmatter_long_path_stays_on_one_line():
+    """A folded path cannot be found by searching for it."""
+    path = f".commonplace/blobs/{'0' * 64}/My Activity.html"
+
+    assert path in dump_frontmatter({"source_exports": [path]}, "")
+
+
+def test_dump_frontmatter_no_metadata_loads_back_unchanged():
+    assert load_frontmatter(dump_frontmatter({}, "Body\n")) == ({}, "Body\n")
