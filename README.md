@@ -28,6 +28,7 @@ antiquity.
   │   ├── claude-code/2026/06/2026-06-28-session-title.md
   │   ├── gemini/                       # fetched from gemini.google.com
   │   └── gemini-takeout/               # imported from Google Takeout
+  ├── memory/claude/            # assistant memory, mirrored from the provider
   ├── journal/2026/06/2026-06-28.md     # daily entries
   ├── notes/                    # Manual notes and thoughts
   └── .commonplace/             # config, attachments, and the search index
@@ -87,14 +88,21 @@ commonplace fetch --no-index
 `fetch` reads your logged-in session cookies from Chrome — log in once in the
 browser and the session lasts several weeks (Claude) or a few days (Gemini,
 with auto-refresh). The incremental cursor is derived from git history (last
-commit touching `chats/{source}/`), so subsequent runs only pull
-conversations updated since the previous fetch.
+commit touching the source's directory), so subsequent runs only pull
+what was updated since the previous fetch.
 
 The three sources — `claude`, `gemini`, `chatgpt` — land in
 `chats/claude/`, `chats/gemini/` and `chats/chatgpt/`. Gemini's fetcher gets
 per-turn timestamps, Gem personas and thought traces, which the Takeout export
 doesn't have. Claude's gets slightly less than the manual export: the endpoint
 strips `<antThinking>` blocks server-side (issue #6).
+
+A fourth source, `claude-memory`, mirrors claude.ai's file-based memory into
+`memory/claude/`, each file at the path and with the body claude.ai gives it.
+It is a mirror rather than an import: a memory deleted upstream is deleted
+here on the next fetch, and git history keeps what it used to say. Memory is
+materially more personal than chat logs — think before syncing it to a remote,
+or leave it out with `--source`.
 
 These are the providers' internal endpoints — unofficial, and they change
 without notice. If a fetcher breaks, fall back to
