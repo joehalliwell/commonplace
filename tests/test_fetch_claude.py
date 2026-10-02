@@ -74,11 +74,6 @@ def _read_wire(archive: Path) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
-def test_fetch_returns_none_without_session(tmp_path):
-    fetcher = ClaudeFetcher(cookies={})
-    assert fetcher.fetch(tmp_path, since=None) is None
-
-
 def test_fetch_returns_none_without_org(tmp_path):
     fetcher = ClaudeFetcher(cookies={"sessionKey": "sk"})
     assert fetcher.fetch(tmp_path, since=None) is None

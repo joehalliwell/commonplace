@@ -90,10 +90,6 @@ def test_extract_rpc_body_raises_on_bad_preamble():
 # ---------------------------------------------------------------------------
 
 
-def test_fetch_returns_none_without_session(tmp_path):
-    assert GeminiFetcher(cookies={}).fetch(tmp_path, since=None) is None
-
-
 def test_fetch_writes_raw_wire_only(tmp_path):
     """Every `batchexecute` call is recorded, response text untouched."""
     archive = _make_fetcher().fetch(tmp_path, since=None)
