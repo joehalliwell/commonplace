@@ -34,7 +34,7 @@ uv run commonplace search "query text"
 
 **Repository** (`_repo.py`): `Commonplace` is the central object wrapping a git repo (pygit2) with cached properties: `config`, `cache`, `index`. Provides note management and indexing.
 
-**Fetch** (`_fetch/`, `_wire.py`): Fetchers capture raw provider responses into a versioned wire archive and interpret nothing — the archive is the primitive artefact (MANIFESTO §3.2, §3.5), so any decision a fetcher makes is one no later reader can revisit. `_wire.py` owns the format for both sides; don't restate its rationale elsewhere. Each provider needs a Fetcher *and* a paired Importer, with the archive as the seam.
+**Fetch** (`_fetch/`, `_wire.py`): Fetchers capture raw provider responses into a versioned wire archive and interpret nothing — the archive is the primitive artefact (MANIFESTO §3.2, §3.5), so any decision a fetcher makes is one no later reader can revisit. `_wire.py` owns the format for both sides; don't restate its rationale elsewhere. Each provider needs a Fetcher *and* a paired Importer, with the archive as the seam. Fetchers are brittle by nature (they track unofficial upstreams), so share freely between them — see `_fetch/_base.py`.
 
 **Import** (`_import/`): Provider-specific importers (Claude/Gemini/ChatGPT) → `ActivityLog` → `MarkdownSerializer` → markdown files in `chats/{provider}/{year}/{month}/{date}-{title}.md`. All interpretation happens here. Live upstream state (assistant memory) pairs its Fetcher with a `Mirror` instead of an Importer: same registry, but it yields a `Snapshot` that `_mirror.py` applies to `memory/{vendor}/`, pruning what the listing no longer names.
 
