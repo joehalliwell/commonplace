@@ -54,7 +54,7 @@ class BaseFetcher:
     fetcher discovers cookies from Chrome and uses the real network. Tests
     inject fakes for both."""
 
-    #: Provider key: names the archive, the chats/ subtree, and `--source`.
+    #: Source key: names the archive and `--source`, and pairs it with an Importer or Mirror.
     source: str
     #: Cookie domain to read from Chrome.
     cookie_domain: str

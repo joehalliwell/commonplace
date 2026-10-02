@@ -48,6 +48,7 @@ uv run commonplace search "query text"
 
 - Fetch: cookies → provider API → wire archive (gzipped JSONL) → Import
 - Import: ZIP or wire archive → Importer → ActivityLog → MarkdownSerializer → Note → git
+- Mirror: wire archive → Mirror → Snapshot → write + prune under `memory/{vendor}/` → git
 - Index: Notes → Chunker → Chunks → Embedder → Embeddings → VectorStore
 - Search: Query → Embedder → VectorStore → SearchHits
 

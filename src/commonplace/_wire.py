@@ -29,8 +29,9 @@ Version 3 adds `fetched_at` and `fetched_by`: when the capture was made and
 what made it (`tool/version`), so a blob detached from its commit still dates
 and attributes itself. Both read back `None` on v1 and v2 archives.
 
-`tests/resources/wire/` holds one example archive per version — the evidence
-of what each actually looked like. Add one with the next version bump.
+`tests/resources/wire/` holds one example archive per version, per kind of
+source (chat, memory) — the evidence of what each actually looked like. Add
+one of each with the next version bump.
 """
 
 import gzip

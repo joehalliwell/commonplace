@@ -35,8 +35,8 @@ def fetch(
 ) -> None:
     """Fetch new content from each configured source and import it.
 
-    If `all_` is True, the git-derived cursor is bypassed and every remote
-    conversation is fetched. Useful for recovery when the cursor is wrong,
+    If `all_` is True, the git-derived cursor is bypassed and everything the
+    remote has is fetched. Useful for recovery when the cursor is wrong,
     or for a first-time bulk import."""
     pool = fetchers if fetchers is not None else default_fetchers(repo.config)
     active = pool
@@ -49,7 +49,8 @@ def fetch(
     for fetcher in active:
         logger.info(f"Fetching from {fetcher.source}")
         # `diff_filter="AM"` excludes rename-source / pure-deletion commits so
-        # a `git mv chats/{source}/ elsewhere` doesn't poison the cursor.
+        # a `git mv chats/{source}/ elsewhere` doesn't poison the cursor — nor,
+        # for a mirrored tree, does a commit that only pruned.
         tree = landing_tree(fetcher.source).as_posix()
         since = None if all_ else repo.last_commit_time(f"{tree}/", diff_filter="AM")
         with tempfile.TemporaryDirectory() as tmp:

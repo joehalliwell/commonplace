@@ -1,6 +1,6 @@
-"""Shared plumbing for importers that consume a fetcher's wire archive.
+"""Shared plumbing for importers and mirrors that consume a fetcher's wire archive.
 
-The archive is the seam between a Fetcher and its paired Importer (see
+The archive is the seam between a Fetcher and its paired Importer or Mirror (see
 [[commonplace._wire]]), and it names its own provider in the header. So
 claiming one is the same operation for every provider: read the header,
 compare. Only the headerless v1 case needs provider knowledge, and only for

@@ -5,6 +5,9 @@ assert that every version we have ever written still imports to the same thing.
 The `any_wire_version` fixture is parametrised over the full version range, so
 a bump without a matching example here fails the suite.
 
+The memory wire has its own examples from v3, when it first appeared. Nothing
+yet fails if a bump forgets one, so add it alongside the chat example.
+
 Adding a version: add its header and entries below, then rerun. Output is
 deterministic — gzip's mtime is pinned — so an unchanged version stays
 byte-identical and only the new file shows up in the diff.

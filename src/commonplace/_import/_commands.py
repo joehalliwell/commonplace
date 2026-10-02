@@ -1,4 +1,4 @@
-"""Chat importers"""
+"""Import entrypoint: find what claims a file, then import or mirror it."""
 
 import tempfile
 from collections import Counter
@@ -81,7 +81,7 @@ def extract_and_store(archive: Path, paths: list[str], repo: Commonplace) -> lis
 
 def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_index: bool | None = None):
     """
-    Import chats from a supported provider into the repository.
+    Import chats from a supported provider into the repository, or hand a mirrored source to `mirror_one`.
 
     If a conversation already exists at the target path, metadata will be merged:
     - Fields provided by the importer will be updated with new values
