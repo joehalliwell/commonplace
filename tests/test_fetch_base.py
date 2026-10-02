@@ -117,6 +117,14 @@ def test_connect_timeout_is_shorter_than_the_read_timeout(tmp_path):
         assert client.timeout.read == fetcher.timeout
 
 
+def test_a_transient_5xx_is_retried(no_retry_sleep):
+    statuses = iter([503, 200])
+    fetcher = _stub(lambda r: httpx.Response(next(statuses), text="{}"))
+
+    with fetcher._session({"session": "x"}):
+        assert fetcher._get("https://example.com/api").status_code == 200
+
+
 def test_unreachable_provider_is_reported_once_not_raised(no_retry_sleep):
     """A blocked fetch, not a bug — and not retried."""
     attempts = {"n": 0}

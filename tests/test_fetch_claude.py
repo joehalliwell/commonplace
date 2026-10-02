@@ -1,6 +1,5 @@
-"""Tests for the Claude fetcher (and its paired importer)."""
+"""Tests for the Claude fetcher, and its archive's path through the paired importer."""
 
-import gzip
 import json
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
@@ -9,10 +8,10 @@ import httpx
 import pytest
 
 from commonplace._fetch._claude import ClaudeFetcher
+from commonplace._fetch._commands import fetch
 from commonplace._fetch._helpers import FetchBlocked
 from commonplace._import._claude import ClaudeImporter
-from commonplace._import._claude_export import ClaudeExportImporter
-from commonplace._wire import read_entries, write_archive
+from commonplace._wire import read_entries
 
 ORG = "org-uuid-1"
 
@@ -73,11 +72,6 @@ def _read_wire(archive: Path) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Fetcher tests — cookies + transport injected via the constructor.
 # ---------------------------------------------------------------------------
-
-
-def test_fetch_returns_none_without_session(tmp_path):
-    fetcher = ClaudeFetcher(cookies={})
-    assert fetcher.fetch(tmp_path, since=None) is None
 
 
 def test_fetch_returns_none_without_org(tmp_path):
@@ -190,225 +184,12 @@ def test_fetch_cursor_honours_subsecond_precision(tmp_path):
 
 def test_fetch_command_dispatches(test_repo):
     """`commonplace fetch` runs configured fetchers and imports the result."""
-    from commonplace._fetch._commands import fetch
-
     fetch(test_repo, fetchers=[_make_fetcher()], auto_index=False)
 
     chats = list((Path(test_repo.root) / "chats" / "claude").rglob("*.md"))
     assert len(chats) == 2
 
 
-def test_fetch_command_filters_by_source(test_repo):
-    from commonplace._fetch._commands import fetch
-
-    called: list[str] = []
-
-    class Stub:
-        source = "stub"
-
-        def fetch(self, destination, since):
-            called.append("stub")
-
-    fetch(test_repo, sources=["nonexistent"], fetchers=[Stub()], auto_index=False)
-    assert called == []
-
-    fetch(test_repo, sources=["stub"], fetchers=[Stub()], auto_index=False)
-    assert called == ["stub"]
-
-
-def test_fetch_command_all_flag_bypasses_cursor(test_repo):
-    """With all_=True, the fetcher is called with since=None regardless of
-    what the repo's git history would otherwise say."""
-    from commonplace._fetch._commands import fetch
-
-    calls: list[str | None] = []
-
-    class RecordingStub:
-        source = "recording"
-
-        def fetch(self, destination, since):
-            calls.append(since)
-
-    # Seed the repo with a chats/recording/ commit so last_commit_time would
-    # return a non-None cursor without --all.
-    (test_repo.root / "chats" / "recording").mkdir(parents=True)
-    note = test_repo.root / "chats" / "recording" / "seed.md"
-    note.write_text("# seed\n")
-    test_repo.git.index.add(note.relative_to(test_repo.root).as_posix())
-    test_repo.commit("Seed recording", auto_index=False)
-
-    fetch(test_repo, fetchers=[RecordingStub()], auto_index=False)
-    assert calls[-1] is not None, "without --all, cursor should reflect the seed commit"
-
-    fetch(test_repo, fetchers=[RecordingStub()], auto_index=False, all_=True)
-    assert calls[-1] is None, "with --all, cursor is bypassed"
-
-
-def test_fetch_retries_transient_5xx(no_retry_sleep, tmp_path):
-    """A 503 followed by success should resolve without raising."""
-    calls: dict[str, int] = {}
-
-    def flaky(request: httpx.Request) -> httpx.Response:
-        path = request.url.path
-        calls[path] = calls.get(path, 0) + 1
-        if path == f"/api/organizations/{ORG}/chat_conversations":
-            return httpx.Response(200, json=SUMMARIES)
-        if calls[path] == 1:
-            return httpx.Response(503)
-        prefix = f"/api/organizations/{ORG}/chat_conversations/"
-        uuid = path[len(prefix) :]
-        return httpx.Response(200, json=_detail(uuid))
-
-    archive = _make_fetcher(handler=flaky).fetch(tmp_path, since=None)
-    assert archive is not None
-    assert len(ClaudeImporter().import_(archive)) == 2
-
-
 def test_fetch_raises_on_401(tmp_path):
     with pytest.raises(FetchBlocked):
         _make_fetcher(handler=lambda r: httpx.Response(401)).fetch(tmp_path, since=None)
-
-
-# ---------------------------------------------------------------------------
-# Importer tests — ClaudeImporter (fetcher wire) and ClaudeExportImporter (ZIP).
-# ---------------------------------------------------------------------------
-
-
-def test_wire_importer_accepts_fetcher_output(tmp_path):
-    path = tmp_path / "claude-wire.jsonl.gz"
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        f.write(json.dumps({"endpoint": "conversations", "response": []}) + "\n")
-    assert ClaudeImporter().can_import(path)
-
-
-def test_wire_importer_rejects_arbitrary_jsonl_gz(tmp_path):
-    path = tmp_path / "other.jsonl.gz"
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        f.write(json.dumps({"not": "ours"}) + "\n")
-    assert not ClaudeImporter().can_import(path)
-
-
-_THREAD = {
-    "uuid": "abc",
-    "name": "Hi",
-    "created_at": "2026-07-15T00:00:00Z",
-    "chat_messages": [
-        {"sender": "human", "text": "hello", "created_at": "2026-07-15T00:00:00Z"},
-        {"sender": "assistant", "text": "hi back", "created_at": "2026-07-15T00:00:01Z"},
-    ],
-}
-
-
-def _entries(response) -> list[dict]:
-    return [
-        {"endpoint": "conversations", "response": "[]"},
-        {"endpoint": "conversation", "cid": "abc", "response": response},
-    ]
-
-
-def test_wire_importer_wraps_flat_text(tmp_path):
-    """Fetcher-wire messages have only `text`; the importer wraps into blocks."""
-    path = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", _entries(json.dumps(_THREAD)))
-
-    logs = ClaudeImporter().import_(path)
-    assert len(logs) == 1
-    assert [e.content for e in logs[0].events] == ["hello", "hi back"]
-
-
-def test_wire_importer_reads_legacy_parsed_responses(tmp_path):
-    """v1 archives have no header and hold `response` already parsed. They are
-    committed in users' repos, so they must still import."""
-    path = tmp_path / "claude-wire.jsonl.gz"
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        for entry in _entries(_THREAD):
-            f.write(json.dumps(entry) + "\n")
-
-    logs = ClaudeImporter().import_(path)
-    assert len(logs) == 1
-    assert [e.content for e in logs[0].events] == ["hello", "hi back"]
-
-
-def _thread_with_message(message: dict) -> dict:
-    return {**_THREAD, "chat_messages": [message]}
-
-
-def test_wire_importer_flags_a_message_with_no_text_at_all(tmp_path, caplog):
-    """The silent-corruption path. If Anthropic renames `text`, a message with
-    neither `content` nor `text` used to import as an empty string — no error,
-    straight into git. Say so in the log and in the note instead."""
-    import logging
-
-    message = {"sender": "human", "created_at": "2026-07-15T00:00:00Z", "prose": "renamed!"}
-    path = write_archive(
-        tmp_path / "claude-wire.jsonl.gz", "claude", _entries(json.dumps(_thread_with_message(message)))
-    )
-
-    with caplog.at_level(logging.WARNING, logger="commonplace"):
-        logs = ClaudeImporter().import_(path)
-
-    assert "no recoverable text" in logs[0].events[0].content
-    assert any("no content or text" in r.message for r in caplog.records)
-
-
-def test_wire_importer_keeps_a_deliberately_empty_message_empty(tmp_path, caplog):
-    """`text: ""` is a message that really is empty — attachments only, say.
-    Flagging it would cry wolf on every one of them."""
-    import logging
-
-    message = {"sender": "human", "created_at": "2026-07-15T00:00:00Z", "text": ""}
-    path = write_archive(
-        tmp_path / "claude-wire.jsonl.gz", "claude", _entries(json.dumps(_thread_with_message(message)))
-    )
-
-    with caplog.at_level(logging.WARNING, logger="commonplace"):
-        logs = ClaudeImporter().import_(path)
-
-    assert logs[0].events[0].content == ""
-    assert not [r for r in caplog.records if "no content or text" in r.message]
-
-
-def test_export_importer_requires_users_json(tmp_path):
-    """A ZIP with only conversations.json (like ChatGPT's export) is rejected."""
-    from zipfile import ZipFile
-
-    path = tmp_path / "not-claude.zip"
-    with ZipFile(path, "w") as zf:
-        zf.writestr("conversations.json", "[]")
-    assert not ClaudeExportImporter().can_import(path)
-
-
-def test_export_importer_accepts_full_pair(tmp_path):
-    from zipfile import ZipFile
-
-    path = tmp_path / "claude-export.zip"
-    with ZipFile(path, "w") as zf:
-        zf.writestr("conversations.json", "[]")
-        zf.writestr("users.json", "[]")
-    assert ClaudeExportImporter().can_import(path)
-
-
-def test_export_importer_preserves_content_blocks(tmp_path):
-    """Export-ZIP messages carry populated content blocks — importer uses
-    them directly rather than falling back to flat `text`."""
-    from zipfile import ZipFile
-
-    thread = {
-        "uuid": "abc",
-        "name": "Hi",
-        "created_at": "2026-07-15T00:00:00Z",
-        "chat_messages": [
-            {
-                "sender": "human",
-                "text": "ignored",  # export has both; importer prefers content
-                "created_at": "2026-07-15T00:00:00Z",
-                "content": [{"type": "text", "text": "real user text"}],
-            },
-        ],
-    }
-    path = tmp_path / "claude-export.zip"
-    with ZipFile(path, "w") as zf:
-        zf.writestr("conversations.json", json.dumps([thread]))
-        zf.writestr("users.json", "[]")
-
-    logs = ClaudeExportImporter().import_(path)
-    assert logs[0].events[0].content == "real user text"

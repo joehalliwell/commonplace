@@ -2,30 +2,29 @@ import tomllib
 
 import pytest
 
+from commonplace.__main__ import app
 from commonplace._config import Config
 from commonplace._repo import Commonplace
 
 
 def test_init(tmp_path):
-    from commonplace.__main__ import app
-
     root = tmp_path / "new_repo"
     assert app.meta(["init", str(root)], result_action="return_int_as_exit_code_else_zero") == 0
     Commonplace.open(root)
 
 
-def test_search(test_app):
-    test_app(["search", "help"])
+def test_search_empty_index_exits_cleanly(test_app):
+    assert test_app(["search", "help"]) == 0
 
 
-def test_stats(test_app):
-    test_app(["stats"])
+def test_stats_empty_repo_prints_a_table(test_app, capsys):
+    assert test_app(["stats"]) == 0
+
+    assert capsys.readouterr().out.strip()
 
 
 @pytest.mark.parametrize("argv", [["import", "export.zip"], ["fetch"], ["journal"]], ids=lambda argv: argv[0])
 def test_no_index_flag_is_understood_by_every_note_creating_command(argv):
-    from commonplace.__main__ import app
-
     _, bound, _ = app.parse_args([*argv, "--no-index"])
 
     assert bound.arguments["index"] is False

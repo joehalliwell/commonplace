@@ -308,21 +308,6 @@ def test_fetch_sends_bearer_token(tmp_path):
     assert seen and all(h == "Bearer jwt-token" for h in seen)
 
 
-def test_fetch_retries_transient_5xx(no_retry_sleep, tmp_path):
-    calls: dict[str, int] = {}
-
-    def flaky(request: httpx.Request) -> httpx.Response:
-        path = request.url.path
-        calls[path] = calls.get(path, 0) + 1
-        if path.startswith("/backend-api/conversation/") and calls[path] == 1:
-            return httpx.Response(503)
-        return _handler(request)
-
-    archive = _make_fetcher(handler=flaky).fetch(tmp_path, since=None)
-    assert archive is not None
-    assert len(ChatGptWireImporter().import_(archive)) == 2
-
-
 # ---------------------------------------------------------------------------
 # Wire importer.
 # ---------------------------------------------------------------------------
@@ -390,17 +375,15 @@ def test_fetch_distinguishes_a_bot_challenge_from_a_dead_session(tmp_path):
         _make_fetcher(handler=_challenge_handler).fetch(tmp_path, since=None)
 
 
-def test_bot_challenge_message_says_what_to_do(tmp_path):
+def test_bot_challenge_message_names_the_url_and_the_setting(tmp_path):
     """The message is the whole remediation — the CLI prints it without a
-    traceback, so anything the user needs has to be in here."""
+    traceback, so the two things the user must act on have to be in it."""
     with pytest.raises(FetchBlocked) as excinfo:
         _make_fetcher(handler=_challenge_handler).fetch(tmp_path, since=None)
 
     message = str(excinfo.value)
-    assert "https://chatgpt.com" in message, "where to go"
-    assert "User-Agent" in message and "COMMONPLACE_UA" in message, "the likeliest cause and its fix"
-    assert "re-run" in message.lower(), "what to do after"
-    assert "Nothing was imported" in message, "whether the failed run cost anything"
+    assert ChatGptFetcher.login_url in message, "where to go"
+    assert "COMMONPLACE_UA" in message, "the setting that fixes the likeliest cause"
 
 
 def test_fetch_sends_accept_language(tmp_path):

@@ -40,10 +40,6 @@ class FakeMemory:
         return ClaudeMemoryFetcher(cookies=cookies, transport=httpx.MockTransport(self))
 
 
-def test_fetch_without_session_returns_none(tmp_path):
-    assert FakeMemory().fetcher(cookies={}).fetch(tmp_path, since=None) is None
-
-
 def test_fetch_without_org_returns_none(tmp_path):
     assert FakeMemory().fetcher(cookies={"sessionKey": "sk"}).fetch(tmp_path, since=None) is None
 

@@ -1,9 +1,10 @@
 """Tests for the Gemini fetcher (and its paired importer)."""
 
-import gzip
 import json
+import logging
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import parse_qs
 
 import httpx
 import pytest
@@ -22,6 +23,10 @@ EMPTY_LIST_CHATS = ')]}\'\n\n0\n[["wrb.fr","MaZiqc","[null,null,[]]",null,null,n
 
 TEST_COOKIES = {"__Secure-1PSID": "psid", "__Secure-1PSIDTS": "psidts"}
 
+# `_handler` serves the same listing for the pinned and the unpinned bucket, so every chat is fetched twice.
+BUCKETS = 2
+LISTED = len(_extract_rpc_body(LIST_CHATS_RAW, "MaZiqc")[2])
+
 
 def _fake_app_page() -> str:
     """Minimal HTML with the three tokens the fetcher scrapes."""
@@ -30,8 +35,6 @@ def _fake_app_page() -> str:
 
 def _extract_payload_cursor(request: httpx.Request) -> str | None:
     """Pull the cursor (payload slot [1]) out of the batchexecute POST body."""
-    from urllib.parse import parse_qs
-
     fields = parse_qs(request.content.decode())
     envelope = json.loads(fields["f.req"][0])
     inner = json.loads(envelope[0][0][1])
@@ -91,10 +94,6 @@ def test_extract_rpc_body_raises_on_bad_preamble():
 # ---------------------------------------------------------------------------
 
 
-def test_fetch_returns_none_without_session(tmp_path):
-    assert GeminiFetcher(cookies={}).fetch(tmp_path, since=None) is None
-
-
 def test_fetch_writes_raw_wire_only(tmp_path):
     """Every `batchexecute` call is recorded, response text untouched."""
     archive = _make_fetcher().fetch(tmp_path, since=None)
@@ -102,12 +101,10 @@ def test_fetch_writes_raw_wire_only(tmp_path):
     assert archive.name == "gemini-wire.jsonl.gz"
 
     wire = _read_wire(archive)
-    # 2 list_chats buckets × 2 pages each (real + terminating empty) = 4
-    # plus 5 read_chat calls × 2 buckets = 10 → 14 entries.
     list_calls = [e for e in wire if e["rpc"] == "MaZiqc"]
     read_calls = [e for e in wire if e["rpc"] == "hNvQHb"]
-    assert len(list_calls) == 4
-    assert len(read_calls) == 10
+    assert len(list_calls) == 2 * BUCKETS, "a real page and the empty one that ends it, per bucket"
+    assert len(read_calls) == LISTED * BUCKETS
     for entry in wire:
         assert entry["response"].startswith(")]}'\n"), "raw batchexecute preamble preserved"
         assert set(entry.keys()) == {"rpc", "payload", "response"}
@@ -124,22 +121,6 @@ def test_fetch_cursor_honours_offset(tmp_path):
     bst = datetime(2030, 1, 1, 1, 0, tzinfo=timezone(timedelta(hours=1)))
     assert _make_fetcher().fetch(tmp_path, since=zulu) is None
     assert _make_fetcher().fetch(tmp_path, since=bst) is None
-
-
-def test_fetch_retries_transient_5xx(no_retry_sleep, tmp_path):
-    calls: dict[str, int] = {}
-
-    def flaky(request: httpx.Request) -> httpx.Response:
-        path = request.url.path
-        calls[path] = calls.get(path, 0) + 1
-        if path.endswith("/app"):
-            return httpx.Response(200, text=_fake_app_page())
-        if "batchexecute" in path and calls[path] == 1:
-            return httpx.Response(503)
-        return _handler(request)
-
-    archive = _make_fetcher(handler=flaky).fetch(tmp_path, since=None)
-    assert archive is not None
 
 
 def test_fetch_raises_on_403(tmp_path):
@@ -167,17 +148,13 @@ def test_read_session_tokens_raises_on_missing_html(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_importer_recognizes_wire_jsonl_gz(tmp_path):
-    path = tmp_path / "wire.jsonl.gz"
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        f.write(json.dumps({"rpc": "MaZiqc", "payload": [], "response": ")]}'\n"}) + "\n")
+def test_importer_recognizes_wire_jsonl_gz(tmp_path, write_jsonl_gz):
+    path = write_jsonl_gz(tmp_path / "wire.jsonl.gz", [{"rpc": "MaZiqc", "payload": [], "response": ")]}'\n"}])
     assert GeminiImporter().can_import(path)
 
 
-def test_importer_rejects_arbitrary_gz(tmp_path):
-    path = tmp_path / "other.jsonl.gz"
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        f.write(json.dumps({"not": "a wire log"}) + "\n")
+def test_importer_rejects_arbitrary_gz(tmp_path, write_jsonl_gz):
+    path = write_jsonl_gz(tmp_path / "other.jsonl.gz", [{"not": "a wire log"}])
     assert not GeminiImporter().can_import(path)
 
 
@@ -200,8 +177,7 @@ def test_importer_reconstructs_events_from_wire(tmp_path):
     archive = _make_fetcher().fetch(tmp_path, since=None)
     logs = GeminiImporter().import_(archive)
 
-    # 5 chats × 2 buckets (mock returns fixture for both pinned + unpinned) = 10.
-    assert len(logs) == 10
+    assert len(logs) == LISTED * BUCKETS
     log = logs[0]
     assert log.source == "gemini"
     assert log.metadata["uuid"].startswith("c_")
@@ -243,8 +219,6 @@ def test_importer_extracts_per_turn_timestamps_from_wire(tmp_path):
 def test_importer_handles_null_body_with_warning(tmp_path, caplog):
     """Per-chat access glitches (wrb.fr body = null) log a warning and yield
     an EventLog with no events, rather than aborting the batch."""
-    import logging
-
     null_body_response = ')]}\'\n\n0\n[["wrb.fr","hNvQHb",null,null,null,null,"generic"]]'
 
     def handler(request):

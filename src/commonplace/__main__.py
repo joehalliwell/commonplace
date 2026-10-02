@@ -28,7 +28,7 @@ app = App(
 # These must stay `TypeAlias`, not PEP 695 `type` statements: cyclopts reads
 # the annotation at runtime and does not unwrap a lazy `TypeAliasType`, so the
 # embedded `Parameter(...)` is lost and `--repo` becomes a required CLI
-# argument. Covered by test_main.py::test_stats.
+# argument.
 Repo: TypeAlias = Annotated[Commonplace, Parameter(parse=False)]  # noqa: UP040
 Sources: TypeAlias = Annotated[  # noqa: UP040
     list[str],
