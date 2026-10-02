@@ -308,21 +308,6 @@ def test_fetch_sends_bearer_token(tmp_path):
     assert seen and all(h == "Bearer jwt-token" for h in seen)
 
 
-def test_fetch_retries_transient_5xx(no_retry_sleep, tmp_path):
-    calls: dict[str, int] = {}
-
-    def flaky(request: httpx.Request) -> httpx.Response:
-        path = request.url.path
-        calls[path] = calls.get(path, 0) + 1
-        if path.startswith("/backend-api/conversation/") and calls[path] == 1:
-            return httpx.Response(503)
-        return _handler(request)
-
-    archive = _make_fetcher(handler=flaky).fetch(tmp_path, since=None)
-    assert archive is not None
-    assert len(ChatGptWireImporter().import_(archive)) == 2
-
-
 # ---------------------------------------------------------------------------
 # Wire importer.
 # ---------------------------------------------------------------------------

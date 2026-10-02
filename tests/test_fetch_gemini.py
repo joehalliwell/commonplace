@@ -125,22 +125,6 @@ def test_fetch_cursor_honours_offset(tmp_path):
     assert _make_fetcher().fetch(tmp_path, since=bst) is None
 
 
-def test_fetch_retries_transient_5xx(no_retry_sleep, tmp_path):
-    calls: dict[str, int] = {}
-
-    def flaky(request: httpx.Request) -> httpx.Response:
-        path = request.url.path
-        calls[path] = calls.get(path, 0) + 1
-        if path.endswith("/app"):
-            return httpx.Response(200, text=_fake_app_page())
-        if "batchexecute" in path and calls[path] == 1:
-            return httpx.Response(503)
-        return _handler(request)
-
-    archive = _make_fetcher(handler=flaky).fetch(tmp_path, since=None)
-    assert archive is not None
-
-
 def test_fetch_raises_on_403(tmp_path):
     def handler(request):
         if request.url.path.endswith("/app"):

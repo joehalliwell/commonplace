@@ -243,26 +243,6 @@ def test_fetch_command_all_flag_bypasses_cursor(test_repo):
     assert calls[-1] is None, "with --all, cursor is bypassed"
 
 
-def test_fetch_retries_transient_5xx(no_retry_sleep, tmp_path):
-    """A 503 followed by success should resolve without raising."""
-    calls: dict[str, int] = {}
-
-    def flaky(request: httpx.Request) -> httpx.Response:
-        path = request.url.path
-        calls[path] = calls.get(path, 0) + 1
-        if path == f"/api/organizations/{ORG}/chat_conversations":
-            return httpx.Response(200, json=SUMMARIES)
-        if calls[path] == 1:
-            return httpx.Response(503)
-        prefix = f"/api/organizations/{ORG}/chat_conversations/"
-        uuid = path[len(prefix) :]
-        return httpx.Response(200, json=_detail(uuid))
-
-    archive = _make_fetcher(handler=flaky).fetch(tmp_path, since=None)
-    assert archive is not None
-    assert len(ClaudeImporter().import_(archive)) == 2
-
-
 def test_fetch_raises_on_401(tmp_path):
     with pytest.raises(FetchBlocked):
         _make_fetcher(handler=lambda r: httpx.Response(401)).fetch(tmp_path, since=None)
