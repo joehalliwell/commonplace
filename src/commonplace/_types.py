@@ -5,7 +5,7 @@ This module defines the fundamental data structures used throughout
 the application for representing conversations, messages, and importers.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +39,8 @@ class RepoPath:
 
 @dataclass
 class Note:
-    """Note content at a specific repository location."""
+    """A note's body and metadata at a specific repository location."""
 
     repo_path: RepoPath
-    content: str
+    body: str
+    metadata: Metadata = field(default_factory=dict)

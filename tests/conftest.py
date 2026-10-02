@@ -36,7 +36,7 @@ def make_note():
 
     def _make_note(path: str | Path, content: str, ref: str = TEST_REF) -> Note:
         repo_path = RepoPath(path=Path(path), ref=ref)
-        return Note(repo_path=repo_path, content=content)
+        return Note(repo_path=repo_path, body=content)
 
     return _make_note
 

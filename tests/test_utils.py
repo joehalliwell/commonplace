@@ -4,14 +4,12 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-import yaml
 
 from commonplace._utils import (
     batched,
     dump_frontmatter,
     edit_in_editor,
     load_frontmatter,
-    merge_frontmatter,
     slugify,
     truncate,
 )
@@ -260,14 +258,21 @@ def test_load_frontmatter_no_metadata():
     assert body == content
 
 
-def test_load_frontmatter_invalid_yaml():
-    content = """---
-invalid: [unclosed
----
+@pytest.mark.parametrize(
+    "content",
+    [
+        "---\ninvalid: [unclosed\n---\n\nBody",
+        "---\n\nA rule, some prose, and another rule.\n\n---\n\nBody",
+        "---\n- a\n- list\n---\n\nBody",
+    ],
+)
+def test_load_frontmatter_not_a_mapping_is_all_body(content):
+    """Any markdown file may open with a rule (#95)."""
+    assert load_frontmatter(content) == ({}, content)
 
-Body"""
-    with pytest.raises(yaml.YAMLError):
-        load_frontmatter(content)
+
+def test_load_frontmatter_blank_line_after_block_is_not_body():
+    assert load_frontmatter("---\na: 1\n---\n\n# Title\n") == load_frontmatter("---\na: 1\n---\n# Title\n")
 
 
 def test_load_frontmatter_no_closing_delimiter():
@@ -280,34 +285,6 @@ uuid: abc123
     # Should treat as no frontmatter
     assert metadata == {}
     assert body == content
-
-
-def test_merge_frontmatter_preserves_user_fields():
-    existing = """---
-uuid: abc123
-model: claude-3
-tags: [python, debugging]
-rating: 5
----
-
-Content"""
-    new_metadata = {"uuid": "abc123", "model": "claude-3-5"}
-
-    merged = merge_frontmatter(existing, new_metadata)
-
-    assert merged["uuid"] == "abc123"
-    assert merged["model"] == "claude-3-5"  # Updated by importer
-    assert merged["tags"] == ["python", "debugging"]  # Preserved
-    assert merged["rating"] == 5  # Preserved
-
-
-def test_merge_frontmatter_no_existing():
-    existing = "# Content\n\nNo frontmatter"
-    new_metadata = {"uuid": "new123", "model": "claude-3"}
-
-    merged = merge_frontmatter(existing, new_metadata)
-
-    assert merged == new_metadata
 
 
 @pytest.mark.parametrize(
@@ -346,5 +323,5 @@ def test_dump_frontmatter_long_path_stays_on_one_line():
     assert path in dump_frontmatter({"source_exports": [path]}, "")
 
 
-def test_dump_frontmatter_no_metadata_loads_back_unchanged():
-    assert load_frontmatter(dump_frontmatter({}, "Body\n")) == ({}, "Body\n")
+def test_dump_frontmatter_no_metadata_is_the_body_alone():
+    assert dump_frontmatter({}, "Body\n") == "Body\n"

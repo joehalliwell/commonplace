@@ -1,7 +1,3 @@
----
-id: log-0
----
-
 # Test Chat [created:: 2024-01-01T12:00:00]
 
 ## Human [created:: 2024-01-01T12:00:00]

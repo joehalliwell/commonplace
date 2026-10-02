@@ -49,7 +49,7 @@ def index(
     # Stream chunks from all notes and batch them for efficient embedding
     def chunk_stream():
         for path in track(to_index, "Indexing notes"):
-            note = repo.get_note(path)
+            note = repo.load(path)
             yield from chunker.chunk(note)
 
     # Process chunks in batches

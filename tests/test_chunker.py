@@ -100,11 +100,22 @@ def test_offset_calculation(make_note):
 
     # First chunk starts at "# Title"
     assert chunks[0].offset == 0
-    assert note.content[chunks[0].offset :].startswith("# Title")
+    assert note.body[chunks[0].offset :].startswith("# Title")
 
     # Second chunk starts at "## Section"
     assert chunks[1].offset == 17
-    assert note.content[chunks[1].offset :].startswith("## Section")
+    assert note.body[chunks[1].offset :].startswith("## Section")
+
+
+def test_chunk_note_with_metadata_chunks_the_body_only(make_note):
+    """Blob hashes and UUIDs are not something to search for (#95)."""
+    note = make_note(path="test.md", content="# Title\n\nFirst.")
+    note.metadata = {"uuid": "abc123", "source_exports": [".commonplace/blobs/0000/export.json"]}
+
+    chunks = list(MarkdownChunker().chunk(note))
+
+    assert [chunk.text for chunk in chunks] == ["First."]
+    assert note.body[chunks[0].offset :].startswith("# Title")
 
 
 def test_header_with_metadata(make_note):

@@ -8,7 +8,6 @@ from enum import StrEnum
 from pathlib import Path
 from urllib.parse import unquote
 
-import yaml
 from markdown_it import MarkdownIt
 from markdown_it.rules_inline import StateInline
 from markdown_it.token import Token
@@ -107,12 +106,7 @@ def _strings(value: object) -> Iterator[str]:
 
 def _frontmatter_citations(text: str, lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
     """The paths an artefact's frontmatter cites under any `source*` key."""
-    try:
-        metadata, _ = load_frontmatter(text)
-    except yaml.YAMLError:
-        return
-    if not isinstance(metadata, dict):
-        return
+    metadata, _ = load_frontmatter(text)
     for key, value in metadata.items():
         if str(key).startswith("source"):
             for target in _strings(value):

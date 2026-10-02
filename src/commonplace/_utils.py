@@ -132,10 +132,8 @@ def load_frontmatter(content: str) -> tuple[dict, str]:
 
     Returns:
         Tuple of (metadata dict, body content)
-        If no frontmatter found, returns ({}, original content)
-
-    Raises:
-        yaml.YAMLError: If frontmatter exists but cannot be parsed
+        If no frontmatter found, or what is there is not a YAML mapping,
+        returns ({}, original content)
     """
     lines = content.split("\n")
 
@@ -157,38 +155,28 @@ def load_frontmatter(content: str) -> tuple[dict, str]:
 
     # Parse YAML between delimiters
     yaml_content = "\n".join(lines[1:end_idx])
-    metadata = yaml.safe_load(yaml_content) or {}
+    try:
+        metadata = yaml.safe_load(yaml_content) or {}
+    except yaml.YAMLError:
+        return {}, content
+    if not isinstance(metadata, dict):
+        # A rule, some prose and another rule: any markdown file may open that way.
+        return {}, content
 
-    # Body is everything after the closing delimiter
-    body = "\n".join(lines[end_idx + 1 :])
+    # Body is everything after the closing delimiter and the blank line `dump_frontmatter` puts there
+    body_lines = lines[end_idx + 1 :]
+    if len(body_lines) > 1 and not body_lines[0]:
+        body_lines = body_lines[1:]
 
-    return metadata, body
-
-
-def merge_frontmatter(existing_content: str, new_metadata: dict) -> dict:
-    """
-    Merge new metadata with existing frontmatter, preserving user additions.
-
-    Args:
-        existing_content: Existing markdown content with frontmatter
-        new_metadata: New metadata from importer (these keys will be updated)
-
-    Returns:
-        Merged metadata dict (existing preserved, new overwrites on key collision)
-
-    Raises:
-        yaml.YAMLError: If existing frontmatter cannot be parsed
-    """
-    existing_metadata, _ = load_frontmatter(existing_content)
-
-    # Merge: existing | new means new overwrites existing where keys overlap
-    return existing_metadata | new_metadata
+    return metadata, "\n".join(body_lines)
 
 
 def dump_frontmatter(metadata: dict, body: str) -> str:
     """Markdown content from its parts: the inverse of `load_frontmatter`."""
+    if not metadata:
+        return body
     dumped = yaml.safe_dump(metadata, sort_keys=False, allow_unicode=True, width=float("inf"))
-    return f"---\n{dumped}---\n{body}"
+    return f"---\n{dumped}---\n\n{body}"
 
 
 def sniff_gzipped_jsonl(path: Path) -> dict | None:

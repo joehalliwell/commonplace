@@ -13,7 +13,7 @@ from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._search._types import SearchMethod
 from commonplace._types import Note
-from commonplace._utils import edit_in_editor
+from commonplace._utils import dump_frontmatter, edit_in_editor, load_frontmatter
 
 DEFAULT_ROOT = Path(user_data_dir("commonplace"))
 ENV_PREFIX = "COMMONPLACE"
@@ -176,11 +176,8 @@ def journal(
     repo_path = repo.make_repo_path(journal_path)
 
     # Load existing content or use default (but don't create file yet)
-    if journal_path.exists():
-        note = repo.get_note(repo_path)
-        original_content = note.content
-    else:
-        original_content = default_content
+    note = repo.load(repo_path) if journal_path.exists() else Note(repo_path=repo_path, body=default_content)
+    original_content = dump_frontmatter(note.metadata, note.body)
 
     # Open in editor
     try:
@@ -197,8 +194,8 @@ def journal(
         return
 
     # Save the edited content (creates file if it doesn't exist)
-    note = Note(repo_path=repo_path, content=edited_content)
-    repo.save(note)
+    metadata, body = load_frontmatter(edited_content)
+    repo.save(Note(repo_path=repo_path, body=body, metadata=metadata))
     logger.info(f"Saved journal entry to {journal_path.relative_to(repo.root)}")
 
     # Commit the journal entry

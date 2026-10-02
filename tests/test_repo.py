@@ -13,7 +13,7 @@ def test_commit_initial_changes(test_repo):
     """Test committing the first change to a new repository."""
     note = Note(
         repo_path=RepoPath(path=Path("test.md"), ref=""),
-        content="# Test\nHello world",
+        body="# Test\nHello world",
     )
     test_repo.save(note)
     test_repo.commit("Initial commit")
@@ -26,7 +26,7 @@ def test_commit_no_changes(test_repo):
     """Test that committing with no changes does nothing."""
     note = Note(
         repo_path=RepoPath(path=Path("test.md"), ref=""),
-        content="# Test\nHello world",
+        body="# Test\nHello world",
     )
     test_repo.save(note)
     test_repo.commit("Initial commit")
@@ -53,7 +53,7 @@ def test_commit_subsequent_changes(test_repo):
     """Test committing changes after initial commit."""
     note1 = Note(
         repo_path=RepoPath(path=Path("test1.md"), ref=""),
-        content="# Test 1\nFirst note",
+        body="# Test 1\nFirst note",
     )
     test_repo.save(note1)
     test_repo.commit("Initial commit")
@@ -61,7 +61,7 @@ def test_commit_subsequent_changes(test_repo):
 
     note2 = Note(
         repo_path=RepoPath(path=Path("test2.md"), ref=""),
-        content="# Test 2\nSecond note",
+        body="# Test 2\nSecond note",
     )
     test_repo.save(note2)
     test_repo.commit("Add second note")
@@ -74,7 +74,7 @@ def test_commit_modified_file(test_repo):
     """Test committing modifications to an existing file."""
     note = Note(
         repo_path=RepoPath(path=Path("test.md"), ref=""),
-        content="# Test\nOriginal content",
+        body="# Test\nOriginal content",
     )
     test_repo.save(note)
     test_repo.commit("Initial commit")
@@ -82,13 +82,41 @@ def test_commit_modified_file(test_repo):
 
     modified_note = Note(
         repo_path=RepoPath(path=Path("test.md"), ref=""),
-        content="# Test\nModified content",
+        body="# Test\nModified content",
     )
     test_repo.save(modified_note)
     test_repo.commit("Update note")
 
     assert test_repo.git.head.target != first_commit_id
     assert test_repo.git.head.peel().message == "Update note"
+
+
+def test_save_note_with_metadata_loads_back_unchanged(test_repo):
+    repo_path = RepoPath(path=Path("test.md"), ref="")
+    note = Note(repo_path=repo_path, body="# Test\n\nHello: world\n", metadata={"gem": "Research: notes #1"})
+
+    test_repo.save(note)
+
+    assert test_repo.load(repo_path) == note
+
+
+def test_load_file_with_frontmatter_separates_metadata_from_body(test_repo):
+    (test_repo.root / "test.md").write_text("---\ntags: [a, b]\n---\n\n# Test\n")
+
+    note = test_repo.load(RepoPath(path=Path("test.md"), ref=""))
+
+    assert (note.metadata, note.body) == ({"tags": ["a", "b"]}, "# Test\n")
+
+
+def test_load_file_opening_with_a_rule_is_all_body(test_repo):
+    text = "---\n\nSome prose.\n\n---\n\nMore prose.\n"
+    (test_repo.root / "test.md").write_text(text)
+
+    note = test_repo.load(RepoPath(path=Path("test.md"), ref=""))
+    test_repo.save(note)
+
+    assert (note.metadata, note.body) == ({}, text)
+    assert (test_repo.root / "test.md").read_text() == text
 
 
 def test_make_repo_path_follows_later_commits(test_repo):
@@ -98,11 +126,11 @@ def test_make_repo_path_follows_later_commits(test_repo):
     on HEAD: everything downstream (incremental indexing, pruning, hiding deleted hits
     from search) decides what is current by comparing refs.
     """
-    test_repo.save(Note(repo_path=RepoPath(path=Path("test.md"), ref=""), content="# Test\nOriginal content"))
+    test_repo.save(Note(repo_path=RepoPath(path=Path("test.md"), ref=""), body="# Test\nOriginal content"))
     test_repo.commit("Add note", auto_index=False)
     original = test_repo.make_repo_path("test.md")
 
-    test_repo.save(Note(repo_path=RepoPath(path=Path("test.md"), ref=""), content="# Test\nModified content"))
+    test_repo.save(Note(repo_path=RepoPath(path=Path("test.md"), ref=""), body="# Test\nModified content"))
     test_repo.commit("Update note", auto_index=False)
     modified = test_repo.make_repo_path("test.md")
 
@@ -112,10 +140,8 @@ def test_make_repo_path_follows_later_commits(test_repo):
 
 def test_note_paths_commonplace_dir_excluded(test_repo):
     """Skill-managed state under .commonplace/ is never a note."""
-    test_repo.save(Note(repo_path=RepoPath(path=Path("notes/idea.md"), ref=""), content="# Idea\n"))
-    test_repo.save(
-        Note(repo_path=RepoPath(path=Path(".commonplace/skills/rake/chaff.md"), ref=""), content="# Chaff\n")
-    )
+    test_repo.save(Note(repo_path=RepoPath(path=Path("notes/idea.md"), ref=""), body="# Idea\n"))
+    test_repo.save(Note(repo_path=RepoPath(path=Path(".commonplace/skills/rake/chaff.md"), ref=""), body="# Chaff\n"))
     test_repo.commit("Add notes", auto_index=False)
 
     assert [p.path for p in test_repo.note_paths()] == [Path("notes/idea.md")]
@@ -140,9 +166,9 @@ def test_paths_gitignored_files_excluded(test_repo):
 
 def test_note_paths_dot_dirs_excluded(test_repo):
     """No dot-directory is descended, at any depth."""
-    test_repo.save(Note(repo_path=RepoPath(path=Path("notes/idea.md"), ref=""), content="# Idea\n"))
-    test_repo.save(Note(repo_path=RepoPath(path=Path(".claude/copy.md"), ref=""), content="# Copy\n"))
-    test_repo.save(Note(repo_path=RepoPath(path=Path("notes/.hidden/draft.md"), ref=""), content="# Draft\n"))
+    test_repo.save(Note(repo_path=RepoPath(path=Path("notes/idea.md"), ref=""), body="# Idea\n"))
+    test_repo.save(Note(repo_path=RepoPath(path=Path(".claude/copy.md"), ref=""), body="# Copy\n"))
+    test_repo.save(Note(repo_path=RepoPath(path=Path("notes/.hidden/draft.md"), ref=""), body="# Draft\n"))
     test_repo.commit("Add notes", auto_index=False)
 
     assert [p.path for p in test_repo.note_paths()] == [Path("notes/idea.md")]
@@ -165,7 +191,7 @@ def test_index_matches_head_after_commit(test_repo):
     # First commit
     note1 = Note(
         repo_path=RepoPath(path=Path("test.md"), ref=""),
-        content="# Test\nOriginal content",
+        body="# Test\nOriginal content",
     )
     test_repo.save(note1)
     test_repo.commit("Initial commit")
@@ -173,7 +199,7 @@ def test_index_matches_head_after_commit(test_repo):
     # Second commit modifies the file
     note2 = Note(
         repo_path=RepoPath(path=Path("test.md"), ref=""),
-        content="# Test\nModified content",
+        body="# Test\nModified content",
     )
     test_repo.save(note2)
     test_repo.commit("Update note")
@@ -230,7 +256,7 @@ def test_commit_auto_indexes_by_default(test_repo, monkeypatch):
     # Create and commit a note
     note = Note(
         repo_path=RepoPath(path=Path("test.md"), ref=""),
-        content="# Test\nHello world",
+        body="# Test\nHello world",
     )
     test_repo.save(note)
     test_repo.commit("Test commit")
@@ -256,7 +282,7 @@ def test_commit_no_index_flag_disables_indexing(test_repo, monkeypatch):
     # Create and commit a note with auto_index=False
     note = Note(
         repo_path=RepoPath(path=Path("test.md"), ref=""),
-        content="# Test\nHello world",
+        body="# Test\nHello world",
     )
     test_repo.save(note)
     test_repo.commit("Test commit", auto_index=False)
@@ -284,7 +310,7 @@ def test_commit_index_flag_overrides_config(test_repo, monkeypatch):
     # Create and commit a note with auto_index=True (override)
     note = Note(
         repo_path=RepoPath(path=Path("test.md"), ref=""),
-        content="# Test\nHello world",
+        body="# Test\nHello world",
     )
     test_repo.save(note)
     test_repo.commit("Test commit", auto_index=True)
@@ -310,7 +336,7 @@ def test_commit_no_changes_skips_indexing(test_repo, monkeypatch):
     # Create initial commit
     note = Note(
         repo_path=RepoPath(path=Path("test.md"), ref=""),
-        content="# Test\nHello world",
+        body="# Test\nHello world",
     )
     test_repo.save(note)
     test_repo.commit("Initial commit")

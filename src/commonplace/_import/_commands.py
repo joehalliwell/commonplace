@@ -20,7 +20,7 @@ from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
-from commonplace._utils import merge_frontmatter, slugify
+from commonplace._utils import slugify
 
 #: Everything that can claim a file: chat importers accumulate, memory importers mirror live state.
 IMPORTERS: list[ChatImporter | MemoryImporter] = [
@@ -118,21 +118,14 @@ def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_in
         log.metadata["source"] = log.source
         log.metadata["source_exports"] = source_exports
 
-        # Check if file already exists and merge metadata if so
-        abs_path = repo.root / rel_path
-        if abs_path.exists():
-            existing_content = abs_path.read_text()
-            merged_metadata = merge_frontmatter(existing_content, log.metadata)
-            log.metadata = merged_metadata
-            logger.debug(f"Merged metadata for existing file '{rel_path}'")
-
         # Create RepoPath for the new note (will get proper ref after commit)
         repo_path = repo.make_repo_path(rel_path)
 
-        note = Note(
-            repo_path=repo_path,
-            content=serializer.serialize(log),
-        )
+        note = Note(repo_path=repo_path, body=serializer.serialize(log), metadata=log.metadata)
+        if (repo.root / rel_path).exists():
+            # Ours win; what the user added by hand survives.
+            note.metadata = repo.load(repo_path).metadata | note.metadata
+            logger.debug(f"Merged metadata for existing file '{rel_path}'")
         repo.save(note)
         logger.info(f"Stored log '{log.title}' at '{rel_path}'")
 
