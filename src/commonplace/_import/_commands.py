@@ -41,7 +41,7 @@ def import_(path: Path, repo: Commonplace, user: str, prefix="chats", auto_index
     if path.is_file():
         import_one(path, repo, user, prefix=prefix, auto_index=auto_index)
     else:
-        logger.debug("Scanning '{path}' for export files")
+        logger.debug(f"Scanning '{path}' for export files")
         assert path.is_dir()
         paths_to_import = sorted(p for p in path.rglob("*") if p.is_file())
         for filepath in track(paths_to_import, "Importing files"):
