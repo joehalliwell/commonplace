@@ -2,6 +2,7 @@ import difflib
 import hashlib
 import os
 import shutil
+import subprocess
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -378,21 +379,10 @@ class Commonplace:
         pathspec, ignoring pure deletions or rename-source commits (important
         for fetch-cursor use, where `git mv chats/foo chats/bar` would
         otherwise poison the cursor for `chats/foo/`)."""
-        import subprocess
-
-        cmd = [
-            "git",
-            f"--git-dir={self.root / '.git'}",
-            f"--work-tree={self.root}",
-            "log",
-            "-1",
-            "--format=%aI",
-        ]
+        args = ["log", "-1", "--format=%aI"]
         if diff_filter:
-            cmd.append(f"--diff-filter={diff_filter}")
-        cmd += ["--", pathspec]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-        raw = result.stdout.strip()
+            args.append(f"--diff-filter={diff_filter}")
+        raw = self._git(*args, "--", pathspec).strip()
         if not raw:
             return None
         # %aI carries the committer's local offset; fetchers work in UTC.
@@ -545,9 +535,6 @@ class Commonplace:
         Raises:
             ValueError: If sync operation fails
         """
-        import subprocess
-        from datetime import datetime
-
         # 1. Check for remote (helpful error message)
         if not self.has_remote(remote_name):
             raise ValueError(f"Remote '{remote_name}' not found. Add remote first.")
@@ -616,8 +603,6 @@ class Commonplace:
         Raises:
             subprocess.CalledProcessError: If git command fails
         """
-        import subprocess
-
         result = subprocess.run(
             [
                 "git",
