@@ -22,11 +22,9 @@ def _provenance(r: httpx.Response) -> dict[str, str]:
     return {"request_id": request_id} if request_id else {}
 
 
-class ClaudeFetcher(BaseFetcher):
-    """Records one list call plus N conversation details from claude.ai's
-    internal API. Endpoints are unofficial; expect drift."""
+class ClaudeSessionFetcher(BaseFetcher):
+    """What every claude.ai fetcher shares: where the session lives and the two cookies it needs."""
 
-    source = "claude"
     cookie_domain = "claude.ai"
     service_name = "Claude"
     login_url = "https://claude.ai"
@@ -34,18 +32,30 @@ class ClaudeFetcher(BaseFetcher):
 
     _org_uuid: str
 
-    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+    def _authenticate(self) -> dict[str, str] | None:
+        """The session's cookies, with `_org_uuid` set — or `None`, having said why, if there is no usable session."""
         cookies = self._read_cookies()
-        session_key = cookies.get("sessionKey")
         org_uuid = cookies.get("lastActiveOrg")
-        if not session_key:
+        if not cookies.get("sessionKey"):
             logger.error("No Claude session cookie found. Log in at https://claude.ai in Chrome first.")
             return None
         if not org_uuid:
             logger.error("No lastActiveOrg cookie. Visit https://claude.ai in Chrome to set it.")
             return None
-
         self._org_uuid = org_uuid
+        return cookies
+
+
+class ClaudeFetcher(ClaudeSessionFetcher):
+    """Records one list call plus N conversation details from claude.ai's
+    internal API. Endpoints are unofficial; expect drift."""
+
+    source = "claude"
+
+    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+        cookies = self._authenticate()
+        if cookies is None:
+            return None
 
         with self._session(cookies):
             summaries = self._list_conversations()

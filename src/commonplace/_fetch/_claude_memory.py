@@ -2,36 +2,22 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any
 
-from commonplace._fetch._base import BaseFetcher
-from commonplace._fetch._claude import _provenance
+from commonplace._fetch._claude import ClaudeSessionFetcher, _provenance
 from commonplace._logging import logger
 from commonplace._progress import track
 
 
-class ClaudeMemoryFetcher(BaseFetcher):
+class ClaudeMemoryFetcher(ClaudeSessionFetcher):
     """Records one complete listing plus a read per changed path; endpoints are unofficial, so expect drift."""
 
     source = "claude-memory"
-    cookie_domain = "claude.ai"
-    service_name = "Claude"
-    login_url = "https://claude.ai"
-    extra_headers: ClassVar[dict[str, str]] = {"Accept": "application/json", "Referer": "https://claude.ai/"}
-
-    _org_uuid: str
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        cookies = self._read_cookies()
-        org_uuid = cookies.get("lastActiveOrg")
-        if not cookies.get("sessionKey"):
-            logger.error("No Claude session cookie found. Log in at https://claude.ai in Chrome first.")
+        cookies = self._authenticate()
+        if cookies is None:
             return None
-        if not org_uuid:
-            logger.error("No lastActiveOrg cookie. Visit https://claude.ai in Chrome to set it.")
-            return None
-
-        self._org_uuid = org_uuid
 
         with self._session(cookies):
             listing = self._post("list", {})["data"]
