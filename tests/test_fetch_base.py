@@ -11,13 +11,14 @@ import pytest
 from commonplace._fetch._base import BaseFetcher
 from commonplace._fetch._chatgpt import ChatGptFetcher
 from commonplace._fetch._claude import ClaudeFetcher
+from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
 from commonplace._fetch._commands import default_fetchers
 from commonplace._fetch._gemini import GeminiFetcher
 from commonplace._fetch._helpers import FetchBlocked
 from commonplace._fetch._types import Fetcher
 from commonplace._wire import read_header
 
-FETCHERS = [ChatGptFetcher, ClaudeFetcher, GeminiFetcher]
+FETCHERS = [ChatGptFetcher, ClaudeFetcher, ClaudeMemoryFetcher, GeminiFetcher]
 
 
 @pytest.mark.parametrize("fetcher_class", FETCHERS, ids=lambda c: c.source)

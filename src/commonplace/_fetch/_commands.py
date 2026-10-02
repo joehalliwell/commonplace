@@ -6,9 +6,10 @@ from pathlib import Path
 from commonplace._config import Config
 from commonplace._fetch._chatgpt import ChatGptFetcher
 from commonplace._fetch._claude import ClaudeFetcher
+from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
 from commonplace._fetch._gemini import GeminiFetcher
 from commonplace._fetch._types import Fetcher
-from commonplace._import._commands import import_
+from commonplace._import._commands import import_, landing_tree
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 
@@ -19,6 +20,7 @@ def default_fetchers(config: Config) -> list[Fetcher]:
     override, which a constant evaluated at import time could not see."""
     return [
         ClaudeFetcher(ua=config.ua),
+        ClaudeMemoryFetcher(ua=config.ua),
         GeminiFetcher(ua=config.ua),
         ChatGptFetcher(ua=config.ua),
     ]
@@ -48,7 +50,8 @@ def fetch(
         logger.info(f"Fetching from {fetcher.source}")
         # `diff_filter="AM"` excludes rename-source / pure-deletion commits so
         # a `git mv chats/{source}/ elsewhere` doesn't poison the cursor.
-        since = None if all_ else repo.last_commit_time(f"chats/{fetcher.source}/", diff_filter="AM")
+        tree = landing_tree(fetcher.source).as_posix()
+        since = None if all_ else repo.last_commit_time(f"{tree}/", diff_filter="AM")
         with tempfile.TemporaryDirectory() as tmp:
             artifact = fetcher.fetch(Path(tmp), since)
             if artifact is None:
