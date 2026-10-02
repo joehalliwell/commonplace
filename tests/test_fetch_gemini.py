@@ -1,8 +1,10 @@
 """Tests for the Gemini fetcher (and its paired importer)."""
 
 import json
+import logging
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import parse_qs
 
 import httpx
 import pytest
@@ -33,8 +35,6 @@ def _fake_app_page() -> str:
 
 def _extract_payload_cursor(request: httpx.Request) -> str | None:
     """Pull the cursor (payload slot [1]) out of the batchexecute POST body."""
-    from urllib.parse import parse_qs
-
     fields = parse_qs(request.content.decode())
     envelope = json.loads(fields["f.req"][0])
     inner = json.loads(envelope[0][0][1])
@@ -219,8 +219,6 @@ def test_importer_extracts_per_turn_timestamps_from_wire(tmp_path):
 def test_importer_handles_null_body_with_warning(tmp_path, caplog):
     """Per-chat access glitches (wrb.fr body = null) log a warning and yield
     an EventLog with no events, rather than aborting the batch."""
-    import logging
-
     null_body_response = ')]}\'\n\n0\n[["wrb.fr","hNvQHb",null,null,null,null,"generic"]]'
 
     def handler(request):

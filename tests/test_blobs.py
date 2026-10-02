@@ -1,10 +1,12 @@
+import json
 import shutil
 from pathlib import Path
 
 import pytest
+from pygit2.enums import FileStatus
 
 from commonplace._import._commands import import_
-from commonplace._repo import _hash_file
+from commonplace._repo import Commonplace, _hash_file
 from commonplace._utils import load_frontmatter
 
 SAMPLE_EXPORTS_DIR = Path(__file__).parent / "resources" / "sample-exports"
@@ -33,8 +35,6 @@ def test_store_blob_copies_file(test_repo, sample_file):
     # Check it's staged in the git index
     status = test_repo.git.status_file(expected_rel.as_posix())
     # INDEX_NEW means staged as a new file
-    from pygit2.enums import FileStatus
-
     assert status & FileStatus.INDEX_NEW
 
 
@@ -78,8 +78,6 @@ def test_store_blob_creates_gitattributes(test_repo, sample_file):
 
 def test_init_creates_gitattributes(tmp_path):
     """Commonplace.init() includes .gitattributes with LFS config."""
-    from commonplace._repo import Commonplace
-
     root = tmp_path / "fresh_repo"
     root.mkdir()
     Commonplace.init(root)
@@ -93,16 +91,12 @@ def test_init_creates_gitattributes(tmp_path):
 
 def test_init_creates_claude_settings(tmp_path):
     """Commonplace.init() includes .claude/settings.json with marketplace config."""
-    from commonplace._repo import Commonplace
-
     root = tmp_path / "fresh_repo"
     root.mkdir()
     Commonplace.init(root)
 
     settings = root / ".claude" / "settings.json"
     assert settings.exists()
-    import json
-
     data = json.loads(settings.read_text())
     assert "commonplace" in data["extraKnownMarketplaces"]
     assert data["enabledPlugins"]["commonplace-skills@commonplace"] is True

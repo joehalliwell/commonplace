@@ -1,9 +1,12 @@
 """Tests for repository commit functionality."""
 
 import json
+import subprocess
 from contextlib import closing
 from datetime import UTC
 from pathlib import Path
+
+from pygit2.enums import ObjectType
 
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
@@ -162,8 +165,6 @@ def test_config_reads_repo_file(tmp_path, monkeypatch):
 
 def test_index_matches_head_after_commit(test_repo, make_note):
     """Test that index tree matches HEAD tree after commit (not previous HEAD)."""
-    from pygit2.enums import ObjectType
-
     test_repo.save(make_note("test.md", "# Test\nOriginal content"))
     test_repo.commit("Initial commit")
 
@@ -450,8 +451,6 @@ def test_last_commit_time_returns_utc_datetime_after_commit(test_repo):
 def test_last_commit_time_ignores_rename_source_with_diff_filter(test_repo):
     """`git mv chats/foo chats/bar` should not poison the fetch cursor for
     chats/foo/ — with diff_filter='AM' we only see adds/modifications."""
-    import subprocess
-
     chats = test_repo.root / "chats" / "claude" / "2026" / "07"
     chats.mkdir(parents=True)
     note = chats / "test.md"

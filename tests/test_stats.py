@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from rich.text import Text
 
+from commonplace._search._commands import index
 from commonplace._stats import generate_stats
 from commonplace._types import Note, RepoPath
 
@@ -166,8 +167,6 @@ def test_generate_stats_with_indexed_content(test_repo, any_terminal):
     test_repo.commit("Add test note", auto_index=False)
 
     # Index the note
-    from commonplace._search._commands import index
-
     index(test_repo, rebuild=True)
 
     # Generate stats
