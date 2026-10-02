@@ -15,7 +15,6 @@ from typing import ClassVar
 
 from commonplace._fetch._base import BaseFetcher
 from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso_dt
-from commonplace._logging import logger
 
 INIT_URL = "https://gemini.google.com/app"
 BATCH_URL = "https://gemini.google.com/_/BardChatUi/data/batchexecute"
@@ -46,7 +45,7 @@ class GeminiFetcher(BaseFetcher):
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
         cookies = self._read_cookies()
         if not cookies.get("__Secure-1PSID"):
-            logger.error("No Gemini session cookie found. Log in at https://gemini.google.com in Chrome first.")
+            self._report_no_session()
             return None
 
         with self._session(cookies):

@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from commonplace._fetch._base import BaseFetcher
-from commonplace._logging import logger
 
 SESSION_URL = "https://chatgpt.com/api/auth/session"
 LIST_URL = "https://chatgpt.com/backend-api/conversations"
@@ -43,7 +42,7 @@ class ChatGptFetcher(BaseFetcher):
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
         cookies = self._read_cookies()
         if not any(name.startswith(SESSION_COOKIE_PREFIX) for name in cookies):
-            logger.error("No ChatGPT session cookie found. Log in at https://chatgpt.com in Chrome first.")
+            self._report_no_session()
             return None
 
         with self._session(cookies) as client:
