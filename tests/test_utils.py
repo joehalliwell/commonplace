@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-import yaml
 
 from commonplace._utils import (
     batched,
@@ -260,14 +259,21 @@ def test_load_frontmatter_no_metadata():
     assert body == content
 
 
-def test_load_frontmatter_invalid_yaml():
-    content = """---
-invalid: [unclosed
----
+@pytest.mark.parametrize(
+    "content",
+    [
+        "---\ninvalid: [unclosed\n---\n\nBody",
+        "---\n\nA rule, some prose, and another rule.\n\n---\n\nBody",
+        "---\n- a\n- list\n---\n\nBody",
+    ],
+)
+def test_load_frontmatter_not_a_mapping_is_all_body(content):
+    """Any markdown file may open with a rule (#95)."""
+    assert load_frontmatter(content) == ({}, content)
 
-Body"""
-    with pytest.raises(yaml.YAMLError):
-        load_frontmatter(content)
+
+def test_load_frontmatter_blank_line_after_block_is_not_body():
+    assert load_frontmatter("---\na: 1\n---\n\n# Title\n") == load_frontmatter("---\na: 1\n---\n# Title\n")
 
 
 def test_load_frontmatter_no_closing_delimiter():
@@ -346,5 +352,5 @@ def test_dump_frontmatter_long_path_stays_on_one_line():
     assert path in dump_frontmatter({"source_exports": [path]}, "")
 
 
-def test_dump_frontmatter_no_metadata_loads_back_unchanged():
-    assert load_frontmatter(dump_frontmatter({}, "Body\n")) == ({}, "Body\n")
+def test_dump_frontmatter_no_metadata_is_the_body_alone():
+    assert dump_frontmatter({}, "Body\n") == "Body\n"

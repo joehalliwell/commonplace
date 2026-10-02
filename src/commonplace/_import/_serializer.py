@@ -95,9 +95,7 @@ class MarkdownSerializer(BaseModel):
             extensions=["gfm"],
             options={"wrap": self.wrap, "number": True, "validate": True},
         )
-        if include_frontmatter and log.metadata:
-            return dump_frontmatter(log.metadata, f"\n{formatted}")
-        return formatted
+        return dump_frontmatter(log.metadata, formatted) if include_frontmatter else formatted
 
     def _add_metadata(self, lines: list[str], metadata: dict[str, Any]) -> None:
         if not metadata:
