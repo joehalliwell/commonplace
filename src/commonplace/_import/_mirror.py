@@ -11,7 +11,7 @@ from commonplace._import._types import MemoryImporter
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._types import Note
-from commonplace._utils import with_frontmatter
+from commonplace._utils import dump_frontmatter
 from commonplace._wire import read_header
 
 
@@ -25,7 +25,7 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         return
 
     snapshot = importer.snapshot(path)
-    files = {p: content for p, content in snapshot.files.items() if _inside(p)}
+    files = {p: parts for p, parts in snapshot.files.items() if _inside(p)}
     for refused in snapshot.files.keys() - files.keys():
         logger.warning(f"Skipping file with unusable path '{refused}'")
 
@@ -43,10 +43,10 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         logger.info(f"'{tree}' already matches '{path}'")
         return
 
-    metadata = {"source": importer.source, "source_exports": [repo.store_blob(path).path.as_posix()]}
-    for relative, content in files.items():
+    provenance = {"source": importer.source, "source_exports": [repo.store_blob(path).path.as_posix()]}
+    for relative, (metadata, body) in files.items():
         target = tree / relative
-        repo.save(Note(repo.make_repo_path(target), with_frontmatter(content, metadata)))
+        repo.save(Note(repo.make_repo_path(target), dump_frontmatter(metadata | provenance, body)))
         logger.info(f"Mirrored '{target}'")
     for target in stale:
         repo.remove(target)

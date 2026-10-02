@@ -22,6 +22,7 @@ def _entries(files: dict[str, str], listed: list[str] | None = None) -> list[dic
     entries = [{"endpoint": "list", "response": json.dumps({"data": [{"path": p} for p in paths]})}]
     for path, content in files.items():
         read = {"path": path, "content": content, "version": "v1", "category_id": "topics", "updated_at": "2026-09-30"}
+        read["display_name"] = "Title"
         entries.append({"endpoint": "read", "path": path, "response": json.dumps(read)})
     return entries
 
@@ -68,9 +69,8 @@ def test_snapshot_example_archive_interprets_without_a_repo():
     snapshot = ClaudeMemoryImporter().snapshot(EXAMPLE)
 
     assert snapshot.listed == {PurePosixPath("topics/example.md")}
-    [(path, content)] = snapshot.files.items()
+    [(path, (metadata, body))] = snapshot.files.items()
     assert path == PurePosixPath("topics/example.md")
-    metadata, body = parse_frontmatter(content)
     assert body == "# Example\n\n- [stated] Prefers tea. See [[other]]."
     assert metadata == {
         "name": "example",
@@ -83,30 +83,13 @@ def test_snapshot_example_archive_interprets_without_a_repo():
     }
 
 
-def _snapshot_of(tmp_path: Path, read: dict) -> str:
-    """The content a snapshot holds for a single `read` response."""
-    entries = [{"endpoint": "read", "path": read["path"], "response": json.dumps(read)}]
-    archive = write_archive(tmp_path / "claude-memory-wire.jsonl.gz", "claude-memory", entries)
-    [content] = ClaudeMemoryImporter().snapshot(archive).files.values()
-    return content
+def test_snapshot_file_without_frontmatter_is_titled_all_the_same(tmp_path):
+    [(metadata, body)] = (
+        ClaudeMemoryImporter().snapshot(_archive(tmp_path, {"/plain.md": "Just a line.\n"})).files.values()
+    )
 
-
-def test_snapshot_display_name_becomes_the_title_above_a_verbatim_body(tmp_path):
-    read = {"path": "/a.md", "display_name": "AI Research", "content": "---\nname: ai-research\n---\n## Notes\n- one"}
-
-    assert _snapshot_of(tmp_path, read) == "---\nname: ai-research\n---\n# AI Research\n\n## Notes\n- one"
-
-
-def test_snapshot_display_name_titles_a_file_without_frontmatter(tmp_path):
-    read = {"path": "/a.md", "display_name": "Plain", "content": "Just a line.\n"}
-
-    assert _snapshot_of(tmp_path, read) == "# Plain\n\nJust a line.\n"
-
-
-def test_snapshot_body_that_already_has_a_title_is_left_alone(tmp_path):
-    content = "---\nname: a\n---\n\n# Its own title\n\nBody."
-
-    assert _snapshot_of(tmp_path, {"path": "/a.md", "display_name": "Other", "content": content}) == content
+    assert body == "# Title\n\nJust a line.\n"
+    assert metadata == {"category_id": "topics", "version": "v1", "updated_at": "2026-09-30"}
 
 
 def test_snapshot_archive_without_listing_has_no_listed_set(tmp_path):
@@ -148,24 +131,14 @@ def test_mirror_example_archive_adds_provenance_frontmatter(test_repo):
     assert (test_repo.root / blob).exists()
 
 
-def test_mirror_file_with_frontmatter_keeps_its_own_lines_verbatim(test_repo, tmp_path):
-    content = "---\nname:   Oddly   spaced\ntags: [a,  b]\n---\n\nBody   text.\n"
+def test_mirror_file_with_frontmatter_keeps_its_own_values_beside_ours(test_repo, tmp_path):
+    content = "---\nname: a\ntags: [x, y]\n---\n\nBody   text.\n"
     _mirror(test_repo, _archive(tmp_path, {"/a.md": content}))
 
-    landed = (test_repo.root / "memory/claude/a.md").read_text()
-    assert landed.startswith("---\nname:   Oddly   spaced\ntags: [a,  b]\n")
-    assert landed.endswith("---\n\nBody   text.\n")
-    metadata, _ = parse_frontmatter(landed)
-    assert metadata["tags"] == ["a", "b"]
+    metadata, body = parse_frontmatter((test_repo.root / "memory/claude/a.md").read_text())
+    assert (metadata["name"], metadata["tags"]) == ("a", ["x", "y"])
     assert metadata["source"] == "claude-memory"
-
-
-def test_mirror_file_without_frontmatter_keeps_body_verbatim(test_repo, tmp_path):
-    _mirror(test_repo, _archive(tmp_path, {"/plain.md": "Just a line.\n"}))
-
-    metadata, body = parse_frontmatter((test_repo.root / "memory/claude/plain.md").read_text())
-    assert metadata["source"] == "claude-memory"
-    assert body == "Just a line.\n"
+    assert body == "# Title\n\nBody   text.\n"
 
 
 def test_mirror_path_absent_from_listing_is_pruned(test_repo, tmp_path):

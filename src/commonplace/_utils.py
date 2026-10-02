@@ -184,17 +184,9 @@ def merge_frontmatter(existing_content: str, new_metadata: dict) -> dict:
     return existing_metadata | new_metadata
 
 
-def with_frontmatter(content: str, metadata: dict) -> str:
-    """Add `metadata` to the content's frontmatter textually, so its own lines and body stay byte-for-byte."""
-    if not metadata:
-        return content
-    added = yaml.safe_dump(metadata, sort_keys=False)
-    lines = content.split("\n")
-    if lines[0].strip() == "---":
-        for i, line in enumerate(lines[1:], start=1):
-            if line.strip() == "---":
-                return "\n".join(lines[:i]) + "\n" + added + "\n".join(lines[i:])
-    return f"---\n{added}---\n{content}"
+def dump_frontmatter(metadata: dict, body: str) -> str:
+    """Markdown content from its parts: the inverse of `parse_frontmatter`."""
+    return f"---\n{yaml.safe_dump(metadata, sort_keys=False, allow_unicode=True)}---\n{body}"
 
 
 def sniff_gzipped_jsonl(path: Path) -> dict | None:

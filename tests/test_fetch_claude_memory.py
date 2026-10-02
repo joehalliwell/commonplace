@@ -13,8 +13,8 @@ ORG = "org-uuid-1"
 TEST_COOKIES = {"sessionKey": "sk-test", "lastActiveOrg": ORG}
 
 LISTING = [
-    {"path": "/topics/old.md", "updated_at": "2026-06-01T00:00:00Z"},
-    {"path": "/topics/new.md", "updated_at": "2026-07-15T00:00:00Z"},
+    {"path": "/topics/old.md", "display_name": "Old", "updated_at": "2026-06-01T00:00:00Z"},
+    {"path": "/topics/new.md", "display_name": "New", "updated_at": "2026-07-15T00:00:00Z"},
 ]
 
 
