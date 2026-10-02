@@ -14,7 +14,7 @@ from commonplace._import._gemini_takeout import GeminiTakeoutImporter
 from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._import._zip import zip_contains
-from commonplace._utils import load_frontmatter
+from commonplace._utils import dump_frontmatter, load_frontmatter
 
 SAMPLE_EXPORTS_DIR = Path(__file__).parent / "resources" / "sample-exports"
 SAMPLE_EXPORT_NAMES = [p.name for p in SAMPLE_EXPORTS_DIR.glob("*")]
@@ -85,59 +85,40 @@ def test_serialize_log(snapshot):
     snapshot.assert_match(result, "log.md")
 
 
-def test_import_existing_note_refreshes_importer_metadata(test_repo, tmp_path_factory):
-    export_path = _prepare_export(SAMPLE_EXPORTS_DIR / "claude.zip", tmp_path_factory.mktemp("export"))
-    import_(export_path, test_repo, user="Human")
-    imported_file = min((test_repo.root / "chats").glob("**/*.md"))
-    imported_file.write_text(imported_file.read_text().replace("source: claude\n", "source: stale\n"))
+@pytest.fixture
+def claude_export(tmp_path_factory):
+    """Create a zip archive from the claude.zip sample export directory."""
+    return _prepare_export(SAMPLE_EXPORTS_DIR / "claude.zip", tmp_path_factory.mktemp("export"))
 
-    import_(export_path, test_repo, user="Human")
+
+def _edit_metadata(path: Path, **changes) -> None:
+    """Change a note's frontmatter as a user would, leaving its body alone."""
+    metadata, body = load_frontmatter(path.read_text())
+    path.write_text(dump_frontmatter(metadata | changes, body))
+
+
+def test_import_existing_note_refreshes_importer_metadata(test_repo, claude_export):
+    import_(claude_export, test_repo, user="Human")
+    imported_file = min((test_repo.root / "chats").glob("**/*.md"))
+    _edit_metadata(imported_file, source="stale")
+
+    import_(claude_export, test_repo, user="Human")
 
     metadata, _ = load_frontmatter(imported_file.read_text())
     assert metadata["source"] == "claude"
 
 
-def test_import_preserves_user_metadata(test_repo, tmp_path_factory):
+def test_import_preserves_user_metadata(test_repo, claude_export):
     """Test that re-importing preserves user-added metadata."""
-    from commonplace._import._commands import import_
+    import_(claude_export, test_repo, user="Human")
+    imported_file = min((test_repo.root / "chats").glob("**/*.md"))
+    _edit_metadata(imported_file, tags=["important", "test"], rating=5)
 
-    export_path = _prepare_export(SAMPLE_EXPORTS_DIR / "claude.zip", tmp_path_factory.mktemp("export"))
+    import_(claude_export, test_repo, user="Human")
 
-    # First import
-    import_(export_path, test_repo, user="Human")
-
-    # Find the first imported file
-    imported_files = sorted((test_repo.root / "chats").glob("**/*.md"))
-    assert len(imported_files) > 0
-    imported_file = imported_files[0]
-
-    # Add user metadata to the frontmatter
-    original_content = imported_file.read_text()
-    # Find the end of frontmatter and insert user fields before it
-    updated_content = original_content.replace(
-        "\n---\n",
-        "\ntags:\n- important\n- test\nrating: 5\n---\n",
-        1,  # Only replace first occurrence
-    )
-    imported_file.write_text(updated_content)
-
-    # Re-import the same export
-    import_(export_path, test_repo, user="Human")
-
-    # Verify user metadata was preserved
-    final_content = imported_file.read_text()
-    final_metadata, _ = load_frontmatter(final_content)
-
-    assert "tags" in final_metadata
-    assert "important" in final_metadata["tags"]
-    assert "test" in final_metadata["tags"]
-    assert final_metadata["rating"] == 5
-
-
-@pytest.fixture
-def claude_export(tmp_path_factory):
-    """Create a zip archive from the claude.zip sample export directory."""
-    return _prepare_export(SAMPLE_EXPORTS_DIR / "claude.zip", tmp_path_factory.mktemp("export"))
+    metadata, _ = load_frontmatter(imported_file.read_text())
+    assert metadata["tags"] == ["important", "test"]
+    assert metadata["rating"] == 5
 
 
 def test_import_no_index_skips_indexing(test_repo, index_spy, claude_export):
