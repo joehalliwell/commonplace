@@ -21,6 +21,10 @@ EMPTY_LIST_CHATS = ')]}\'\n\n0\n[["wrb.fr","MaZiqc","[null,null,[]]",null,null,n
 
 TEST_COOKIES = {"__Secure-1PSID": "psid", "__Secure-1PSIDTS": "psidts"}
 
+# `_handler` serves the same listing for the pinned and the unpinned bucket, so every chat is fetched twice.
+BUCKETS = 2
+LISTED = len(_extract_rpc_body(LIST_CHATS_RAW, "MaZiqc")[2])
+
 
 def _fake_app_page() -> str:
     """Minimal HTML with the three tokens the fetcher scrapes."""
@@ -97,12 +101,10 @@ def test_fetch_writes_raw_wire_only(tmp_path):
     assert archive.name == "gemini-wire.jsonl.gz"
 
     wire = _read_wire(archive)
-    # 2 list_chats buckets × 2 pages each (real + terminating empty) = 4
-    # plus 5 read_chat calls × 2 buckets = 10 → 14 entries.
     list_calls = [e for e in wire if e["rpc"] == "MaZiqc"]
     read_calls = [e for e in wire if e["rpc"] == "hNvQHb"]
-    assert len(list_calls) == 4
-    assert len(read_calls) == 10
+    assert len(list_calls) == 2 * BUCKETS, "a real page and the empty one that ends it, per bucket"
+    assert len(read_calls) == LISTED * BUCKETS
     for entry in wire:
         assert entry["response"].startswith(")]}'\n"), "raw batchexecute preamble preserved"
         assert set(entry.keys()) == {"rpc", "payload", "response"}
@@ -175,8 +177,7 @@ def test_importer_reconstructs_events_from_wire(tmp_path):
     archive = _make_fetcher().fetch(tmp_path, since=None)
     logs = GeminiImporter().import_(archive)
 
-    # 5 chats × 2 buckets (mock returns fixture for both pinned + unpinned) = 10.
-    assert len(logs) == 10
+    assert len(logs) == LISTED * BUCKETS
     log = logs[0]
     assert log.source == "gemini"
     assert log.metadata["uuid"].startswith("c_")
