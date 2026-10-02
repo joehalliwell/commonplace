@@ -1,11 +1,20 @@
 import subprocess
+from datetime import UTC, date, datetime
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 import yaml
 
-from commonplace._utils import batched, edit_in_editor, load_frontmatter, merge_frontmatter, slugify, truncate
+from commonplace._utils import (
+    batched,
+    dump_frontmatter,
+    edit_in_editor,
+    load_frontmatter,
+    merge_frontmatter,
+    slugify,
+    truncate,
+)
 
 
 def test_batched_basic():
@@ -299,3 +308,36 @@ def test_merge_frontmatter_no_existing():
     merged = merge_frontmatter(existing, new_metadata)
 
     assert merged == new_metadata
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "Research: a plan",
+        "issue #91",
+        "- not a list",
+        "[not, a, list]",
+        "'quoted' and \"quoted\"",
+        "2024-01-01",
+        "true",
+        "café ☕ 日本語",
+        "first line\n---\nthird line",
+        "long " * 40,
+        "",
+        date(2024, 1, 1),
+        datetime(2024, 1, 1, 12, 0, tzinfo=UTC),
+        ["a: b", "c #d"],
+        [{"id": "x", "resource": "/chats/a.md"}],
+        {"nested": {"deeper": ["value: 1"]}},
+        None,
+        5,
+    ],
+)
+def test_dump_frontmatter_awkward_value_loads_back_unchanged(value):
+    metadata, body = {"plain": "value", "awkward": value}, "\n# Title\n\nBody\n\n---\n\nAfter a rule\n"
+
+    assert load_frontmatter(dump_frontmatter(metadata, body)) == (metadata, body)
+
+
+def test_dump_frontmatter_no_metadata_loads_back_unchanged():
+    assert load_frontmatter(dump_frontmatter({}, "Body\n")) == ({}, "Body\n")

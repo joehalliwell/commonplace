@@ -146,7 +146,8 @@ def load_frontmatter(content: str) -> tuple[dict, str]:
     # Find closing delimiter
     end_idx = None
     for i in range(1, len(lines)):
-        if lines[i].strip() == "---":
+        # Unindented only: a `---` inside a multi-line value is indented.
+        if lines[i].rstrip() == "---":
             end_idx = i
             break
 
