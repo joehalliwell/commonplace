@@ -5,6 +5,8 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from commonplace import __version__
 from commonplace._fetch._commands import default_fetchers
 from commonplace._import._chatgpt import ChatGptWireImporter
@@ -183,10 +185,10 @@ def test_an_importer_added_after_versioning_claims_no_headerless_archive(tmp_pat
     assert not ChatGptWireImporter().can_import(gemini)
 
 
-def test_wire_importers_extract_nothing(tmp_path):
+@pytest.mark.parametrize("importer_class", [ClaudeImporter, GeminiImporter, ChatGptWireImporter])
+def test_wire_importers_extract_nothing(importer_class):
     """A wire archive is gzipped JSONL, not a ZIP, so it is stored whole."""
-    for importer in (ClaudeImporter(), GeminiImporter(), ChatGptWireImporter()):
-        assert importer.required_paths() == []
+    assert importer_class().required_paths() == []
 
 
 # ---------------------------------------------------------------------------
@@ -208,17 +210,21 @@ def _archive_for(fetcher, tmp_path: Path) -> Path:
 
 
 def test_every_fetchers_archive_reaches_an_importer(tmp_path, test_repo):
+    reached = {}
     for fetcher in default_fetchers(test_repo.config):
         importer = autodetect_importer(_archive_for(fetcher, tmp_path))
-        assert importer is not None, f"nothing in IMPORTERS claims a {fetcher.source!r} archive"
-        assert importer.source == fetcher.source
+        reached[fetcher.source] = importer and importer.source
+
+    assert reached == {source: source for source in reached}
 
 
 def test_exactly_one_importer_claims_each_fetchers_archive(tmp_path, test_repo, claims):
     """Two claimants would make the seam depend on `IMPORTERS` ordering, so
     reordering the list for an unrelated reason could silently reroute a
     provider."""
-    for fetcher in default_fetchers(test_repo.config):
-        archive = _archive_for(fetcher, tmp_path)
-        claimants = [i.source for i in IMPORTERS if claims(i, archive)]
-        assert claimants == [fetcher.source]
+    claimants = {
+        fetcher.source: [i.source for i in IMPORTERS if claims(i, _archive_for(fetcher, tmp_path))]
+        for fetcher in default_fetchers(test_repo.config)
+    }
+
+    assert claimants == {source: [source] for source in claimants}
