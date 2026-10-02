@@ -15,56 +15,18 @@ from commonplace._utils import (
 )
 
 
-def test_batched_basic():
-    """Test batching a simple list."""
-    items = [1, 2, 3, 4, 5, 6, 7]
-    batches = list(batched(items, 3))
-
-    assert len(batches) == 3
-    assert batches[0] == [1, 2, 3]
-    assert batches[1] == [4, 5, 6]
-    assert batches[2] == [7]
-
-
-def test_batched_exact_multiple():
-    """Test batching when items divide evenly."""
-    items = [1, 2, 3, 4, 5, 6]
-    batches = list(batched(items, 2))
-
-    assert len(batches) == 3
-    assert batches[0] == [1, 2]
-    assert batches[1] == [3, 4]
-    assert batches[2] == [5, 6]
-
-
-def test_batched_single_batch():
-    """Test when all items fit in one batch."""
-    items = [1, 2, 3]
-    batches = list(batched(items, 10))
-
-    assert len(batches) == 1
-    assert batches[0] == [1, 2, 3]
-
-
-def test_batched_empty():
-    """Test batching an empty iterable."""
-    items = []
-    batches = list(batched(items, 5))
-
-    assert len(batches) == 0
-
-
-def test_batched_generator():
-    """Test batching a generator."""
-
-    def gen():
-        yield from range(10)
-
-    batches = list(batched(gen(), 3))
-
-    assert len(batches) == 4
-    assert batches[0] == [0, 1, 2]
-    assert batches[3] == [9]
+@pytest.mark.parametrize(
+    ("items", "size", "expected"),
+    [
+        pytest.param([1, 2, 3, 4, 5, 6, 7], 3, [[1, 2, 3], [4, 5, 6], [7]], id="ragged-last-batch"),
+        pytest.param([1, 2, 3, 4, 5, 6], 2, [[1, 2], [3, 4], [5, 6]], id="exact-multiple"),
+        pytest.param([1, 2, 3], 10, [[1, 2, 3]], id="single-batch"),
+        pytest.param([], 5, [], id="empty"),
+        pytest.param((n for n in range(7)), 3, [[0, 1, 2], [3, 4, 5], [6]], id="generator"),
+    ],
+)
+def test_batched_splits_into_runs_of_size(items, size, expected):
+    assert list(batched(items, size)) == expected
 
 
 def test_truncate_short_text():
