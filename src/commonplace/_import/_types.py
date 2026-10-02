@@ -1,7 +1,8 @@
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
@@ -54,6 +55,45 @@ class EventLog(BaseModel):
         default_factory=dict,
         description="Dictionary for any other metadata associated with this log (e.g., model used, token count)",
     )
+
+
+@dataclass(frozen=True)
+class MirroredFile:
+    """One upstream file as the provider sent it, with whatever provenance the provider attached."""
+
+    #: Relative to the mirror's `tree`.
+    path: PurePosixPath
+    content: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Snapshot:
+    """What one capture says about upstream state: the files it read, and every path that existed."""
+
+    files: list[MirroredFile]
+    #: The complete upstream listing, or `None` if the capture has none — in which case absence proves nothing.
+    listed: set[PurePosixPath] | None
+
+
+@runtime_checkable
+class Mirror(Protocol):
+    """
+    Protocol for mirroring live upstream state, where an Importer accumulates closed conversations.
+
+    Claimed exactly as an Importer is, but what it yields is authoritative: files land at the
+    paths the provider gave them, and paths missing from the listing are pruned.
+    """
+
+    source: str
+    #: Where the files land, and so the fetch cursor's pathspec.
+    tree: Path
+
+    def can_import(self, path: Path) -> bool: ...
+
+    def snapshot(self, path: Path) -> Snapshot: ...
+
+    def required_paths(self) -> list[str]: ...
 
 
 @runtime_checkable

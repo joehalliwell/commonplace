@@ -10,23 +10,25 @@ from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._claude_code import ClaudeCodeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
+from commonplace._import._claude_memory import ClaudeMemoryMirror
 from commonplace._import._gemini import GeminiImporter
 from commonplace._import._gemini_takeout import GeminiTakeoutImporter
-from commonplace._import._memory import MIRRORED, mirror_
+from commonplace._import._mirror import mirror_one
 from commonplace._import._serializer import MarkdownSerializer
-from commonplace._import._types import Importer
+from commonplace._import._types import Importer, Mirror
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import merge_frontmatter, slugify
-from commonplace._wire import read_header
 
-IMPORTERS: list[Importer] = [
+#: Everything that can claim a file: importers accumulate chats, mirrors track live state.
+IMPORTERS: list[Importer | Mirror] = [
     GeminiTakeoutImporter(),
     GeminiImporter(),
     ClaudeExportImporter(),
     ClaudeImporter(),
+    ClaudeMemoryMirror(),
     ClaudeCodeImporter(),
     ChatGptWireImporter(),
     ChatGptImporter(),
@@ -46,7 +48,15 @@ def import_(path: Path, repo: Commonplace, user: str, prefix="chats", auto_index
             import_one(filepath, repo, user, prefix=prefix, auto_index=auto_index)
 
 
-def autodetect_importer(path: Path) -> Importer | None:
+def landing_tree(source: str) -> Path:
+    """Where `source` lands, which is also the pathspec its fetch cursor is read from."""
+    for importer in IMPORTERS:
+        if isinstance(importer, Mirror) and importer.source == source:
+            return importer.tree
+    return Path("chats") / source
+
+
+def autodetect_importer(path: Path) -> Importer | Mirror | None:
     assert path.is_file()
     for importer in IMPORTERS:
         try:
@@ -77,14 +87,12 @@ def import_one(path: Path, repo: Commonplace, user: str, prefix="chats", auto_in
     - Fields provided by the importer will be updated with new values
     - User-added fields (not in importer metadata) will be preserved
     """
-    # Memory is mirrored, not imported: it has no turns for an EventLog to hold.
-    if read_header(path).source in MIRRORED:
-        mirror_(path, repo, auto_index=auto_index)
-        return
-
     importer = autodetect_importer(path)
     if not importer:
         logger.debug(f"Skipping {path}")
+        return
+    if isinstance(importer, Mirror):
+        mirror_one(path, repo, importer, auto_index=auto_index)
         return
     serializer = MarkdownSerializer(human=user, assistant=importer.source.title())
 
