@@ -23,14 +23,48 @@ def _provenance(r: httpx.Response) -> dict[str, str]:
 
 
 class ClaudeSessionFetcher(BaseFetcher):
-    """What every claude.ai fetcher shares: where the session lives and the two cookies it needs."""
+    """The walk every claude.ai fetcher makes: one listing, then a read per item newer than the cursor.
+
+    Subclasses name the endpoints by implementing `_list` and `_read`. Endpoints
+    are unofficial; expect drift."""
 
     cookie_domain = "claude.ai"
     service_name = "Claude"
     login_url = "https://claude.ai"
     extra_headers: ClassVar[dict[str, str]] = {"Accept": "application/json", "Referer": "https://claude.ai/"}
 
+    #: What the items are called in messages to the user.
+    noun: str
+    #: Whether a listing with nothing new is still worth an archive.
+    archive_when_unchanged: bool = False
+
     _org_uuid: str
+
+    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+        cookies = self._authenticate()
+        if cookies is None:
+            return None
+
+        with self._session(cookies):
+            items = self._list()
+            fresh = [i for i in items if since is None or datetime.fromisoformat(i["updated_at"]) > since]
+            logger.info(f"{len(fresh)}/{len(items)} {self.noun} new since {since or 'beginning'}")
+
+            if not fresh and not self.archive_when_unchanged:
+                return None
+
+            for item in track(fresh, f"Fetching {self.noun}"):
+                self._read(item)
+
+        return self._write_archive(destination)
+
+    def _list(self) -> list[dict[str, Any]]:
+        """Record the listing and return its items, each carrying `updated_at`."""
+        raise NotImplementedError
+
+    def _read(self, item: dict[str, Any]) -> None:
+        """Record the full response for one listed item."""
+        raise NotImplementedError
 
     def _authenticate(self) -> dict[str, str] | None:
         """The session's cookies, with `_org_uuid` set — or `None`, having said why, if there is no usable session."""
@@ -45,39 +79,29 @@ class ClaudeSessionFetcher(BaseFetcher):
         self._org_uuid = org_uuid
         return cookies
 
+    def _api(
+        self, method: str, path: str, *, endpoint: str, key: dict[str, str] | None = None, **kwargs: Any
+    ) -> httpx.Response:
+        """Call the organisation's API and log the response verbatim under `endpoint` and `key`."""
+        r = self._request(method, f"https://claude.ai/api/organizations/{self._org_uuid}/{path}", **kwargs)
+        self._log(endpoint=endpoint, **(key or {}), **_provenance(r), response=r.text)
+        return r
+
 
 class ClaudeFetcher(ClaudeSessionFetcher):
-    """Records one list call plus N conversation details from claude.ai's
-    internal API. Endpoints are unofficial; expect drift."""
+    """Records one list call plus N conversation details."""
 
     source = "claude"
+    noun = "conversations"
 
-    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        cookies = self._authenticate()
-        if cookies is None:
-            return None
+    def _list(self) -> list[dict[str, Any]]:
+        return self._api("GET", "chat_conversations", endpoint="conversations").json()
 
-        with self._session(cookies):
-            summaries = self._list_conversations()
-            fresh = [c for c in summaries if since is None or datetime.fromisoformat(c["updated_at"]) > since]
-            logger.info(f"{len(fresh)}/{len(summaries)} conversations new since {since or 'beginning'}")
-
-            if not fresh:
-                return None
-
-            for c in track(fresh, "Fetching conversations"):
-                self._fetch_detail(c["uuid"])
-
-        return self._write_archive(destination)
-
-    def _list_conversations(self) -> list[dict[str, Any]]:
-        r = self._get(f"https://claude.ai/api/organizations/{self._org_uuid}/chat_conversations")
-        self._log(endpoint="conversations", **_provenance(r), response=r.text)
-        return r.json()
-
-    def _fetch_detail(self, convo_uuid: str) -> None:
-        r = self._get(
-            f"https://claude.ai/api/organizations/{self._org_uuid}/chat_conversations/{convo_uuid}",
+    def _read(self, item: dict[str, Any]) -> None:
+        self._api(
+            "GET",
+            f"chat_conversations/{item['uuid']}",
+            endpoint="conversation",
+            key={"cid": item["uuid"]},
             params={"tree": "True", "rendering_mode": "raw"},
         )
-        self._log(endpoint="conversation", cid=convo_uuid, **_provenance(r), response=r.text)
