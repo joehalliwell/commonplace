@@ -1,3 +1,5 @@
+import gzip
+import json
 import os
 import tempfile
 from collections import Counter
@@ -50,6 +52,17 @@ def make_chunk():
         return Chunk(repo_path=repo_path, section=section, text=text, offset=offset)
 
     return _make_chunk
+
+
+@pytest.fixture
+def write_jsonl_gz():
+    """Write gzipped JSONL by hand: a headerless legacy archive, or one whose header the test spells out."""
+
+    def _write(path: Path, lines: list[dict]) -> Path:
+        path.write_bytes(gzip.compress("".join(json.dumps(line) + "\n" for line in lines).encode()))
+        return path
+
+    return _write
 
 
 @pytest.fixture

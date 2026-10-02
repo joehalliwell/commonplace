@@ -1,6 +1,5 @@
 """Tests for the Claude fetcher (and its paired importer)."""
 
-import gzip
 import json
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
@@ -274,17 +273,13 @@ def test_fetch_raises_on_401(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_wire_importer_accepts_fetcher_output(tmp_path):
-    path = tmp_path / "claude-wire.jsonl.gz"
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        f.write(json.dumps({"endpoint": "conversations", "response": []}) + "\n")
+def test_wire_importer_accepts_fetcher_output(tmp_path, write_jsonl_gz):
+    path = write_jsonl_gz(tmp_path / "claude-wire.jsonl.gz", [{"endpoint": "conversations", "response": []}])
     assert ClaudeImporter().can_import(path)
 
 
-def test_wire_importer_rejects_arbitrary_jsonl_gz(tmp_path):
-    path = tmp_path / "other.jsonl.gz"
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        f.write(json.dumps({"not": "ours"}) + "\n")
+def test_wire_importer_rejects_arbitrary_jsonl_gz(tmp_path, write_jsonl_gz):
+    path = write_jsonl_gz(tmp_path / "other.jsonl.gz", [{"not": "ours"}])
     assert not ClaudeImporter().can_import(path)
 
 
@@ -315,13 +310,10 @@ def test_wire_importer_wraps_flat_text(tmp_path):
     assert [e.content for e in logs[0].events] == ["hello", "hi back"]
 
 
-def test_wire_importer_reads_legacy_parsed_responses(tmp_path):
+def test_wire_importer_reads_legacy_parsed_responses(tmp_path, write_jsonl_gz):
     """v1 archives have no header and hold `response` already parsed. They are
     committed in users' repos, so they must still import."""
-    path = tmp_path / "claude-wire.jsonl.gz"
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        for entry in _entries(_THREAD):
-            f.write(json.dumps(entry) + "\n")
+    path = write_jsonl_gz(tmp_path / "claude-wire.jsonl.gz", _entries(_THREAD))
 
     logs = ClaudeImporter().import_(path)
     assert len(logs) == 1

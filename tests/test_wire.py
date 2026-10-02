@@ -19,23 +19,6 @@ ENTRIES = [
 ]
 
 
-def _write_legacy(path: Path, entries: list[dict]) -> Path:
-    """A pre-versioning archive: no header line."""
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        for entry in entries:
-            f.write(json.dumps(entry) + "\n")
-    return path
-
-
-def _write_with_header(path: Path, header: dict, entries: list[dict]) -> Path:
-    """An archive with a header we control — for spelling out older versions."""
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        f.write(json.dumps(header) + "\n")
-        for entry in entries:
-            f.write(json.dumps(entry) + "\n")
-    return path
-
-
 def _header_line(archive: Path) -> dict:
     with gzip.open(archive, "rt", encoding="utf-8") as f:
         return json.loads(f.readline())
@@ -90,27 +73,25 @@ def test_read_header_returns_source_version_and_provenance(tmp_path):
     assert header.fetched_by == f"commonplace/{__version__}"
 
 
-def test_read_header_treats_missing_header_as_legacy(tmp_path):
-    archive = _write_legacy(tmp_path / "claude-wire.jsonl.gz", ENTRIES)
+def test_read_header_treats_missing_header_as_legacy(tmp_path, write_jsonl_gz):
+    archive = write_jsonl_gz(tmp_path / "claude-wire.jsonl.gz", ENTRIES)
     header = read_header(archive)
     assert (header.source, header.version) == (None, LEGACY_VERSION)
     assert header.fetched_at is None
 
 
-def test_read_header_tolerates_an_archive_written_before_v3(tmp_path):
+def test_read_header_tolerates_an_archive_written_before_v3(tmp_path, write_jsonl_gz):
     """v1 and v2 archives are committed in users' repos and referenced from
     note frontmatter, so an absent `fetched_at` is not an error."""
-    archive = _write_with_header(tmp_path / "claude-wire.jsonl.gz", {"wire": "claude", "version": 2}, ENTRIES)
+    archive = write_jsonl_gz(tmp_path / "claude-wire.jsonl.gz", [{"wire": "claude", "version": 2}, *ENTRIES])
     header = read_header(archive)
     assert (header.source, header.version) == ("claude", 2)
     assert header.fetched_at is None
     assert header.fetched_by is None
 
 
-def test_read_header_on_unrelated_file(tmp_path):
-    path = tmp_path / "other.jsonl.gz"
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        f.write(json.dumps({"not": "ours"}) + "\n")
+def test_read_header_on_unrelated_file(tmp_path, write_jsonl_gz):
+    path = write_jsonl_gz(tmp_path / "other.jsonl.gz", [{"not": "ours"}])
     assert read_header(path) == (None, LEGACY_VERSION, None, None)
 
 
@@ -119,8 +100,8 @@ def test_read_entries_skips_the_header(tmp_path):
     assert list(read_entries(archive)) == ENTRIES
 
 
-def test_read_entries_yields_every_line_of_a_legacy_archive(tmp_path):
-    archive = _write_legacy(tmp_path / "claude-wire.jsonl.gz", ENTRIES)
+def test_read_entries_yields_every_line_of_a_legacy_archive(tmp_path, write_jsonl_gz):
+    archive = write_jsonl_gz(tmp_path / "claude-wire.jsonl.gz", ENTRIES)
     assert list(read_entries(archive)) == ENTRIES
 
 
@@ -179,10 +160,10 @@ def test_importers_do_not_claim_each_others_archives(tmp_path):
     assert not GeminiImporter().can_import(claude)
 
 
-def test_importers_still_claim_legacy_archives(tmp_path):
+def test_importers_still_claim_legacy_archives(tmp_path, write_jsonl_gz):
     """Archives fetched before versioning are committed in users' repos."""
-    claude = _write_legacy(tmp_path / "claude-wire.jsonl.gz", ENTRIES)
-    gemini = _write_legacy(tmp_path / "gemini-wire.jsonl.gz", [{"rpc": "MaZiqc", "response": ""}])
+    claude = write_jsonl_gz(tmp_path / "claude-wire.jsonl.gz", ENTRIES)
+    gemini = write_jsonl_gz(tmp_path / "gemini-wire.jsonl.gz", [{"rpc": "MaZiqc", "response": ""}])
 
     assert ClaudeImporter().can_import(claude)
     assert GeminiImporter().can_import(gemini)
@@ -190,13 +171,13 @@ def test_importers_still_claim_legacy_archives(tmp_path):
     assert not GeminiImporter().can_import(claude)
 
 
-def test_an_importer_added_after_versioning_claims_no_headerless_archive(tmp_path):
+def test_an_importer_added_after_versioning_claims_no_headerless_archive(tmp_path, write_jsonl_gz):
     """Recognising a headerless archive means guessing from entry keys, which
     is exactly what the header exists to stop. ChatGPT arrived at v2, so every
     archive of its own has a header and anything headerless belongs to someone
     else — including files whose entry keys resemble its own."""
-    claude = _write_legacy(tmp_path / "claude-wire.jsonl.gz", ENTRIES)
-    gemini = _write_legacy(tmp_path / "gemini-wire.jsonl.gz", [{"rpc": "MaZiqc", "response": ""}])
+    claude = write_jsonl_gz(tmp_path / "claude-wire.jsonl.gz", ENTRIES)
+    gemini = write_jsonl_gz(tmp_path / "gemini-wire.jsonl.gz", [{"rpc": "MaZiqc", "response": ""}])
 
     assert not ChatGptWireImporter().can_import(claude)
     assert not ChatGptWireImporter().can_import(gemini)

@@ -1,6 +1,5 @@
 """Tests for the Gemini fetcher (and its paired importer)."""
 
-import gzip
 import json
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
@@ -167,17 +166,13 @@ def test_read_session_tokens_raises_on_missing_html(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_importer_recognizes_wire_jsonl_gz(tmp_path):
-    path = tmp_path / "wire.jsonl.gz"
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        f.write(json.dumps({"rpc": "MaZiqc", "payload": [], "response": ")]}'\n"}) + "\n")
+def test_importer_recognizes_wire_jsonl_gz(tmp_path, write_jsonl_gz):
+    path = write_jsonl_gz(tmp_path / "wire.jsonl.gz", [{"rpc": "MaZiqc", "payload": [], "response": ")]}'\n"}])
     assert GeminiImporter().can_import(path)
 
 
-def test_importer_rejects_arbitrary_gz(tmp_path):
-    path = tmp_path / "other.jsonl.gz"
-    with gzip.open(path, "wt", encoding="utf-8") as f:
-        f.write(json.dumps({"not": "a wire log"}) + "\n")
+def test_importer_rejects_arbitrary_gz(tmp_path, write_jsonl_gz):
+    path = write_jsonl_gz(tmp_path / "other.jsonl.gz", [{"not": "a wire log"}])
     assert not GeminiImporter().can_import(path)
 
 

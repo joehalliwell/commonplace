@@ -1,6 +1,5 @@
 """Tests for mirroring vendor assistant memory into `memory/<vendor>/`."""
 
-import gzip
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
@@ -177,15 +176,13 @@ def test_mirror_archive_without_listing_prunes_nothing(test_repo, tmp_path):
     assert _tree(test_repo) == {"claude/a.md", "claude/b.md"}
 
 
-def test_mirror_archive_older_than_the_tree_is_refused(test_repo, tmp_path):
+def test_mirror_archive_older_than_the_tree_is_refused(test_repo, tmp_path, write_jsonl_gz):
     """Replaying a stale capture would prune and overwrite what a later one landed."""
     _mirror(test_repo, _archive(tmp_path, {"/a.md": "current\n", "/b.md": "b\n"}))
     head = test_repo.git.head.target
 
-    stale = tmp_path / "claude-memory-wire.jsonl.gz"
     header = {"wire": "claude-memory", "version": 3, "fetched_at": (datetime.now(UTC) - timedelta(days=1)).isoformat()}
-    lines = [header, *_entries({"/a.md": "old\n"})]
-    stale.write_bytes(gzip.compress("".join(json.dumps(line) + "\n" for line in lines).encode()))
+    stale = write_jsonl_gz(tmp_path / "claude-memory-wire.jsonl.gz", [header, *_entries({"/a.md": "old\n"})])
     _mirror(test_repo, stale)
 
     assert test_repo.git.head.target == head
