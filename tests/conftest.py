@@ -52,6 +52,19 @@ def make_chunk():
     return _make_chunk
 
 
+@pytest.fixture
+def claims():
+    """`can_import` as `autodetect_importer` sees it: an importer probing a format it doesn't handle may raise."""
+
+    def _claims(importer, path: Path) -> bool:
+        try:
+            return importer.can_import(path)
+        except Exception:  # noqa: BLE001 — mirrors autodetect_importer's own bare except
+            return False
+
+    return _claims
+
+
 @pytest.fixture(autouse=True)
 def no_global_config(tmp_path, monkeypatch):
     """Keep the developer's own global config out of every test."""

@@ -58,4 +58,4 @@ def fetch(
             if artifact is None:
                 logger.info(f"Nothing new from {fetcher.source}")
                 continue
-            import_(artifact, repo, user=repo.config.user, prefix="chats", auto_index=auto_index)
+            import_(artifact, repo, user=repo.config.user, auto_index=auto_index)

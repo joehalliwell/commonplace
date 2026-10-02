@@ -16,6 +16,7 @@ from zipfile import ZipFile
 
 from commonplace._import._claude import _to_log
 from commonplace._import._types import EventLog
+from commonplace._import._zip import zip_contains
 from commonplace._progress import track
 
 _SNIFF_BYTES = 1 << 20
@@ -42,16 +43,9 @@ class ClaudeExportImporter:
         # and the repo keeps the members, so the members have to be importable.
         if path.suffix == ".json":
             return _is_claude_conversations(path)
-        if path.suffix != ".zip":
-            return False
-        try:
-            with closing(ZipFile(path, "r")) as zf:
-                names = zf.namelist()
-        except Exception:  # noqa: BLE001 - probing an arbitrary file; any failure means "not ours"
-            return False
         # `users.json` is the Claude-specific marker — distinguishes this
         # from ChatGPT ZIPs, which also contain `conversations.json`.
-        return "conversations.json" in names and "users.json" in names
+        return zip_contains(path, *self.required_paths())
 
     def import_(self, path: Path) -> list[EventLog]:
         if path.suffix == ".json":

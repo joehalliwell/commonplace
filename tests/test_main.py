@@ -22,6 +22,15 @@ def test_stats(test_app):
     test_app(["stats"])
 
 
+@pytest.mark.parametrize("argv", [["import", "export.zip"], ["fetch"], ["journal"]], ids=lambda argv: argv[0])
+def test_no_index_flag_is_understood_by_every_note_creating_command(argv):
+    from commonplace.__main__ import app
+
+    _, bound, _ = app.parse_args([*argv, "--no-index"])
+
+    assert bound.arguments["index"] is False
+
+
 def test_config_prints_merged_settings_as_toml(test_app, test_repo, capsys, monkeypatch):
     monkeypatch.delenv("COMMONPLACE_USER", raising=False)
     (test_repo.root / ".commonplace" / "config.toml").write_text('user = "Repo"\n')

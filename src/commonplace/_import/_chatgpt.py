@@ -15,6 +15,7 @@ from zipfile import ZipFile
 
 from commonplace._import._base import BaseWireImporter
 from commonplace._import._types import EventLog, Message, Role
+from commonplace._import._zip import zip_contains
 from commonplace._logging import logger
 from commonplace._wire import read_entries
 
@@ -47,11 +48,7 @@ class ChatGptImporter:
 
     def can_import(self, path: Path) -> bool:
         """Check if the importer can handle the given file path."""
-        with closing(ZipFile(path, "r")) as zf:
-            files = zf.namelist()
-            assert "conversations.json" in files
-            assert "user.json" in files
-            return True
+        return zip_contains(path, *self.required_paths())
 
     def import_(self, path: Path) -> list[EventLog]:
         """Import activity logs from the ChatGPT file."""

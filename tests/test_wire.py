@@ -11,7 +11,6 @@ from commonplace._import._chatgpt import ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._commands import IMPORTERS, autodetect_importer
 from commonplace._import._gemini import GeminiImporter
-from commonplace._import._types import ChatImporter, MemoryImporter
 from commonplace._wire import LEGACY_VERSION, WIRE_VERSION, read_entries, read_header, write_archive
 
 ENTRIES = [
@@ -223,15 +222,6 @@ def test_wire_importers_extract_nothing(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def _claims(importer: ChatImporter | MemoryImporter, path: Path) -> bool:
-    """`can_import` as `autodetect_importer` sees it — importers probing a
-    format they don't handle are entitled to raise."""
-    try:
-        return importer.can_import(path)
-    except Exception:  # noqa: BLE001 — mirrors autodetect_importer's own bare except
-        return False
-
-
 def _archive_for(fetcher, tmp_path: Path) -> Path:
     return write_archive(tmp_path / f"{fetcher.source}-wire.jsonl.gz", fetcher.source, ENTRIES)
 
@@ -243,11 +233,11 @@ def test_every_fetchers_archive_reaches_an_importer(tmp_path, test_repo):
         assert importer.source == fetcher.source
 
 
-def test_exactly_one_importer_claims_each_fetchers_archive(tmp_path, test_repo):
+def test_exactly_one_importer_claims_each_fetchers_archive(tmp_path, test_repo, claims):
     """Two claimants would make the seam depend on `IMPORTERS` ordering, so
     reordering the list for an unrelated reason could silently reroute a
     provider."""
     for fetcher in default_fetchers(test_repo.config):
         archive = _archive_for(fetcher, tmp_path)
-        claimants = [i.source for i in IMPORTERS if _claims(i, archive)]
+        claimants = [i.source for i in IMPORTERS if claims(i, archive)]
         assert claimants == [fetcher.source]

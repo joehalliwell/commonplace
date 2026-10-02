@@ -115,6 +115,10 @@ class BaseFetcher:
             return self._injected_cookies
         return read_chrome_cookies(self.cookie_domain)
 
+    def _report_no_session(self) -> None:
+        """Tell the user the browser holds no session cookie for this provider."""
+        logger.error(f"No {self.service_name} session cookie found. Log in at {self.login_url} in Chrome first.")
+
     @contextmanager
     def _session(self, cookies: dict[str, str]) -> Iterator[httpx.Client]:
         """Open the client and start a fresh wire log.

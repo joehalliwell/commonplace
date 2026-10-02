@@ -53,6 +53,14 @@ def test_default_fetchers_cover_every_provider(test_repo):
     assert {f.source for f in default_fetchers(test_repo.config)} == {c.source for c in FETCHERS}
 
 
+@pytest.mark.parametrize("fetcher_class", FETCHERS, ids=lambda c: c.source)
+def test_fetch_without_session_cookie_says_where_to_log_in(fetcher_class, tmp_path, caplog):
+    assert fetcher_class(cookies={}).fetch(tmp_path, since=None) is None
+
+    assert fetcher_class.service_name in caplog.text
+    assert fetcher_class.login_url in caplog.text
+
+
 class _StubFetcher(BaseFetcher):
     """Minimal concrete fetcher for exercising the base class directly."""
 

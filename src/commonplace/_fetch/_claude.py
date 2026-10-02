@@ -62,10 +62,10 @@ class ClaudeSessionFetcher(BaseFetcher):
         cookies = self._read_cookies()
         org_uuid = cookies.get("lastActiveOrg")
         if not cookies.get("sessionKey"):
-            logger.error("No Claude session cookie found. Log in at https://claude.ai in Chrome first.")
+            self._report_no_session()
             return None
         if not org_uuid:
-            logger.error("No lastActiveOrg cookie. Visit https://claude.ai in Chrome to set it.")
+            logger.error(f"No lastActiveOrg cookie. Visit {self.login_url} in Chrome to set it.")
             return None
         self._org_uuid = org_uuid
         return cookies
