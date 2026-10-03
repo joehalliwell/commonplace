@@ -10,6 +10,7 @@ from pygit2.enums import ObjectType
 
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
+from commonplace._utils import load_frontmatter
 
 
 def test_commit_initial_changes(test_repo, make_note):
@@ -123,7 +124,7 @@ def test_note_paths_commonplace_dir_excluded(test_repo, make_note):
     test_repo.save(make_note(".commonplace/skills/rake/chaff.md", "# Chaff\n"))
     test_repo.commit("Add notes", auto_index=False)
 
-    assert [p.path for p in test_repo.note_paths()] == [Path("notes/idea.md")]
+    assert [p.path for p in test_repo.note_paths()] == [Path("index.md"), Path("notes/idea.md")]
 
 
 def test_paths_includes_files_that_are_not_markdown(test_repo):
@@ -150,7 +151,7 @@ def test_note_paths_dot_dirs_excluded(test_repo, make_note):
     test_repo.save(make_note("notes/.hidden/draft.md", "# Draft\n"))
     test_repo.commit("Add notes", auto_index=False)
 
-    assert [p.path for p in test_repo.note_paths()] == [Path("notes/idea.md")]
+    assert [p.path for p in test_repo.note_paths()] == [Path("index.md"), Path("notes/idea.md")]
 
 
 def test_config_reads_repo_file(tmp_path, monkeypatch):
@@ -287,6 +288,31 @@ def test_doctor_creates_missing_claude_settings(test_repo):
 
     assert any("settings.json" in action for action in report.actions)
     assert "commonplace" in json.loads(settings.read_text())["extraKnownMarketplaces"]
+
+
+def test_init_seeds_a_root_index_declaring_okf_version(test_repo):
+    """The bundle root has no parent to describe it, so init writes its index.md."""
+    metadata, _ = load_frontmatter((test_repo.root / "index.md").read_text())
+
+    assert metadata["okf_version"] == "0.2"
+
+
+def test_doctor_is_quiet_on_a_fresh_repo(test_repo):
+    """The root index links directories a fresh repo doesn't have yet; that isn't breakage."""
+    report = test_repo.doctor()
+
+    assert report.warnings == []
+
+
+def test_doctor_leaves_an_edited_root_index_alone(test_repo):
+    """Once seeded, the root index.md is the user's."""
+    index = test_repo.root / "index.md"
+    index.write_text("# Mine\n")
+
+    report = test_repo.doctor()
+
+    assert report.warnings == []
+    assert index.read_text() == "# Mine\n"
 
 
 def test_doctor_reports_a_managed_file_that_differs(test_repo):
