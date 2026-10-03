@@ -19,13 +19,15 @@ class ChatGptMemoryImporter(BaseWireImporter):
     def snapshot(self, path: Path) -> Snapshot:
         for entry in read_entries(path):
             if entry.get("endpoint") == "summary" and (done := _done(entry["response"])) is not None:
-                # Each section's id is a stable slug, so it names the file; follow-ups are prompts, not memory.
+                # Each section's id is a stable slug, so it names the file. Follow-ups are prompts, not
+                # memory, so a section that is nothing else lands nothing.
                 files: dict[PurePosixPath, tuple[dict[str, Any], str]] = {
                     PurePosixPath(f"{s['id']}.md"): (
                         {"updated_at": done["generatedAtIso"]},
                         f"# {s['title']}\n\n{s['description']}",
                     )
                     for s in done["sections"]
+                    if s["description"]
                 }
                 return Snapshot(files, set(files))
         return Snapshot({}, None)

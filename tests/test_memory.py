@@ -114,11 +114,13 @@ def test_autodetect_chatgpt_example_archive_finds_its_memory_importer():
     assert isinstance(autodetect_importer(CHATGPT_EXAMPLE), ChatGptMemoryImporter)
 
 
-def test_snapshot_chatgpt_example_archive_lands_a_file_per_section():
+def test_snapshot_chatgpt_example_archive_lands_a_file_per_section_with_a_description():
+    """The example's `dive-deeper` section is only follow-up prompts, so it has nothing to land."""
     snapshot = ChatGptMemoryImporter().snapshot(CHATGPT_EXAMPLE)
 
-    assert snapshot.listed == {PurePosixPath("overview.md"), PurePosixPath("dive-deeper.md")}
-    metadata, body = snapshot.files[PurePosixPath("overview.md")]
+    assert snapshot.listed == {PurePosixPath("overview.md")}
+    [(path, (metadata, body))] = snapshot.files.items()
+    assert path == PurePosixPath("overview.md")
     assert body == "# Overview\n\nPrefers tea, and asks for sources."
     assert metadata == {"updated_at": "2026-10-03T22:27:53.035594+00:00"}
 
