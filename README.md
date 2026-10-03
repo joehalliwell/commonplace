@@ -34,7 +34,9 @@ antiquity.
   └── .commonplace/             # config, attachments, and the search index
   ```
 - ✨ **Rich markdown format** with frontmatter, timestamps, and proper formatting
-- 🔄 **Git integration** for change tracking and automatic commits when importing conversations
+- 🔄 **Git integration** for change tracking and automatic commits when importing conversations. Those commits
+  include only the files the command wrote, and run your git hooks: if a hook reformats them, the reformatted
+  version is committed
 - 🔍 **Full-text and semantic search** using local vector embeddings to find
   relevant conversations by meaning
 - 🤖 **Claude Code skills** for synthesizing topics and raking up unmade plans from the archive

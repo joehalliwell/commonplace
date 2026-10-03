@@ -22,7 +22,7 @@ def test_fetch_command_filters_by_source(test_repo):
     assert called == ["stub"]
 
 
-def test_fetch_command_all_flag_bypasses_cursor(test_repo):
+def test_fetch_command_all_flag_bypasses_cursor(test_repo, make_note):
     """With all_=True, the fetcher is called with since=None regardless of
     what the repo's git history would otherwise say."""
     calls: list[str | None] = []
@@ -35,10 +35,7 @@ def test_fetch_command_all_flag_bypasses_cursor(test_repo):
 
     # Seed the repo with a chats/recording/ commit so last_commit_time would
     # return a non-None cursor without --all.
-    (test_repo.root / "chats" / "recording").mkdir(parents=True)
-    note = test_repo.root / "chats" / "recording" / "seed.md"
-    note.write_text("# seed\n")
-    test_repo.git.index.add(note.relative_to(test_repo.root).as_posix())
+    test_repo.save(make_note("chats/recording/seed.md", "# seed\n"))
     test_repo.commit("Seed recording", auto_index=False)
 
     fetch(test_repo, fetchers=[RecordingStub()], auto_index=False)
