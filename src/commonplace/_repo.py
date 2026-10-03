@@ -55,6 +55,25 @@ _INIT_CLAUDE_SETTINGS = """\
 }
 """
 
+# The top-level directories, by section, as the root index.md describes them.
+# A fresh repo has none yet, so `doctor` treats them as expected, not broken.
+_LAYOUT: dict[str, tuple[tuple[str, str, str], ...]] = {
+    "Primitives": (
+        ("chats", "Chats", "imported AI conversations, by provider and date; written by `commonplace import`/`fetch`"),
+        ("memory", "Memory", "assistant memory, mirrored from each provider by `commonplace fetch`"),
+        ("journal", "Journal", "daily entries, written by `commonplace journal`"),
+        ("notes", "Notes", "your own writing: ideas, todos, projects"),
+    ),
+    "Derived": (
+        ("topics", "Topics", "syntheses of recurring themes, written by `/synthesize` and `/resonate`; never a source"),
+    ),
+}
+
+_INIT_ROOT_INDEX = '---\nokf_version: "0.2"\n---\n' + "".join(
+    f"\n# {section}\n\n" + "".join(f"* [{title}]({path}/) - {description}\n" for path, title, description in entries)
+    for section, entries in _LAYOUT.items()
+)
+
 _BOT_USERNAME = "Commonplace Bot"
 _BOT_EMAIL = "commonplace@joehalliwell.com"
 
@@ -109,8 +128,9 @@ _CONFIG_TOML = UnmanagedConfig(".commonplace/config.toml", _INIT_CONFIG_TOML)
 _GIT_IGNORE = ManagedLineConfig(".gitignore", _INIT_GIT_IGNORE)
 _GIT_ATTRIBUTES = ManagedLineConfig(".gitattributes", _INIT_GIT_ATTRIBUTES)
 _CLAUDE_SETTINGS = ManagedLineConfig(".claude/settings.json", _INIT_CLAUDE_SETTINGS)
+_ROOT_INDEX = UnmanagedConfig("index.md", _INIT_ROOT_INDEX)
 
-_SCAFFOLDING: tuple[ConfigFile, ...] = (_CONFIG_TOML, _GIT_IGNORE, _GIT_ATTRIBUTES, _CLAUDE_SETTINGS)
+_SCAFFOLDING: tuple[ConfigFile, ...] = (_CONFIG_TOML, _GIT_IGNORE, _GIT_ATTRIBUTES, _CLAUDE_SETTINGS, _ROOT_INDEX)
 
 
 @dataclass(frozen=True)
@@ -281,7 +301,8 @@ class Commonplace:
             if divergence:
                 warnings.append(f"{config.path} differs from the template init now writes:\n" + "\n".join(divergence))
 
-        warnings.extend(summarize(check_links(self.root, list(self.paths()))))
+        expected = [Path(path) for entries in _LAYOUT.values() for path, _, _ in entries]
+        warnings.extend(summarize(check_links(self.root, list(self.paths()), expected=expected)))
 
         if actions:
             self.commit("Restore scaffolding", auto_index=False)

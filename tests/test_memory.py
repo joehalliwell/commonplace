@@ -211,4 +211,4 @@ def test_mirror_leaves_other_vendors_memory_alone(test_repo, tmp_path, make_note
 def test_source_memory_note_is_named_for_its_vendor(test_repo):
     _mirror(test_repo, EXAMPLE)
 
-    assert {test_repo.source(p) for p in test_repo.note_paths()} == {"memory/claude"}
+    assert {test_repo.source(p) for p in test_repo.note_paths() if p.path.parts[0] == "memory"} == {"memory/claude"}

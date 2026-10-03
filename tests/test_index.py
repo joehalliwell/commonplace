@@ -114,7 +114,6 @@ Initial content.
 
     indexed_paths = set(test_repo.index.get_indexed_paths())
     assert test_repo.make_repo_path("first.md") in indexed_paths
-    assert len(indexed_paths) == 1
 
     # Add second note
     note2 = make_note(
@@ -134,12 +133,10 @@ More content.
     indexed_paths = set(test_repo.index.get_indexed_paths())
     assert test_repo.make_repo_path("first.md") in indexed_paths
     assert test_repo.make_repo_path("second.md") in indexed_paths
-    assert len(indexed_paths) == 2
 
     # Index again without changes - should not add duplicates
     _commands.index(test_repo)
-    indexed_paths = set(test_repo.index.get_indexed_paths())
-    assert len(indexed_paths) == 2
+    assert set(test_repo.index.get_indexed_paths()) == indexed_paths
 
 
 def test_search_hides_deleted_notes(test_repo, make_note):
@@ -152,7 +149,9 @@ def test_search_hides_deleted_notes(test_repo, make_note):
     _delete(test_repo, "doomed.md")
 
     assert test_repo.index.search_keyword("Ozymandias", limit=10) == []
-    assert test_repo.index.search("Ozymandias", limit=10) == []
+    assert [
+        hit for hit in test_repo.index.search("Ozymandias", limit=10) if hit.chunk.repo_path.path.name == "doomed.md"
+    ] == []
 
 
 def test_search_include_deleted_shows_them(test_repo, make_note):
@@ -206,7 +205,7 @@ def test_index_rebuild_reindexes_everything(test_repo, make_note):
     test_repo.commit("Add notes", auto_index=False)
     _commands.index(test_repo)
     indexed = set(test_repo.index.get_indexed_paths())
-    assert len(indexed) == 2
+    assert {Path("one.md"), Path("two.md")} <= {p.path for p in indexed}
 
     _commands.index(test_repo, rebuild=True)
 
@@ -223,7 +222,7 @@ def test_index_prunes_deleted_notes(test_repo, make_note):
     _delete(test_repo, "doomed.md")
     _commands.index(test_repo)
 
-    assert set(test_repo.index.get_indexed_paths()) == set()
+    assert Path("doomed.md") not in {p.path for p in test_repo.index.get_indexed_paths()}
 
 
 def test_index_commonplace_dir_pruned(test_repo, make_note):
@@ -249,7 +248,8 @@ def test_index_prunes_superseded_versions(test_repo, make_note):
     test_repo.commit("Edit note", auto_index=False)
     _commands.index(test_repo)
 
-    assert set(test_repo.index.get_indexed_paths()) == {test_repo.make_repo_path("draft.md")}
+    drafts = [p for p in test_repo.index.get_indexed_paths() if p.path == Path("draft.md")]
+    assert drafts == [test_repo.make_repo_path("draft.md")]
     assert test_repo.index.search_keyword("crimson", limit=10)
     assert test_repo.index.search_keyword("silver", limit=10) == []
 

@@ -31,6 +31,7 @@ antiquity.
   ├── memory/claude/            # assistant memory, mirrored from the provider
   ├── journal/2026/06/2026-06-28.md     # daily entries
   ├── notes/                    # Manual notes and thoughts
+  ├── index.md                  # what each top-level folder is for (seeded by init)
   └── .commonplace/             # config, attachments, and the search index
   ```
 - ✨ **Rich markdown format** with frontmatter, timestamps, and proper formatting
@@ -233,10 +234,13 @@ commonplace doctor
 ```
 
 Restores and commits any scaffolding that has gone missing (`.gitignore`,
-`.gitattributes`, `.claude/settings.json`, `.commonplace/config.toml`) and
-diffs the managed files against the templates `init` currently writes. Run it
-after upgrading commonplace to see what an older repo is missing. It only
-reports — applying the diff is up to you.
+`.gitattributes`, `.claude/settings.json`, `.commonplace/config.toml`, the root
+`index.md`) and diffs the managed files against the templates `init` currently
+writes. Run it after upgrading commonplace to see what an older repo is
+missing. It only reports — applying the diff is up to you. The root `index.md`
+and the config file are yours once seeded, so they are never diffed; the root
+index's links to top-level folders you haven't written to yet don't count as
+broken.
 
 It also checks that links land somewhere. Every reference your own markdown
 makes into the repository is followed: inline and reference-style links,
