@@ -16,11 +16,9 @@ class ChatGptMemoryFetcher(ChatGptFetcher):
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
         # Neither endpoint can be asked for changes only, so `since` has nothing to narrow.
-        cookies = self._read_session_cookies()
-        if cookies is None:
-            return None
-
-        with self._session(cookies):
+        with self._signed_in() as client:
+            if client is None:
+                return None
             self._log(endpoint="memories", response=self._get(MEMORIES_URL).text)
             self._log(endpoint="summary", response=self._request("POST", SUMMARY_URL, json={}).text)
 
