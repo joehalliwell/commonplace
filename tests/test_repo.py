@@ -2,10 +2,12 @@
 
 import json
 import subprocess
+import threading
 from contextlib import closing
 from datetime import UTC
 from pathlib import Path
 
+import pytest
 from pygit2.enums import ObjectType
 
 from commonplace._repo import Commonplace
@@ -18,7 +20,7 @@ def test_commit_initial_changes(test_repo, make_note):
     test_repo.commit("Initial commit")
 
     assert not test_repo.git.head_is_unborn
-    assert test_repo.git.head.peel().message == "Initial commit"
+    assert _git(test_repo, "log", "-1", "--format=%s") == "Initial commit\n"
 
 
 def test_commit_no_changes(test_repo, make_note):
@@ -54,7 +56,7 @@ def test_commit_subsequent_changes(test_repo, make_note):
     test_repo.commit("Add second note")
 
     assert test_repo.git.head.target != first_commit_id
-    assert test_repo.git.head.peel().message == "Add second note"
+    assert _git(test_repo, "log", "-1", "--format=%s") == "Add second note\n"
 
 
 def test_commit_modified_file(test_repo, make_note):
@@ -67,7 +69,7 @@ def test_commit_modified_file(test_repo, make_note):
     test_repo.commit("Update note")
 
     assert test_repo.git.head.target != first_commit_id
-    assert test_repo.git.head.peel().message == "Update note"
+    assert _git(test_repo, "log", "-1", "--format=%s") == "Update note\n"
 
 
 def test_save_note_with_metadata_loads_back_unchanged(test_repo):
@@ -433,13 +435,9 @@ def test_last_commit_time_returns_none_on_missing_pathspec(test_repo):
     assert test_repo.last_commit_time("chats/claude/") is None
 
 
-def test_last_commit_time_returns_utc_datetime_after_commit(test_repo):
+def test_last_commit_time_returns_utc_datetime_after_commit(test_repo, make_note):
     """The cursor is UTC whatever offset git reports the author date in."""
-
-    (test_repo.root / "chats" / "claude" / "2026" / "07").mkdir(parents=True)
-    note = test_repo.root / "chats" / "claude" / "2026" / "07" / "test.md"
-    note.write_text("# test\n")
-    test_repo.git.index.add(note.relative_to(test_repo.root).as_posix())
+    test_repo.save(make_note("chats/claude/2026/07/test.md", "# test\n"))
     test_repo.commit("Import test", auto_index=False)
 
     ts = test_repo.last_commit_time("chats/claude/")
@@ -448,25 +446,18 @@ def test_last_commit_time_returns_utc_datetime_after_commit(test_repo):
     assert ts.utcoffset() == UTC.utcoffset(None)
 
 
-def test_last_commit_time_ignores_rename_source_with_diff_filter(test_repo):
+def test_last_commit_time_ignores_rename_source_with_diff_filter(test_repo, make_note):
     """`git mv chats/foo chats/bar` should not poison the fetch cursor for
     chats/foo/ — with diff_filter='AM' we only see adds/modifications."""
-    chats = test_repo.root / "chats" / "claude" / "2026" / "07"
-    chats.mkdir(parents=True)
-    note = chats / "test.md"
-    note.write_text("# test\n")
-    test_repo.git.index.add(note.relative_to(test_repo.root).as_posix())
+    test_repo.save(make_note("chats/claude/2026/07/test.md", "# test\n"))
     test_repo.commit("Import test", auto_index=False)
 
     ts_before = test_repo.last_commit_time("chats/claude/", diff_filter="AM")
     assert ts_before is not None
 
     # Simulate a rename: mv all of chats/claude/ to chats/claude-old/
-    subprocess.run(
-        ["git", "-C", str(test_repo.root), "mv", "chats/claude", "chats/claude-old"],
-        check=True,
-    )
-    test_repo.commit("Rename claude → claude-old", auto_index=False)
+    _git(test_repo, "mv", "chats/claude", "chats/claude-old")
+    _git(test_repo, "commit", "-m", "Rename claude → claude-old")
 
     # Without diff_filter, the rename commit *is* the last one touching
     # chats/claude/ — that's the bug we're guarding against.
@@ -478,3 +469,110 @@ def test_last_commit_time_ignores_rename_source_with_diff_filter(test_repo):
     # chats/claude/) so we see the earlier import commit.
     ts_am = test_repo.last_commit_time("chats/claude/", diff_filter="AM")
     assert ts_am == ts_before
+
+
+def _git(repo: Commonplace, *args: str) -> str:
+    """Act as a second writer on the same checkout, through the porcelain."""
+    identity = ["-c", "user.name=Other", "-c", "user.email=other@example.com"]
+    return subprocess.run(
+        ["git", "-C", str(repo.root), *identity, *args], capture_output=True, text=True, check=True
+    ).stdout
+
+
+def _hook(repo: Commonplace, script: str) -> None:
+    hook = repo.root / ".git" / "hooks" / "pre-commit"
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    hook.write_text("#!/bin/sh\n" + script)
+    hook.chmod(0o755)
+
+
+def test_commit_concurrent_writer_keeps_their_commit(test_repo, make_note):
+    """A commit landing while a journal is open survives ours, in HEAD and in the index."""
+    journal = test_repo.make_repo_path("journal/2026/10/2026-10-01.md")
+    (test_repo.root / "x.md").write_text("# X\n")
+    _git(test_repo, "add", "x.md")
+    _git(test_repo, "commit", "-m", "Concurrent writer")
+
+    test_repo.save(Note(repo_path=journal, body="# Journal\n"))
+    test_repo.commit("Update journal entry", auto_index=False)
+
+    assert "x.md" in _git(test_repo, "ls-tree", "--name-only", "HEAD").split()
+    assert _git(test_repo, "status", "--porcelain") == ""
+    assert _git(test_repo, "diff", "--name-only", "HEAD~1", "HEAD").split() == ["journal/2026/10/2026-10-01.md"]
+
+
+def test_commit_unrelated_changes_left_uncommitted(test_repo, make_note):
+    """Only what the operation saved is committed: another writer's edits, staged or not, stay theirs."""
+    for name in ("draft.md", "staged.md"):
+        (test_repo.root / name).write_text("# Original\n")
+    _git(test_repo, "add", "draft.md", "staged.md")
+    _git(test_repo, "commit", "-m", "Seed")
+    (test_repo.root / "draft.md").write_text("# Half-written\n")
+    (test_repo.root / "staged.md").write_text("# Half-written\n")
+    _git(test_repo, "add", "staged.md")
+
+    test_repo.save(make_note("journal.md", "# Journal\n"))
+    test_repo.commit("Update journal entry", auto_index=False)
+
+    assert _git(test_repo, "diff", "--name-only", "HEAD~1", "HEAD").split() == ["journal.md"]
+    assert _git(test_repo, "status", "--porcelain").splitlines() == [" M draft.md", "M  staged.md"]
+
+
+def test_commit_awkward_filenames_committed_verbatim(test_repo, make_note):
+    """Spaces, non-ASCII and glob characters are names, not syntax."""
+    names = ["chats/gemini/2026/10/2026-10-01-مرحبا بالعالم.md", "notes/[draft] *.md"]
+    for name in names:
+        test_repo.save(make_note(name, "# Note\n"))
+    test_repo.commit("Add notes", auto_index=False)
+
+    changed = _git(test_repo, "-c", "core.quotePath=false", "diff", "--name-only", "HEAD~1", "HEAD")
+    assert sorted(changed.splitlines()) == sorted(names)
+    assert _git(test_repo, "status", "--porcelain") == ""
+
+
+def test_commit_hook_reformats_retries_with_hook_output(test_repo, make_note):
+    """A pre-commit hook that rewrites our file and fails is a formatter: re-stage and go again."""
+    _hook(test_repo, "grep -q messy note.md || exit 0\nsed -i s/messy/tidy/ note.md\nexit 1\n")
+
+    test_repo.save(make_note("note.md", "# messy\n"))
+    test_repo.commit("Add note", auto_index=False)
+
+    assert _git(test_repo, "show", "HEAD:note.md") == "# tidy\n"
+    assert _git(test_repo, "status", "--porcelain") == ""
+
+
+def test_commit_hook_rejects_raises_with_hook_output(test_repo, make_note):
+    """A hook that fails without touching anything is a real objection, so it reaches the user."""
+    _hook(test_repo, "echo 'lint says no' >&2\nexit 1\n")
+    head = _git(test_repo, "rev-parse", "HEAD")
+
+    test_repo.save(make_note("note.md", "# Note\n"))
+    with pytest.raises(RuntimeError, match="lint says no"):
+        test_repo.commit("Add note", auto_index=False)
+
+    assert _git(test_repo, "rev-parse", "HEAD") == head
+    assert (test_repo.root / "note.md").read_text() == "# Note\n"
+
+
+def test_commit_index_briefly_locked_waits_and_succeeds(test_repo, make_note):
+    lock = test_repo.root / ".git" / "index.lock"
+    lock.touch()
+    threading.Timer(0.3, lock.unlink).start()
+
+    test_repo.save(make_note("note.md", "# Note\n"))
+    test_repo.commit("Add note", auto_index=False)
+
+    assert _git(test_repo, "log", "-1", "--format=%s") == "Add note\n"
+
+
+def test_commit_index_locked_too_long_raises_and_leaves_index(test_repo, make_note, monkeypatch):
+    monkeypatch.setattr("commonplace._repo._LOCK_RETRY_DELAYS", (0.01, 0.01))
+    index = test_repo.root / ".git" / "index"
+    before = index.read_bytes()
+    (test_repo.root / ".git" / "index.lock").touch()
+
+    test_repo.save(make_note("note.md", "# Note\n"))
+    with pytest.raises(RuntimeError, match=r"index\.lock"):
+        test_repo.commit("Add note", auto_index=False)
+
+    assert index.read_bytes() == before

@@ -3,14 +3,15 @@ import hashlib
 import os
 import shutil
 import subprocess
+import time
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import cached_property, lru_cache
 from pathlib import Path
 
-from pygit2 import Commit, Diff, Signature, init_repository
-from pygit2.enums import FileStatus, ObjectType
+from pygit2 import Commit, Diff
+from pygit2.enums import FileStatus
 from pygit2.repository import Repository
 
 from commonplace._config import DEFAULT_EDITOR, DEFAULT_NAME
@@ -60,6 +61,12 @@ _INIT_CLAUDE_SETTINGS = """\
 
 _BOT_USERNAME = "Commonplace Bot"
 _BOT_EMAIL = "commonplace@joehalliwell.com"
+
+# Seconds to wait between attempts while another git process holds a lock.
+_LOCK_RETRY_DELAYS = (0.05, 0.1, 0.2, 0.4, 0.8, 1.6)
+
+# Imports touch thousands of paths, more than argv holds.
+_PATHSPEC_STDIN = ("--pathspec-from-file=-", "--pathspec-file-nul")
 
 
 @dataclass(frozen=True)
@@ -128,6 +135,66 @@ def _create_missing(root: Path, config: ConfigFile) -> bool:
     return True
 
 
+def _run_git(root: Path, *args: str, input: str | None = None) -> str:
+    """Run git in `root` as the bot, waiting out another process's lock; returns stdout."""
+    env = os.environ | {
+        "LC_ALL": "C",
+        "GIT_LITERAL_PATHSPECS": "1",
+        "GIT_AUTHOR_NAME": _BOT_USERNAME,
+        "GIT_AUTHOR_EMAIL": _BOT_EMAIL,
+        "GIT_COMMITTER_NAME": _BOT_USERNAME,
+        "GIT_COMMITTER_EMAIL": _BOT_EMAIL,
+    }
+    cmd = ["git", "-C", str(root), "-c", "commit.gpgsign=false", *args]
+    for delay in (*_LOCK_RETRY_DELAYS, None):
+        try:
+            return subprocess.run(
+                cmd, input=input, capture_output=True, text=True, encoding="utf-8", check=True, env=env
+            ).stdout
+        except subprocess.CalledProcessError as e:
+            if delay is None or ".lock': File exists" not in e.stderr:
+                raise
+            logger.debug(f"Waiting {delay}s for a git lock: {e.stderr.strip()}")
+            time.sleep(delay)
+    raise AssertionError("unreachable")
+
+
+def _changed(root: Path, paths: set[str], *diff_args: str) -> set[str]:
+    """Those of `paths` that `git diff <diff_args>` reports."""
+    return set(_run_git(root, "diff", "--name-only", "--no-renames", "-z", *diff_args).split("\0")) & paths
+
+
+def _stage(root: Path, paths: set[str]) -> None:
+    """Stage exactly `paths`, deletions included."""
+    present = {p for p in paths if (root / p).exists()}
+    if present:
+        _run_git(root, "add", *_PATHSPEC_STDIN, input="\0".join(present))
+    if paths - present:
+        _run_git(root, "rm", "--cached", "-q", "--ignore-unmatch", *_PATHSPEC_STDIN, input="\0".join(paths - present))
+
+
+def _commit(root: Path, paths: set[str], message: str) -> bool:
+    """Commit exactly `paths`, re-staging once if a hook reformats them; False if there was nothing to commit."""
+    try:
+        _stage(root, paths)
+        changed = _changed(root, paths, "--cached")
+        if not changed:
+            return False
+        spec = "\0".join(changed)
+        try:
+            _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input=spec)
+        except subprocess.CalledProcessError:
+            reformatted = _changed(root, changed)
+            if not reformatted:
+                raise
+            logger.info(f"A hook rewrote {len(reformatted)} file(s); committing its version")
+            _stage(root, reformatted)
+            _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input=spec)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Commit failed:\n{e.stdout}{e.stderr}".strip()) from e
+    return True
+
+
 def _hash_file(path: Path, buf_size: int = 65536) -> str:
     """SHA-256 hash a file, streaming in chunks."""
     h = hashlib.sha256()
@@ -145,6 +212,8 @@ class Commonplace:
     """
 
     git: Repository
+    # Paths written since the last commit: the only ones the next commit may touch.
+    _pending: set[str] = field(default_factory=set, repr=False)
 
     @staticmethod
     def open(root: Path) -> "Commonplace":
@@ -188,7 +257,7 @@ class Commonplace:
         if not abs_path.exists():
             abs_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source_path, abs_path)
-            self.git.index.add(rel_path.as_posix())
+            self._pending.add(rel_path.as_posix())
 
         return self.make_repo_path(rel_path)
 
@@ -196,10 +265,11 @@ class Commonplace:
         """Restore missing scaffolding, diff whatever has fallen behind `init`'s templates, and find broken links."""
         actions: list[str] = []
         warnings: list[str] = []
+        created: set[str] = set()
 
         for config in _SCAFFOLDING:
             if _create_missing(self.root, config):
-                self.git.index.add(config.path)
+                created.add(config.path)
                 actions.append(f"Created {config.path}")
                 continue
 
@@ -209,15 +279,16 @@ class Commonplace:
 
         warnings.extend(summarize(check_links(self.root, list(self.paths()))))
 
-        if actions:
-            self.git.index.write()
+        # doctor doesn't commit, so it stages for whoever does next.
+        if created:
+            _stage(self.root, created)
 
         return DoctorReport(actions=actions, warnings=warnings)
 
     def _ensure_gitattributes(self) -> None:
         """Create .gitattributes with LFS config if it doesn't exist yet."""
         if _create_missing(self.root, _GIT_ATTRIBUTES):
-            self.git.index.add(_GIT_ATTRIBUTES.path)
+            self._pending.add(_GIT_ATTRIBUTES.path)
 
     @cached_property
     def index(self):
@@ -239,33 +310,16 @@ class Commonplace:
 
     @staticmethod
     def init(root: Path):
-        main = "refs/heads/main"
-
-        # Create the git repository
-        git = init_repository(root, bare=False, initial_head=main)
+        root.mkdir(parents=True, exist_ok=True)
+        _run_git(root, "init", "-q", "--initial-branch=main")
 
         # Lay down the scaffolding: stub config, .gitignore, LFS tracking for
         # blobs, and the Claude Code plugin marketplace. `doctor` checks the
         # same list, so the two can't drift apart.
         for scaffold in _SCAFFOLDING:
             _create_missing(root, scaffold)
-            git.index.add(scaffold.path)  # type: ignore[attr-defined]
 
-        # Create initial commit
-        tree = git.index.write_tree()  # type: ignore[attr-defined]
-        author = Signature(_BOT_USERNAME, _BOT_EMAIL)
-        git.create_commit(
-            main,
-            author,
-            author,
-            "Initial commit",
-            tree,
-            [],  # No parents for initial commit
-        )
-
-        # Checkout the main branch to ensure HEAD is a symbolic reference
-        git.index.write()  # type: ignore[attr-defined]
-        git.checkout(main)  # type: ignore[attr-defined]
+        _commit(root, {scaffold.path for scaffold in _SCAFFOLDING}, "Initial commit")
 
     def make_repo_path(self, path: Pathlike) -> RepoPath:
         """
@@ -435,55 +489,31 @@ class Commonplace:
         return Note(repo_path=repo_path, body=body, metadata=metadata)
 
     def save(self, note: Note) -> None:
-        """Save a note to working directory and stage. Beware! This will overwrite
+        """Save a note to working directory for the next commit. Beware! This will overwrite
         existing content."""
         abs_path = self.root / note.repo_path.path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         with open(abs_path, "w") as fd:
             fd.write(dump_frontmatter(note.metadata, note.body))
-        self.git.index.add(note.repo_path.path.as_posix())
+        self._pending.add(note.repo_path.path.as_posix())
 
     def remove(self, path: Path) -> None:
-        """Delete a file from the working directory and stage the deletion."""
+        """Delete a file from the working directory, for the next commit."""
         (self.root / path).unlink()
-        self.git.index.remove(path.as_posix())
+        self._pending.add(path.as_posix())
 
     def commit(self, message: str, auto_index: bool | None = None) -> None:
-        """Commit staged changes to the repository.
+        """Commit what this repo has saved, removed or stored since the last commit, and nothing else.
 
         Args:
             message: Commit message
             auto_index: Whether to index after committing (default: from config)
         """
-        # Check if there are actually changes to commit
-        tree = self.git.index.write_tree()
-
-        if self.git.head_is_unborn:
-            # No commits yet - commit if index has any entries
-            has_changes = len(self.git.index) > 0
-        else:
-            # Compare index tree with HEAD tree to detect changes
-            head_commit = self.git.head.peel(ObjectType.COMMIT)
-            assert isinstance(head_commit, Commit)
-            head_tree = head_commit.tree.id
-            has_changes = tree != head_tree
-
-        if not has_changes:
+        committed = _commit(self.root, self._pending, message)
+        self._pending.clear()
+        if not committed:
             logger.info("No changes to commit")
             return
-
-        author = Signature(_BOT_USERNAME, _BOT_EMAIL)
-        committer = author
-        self.git.create_commit(
-            "HEAD",
-            author,
-            committer,
-            message,
-            tree,
-            [self.git.head.target] if not self.git.head_is_unborn else [],
-        )
-        # Write index to disk to ensure it matches the new HEAD
-        self.git.index.write()
         logger.info(f"Committed changes with message: {message}")
 
         # Auto-index if enabled
@@ -603,19 +633,4 @@ class Commonplace:
         Raises:
             subprocess.CalledProcessError: If git command fails
         """
-        result = subprocess.run(
-            [
-                "git",
-                f"--git-dir={self.root / '.git'}",
-                f"--work-tree={self.root}",
-                "-c",
-                f"user.name={_BOT_USERNAME}",
-                "-c",
-                f"user.email={_BOT_EMAIL}",
-                *args,
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return result.stdout
+        return _run_git(self.root, *args)

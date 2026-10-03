@@ -1,9 +1,9 @@
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
-from pygit2.enums import FileStatus
 
 from commonplace._import._commands import import_
 from commonplace._repo import Commonplace, _hash_file
@@ -21,7 +21,7 @@ def sample_file(tmp_path):
 
 
 def test_store_blob_copies_file(test_repo, sample_file):
-    """File appears at .commonplace/blobs/<hash>/<name> and is staged."""
+    """File appears at .commonplace/blobs/<hash>/<name> and the next commit includes it."""
     repo_path = test_repo.store_blob(sample_file)
 
     digest = _hash_file(sample_file)
@@ -32,10 +32,11 @@ def test_store_blob_copies_file(test_repo, sample_file):
     assert abs_path.exists()
     assert abs_path.read_text() == "hello world"
 
-    # Check it's staged in the git index
-    status = test_repo.git.status_file(expected_rel.as_posix())
-    # INDEX_NEW means staged as a new file
-    assert status & FileStatus.INDEX_NEW
+    test_repo.commit("Store blob", auto_index=False)
+    tracked = subprocess.run(
+        ["git", "-C", test_repo.root, "ls-files"], capture_output=True, text=True, check=True
+    ).stdout
+    assert expected_rel.as_posix() in tracked.splitlines()
 
 
 def test_store_blob_is_idempotent(test_repo, sample_file):
