@@ -340,11 +340,10 @@ class Commonplace:
             path = path.relative_to(self.root, walk_up=False)
         return self._repo_path(path, *self._status(path.as_posix()))
 
-    def _status(self, *pathspec: str) -> tuple[str, set[str]]:
-        """HEAD, and which tracked files under `pathspec` differ from it, from one `git status`."""
-        out = self._git(
-            "status", "--porcelain=v2", "-z", "--branch", "--untracked-files=no", "--no-renames", "--", *pathspec
-        )
+    def _status(self, *pathspec: str, untracked: bool = False) -> tuple[str, set[str]]:
+        """HEAD, and which files under `pathspec` differ from it (untracked ones only if asked), from one `git status`."""
+        untracked_files = "--untracked-files=all" if untracked else "--untracked-files=no"
+        out = self._git("status", "--porcelain=v2", "-z", "--branch", untracked_files, "--no-renames", "--", *pathspec)
         head, dirty = "", set()
         for entry in out.split("\0"):
             if entry.startswith("# branch.oid "):
@@ -353,6 +352,8 @@ class Commonplace:
                 dirty.add(entry.split(" ", 8)[8])
             elif entry.startswith("u "):
                 dirty.add(entry.split(" ", 10)[10])
+            elif entry.startswith("? "):
+                dirty.add(entry.removeprefix("? "))
         return head, dirty
 
     def _repo_path(self, path: Path, head: str, dirty: set[str]) -> RepoPath:
@@ -539,20 +540,14 @@ class Commonplace:
 
         # 2. Auto-commit if there are changes
         if auto_commit:
-            try:
-                # Check if there are changes
-                result = self._git("status", "--porcelain")
-                if result.strip():
-                    logger.info("Adding and committing changes...")
-                    self._git("add", "-A")
-                    timestamp = datetime.now(UTC).isoformat()
-                    self._git(
-                        "commit",
-                        "-m",
-                        f"Auto-commit before sync at {timestamp}",
-                    )
-            except subprocess.CalledProcessError as e:
-                raise ValueError(f"Failed to commit changes. {e.stderr}") from e
+            # The one commit of work commonplace didn't write: the user's own edits, whatever they are.
+            _, changed = self._status(untracked=True)
+            if changed:
+                logger.info("Adding and committing changes...")
+                try:
+                    _commit(self.root, changed, f"Auto-commit before sync at {datetime.now(UTC).isoformat()}")
+                except RuntimeError as e:
+                    raise ValueError(f"Failed to commit changes. {e}") from e
 
         # 3. Pull from remote (skip if remote branch doesn't exist yet)
         logger.info(f"Pulling from {remote_name}/{branch}...")

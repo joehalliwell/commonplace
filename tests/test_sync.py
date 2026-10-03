@@ -75,6 +75,31 @@ def test_sync_auto_commits_changes(local_repo_with_remote):
     assert _pushed(local_repo_with_remote)
 
 
+def test_sync_auto_commit_hook_reformats_commits_hook_output(local_repo_with_remote):
+    """A formatting pre-commit hook gets the same single retry as every other commonplace commit."""
+    repo = local_repo_with_remote
+    hook = repo.root / ".git" / "hooks" / "pre-commit"
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    hook.write_text("#!/bin/sh\ngrep -q messy hand.md || exit 0\nsed -i s/messy/tidy/ hand.md\nexit 1\n")
+    hook.chmod(0o755)
+    (repo.root / "hand.md").write_text("# messy\n")
+
+    repo.sync()
+
+    assert git(repo.root, "show", "HEAD:hand.md") == "# tidy\n"
+    assert git(repo.root, "status", "--porcelain") == ""
+    assert _pushed(repo)
+
+
+def test_sync_auto_commit_includes_deletions(local_repo_with_remote):
+    (local_repo_with_remote.root / "initial.md").unlink()
+
+    local_repo_with_remote.sync()
+
+    assert "initial.md" not in git(local_repo_with_remote.root, "ls-tree", "--name-only", "HEAD").split()
+    assert _pushed(local_repo_with_remote)
+
+
 def test_sync_refuses_uncommitted_without_auto_commit(local_repo_with_remote):
     """Test that sync fails without auto_commit when there are uncommitted changes."""
     # Modify a file
