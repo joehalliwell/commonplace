@@ -89,7 +89,7 @@ def generate_stats(
 
     sources_list = sorted(
         set(repo_counts) | set(index_chunks_by_source),
-        key=lambda category: -repo_counts.get(category, 0),
+        key=lambda category: (-repo_counts.get(category, 0), category),
     )
 
     # Build table

@@ -34,6 +34,17 @@ def test_generate_stats_basic(test_repo, any_terminal):
     assert "Total" in plain(table_output)
 
 
+def test_generate_stats_ties_are_ordered_by_name(test_repo, any_terminal):
+    """Sources with equal counts sort by name, not by set iteration order."""
+    test_repo.save(Note(RepoPath(Path("notes/general.md"), ""), "# General note\n\nStuff"))
+    test_repo.save(Note(RepoPath(Path("journal/2024/01/2024-01-15.md"), ""), "# Journal\n\nContent"))
+
+    _, table_output = generate_stats(test_repo, sources=None, all_time=True, console=any_terminal)
+
+    rows = [line.split("│")[1].strip() for line in plain(table_output).splitlines() if line.startswith("│")]
+    assert rows[:3] == ["journal", "misc", "notes"]
+
+
 def test_generate_stats_with_source_filter(test_repo, any_terminal):
     """Test stats generation with source filtering."""
     # Add notes in different sources
