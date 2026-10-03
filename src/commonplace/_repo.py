@@ -142,17 +142,21 @@ def _run_git(root: Path, *args: str, input: str | None = None) -> str:
         "GIT_COMMITTER_EMAIL": _BOT_EMAIL,
     }
     cmd = ["git", "-C", str(root), "-c", "commit.gpgsign=false", *args]
-    for delay in (*_LOCK_RETRY_DELAYS, None):
+
+    def run() -> str:
+        return subprocess.run(
+            cmd, input=input, capture_output=True, text=True, encoding="utf-8", check=True, env=env
+        ).stdout
+
+    for delay in _LOCK_RETRY_DELAYS:
         try:
-            return subprocess.run(
-                cmd, input=input, capture_output=True, text=True, encoding="utf-8", check=True, env=env
-            ).stdout
+            return run()
         except subprocess.CalledProcessError as e:
-            if delay is None or ".lock': File exists" not in e.stderr:
+            if ".lock': File exists" not in e.stderr:
                 raise
             logger.debug(f"Waiting {delay}s for a git lock: {e.stderr.strip()}")
             time.sleep(delay)
-    raise AssertionError("unreachable")
+    return run()
 
 
 def _changed(root: Path, paths: set[str], *diff_args: str) -> set[str]:
