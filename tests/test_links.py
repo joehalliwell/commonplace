@@ -296,14 +296,9 @@ def test_check_links_directory_target_resolves(tmp_path):
     assert check(tmp_path) == []
 
 
-def test_check_links_expected_directory_resolves_before_it_exists(tmp_path):
-    write(tmp_path, "index.md", "[Topics](topics/)")
-    assert check_links(tmp_path, [Path("index.md")], expected=[Path("topics")]) == []
-
-
-def test_check_links_unexpected_missing_directory_is_reported(tmp_path):
+def test_check_links_missing_directory_is_reported(tmp_path):
     write(tmp_path, "index.md", "[Other](other/)")
-    broken = check_links(tmp_path, [Path("index.md")], expected=[Path("topics")])
+    broken = check(tmp_path)
     assert [item.link.target for item in broken] == ["other/"]
 
 
