@@ -55,6 +55,39 @@ _INIT_CLAUDE_SETTINGS = """\
 }
 """
 
+_INIT_PRE_COMMIT_CONFIG = """\
+repos:
+- repo: https://github.com/hukkin/mdformat
+  rev: 0.7.22
+  hooks:
+  - id: mdformat
+    # Blobs are content-addressed: the directory name is the hash of the
+    # file, so any reformatting invalidates the address.
+    exclude: ^\\.commonplace/blobs/
+    additional_dependencies:
+    - mdformat-black
+    - mdformat-frontmatter
+    - mdformat-gfm
+    - mdformat-toc
+    - mdformat-wikilink
+"""
+
+# Listing extensions stops mdformat loading the rest, so an installed plugin
+# missing from here is silently off: without wikilink, `[[x]]` becomes `\\[[x]\\]`.
+_INIT_MDFORMAT_TOML = """\
+wrap = 80
+number = true
+end_of_line = "lf"
+validate = true
+
+extensions = [
+    "gfm",
+    "toc",
+    "frontmatter",
+    "wikilink",
+]
+"""
+
 # The top-level directories, by section, as the root index.md describes them.
 # A fresh repo has none yet, so `doctor` treats them as expected, not broken.
 _LAYOUT: dict[str, tuple[tuple[str, str, str], ...]] = {
@@ -129,8 +162,18 @@ _GIT_IGNORE = ManagedLineConfig(".gitignore", _INIT_GIT_IGNORE)
 _GIT_ATTRIBUTES = ManagedLineConfig(".gitattributes", _INIT_GIT_ATTRIBUTES)
 _CLAUDE_SETTINGS = ManagedLineConfig(".claude/settings.json", _INIT_CLAUDE_SETTINGS)
 _ROOT_INDEX = UnmanagedConfig("index.md", _INIT_ROOT_INDEX)
+_PRE_COMMIT_CONFIG = ManagedLineConfig(".pre-commit-config.yaml", _INIT_PRE_COMMIT_CONFIG)
+_MDFORMAT_TOML = ManagedLineConfig(".mdformat.toml", _INIT_MDFORMAT_TOML)
 
-_SCAFFOLDING: tuple[ConfigFile, ...] = (_CONFIG_TOML, _GIT_IGNORE, _GIT_ATTRIBUTES, _CLAUDE_SETTINGS, _ROOT_INDEX)
+_SCAFFOLDING: tuple[ConfigFile, ...] = (
+    _CONFIG_TOML,
+    _GIT_IGNORE,
+    _GIT_ATTRIBUTES,
+    _CLAUDE_SETTINGS,
+    _ROOT_INDEX,
+    _PRE_COMMIT_CONFIG,
+    _MDFORMAT_TOML,
+)
 
 
 @dataclass(frozen=True)
