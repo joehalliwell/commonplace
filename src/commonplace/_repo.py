@@ -221,7 +221,12 @@ class Commonplace:
     @staticmethod
     def open(root: Path) -> "Commonplace":
         logger.debug(f"Opening commonplace repository at {root}")
-        toplevel = Path(_run_git(root.absolute(), "rev-parse", "--show-toplevel").strip())
+        try:
+            toplevel = Path(_run_git(root, "rev-parse", "--show-toplevel").strip())
+        except subprocess.CalledProcessError as e:
+            raise ValueError(f"{root} is not in a git repository") from e
+        if toplevel != root.resolve():
+            raise ValueError(f"{root} is not the root of its git repository, {toplevel}")
         try:
             _run_git(toplevel, "rev-parse", "--verify", "-q", "HEAD")
         except subprocess.CalledProcessError as e:

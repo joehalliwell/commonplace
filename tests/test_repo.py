@@ -171,6 +171,14 @@ def test_note_paths_dot_dirs_excluded(test_repo, make_note):
     assert [p.path for p in test_repo.note_paths()] == [Path("notes/idea.md")]
 
 
+def test_open_subdirectory_of_repo_raises(test_repo):
+    """A root inside a repo is a mistake, not a request for the repo around it."""
+    (test_repo.root / "notes").mkdir()
+
+    with pytest.raises(ValueError, match="not the root"):
+        Commonplace.open(test_repo.root / "notes")
+
+
 def test_config_reads_repo_file(tmp_path, monkeypatch):
     """A setting in the repo's own .commonplace/config.toml reaches repo.config."""
     monkeypatch.delenv("COMMONPLACE_USER", raising=False)
