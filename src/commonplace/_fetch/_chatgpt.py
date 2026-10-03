@@ -1,8 +1,12 @@
 """Fetch conversations directly from chatgpt.com using the browser session cookie."""
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
+
+import httpx
 
 from commonplace._fetch._base import BaseFetcher
 
@@ -40,18 +44,30 @@ class ChatGptFetcher(BaseFetcher):
     request_interval = 0.25
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        cookies = self._read_cookies()
-        if not any(name.startswith(SESSION_COOKIE_PREFIX) for name in cookies):
-            self._report_no_session()
+        cookies = self._read_session_cookies()
+        if cookies is None:
             return None
 
-        with self._session(cookies) as client:
-            client.headers["Authorization"] = f"Bearer {self._read_access_token()}"
-
+        with self._session(cookies):
             fresh = list(self._list_fresh_ids(since))
             self._read_fresh(fresh, since, self._fetch_detail)
 
         return self._write_archive(destination) if fresh else None
+
+    def _read_session_cookies(self) -> dict[str, str] | None:
+        """The browser's cookies, or None, reported, when they hold no ChatGPT session."""
+        cookies = self._read_cookies()
+        if not any(name.startswith(SESSION_COOKIE_PREFIX) for name in cookies):
+            self._report_no_session()
+            return None
+        return cookies
+
+    @contextmanager
+    def _session(self, cookies: dict[str, str]) -> Iterator[httpx.Client]:
+        """A client that already carries the bearer token every `backend-api` call wants."""
+        with super()._session(cookies) as client:
+            client.headers["Authorization"] = f"Bearer {self._read_access_token()}"
+            yield client
 
     def _read_access_token(self) -> str:
         """Trade the session cookie for the bearer token `backend-api` wants.
