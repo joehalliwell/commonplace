@@ -8,6 +8,7 @@ import httpx
 from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
 from commonplace._fetch._commands import fetch
 from commonplace._wire import read_entries, read_header
+from tests.porcelain import git
 
 ORG = "org-uuid-1"
 TEST_COOKIES = {"sessionKey": "sk-test", "lastActiveOrg": ORG}
@@ -102,13 +103,13 @@ def test_fetch_command_cursor_comes_from_the_memory_tree(test_repo):
     """A second run finds nothing newer than the commit the first one made under memory/claude/."""
     memory = FakeMemory()
     fetch(test_repo, fetchers=[memory.fetcher()], auto_index=False)
-    head = test_repo.git.head.target
+    head = git(test_repo.root, "rev-parse", "HEAD")
     memory.requests.clear()
 
     fetch(test_repo, fetchers=[memory.fetcher()], auto_index=False)
 
     assert [path.rsplit("/", 1)[-1] for _, path, _ in memory.requests] == ["list"]
-    assert test_repo.git.head.target == head
+    assert git(test_repo.root, "rev-parse", "HEAD") == head
 
 
 def test_fetch_command_upstream_deletion_alone_is_pruned(test_repo):

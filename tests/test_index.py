@@ -1,5 +1,7 @@
 """Tests for the index and search commands."""
 
+from pathlib import Path
+
 import numpy as np
 
 from commonplace._search import _commands
@@ -8,8 +10,7 @@ from commonplace._search._types import Chunk
 
 def _delete(repo, path: str) -> None:
     """Delete a note the way a user would: remove it and commit the removal."""
-    (repo.root / path).unlink()
-    repo.git.index.remove(path)
+    repo.remove(Path(path))
     repo.commit(f"Delete {path}", auto_index=False)
 
 
