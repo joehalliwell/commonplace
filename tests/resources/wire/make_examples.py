@@ -171,11 +171,58 @@ GEMINI_MEMORY_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
     ),
 }
 
+# Synthetic, shaped like the about-you summary as first fetched on 2026-10-03: one event per
+# section, then `done` restating them all. The last section is only follow-up prompts.
+CHATGPT_SECTIONS = [
+    {"id": "overview", "title": "Overview", "description": "Prefers tea, and asks for sources."},
+    {
+        "id": "dive-deeper",
+        "title": "Dive deeper",
+        "description": "",
+        "followUps": [{"preview": "Tea?", "prompt": "Tell me about tea.", "action": "start_chat"}],
+    },
+]
+CHATGPT_HEAD = {"generatedAtIso": "2026-10-03T22:27:53.035594+00:00", "sourceChecksum": "5c24" * 16}
+CHATGPT_EVENTS = [
+    ("started", CHATGPT_HEAD),
+    (
+        "section_types",
+        {
+            "generatedAtIso": CHATGPT_HEAD["generatedAtIso"],
+            "sections": [{"id": s["id"], "title": s["title"]} for s in CHATGPT_SECTIONS],
+        },
+    ),
+    *(("section", {"section": s}) for s in CHATGPT_SECTIONS),
+    ("done", {"emptyStateMessage": "Chat more to see a summary.", **CHATGPT_HEAD, "sections": CHATGPT_SECTIONS}),
+]
+CHATGPT_STREAM = (
+    "".join(f"event: {name}\ndata: {json.dumps(data)}\n\n" for name, data in CHATGPT_EVENTS) + "data: [DONE]\n\n"
+)
+
+CHATGPT_MEMORY_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
+    3: (
+        {
+            "wire": "chatgpt-memory",
+            "version": 3,
+            "fetched_at": "2026-10-03T23:00:00+00:00",
+            "fetched_by": "commonplace/0.0.5",
+        },
+        [
+            {
+                "endpoint": "memories",
+                "response": json.dumps({"memories": [], "memory_max_tokens": 5000000, "memory_num_tokens": 0}),
+            },
+            {"endpoint": "summary", "response": CHATGPT_STREAM},
+        ],
+    ),
+}
+
 
 def main() -> None:
     for source, archives in (
         ("claude", ARCHIVES),
         ("claude-memory", MEMORY_ARCHIVES),
+        ("chatgpt-memory", CHATGPT_MEMORY_ARCHIVES),
         ("gemini-memory", GEMINI_MEMORY_ARCHIVES),
     ):
         for version, (header, entries) in archives.items():

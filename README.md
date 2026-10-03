@@ -30,6 +30,7 @@ antiquity.
   │   └── gemini-takeout/               # imported from Google Takeout
   ├── memory/                   # assistant memory, mirrored from the provider
   │   ├── claude/
+  │   ├── chatgpt/
   │   └── gemini/saved-info.md
   ├── journal/2026/06/2026-06-28.md     # daily entries
   ├── notes/                    # Manual notes and thoughts
@@ -102,9 +103,12 @@ per-turn timestamps, Gem personas and thought traces, which the Takeout export
 doesn't have. Claude's gets slightly less than the manual export: the endpoint
 strips `<antThinking>` blocks server-side (issue #6).
 
-Two more sources mirror assistant memory. `claude-memory` mirrors claude.ai's
+Three more sources mirror assistant memory. `claude-memory` mirrors claude.ai's
 file-based memory into `memory/claude/`, each file at the path claude.ai gives
-it, titled with the name claude.ai displays. `gemini-memory` mirrors Gemini's
+it, titled with the name claude.ai displays. `chatgpt-memory` mirrors the
+sections of ChatGPT's "about you" summary into `memory/chatgpt/`, one file per
+section; ChatGPT generates that summary itself and regenerates it as it learns,
+so it changes without you editing anything. `gemini-memory` mirrors Gemini's
 [saved info](https://gemini.google.com/saved-info) into
 `memory/gemini/saved-info.md`, one bullet per item, oldest first.
 Each is a mirror rather than an import: a memory deleted upstream is deleted

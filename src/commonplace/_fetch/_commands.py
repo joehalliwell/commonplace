@@ -5,6 +5,7 @@ from pathlib import Path
 
 from commonplace._config import Config
 from commonplace._fetch._chatgpt import ChatGptFetcher
+from commonplace._fetch._chatgpt_memory import ChatGptMemoryFetcher
 from commonplace._fetch._claude import ClaudeFetcher
 from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
 from commonplace._fetch._gemini import GeminiFetcher
@@ -25,6 +26,7 @@ def default_fetchers(config: Config) -> list[Fetcher]:
         GeminiFetcher(ua=config.ua),
         GeminiMemoryFetcher(ua=config.ua),
         ChatGptFetcher(ua=config.ua),
+        ChatGptMemoryFetcher(ua=config.ua),
     ]
 
 
