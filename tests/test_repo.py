@@ -545,6 +545,20 @@ def test_commit_hook_reformats_retries_with_hook_output(test_repo, make_note):
     assert _git(test_repo, "status", "--porcelain") == ""
 
 
+def test_commit_hook_reformats_back_to_head_is_nothing_to_commit(test_repo, make_note):
+    """Re-importing a note the hook already formatted changes nothing once the hook has had its say."""
+    _hook(test_repo, "grep -q messy note.md || exit 0\nsed -i s/messy/tidy/ note.md\nexit 1\n")
+    test_repo.save(make_note("note.md", "# messy\n"))
+    test_repo.commit("Add note", auto_index=False)
+    head = _head(test_repo)
+
+    test_repo.save(make_note("note.md", "# messy\n"))
+    test_repo.commit("Re-import note", auto_index=False)
+
+    assert _head(test_repo) == head
+    assert _git(test_repo, "status", "--porcelain") == ""
+
+
 def test_commit_hook_rejects_raises_with_hook_output(test_repo, make_note):
     """A hook that fails without touching anything is a real objection, so it reaches the user."""
     _hook(test_repo, "echo 'lint says no' >&2\nexit 1\n")

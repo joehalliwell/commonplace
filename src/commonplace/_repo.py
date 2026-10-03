@@ -176,16 +176,19 @@ def _commit(root: Path, paths: set[str], message: str) -> bool:
         changed = _changed(root, paths, "--cached")
         if not changed:
             return False
-        spec = "\0".join(changed)
         try:
-            _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input=spec)
+            _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input="\0".join(changed))
         except subprocess.CalledProcessError:
             reformatted = _changed(root, changed)
             if not reformatted:
                 raise
             logger.info(f"A hook rewrote {len(reformatted)} file(s); committing its version")
             _stage(root, reformatted)
-            _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input=spec)
+            # The hook's version may be exactly what HEAD already has, as on a re-import.
+            changed = _changed(root, changed, "--cached")
+            if not changed:
+                return False
+            _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input="\0".join(changed))
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Commit failed:\n{e.stdout}{e.stderr}".strip()) from e
     return True
