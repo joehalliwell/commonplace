@@ -32,7 +32,7 @@ uv run commonplace search "query text"
 
 ## Architecture
 
-**Repository** (`_repo.py`): `Commonplace` is the central object wrapping a git repo with cached properties: `config`, `cache`, `index`. Provides note management and indexing. Every git operation goes through the git CLI via `_run_git()`, never a library: re-implementing the porcelain cost us a silent revert (#102). Commits take only the paths the operation wrote, and run the user's hooks.
+**Repository** (`_repo.py`): `Commonplace` is the central object wrapping a git repo with cached properties: `config`, `cache`, `index`. Provides note management and indexing. Every git operation goes through the git CLI via `_run_git()`, never a library: re-implementing the porcelain cost us a silent revert (#102). Every operation that writes commits what it wrote: methods record paths, `commit()` stages and commits exactly those, and nothing else touches the index. Commits run the user's hooks.
 
 **Fetch** (`_fetch/`, `_wire.py`): Fetchers capture raw provider responses into a versioned wire archive and interpret nothing — the archive is the primitive artefact (MANIFESTO §3.2, §3.5), so any decision a fetcher makes is one no later reader can revisit. `_wire.py` owns the format for both sides; don't restate its rationale elsewhere. Each provider needs a Fetcher *and* a paired Importer, with the archive as the seam. Fetchers are brittle by nature (they track unofficial upstreams), so share freely between them — see `_fetch/_base.py`.
 

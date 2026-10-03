@@ -431,14 +431,18 @@ def test_doctor_is_idempotent(test_repo):
     assert report.warnings == []
 
 
-def test_doctor_stages_what_it_creates(test_repo):
-    """A recreated file lands in the on-disk index, so the next commit picks it up."""
+def test_doctor_commits_what_it_creates(test_repo):
+    """A recreated file is committed, alone: doctor leaves nothing staged for someone else's commit."""
     gitignore = test_repo.root / ".gitignore"
     gitignore.unlink()
+    _git(test_repo, "rm", "-q", "--cached", ".gitignore")
+    _git(test_repo, "commit", "-qm", "Lose .gitignore")
 
     test_repo.doctor()
 
-    assert _git(test_repo, "show", ":.gitignore") == gitignore.read_text()
+    assert _git(test_repo, "show", "HEAD:.gitignore") == gitignore.read_text()
+    assert _git(test_repo, "diff", "--name-only", "HEAD~1", "HEAD").split() == [".gitignore"]
+    assert _git(test_repo, "status", "--porcelain") == ""
 
 
 def test_last_commit_time_returns_none_on_missing_pathspec(test_repo):

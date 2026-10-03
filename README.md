@@ -232,7 +232,7 @@ commonplace git status
 commonplace doctor
 ```
 
-Restores any scaffolding that has gone missing (`.gitignore`,
+Restores and commits any scaffolding that has gone missing (`.gitignore`,
 `.gitattributes`, `.claude/settings.json`, `.commonplace/config.toml`) and
 diffs the managed files against the templates `init` currently writes. Run it
 after upgrading commonplace to see what an older repo is missing. It only

@@ -267,14 +267,13 @@ class Commonplace:
         return self.make_repo_path(rel_path)
 
     def doctor(self) -> DoctorReport:
-        """Restore missing scaffolding, diff whatever has fallen behind `init`'s templates, and find broken links."""
+        """Restore and commit missing scaffolding, diff whatever has fallen behind `init`'s templates, and find broken links."""
         actions: list[str] = []
         warnings: list[str] = []
-        created: set[str] = set()
 
         for config in _SCAFFOLDING:
             if _create_missing(self.root, config):
-                created.add(config.path)
+                self._pending.add(config.path)
                 actions.append(f"Created {config.path}")
                 continue
 
@@ -284,9 +283,8 @@ class Commonplace:
 
         warnings.extend(summarize(check_links(self.root, list(self.paths()))))
 
-        # doctor doesn't commit, so it stages for whoever does next.
-        if created:
-            _stage(self.root, created)
+        if actions:
+            self.commit("Restore scaffolding", auto_index=False)
 
         return DoctorReport(actions=actions, warnings=warnings)
 
