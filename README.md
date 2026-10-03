@@ -235,7 +235,8 @@ commonplace doctor
 
 Restores and commits any scaffolding that has gone missing (`.gitignore`,
 `.gitattributes`, `.claude/settings.json`, `.commonplace/config.toml`, the root
-`index.md`) and diffs the managed files against the templates `init` currently
+`index.md`, and the mdformat config in `.pre-commit-config.yaml` and
+`.mdformat.toml`, which keeps wikilinks from being escaped) and diffs the managed files against the templates `init` currently
 writes. Run it after upgrading commonplace to see what an older repo is
 missing. It only reports — applying the diff is up to you. The root `index.md`
 and the config file are yours once seeded, so they are never diffed; the root

@@ -1,12 +1,16 @@
 """Tests for repository commit functionality."""
 
 import json
+import re
+import subprocess
+import sys
 import threading
 from contextlib import closing
 from datetime import UTC
 from pathlib import Path
 
 import pytest
+import yaml
 
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
@@ -373,6 +377,37 @@ def test_doctor_warns_when_marketplace_config_is_removed(test_repo):
     report = test_repo.doctor()
 
     assert any("settings.json" in warning for warning in report.warnings)
+
+
+def test_init_scaffolds_mdformat_that_preserves_wikilinks(test_repo):
+    """Formatting with the scaffolded config leaves root-relative and bare wikilinks unescaped."""
+    note = test_repo.root / "note.md"
+    note.write_text("See [[/chats/a/b]] and [[foam]].\n")
+
+    subprocess.run([sys.executable, "-m", "mdformat", "note.md"], cwd=test_repo.root, check=True)
+
+    assert note.read_text() == "See [[/chats/a/b]] and [[foam]].\n"
+
+
+def test_init_scaffolds_mdformat_hook_with_wikilink_that_skips_blobs(test_repo):
+    """The pre-commit hook needs the plugin installed, and must not touch content-addressed blobs."""
+    config = yaml.safe_load((test_repo.root / ".pre-commit-config.yaml").read_text())
+    hook = next(hook for repo in config["repos"] for hook in repo["hooks"] if hook["id"] == "mdformat")
+
+    assert "mdformat-wikilink" in hook["additional_dependencies"]
+    assert re.search(hook["exclude"], ".commonplace/blobs/ab/cd/note.md")
+    assert not re.search(hook["exclude"], "notes/ideas.md")
+
+
+def test_doctor_reports_mdformat_config_without_wikilink(test_repo):
+    """Without the extension listed, mdformat escapes wikilinks even with the plugin installed."""
+    mdformat_toml = test_repo.root / ".mdformat.toml"
+    mdformat_toml.write_text(mdformat_toml.read_text().replace('    "wikilink",\n', ""))
+
+    report = test_repo.doctor()
+
+    warning = next(w for w in report.warnings if ".mdformat.toml" in w)
+    assert '-    "wikilink",' in warning
 
 
 def test_doctor_reports_a_broken_link(test_repo):
