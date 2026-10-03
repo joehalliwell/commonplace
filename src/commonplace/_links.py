@@ -212,10 +212,16 @@ def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]], present
     return "on disk but not in the repository" if candidate.exists() else "no such file"
 
 
-def check_links(root: Path, files: Collection[Path], *, skip: Collection[str] = SKIPPED_ROOTS) -> list[BrokenLink]:
-    """Every reference in the markdown among `files` that lands on none of them, nor on a directory holding one."""
+def check_links(
+    root: Path,
+    files: Collection[Path],
+    *,
+    skip: Collection[str] = SKIPPED_ROOTS,
+    expected: Collection[Path] = (),
+) -> list[BrokenLink]:
+    """Every reference in the markdown among `files` that lands on none of them, nor on a directory holding one or `expected`."""
     index = _index(files)
-    present = set(files) | {parent for path in files for parent in path.parents}
+    present = set(files) | {parent for path in files for parent in path.parents} | set(expected)
     skipped = tuple(skip)
     broken = []
     for path in sorted(files):
