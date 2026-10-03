@@ -217,11 +217,10 @@ def check_links(
     files: Collection[Path],
     *,
     skip: Collection[str] = SKIPPED_ROOTS,
-    expected: Collection[Path] = (),
 ) -> list[BrokenLink]:
-    """Every reference in the markdown among `files` that lands on none of them, nor on a directory holding one or `expected`."""
+    """Every reference in the markdown among `files` that lands on none of them, nor on a directory holding one."""
     index = _index(files)
-    present = set(files) | {parent for path in files for parent in path.parents} | set(expected)
+    present = set(files) | {parent for path in files for parent in path.parents}
     skipped = tuple(skip)
     broken = []
     for path in sorted(files):

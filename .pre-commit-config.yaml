@@ -20,4 +20,6 @@ repos:
     - mdformat-frontmatter
     - mdformat-gfm
     - mdformat-toc
+    # The scaffold's own .mdformat.toml requires it for scaffold/index.md.
+    - mdformat-wikilink
     exclude: (snapshot|^\.claude/reference/)

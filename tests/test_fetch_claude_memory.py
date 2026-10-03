@@ -96,7 +96,7 @@ def test_fetch_command_mirrors_into_memory_tree(test_repo):
 
     landed = {p.name for p in (test_repo.root / "memory" / "claude" / "topics").iterdir()}
     assert landed == {"old.md", "new.md"}
-    assert not (test_repo.root / "chats").exists()
+    assert list((test_repo.root / "chats").rglob("*.md")) == []
 
 
 def test_fetch_command_cursor_comes_from_the_memory_tree(test_repo):

@@ -1,0 +1,14 @@
+repos:
+- repo: https://github.com/hukkin/mdformat
+  rev: 0.7.22
+  hooks:
+  - id: mdformat
+    # Blobs are content-addressed: the directory name is the hash of the
+    # file, so any reformatting invalidates the address.
+    exclude: ^\.commonplace/blobs/
+    additional_dependencies:
+    - mdformat-black
+    - mdformat-frontmatter
+    - mdformat-gfm
+    - mdformat-toc
+    - mdformat-wikilink

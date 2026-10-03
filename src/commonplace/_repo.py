@@ -10,102 +10,16 @@ from datetime import UTC, datetime
 from functools import cached_property, lru_cache
 from pathlib import Path
 
-from commonplace._config import DEFAULT_EDITOR, DEFAULT_NAME
 from commonplace._links import check_links, summarize
 from commonplace._logging import logger
 from commonplace._types import Note, Pathlike, RepoPath
 from commonplace._utils import dump_frontmatter, load_frontmatter
 
-_INIT_GIT_IGNORE = """
-# Commonplace
+# What `init` lays down, as it lands in a repo. Its dotfiles match nothing here, so they are inert.
+_SCAFFOLD_ROOT = Path(__file__).parent / "resources" / "scaffold"
 
-.commonplace/cache
-.obsidian
-.vscode
-"""
-
-_INIT_GIT_ATTRIBUTES = """
-# Track blobs with Git LFS
-.commonplace/blobs/** filter=lfs diff=lfs merge=lfs -text
-"""
-
-_INIT_CONFIG_TOML = f"""
-# Commonplace configuration
-
-# user = "{DEFAULT_NAME}"
-# editor = "{DEFAULT_EDITOR}"
-# wrap = 80
-# auto_index = true
-# ua = "Mozilla/5.0 ..."
-"""
-
-_INIT_CLAUDE_SETTINGS = """\
-{
-  "extraKnownMarketplaces": {
-    "commonplace": {
-      "source": {
-        "source": "github",
-        "repo": "joehalliwell/commonplace"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "commonplace-skills@commonplace": true
-  }
-}
-"""
-
-_INIT_PRE_COMMIT_CONFIG = """\
-repos:
-- repo: https://github.com/hukkin/mdformat
-  rev: 0.7.22
-  hooks:
-  - id: mdformat
-    # Blobs are content-addressed: the directory name is the hash of the
-    # file, so any reformatting invalidates the address.
-    exclude: ^\\.commonplace/blobs/
-    additional_dependencies:
-    - mdformat-black
-    - mdformat-frontmatter
-    - mdformat-gfm
-    - mdformat-toc
-    - mdformat-wikilink
-"""
-
-# Listing extensions stops mdformat loading the rest, so an installed plugin
-# missing from here is silently off: without wikilink, `[[x]]` becomes `\\[[x]\\]`.
-_INIT_MDFORMAT_TOML = """\
-wrap = 80
-number = true
-end_of_line = "lf"
-validate = true
-
-extensions = [
-    "gfm",
-    "toc",
-    "frontmatter",
-    "wikilink",
-]
-"""
-
-# The top-level directories, by section, as the root index.md describes them.
-# A fresh repo has none yet, so `doctor` treats them as expected, not broken.
-_LAYOUT: dict[str, tuple[tuple[str, str, str], ...]] = {
-    "Primitives": (
-        ("chats", "Chats", "imported AI conversations, by provider and date; written by `commonplace import`/`fetch`"),
-        ("memory", "Memory", "assistant memory, mirrored from each provider by `commonplace fetch`"),
-        ("journal", "Journal", "daily entries, written by `commonplace journal`"),
-        ("notes", "Notes", "your own writing: ideas, todos, projects"),
-    ),
-    "Derived": (
-        ("topics", "Topics", "syntheses of recurring themes, written by `/synthesize` and `/resonate`; never a source"),
-    ),
-}
-
-_INIT_ROOT_INDEX = '---\nokf_version: "0.2"\n---\n' + "".join(
-    f"\n# {section}\n\n" + "".join(f"* [{title}]({path}/) - {description}\n" for path, title, description in entries)
-    for section, entries in _LAYOUT.items()
-)
+# Seeded once and then the user's; everything else in the scaffold is commonplace's to maintain.
+_USER_OWNED = frozenset({".commonplace/config.toml", "index.md"})
 
 _BOT_USERNAME = "Commonplace Bot"
 _BOT_EMAIL = "commonplace@joehalliwell.com"
@@ -157,23 +71,18 @@ class ManagedLineConfig(ConfigFile):
         )
 
 
-_CONFIG_TOML = UnmanagedConfig(".commonplace/config.toml", _INIT_CONFIG_TOML)
-_GIT_IGNORE = ManagedLineConfig(".gitignore", _INIT_GIT_IGNORE)
-_GIT_ATTRIBUTES = ManagedLineConfig(".gitattributes", _INIT_GIT_ATTRIBUTES)
-_CLAUDE_SETTINGS = ManagedLineConfig(".claude/settings.json", _INIT_CLAUDE_SETTINGS)
-_ROOT_INDEX = UnmanagedConfig("index.md", _INIT_ROOT_INDEX)
-_PRE_COMMIT_CONFIG = ManagedLineConfig(".pre-commit-config.yaml", _INIT_PRE_COMMIT_CONFIG)
-_MDFORMAT_TOML = ManagedLineConfig(".mdformat.toml", _INIT_MDFORMAT_TOML)
+def _scaffold(path: str) -> ConfigFile:
+    """The scaffold file at `path`, managed unless it becomes the user's."""
+    kind = UnmanagedConfig if path in _USER_OWNED else ManagedLineConfig
+    return kind(path, (_SCAFFOLD_ROOT / path).read_text())
 
-_SCAFFOLDING: tuple[ConfigFile, ...] = (
-    _CONFIG_TOML,
-    _GIT_IGNORE,
-    _GIT_ATTRIBUTES,
-    _CLAUDE_SETTINGS,
-    _ROOT_INDEX,
-    _PRE_COMMIT_CONFIG,
-    _MDFORMAT_TOML,
+
+_SCAFFOLDING: tuple[ConfigFile, ...] = tuple(
+    _scaffold(file.relative_to(_SCAFFOLD_ROOT).as_posix())
+    for file in sorted(_SCAFFOLD_ROOT.rglob("*"))
+    if file.is_file()
 )
+_GIT_ATTRIBUTES = _scaffold(".gitattributes")
 
 
 @dataclass(frozen=True)
@@ -344,8 +253,7 @@ class Commonplace:
             if divergence:
                 warnings.append(f"{config.path} differs from the template init now writes:\n" + "\n".join(divergence))
 
-        expected = [Path(path) for entries in _LAYOUT.values() for path, _, _ in entries]
-        warnings.extend(summarize(check_links(self.root, list(self.paths()), expected=expected)))
+        warnings.extend(summarize(check_links(self.root, list(self.paths()))))
 
         if actions:
             self.commit("Restore scaffolding", auto_index=False)
@@ -380,9 +288,7 @@ class Commonplace:
         root.mkdir(parents=True, exist_ok=True)
         _run_git(root, "init", "-q", "--initial-branch=main")
 
-        # Lay down the scaffolding: stub config, .gitignore, LFS tracking for
-        # blobs, and the Claude Code plugin marketplace. `doctor` checks the
-        # same list, so the two can't drift apart.
+        # `doctor` checks the same list, so the two can't drift apart.
         for scaffold in _SCAFFOLDING:
             _create_missing(root, scaffold)
 

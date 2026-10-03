@@ -37,7 +37,7 @@ def _mirror(repo, archive: Path) -> None:
 
 def _tree(repo) -> set[str]:
     root = repo.root / "memory"
-    return {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
+    return {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file() and p.name != ".gitkeep"}
 
 
 def _blobs(repo) -> set[Path]:

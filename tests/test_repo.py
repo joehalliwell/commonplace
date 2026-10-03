@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from commonplace._links import check_links
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
@@ -46,7 +47,7 @@ def test_remove_committed_note_is_gone_from_head(test_repo, make_note):
     test_repo.commit("Remove", auto_index=False)
 
     assert not (test_repo.root / "memory/claude/gone.md").exists()
-    assert "memory" not in _git(test_repo, "ls-tree", "--name-only", "HEAD").split()
+    assert "memory/claude" not in _git(test_repo, "ls-tree", "--name-only", "HEAD", "memory/").split()
 
 
 def test_commit_subsequent_changes(test_repo, make_note):
@@ -150,7 +151,6 @@ def test_note_paths_commonplace_dir_excluded(test_repo, make_note):
 
 
 def test_paths_includes_files_that_are_not_markdown(test_repo):
-    (test_repo.root / "notes").mkdir()
     (test_repo.root / "notes" / "idea.md").write_text("# Idea\n")
     (test_repo.root / "notes" / "sketch.png").write_bytes(b"")
 
@@ -178,7 +178,6 @@ def test_note_paths_dot_dirs_excluded(test_repo, make_note):
 
 def test_open_subdirectory_of_repo_raises(test_repo):
     """A root inside a repo is a mistake, not a request for the repo around it."""
-    (test_repo.root / "notes").mkdir()
 
     with pytest.raises(ValueError, match="not the root"):
         Commonplace.open(test_repo.root / "notes")
@@ -323,6 +322,11 @@ def test_doctor_is_quiet_on_a_fresh_repo(test_repo):
     assert report.warnings == []
 
 
+def test_init_creates_every_folder_the_root_index_links(test_repo):
+    """A fresh repo has the folders its root index describes, so no link needs excusing."""
+    assert check_links(test_repo.root, list(test_repo.paths())) == []
+
+
 def test_doctor_leaves_an_edited_root_index_alone(test_repo):
     """Once seeded, the root index.md is the user's."""
     index = test_repo.root / "index.md"
@@ -412,7 +416,6 @@ def test_doctor_reports_mdformat_config_without_wikilink(test_repo):
 
 def test_doctor_reports_a_broken_link(test_repo):
     """A reference that lands nowhere is exactly what doctor is for."""
-    (test_repo.root / "notes").mkdir()
     (test_repo.root / "notes" / "note.md").write_text("See [the other one](gone.md).\n")
 
     report = test_repo.doctor()
@@ -439,7 +442,6 @@ def test_doctor_reports_a_link_to_a_gitignored_file(test_repo):
         fd.write("scratch/\n")
     (test_repo.root / "scratch").mkdir()
     (test_repo.root / "scratch" / "draft.md").write_text("# Draft\n")
-    (test_repo.root / "notes").mkdir()
     (test_repo.root / "notes" / "note.md").write_text("See [the draft](../scratch/draft.md).\n")
 
     report = test_repo.doctor()
@@ -450,7 +452,6 @@ def test_doctor_reports_a_link_to_a_gitignored_file(test_repo):
 
 def test_doctor_is_quiet_when_links_resolve(test_repo):
     """No warning for a repo whose links are all good."""
-    (test_repo.root / "notes").mkdir()
     (test_repo.root / "notes" / "target.md").write_text("# Target\n")
     (test_repo.root / "notes" / "note.md").write_text("See [it](target.md).\n")
 
@@ -461,7 +462,6 @@ def test_doctor_is_quiet_when_links_resolve(test_repo):
 
 def test_doctor_groups_broken_links_by_file(test_repo):
     """One warning per file, however many links in it are broken."""
-    (test_repo.root / "notes").mkdir()
     (test_repo.root / "notes" / "note.md").write_text("[a](gone-a.md)\n\n[b](gone-b.md)\n")
 
     report = test_repo.doctor()

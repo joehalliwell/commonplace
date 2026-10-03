@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "commonplace": {
+      "source": {
+        "source": "github",
+        "repo": "joehalliwell/commonplace"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "commonplace-skills@commonplace": true
+  }
+}

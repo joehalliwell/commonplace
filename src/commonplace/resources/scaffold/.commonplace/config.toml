@@ -1,0 +1,8 @@
+
+# Commonplace configuration
+
+# user = "Ada"          # default: your login name
+# editor = "vim"        # default: $EDITOR, else vim
+# wrap = 80
+# auto_index = true
+# ua = "Mozilla/5.0 ..."

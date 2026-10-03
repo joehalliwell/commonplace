@@ -1,0 +1,13 @@
+wrap = 80
+number = true
+end_of_line = "lf"
+validate = true
+
+# Listing extensions stops mdformat loading any other installed plugin:
+# without wikilink here, `[[x]]` is escaped even with the plugin installed.
+extensions = [
+    "gfm",
+    "toc",
+    "frontmatter",
+    "wikilink",
+]
