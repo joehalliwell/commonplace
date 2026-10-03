@@ -32,7 +32,7 @@ uv run commonplace search "query text"
 
 ## Architecture
 
-**Repository** (`_repo.py`): `Commonplace` is the central object wrapping a git repo (pygit2) with cached properties: `config`, `cache`, `index`. Provides note management and indexing.
+**Repository** (`_repo.py`): `Commonplace` is the central object wrapping a git repo with cached properties: `config`, `cache`, `index`. Provides note management and indexing. Every git operation goes through the git CLI via `_run_git()`, never a library: re-implementing the porcelain cost us a silent revert (#102). Every operation that writes commits what it wrote: methods record paths, `commit()` stages and commits exactly those, and nothing else touches the index. Commits run the user's hooks.
 
 **Fetch** (`_fetch/`, `_wire.py`): Fetchers capture raw provider responses into a versioned wire archive and interpret nothing — the archive is the primitive artefact (MANIFESTO §3.2, §3.5), so any decision a fetcher makes is one no later reader can revisit. `_wire.py` owns the format for both sides; don't restate its rationale elsewhere. Each provider needs a Fetcher *and* a paired Importer, with the archive as the seam. Fetchers are brittle by nature (they track unofficial upstreams), so share freely between them — see `_fetch/_base.py`.
 
@@ -85,6 +85,6 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 
 - Heavy work (search, read, write) runs in a `general-purpose` subagent via the Task tool; the calling agent handles survey, review, and commit
 - Artefacts update in place on incremental runs; prior state is recoverable via git
-- Everything under `topics/` is an OKF v0.2 concept document (`type: Topic`). The repo root is the bundle; dot-directories are outside it. Staleness is `generated.by` (`<skill>/<plugin release>`) against the skill's newest Conventions entry, which is named by the release that introduced it
+- Everything under `topics/` is an OKF v0.2 concept document (`type: Topic`). The spec is vendored verbatim at `.claude/reference/okf-spec.md` (knowledge-catalog@62432a0, Apache-2.0); read it there rather than fetching. The repo root is the bundle; dot-directories are outside it. Staleness is `generated.by` (`<skill>/<plugin release>`) against the skill's newest Conventions entry, which is named by the release that introduced it
 - Distillations and resonances carry a `## Revisions` section — one appended line per run, so the trajectory stays visible in-band rather than only in `git log`
 - Gatherings quote from primitives only (`chats/`, `journal/`, `notes/`) and attribute every quote to a speaker; `topics/**` is derived and is never a source

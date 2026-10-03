@@ -11,6 +11,7 @@ from commonplace._import._commands import IMPORTERS, autodetect_importer, import
 from commonplace._import._types import ChatImporter, MemoryImporter
 from commonplace._utils import load_frontmatter
 from commonplace._wire import write_archive
+from tests.porcelain import git
 
 EXAMPLE = Path(__file__).parent / "resources" / "wire" / "claude-memory-v3.jsonl.gz"
 
@@ -145,7 +146,7 @@ def test_mirror_path_absent_from_listing_is_pruned(test_repo, tmp_path):
     _mirror(test_repo, _archive(tmp_path, {}, listed=["/keep.md"]))
 
     assert _tree(test_repo) == {"claude/keep.md"}
-    assert "drop.md" not in test_repo.git.head.peel().tree["memory"]["claude"]
+    assert "drop.md" not in git(test_repo.root, "ls-tree", "--name-only", "HEAD:memory/claude").split()
 
 
 def test_mirror_listed_but_unread_path_is_left_alone(test_repo, tmp_path):
@@ -160,11 +161,11 @@ def test_mirror_listed_but_unread_path_is_left_alone(test_repo, tmp_path):
 def test_mirror_archive_that_changes_nothing_leaves_no_trace(test_repo, tmp_path):
     """A listing-only archive matching the tree stores no blob and makes no commit."""
     _mirror(test_repo, _archive(tmp_path, {"/a.md": "a\n"}))
-    head, blobs = test_repo.git.head.target, _blobs(test_repo)
+    head, blobs = git(test_repo.root, "rev-parse", "HEAD"), _blobs(test_repo)
 
     _mirror(test_repo, _archive(tmp_path, {}, listed=["/a.md"]))
 
-    assert test_repo.git.head.target == head
+    assert git(test_repo.root, "rev-parse", "HEAD") == head
     assert _blobs(test_repo) == blobs
 
 
@@ -179,13 +180,13 @@ def test_mirror_archive_without_listing_prunes_nothing(test_repo, tmp_path):
 def test_mirror_archive_older_than_the_tree_is_refused(test_repo, tmp_path, write_jsonl_gz):
     """Replaying a stale capture would prune and overwrite what a later one landed."""
     _mirror(test_repo, _archive(tmp_path, {"/a.md": "current\n", "/b.md": "b\n"}))
-    head = test_repo.git.head.target
+    head = git(test_repo.root, "rev-parse", "HEAD")
 
     header = {"wire": "claude-memory", "version": 3, "fetched_at": (datetime.now(UTC) - timedelta(days=1)).isoformat()}
     stale = write_jsonl_gz(tmp_path / "claude-memory-wire.jsonl.gz", [header, *_entries({"/a.md": "old\n"})])
     _mirror(test_repo, stale)
 
-    assert test_repo.git.head.target == head
+    assert git(test_repo.root, "rev-parse", "HEAD") == head
     assert "current" in (test_repo.root / "memory/claude/a.md").read_text()
     assert _tree(test_repo) == {"claude/a.md", "claude/b.md"}
 
