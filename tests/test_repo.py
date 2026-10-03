@@ -1,17 +1,16 @@
 """Tests for repository commit functionality."""
 
 import json
-import subprocess
 import threading
 from contextlib import closing
 from datetime import UTC
 from pathlib import Path
 
 import pytest
-from pygit2.enums import ObjectType
 
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
+from tests.porcelain import git
 
 
 def test_commit_initial_changes(test_repo, make_note):
@@ -19,7 +18,6 @@ def test_commit_initial_changes(test_repo, make_note):
     test_repo.save(make_note("test.md", "# Test\nHello world"))
     test_repo.commit("Initial commit")
 
-    assert not test_repo.git.head_is_unborn
     assert _git(test_repo, "log", "-1", "--format=%s") == "Initial commit\n"
 
 
@@ -28,10 +26,10 @@ def test_commit_no_changes(test_repo, make_note):
     test_repo.save(make_note("test.md", "# Test\nHello world"))
     test_repo.commit("Initial commit")
 
-    first_commit_id = test_repo.git.head.target
+    first_commit_id = _head(test_repo)
     test_repo.commit("Should not create commit")
 
-    assert test_repo.git.head.target == first_commit_id
+    assert _head(test_repo) == first_commit_id
 
 
 def test_remove_committed_note_is_gone_from_head(test_repo, make_note):
@@ -43,19 +41,19 @@ def test_remove_committed_note_is_gone_from_head(test_repo, make_note):
     test_repo.commit("Remove", auto_index=False)
 
     assert not (test_repo.root / "memory/claude/gone.md").exists()
-    assert "memory" not in test_repo.git.head.peel().tree
+    assert "memory" not in _git(test_repo, "ls-tree", "--name-only", "HEAD").split()
 
 
 def test_commit_subsequent_changes(test_repo, make_note):
     """Test committing changes after initial commit."""
     test_repo.save(make_note("test1.md", "# Test 1\nFirst note"))
     test_repo.commit("Initial commit")
-    first_commit_id = test_repo.git.head.target
+    first_commit_id = _head(test_repo)
 
     test_repo.save(make_note("test2.md", "# Test 2\nSecond note"))
     test_repo.commit("Add second note")
 
-    assert test_repo.git.head.target != first_commit_id
+    assert _head(test_repo) != first_commit_id
     assert _git(test_repo, "log", "-1", "--format=%s") == "Add second note\n"
 
 
@@ -63,12 +61,12 @@ def test_commit_modified_file(test_repo, make_note):
     """Test committing modifications to an existing file."""
     test_repo.save(make_note("test.md", "# Test\nOriginal content"))
     test_repo.commit("Initial commit")
-    first_commit_id = test_repo.git.head.target
+    first_commit_id = _head(test_repo)
 
     test_repo.save(make_note("test.md", "# Test\nModified content"))
     test_repo.commit("Update note")
 
-    assert test_repo.git.head.target != first_commit_id
+    assert _head(test_repo) != first_commit_id
     assert _git(test_repo, "log", "-1", "--format=%s") == "Update note\n"
 
 
@@ -115,8 +113,26 @@ def test_make_repo_path_follows_later_commits(test_repo, make_note):
     test_repo.commit("Update note", auto_index=False)
     modified = test_repo.make_repo_path("test.md")
 
-    assert original.ref == str(test_repo.git.head.peel().parents[0].id)
-    assert modified.ref == str(test_repo.git.head.target)
+    assert original.ref == _head(test_repo, "HEAD~1")
+    assert modified.ref == _head(test_repo)
+
+
+def test_make_repo_path_change_on_merged_branch_is_the_side_commit(test_repo, make_note):
+    """A file last changed on a merged side branch is attributed to that commit, not the mainline before it."""
+    test_repo.save(make_note("topic.md", "# Topic\n"))
+    test_repo.commit("Add topic", auto_index=False)
+    _git(test_repo, "switch", "-q", "-c", "side")
+    (test_repo.root / "topic.md").write_text("# Topic, revised\n")
+    _git(test_repo, "commit", "-qam", "Revise topic")
+    side = _git(test_repo, "rev-parse", "HEAD").strip()
+    _git(test_repo, "switch", "-q", "main")
+    (test_repo.root / "other.md").write_text("# Other\n")
+    _git(test_repo, "add", "other.md")
+    _git(test_repo, "commit", "-qm", "Add other")
+    _git(test_repo, "merge", "-q", "--no-ff", "-m", "Merge side", "side")
+
+    assert test_repo.make_repo_path("topic.md").ref == side
+    assert [p.ref for p in test_repo.note_paths() if p.path == Path("topic.md")] == [side]
 
 
 def test_note_paths_commonplace_dir_excluded(test_repo, make_note):
@@ -173,24 +189,13 @@ def test_index_matches_head_after_commit(test_repo, make_note):
     test_repo.save(make_note("test.md", "# Test\nModified content"))
     test_repo.commit("Update note")
 
-    # Reload index from disk (simulates what happens in a new command/process)
-    test_repo.git.index.read()
-
-    # After commit, the index tree should match the HEAD tree
-    # If they don't match, git will show staged changes (looks like a revert)
-    index_tree_id = test_repo.git.index.write_tree()
-    head_commit = test_repo.git.head.peel(ObjectType.COMMIT)
-    head_tree_id = head_commit.tree.id
-
-    assert index_tree_id == head_tree_id, (
-        f"Index tree {index_tree_id} doesn't match HEAD tree {head_tree_id}. "
-        "This makes it look like there are staged changes (a revert)!"
-    )
+    # Staged differences from HEAD would look like a revert.
+    assert _git(test_repo, "diff", "--cached", "--name-only") == ""
 
 
 def test_has_remote_exists(test_repo):
     """Test has_remote returns True when remote exists."""
-    test_repo.git.remotes.create("origin", "https://github.com/test/repo.git")
+    _git(test_repo, "remote", "add", "origin", "https://github.com/test/repo.git")
     assert test_repo.has_remote("origin")
 
 
@@ -201,7 +206,7 @@ def test_has_remote_not_exists(test_repo):
 
 def test_has_remote_custom_name(test_repo):
     """Test has_remote works with custom remote names."""
-    test_repo.git.remotes.create("upstream", "https://github.com/test/repo.git")
+    _git(test_repo, "remote", "add", "upstream", "https://github.com/test/repo.git")
     assert test_repo.has_remote("upstream")
     assert not test_repo.has_remote("origin")
 
@@ -247,7 +252,7 @@ def test_commit_no_changes_skips_indexing(test_repo, index_spy, make_note):
 
 def test_doctor_restores_every_file_init_creates(test_repo):
     """Whatever init() lays down, doctor() puts back — no drift between the two."""
-    scaffolding = sorted(entry.path for entry in test_repo.git.index)
+    scaffolding = _git(test_repo, "ls-files").splitlines()
     assert scaffolding, "init() should have staged some scaffolding"
 
     for path in scaffolding:
@@ -424,10 +429,8 @@ def test_doctor_stages_what_it_creates(test_repo):
     gitignore.unlink()
 
     test_repo.doctor()
-    test_repo.git.index.read()
 
-    staged = test_repo.git[test_repo.git.index[".gitignore"].id].data.decode()
-    assert staged == gitignore.read_text()
+    assert _git(test_repo, "show", ":.gitignore") == gitignore.read_text()
 
 
 def test_last_commit_time_returns_none_on_missing_pathspec(test_repo):
@@ -472,11 +475,12 @@ def test_last_commit_time_ignores_rename_source_with_diff_filter(test_repo, make
 
 
 def _git(repo: Commonplace, *args: str) -> str:
-    """Act as a second writer on the same checkout, through the porcelain."""
-    identity = ["-c", "user.name=Other", "-c", "user.email=other@example.com"]
-    return subprocess.run(
-        ["git", "-C", str(repo.root), *identity, *args], capture_output=True, text=True, check=True
-    ).stdout
+    """Act as a second writer on the same checkout."""
+    return git(repo.root, *args)
+
+
+def _head(repo: Commonplace, rev: str = "HEAD") -> str:
+    return _git(repo, "rev-parse", rev).strip()
 
 
 def _hook(repo: Commonplace, script: str) -> None:

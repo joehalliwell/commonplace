@@ -1,16 +1,16 @@
 """Tests for sync functionality."""
 
 import pytest
-from pygit2 import init_repository
 
 from commonplace._repo import Commonplace
+from tests.porcelain import git
 
 
 @pytest.fixture
 def remote_repo(tmp_path):
     """Create a bare remote repository for testing."""
     remote_path = tmp_path / "remote.git"
-    init_repository(remote_path, bare=True)
+    git(tmp_path, "init", "-q", "--bare", str(remote_path))
     return remote_path
 
 
@@ -22,7 +22,7 @@ def local_repo_with_remote(tmp_path, remote_repo, make_note):
     repo = Commonplace.open(local_path)
 
     # Configure remote
-    repo.git.remotes.create("origin", remote_repo.as_posix())
+    git(repo.root, "remote", "add", "origin", remote_repo.as_posix())
 
     repo.save(make_note("initial.md", "# Initial\nFirst note"))
     repo.commit("Initial commit")
@@ -33,7 +33,7 @@ def local_repo_with_remote(tmp_path, remote_repo, make_note):
 
 def _pushed(repo, remote: str = "origin") -> bool:
     """Whether the remote's main is at the local HEAD."""
-    return repo.git.lookup_reference(f"refs/remotes/{remote}/main").target == repo.git.head.target
+    return git(repo.root, "rev-parse", f"refs/remotes/{remote}/main") == git(repo.root, "rev-parse", "HEAD")
 
 
 def test_sync_no_remote_fails(test_repo):
@@ -47,7 +47,7 @@ def test_sync_initial_commit_only_is_pushed(tmp_path, remote_repo):
     local_path = tmp_path / "local"
     Commonplace.init(local_path)  # Creates initial commit with .gitignore
     repo = Commonplace.open(local_path)
-    repo.git.remotes.create("origin", remote_repo.as_posix())
+    git(repo.root, "remote", "add", "origin", remote_repo.as_posix())
 
     repo.sync()
 
@@ -61,7 +61,7 @@ def test_sync_adds_untracked_files(local_repo_with_remote):
 
     local_repo_with_remote.sync()
 
-    assert "untracked.md" in local_repo_with_remote.git.head.peel().tree
+    assert "untracked.md" in git(local_repo_with_remote.root, "ls-tree", "--name-only", "HEAD").split()
     assert _pushed(local_repo_with_remote)
 
 
@@ -71,7 +71,7 @@ def test_sync_auto_commits_changes(local_repo_with_remote):
 
     local_repo_with_remote.sync(auto_commit=True)
 
-    assert local_repo_with_remote.git.head.peel().tree["initial.md"].data == b"# Modified"
+    assert git(local_repo_with_remote.root, "show", "HEAD:initial.md") == "# Modified"
     assert _pushed(local_repo_with_remote)
 
 
@@ -98,43 +98,38 @@ def test_sync_fast_forward(tmp_path, remote_repo, make_note):
     local1_path = tmp_path / "local1"
     Commonplace.init(local1_path)
     repo1 = Commonplace.open(local1_path)
-    repo1.git.remotes.create("origin", remote_repo.as_posix())
+    git(repo1.root, "remote", "add", "origin", remote_repo.as_posix())
 
     repo1.save(make_note("test.md", "# Test"))
     repo1.commit("Initial commit")
     repo1.sync()
-    commit1_id = repo1.git.head.target
+    commit1_id = git(repo1.root, "rev-parse", "HEAD")
     repo1.close()
 
     # Create second local repo (clone)
     local2_path = tmp_path / "local2"
     Commonplace.init(local2_path)
     repo2 = Commonplace.open(local2_path)
-    repo2.git.remotes.create("origin", remote_repo.as_posix())
+    git(repo2.root, "remote", "add", "origin", remote_repo.as_posix())
 
-    # Fetch and set up tracking
-    remote = repo2.git.remotes["origin"]
-    remote.fetch()
-
-    # Set HEAD to remote/main (force=True because main already exists from init())
-    remote_ref = repo2.git.lookup_reference("refs/remotes/origin/main")
-    repo2.git.create_reference("refs/heads/main", remote_ref.target, force=True)
-    repo2.git.checkout("refs/heads/main")
+    # Fetch and move main to origin/main (init() already made a main of its own)
+    git(repo2.root, "fetch", "-q", "origin")
+    git(repo2.root, "reset", "-q", "--hard", "origin/main")
 
     # Make a change in repo1 and push
     repo1 = Commonplace.open(local1_path)
     repo1.save(make_note("test2.md", "# Test 2"))
     repo1.commit("Second commit")
     repo1.sync()
-    commit2_id = repo1.git.head.target
+    commit2_id = git(repo1.root, "rev-parse", "HEAD")
     repo1.close()
 
     # Now sync repo2 - should fast-forward
     repo2.sync()
 
     # Verify repo2 is at commit2
-    assert repo2.git.head.target == commit2_id
-    assert repo2.git.head.target != commit1_id
+    assert git(repo2.root, "rev-parse", "HEAD") == commit2_id
+    assert git(repo2.root, "rev-parse", "HEAD") != commit1_id
 
     repo2.close()
 
@@ -142,23 +137,23 @@ def test_sync_fast_forward(tmp_path, remote_repo, make_note):
 def test_sync_already_up_to_date(local_repo_with_remote):
     """Test sync when already up to date."""
     local_repo_with_remote.sync()
-    head = local_repo_with_remote.git.head.target
+    head = git(local_repo_with_remote.root, "rev-parse", "HEAD")
 
     local_repo_with_remote.sync()
 
-    assert local_repo_with_remote.git.head.target == head
+    assert git(local_repo_with_remote.root, "rev-parse", "HEAD") == head
     assert _pushed(local_repo_with_remote)
 
 
 def test_sync_with_custom_remote_name(tmp_path, make_note):
     """Test sync with custom remote name."""
     remote_path = tmp_path / "upstream.git"
-    init_repository(remote_path, bare=True)
+    git(tmp_path, "init", "-q", "--bare", str(remote_path))
 
     local_path = tmp_path / "local"
     Commonplace.init(local_path)
     repo = Commonplace.open(local_path)
-    repo.git.remotes.create("upstream", remote_path.as_posix())
+    git(repo.root, "remote", "add", "upstream", remote_path.as_posix())
 
     repo.save(make_note("test.md", "# Test"))
     repo.commit("Initial commit")
@@ -177,7 +172,7 @@ def test_sync_merge_strategy(tmp_path, remote_repo, make_note):
     local_path = tmp_path / "local"
     Commonplace.init(local_path)
     repo = Commonplace.open(local_path)
-    repo.git.remotes.create("origin", remote_repo.as_posix())
+    git(repo.root, "remote", "add", "origin", remote_repo.as_posix())
 
     repo.save(make_note("test.md", "# Test"))
     repo.commit("Initial commit")

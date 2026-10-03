@@ -10,10 +10,6 @@ from datetime import UTC, datetime
 from functools import cached_property, lru_cache
 from pathlib import Path
 
-from pygit2 import Commit, Diff
-from pygit2.enums import FileStatus
-from pygit2.repository import Repository
-
 from commonplace._config import DEFAULT_EDITOR, DEFAULT_NAME
 from commonplace._links import check_links, summarize
 from commonplace._logging import logger
@@ -211,25 +207,22 @@ class Commonplace:
     configuration and search index.
     """
 
-    git: Repository
+    root: Path
     # Paths written since the last commit: the only ones the next commit may touch.
     _pending: set[str] = field(default_factory=set, repr=False)
 
     @staticmethod
     def open(root: Path) -> "Commonplace":
-        root = root.absolute()
         logger.debug(f"Opening commonplace repository at {root}")
-        git = Repository(root.as_posix())
-        assert not git.head_is_unborn, "Repository has no commits yet"
-        return Commonplace(git=git)
+        toplevel = Path(_run_git(root.absolute(), "rev-parse", "--show-toplevel").strip())
+        try:
+            _run_git(toplevel, "rev-parse", "--verify", "-q", "HEAD")
+        except subprocess.CalledProcessError as e:
+            raise ValueError("Repository has no commits yet") from e
+        return Commonplace(root=toplevel)
 
     def close(self):
         """Close this repo. Does nothing."""
-
-    @cached_property
-    def root(self) -> Path:
-        """Get the root path of the repository."""
-        return Path(self.git.workdir)
 
     @cached_property
     def config(self):
@@ -334,90 +327,50 @@ class Commonplace:
 
         path = Path(path)
         if path.is_absolute():
-            path = path.relative_to(self.git.workdir, walk_up=False)
+            path = path.relative_to(self.root, walk_up=False)
+        return self._repo_path(path, *self._status(path.as_posix()))
 
-        head_ref = str(self.git.head.target)
+    def _status(self, *pathspec: str) -> tuple[str, set[str]]:
+        """HEAD, and which tracked files under `pathspec` differ from it, from one `git status`."""
+        out = self._git(
+            "status", "--porcelain=v2", "-z", "--branch", "--untracked-files=no", "--no-renames", "--", *pathspec
+        )
+        head, dirty = "", set()
+        for entry in out.split("\0"):
+            if entry.startswith("# branch.oid "):
+                head = entry.removeprefix("# branch.oid ")
+            elif entry.startswith("1 "):
+                dirty.add(entry.split(" ", 8)[8])
+            elif entry.startswith("u "):
+                dirty.add(entry.split(" ", 10)[10])
+        return head, dirty
 
-        # Check if file exists and get its status
-        try:
-            flags = self.git.status_file(path.as_posix())
-        except KeyError:
-            # File doesn't exist yet (new file being created)
-            return RepoPath(path=path, ref=head_ref)
-
-        if flags != FileStatus.CURRENT:
-            # File is modified/staged/new - not committed yet
-            return RepoPath(path=path, ref=head_ref)
-
-        # File is clean - find last commit that modified it (cached)
-        path_map = self._build_path_commit_map(self.git.workdir, head_ref)
-        ref = path_map.get(path.as_posix(), head_ref)
-        return RepoPath(path=path, ref=ref)
+    def _repo_path(self, path: Path, head: str, dirty: set[str]) -> RepoPath:
+        """The commit that last changed `path`, or HEAD if it is uncommitted or changed since."""
+        if path.as_posix() in dirty:
+            return RepoPath(path=path, ref=head)
+        return RepoPath(path=path, ref=self._build_path_commit_map(str(self.root), head).get(path.as_posix(), head))
 
     @staticmethod
     @lru_cache(maxsize=1)
     def _build_path_commit_map(repo_dir: str, head_ref: str) -> dict[str, str]:
         """
-        Build a map of all file paths to their last modifying commit.
+        Map every path in the history of `head_ref` to the newest commit that changed it.
 
-        Walks the commit history once and builds the entire mapping.
-        Cached by (repo_dir, head_ref) so we only walk once per HEAD state. The
-        ref has to be part of the key: a commit moves HEAD, and a map built
-        before it would go on reporting the superseded commit for every file
-        that commit touched.
-
-        Args:
-            repo_dir: Repository path
-            head_ref: Commit to walk back from, and the state this map describes
-
-        Returns:
-            Dict mapping file paths to commit SHAs
+        One `git log` pass, cached by (repo_dir, head_ref). The ref has to be
+        part of the key: a commit moves HEAD, and a map built before it would
+        go on reporting the superseded commit for every file that commit touched.
         """
-        # Reopen repository (cheap operation, just loads metadata)
-        git = Repository(repo_dir)
+        out = _run_git(Path(repo_dir), "log", "--format=%x00%H", "--name-only", "-z", "--no-renames", head_ref)
+        # Each commit is an empty token, its hash, then the paths it changed.
         path_to_commit: dict[str, str] = {}
-
-        if git.head_is_unborn:
-            return path_to_commit
-
-        def walk_tree(tree, prefix=""):
-            """Recursively walk tree and yield all file paths."""
-            for entry in tree:
-                path = f"{prefix}{entry.name}" if prefix else entry.name
-                if entry.type_str == "tree":
-                    # Recurse into subdirectory
-                    yield from walk_tree(git[entry.id], f"{path}/")
-                else:
-                    yield path
-
-        # Get all files at HEAD - this is what we need to find commits for
-        last_commit = git[head_ref]
-        assert isinstance(last_commit, Commit)
-        remaining_files = set(walk_tree(last_commit.tree))
-
-        for commit in git.walk(head_ref):
-            if not remaining_files:
-                # Found commits for all files, can stop early
-                break
-
-            if not commit.parents:
-                # Initial commit - record all remaining files
-                for path in remaining_files:
-                    path_to_commit[path] = str(commit.id)
-                break
-
-            # Get diff to find what files changed in this commit
-            parent = commit.parents[0]
-            diff = git.diff(parent, commit)
-            assert isinstance(diff, Diff)
-
-            # Record each changed file and remove from remaining set
-            for delta in diff.deltas:
-                path = delta.new_file.path
-                if path in remaining_files:
-                    path_to_commit[path] = str(commit.id)
-                    remaining_files.remove(path)
-
+        tokens = iter(out.split("\0"))
+        commit = ""
+        for token in tokens:
+            if not token:
+                commit = next(tokens, "")
+            else:
+                path_to_commit.setdefault(token.lstrip("\n"), commit)
         return path_to_commit
 
     def last_commit_time(self, pathspec: str, diff_filter: str | None = None) -> datetime | None:
@@ -458,18 +411,17 @@ class Commonplace:
 
     def paths(self) -> Iterator[Path]:
         """Every file in the working tree that git would share, relative to the root, skipping dot-directories."""
-        for root, dirs, files in os.walk(self.root):
-            here = Path(root).relative_to(self.root)
-            dirs[:] = [d for d in dirs if not d.startswith(".") and not self.git.path_is_ignored((here / d).as_posix())]
-            for f in files:
-                if not self.git.path_is_ignored((here / f).as_posix()):
-                    yield here / f
+        out = self._git("ls-files", "--cached", "--others", "--exclude-standard", "-z")
+        for path in sorted({Path(p) for p in out.split("\0") if p}):
+            if not any(part.startswith(".") for part in path.parts[:-1]) and (self.root / path).exists():
+                yield path
 
     def note_paths(self) -> Iterator[RepoPath]:
         """Get an iterator over all note paths at current HEAD, skipping dot-directories."""
+        head, dirty = self._status()
         for path in self.paths():
             if path.suffix == ".md":
-                yield self.make_repo_path(path)
+                yield self._repo_path(path, head, dirty)
 
     def load(self, repo_path: RepoPath) -> Note:
         """
@@ -534,11 +486,7 @@ class Commonplace:
         Returns:
             True if remote exists, False otherwise
         """
-        try:
-            self.git.remotes[remote_name]
-            return True
-        except KeyError:
-            return False
+        return remote_name in self._git("remote").split()
 
     def sync(
         self,
