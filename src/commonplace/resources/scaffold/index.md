@@ -9,7 +9,7 @@ okf_version: "0.2"
 - [Memory](memory/) - assistant memory, mirrored from each provider by
   `commonplace fetch`
 - [Journal](journal/) - daily entries, written by `commonplace journal`
-- [Notes](notes/) - your own writing: ideas, todos, projects
+- [Notes](notes/) - general notes, ideas, todos, projects etc.
 
 # Derived
 
