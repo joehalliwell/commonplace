@@ -18,6 +18,7 @@ PROVENANCE_KEYS = ("category_id", "version", "updated_at")
 class ClaudeMemoryImporter(BaseWireImporter):
     source: str = "claude-memory"
     tree: Path = Path("memory") / "claude"
+    exhaustive: bool = False
 
     def snapshot(self, path: Path) -> Snapshot:
         files: dict[PurePosixPath, tuple[dict[str, Any], str]] = {}

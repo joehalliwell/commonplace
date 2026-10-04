@@ -8,6 +8,7 @@ from commonplace._fetch._chatgpt import ChatGptFetcher
 from commonplace._fetch._claude import ClaudeFetcher
 from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
 from commonplace._fetch._gemini import GeminiFetcher
+from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
 from commonplace._fetch._types import Fetcher
 from commonplace._import._commands import import_, landing_tree
 from commonplace._logging import logger
@@ -22,6 +23,7 @@ def default_fetchers(config: Config) -> list[Fetcher]:
         ClaudeFetcher(ua=config.ua),
         ClaudeMemoryFetcher(ua=config.ua),
         GeminiFetcher(ua=config.ua),
+        GeminiMemoryFetcher(ua=config.ua),
         ChatGptFetcher(ua=config.ua),
     ]
 

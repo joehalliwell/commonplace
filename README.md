@@ -28,7 +28,9 @@ antiquity.
   │   ├── claude-code/2026/06/2026-06-28-session-title.md
   │   ├── gemini/                       # fetched from gemini.google.com
   │   └── gemini-takeout/               # imported from Google Takeout
-  ├── memory/claude/            # assistant memory, mirrored from the provider
+  ├── memory/                   # assistant memory, mirrored from the provider
+  │   ├── claude/
+  │   └── gemini/saved-info.md
   ├── journal/2026/06/2026-06-28.md     # daily entries
   ├── notes/                    # Manual notes and thoughts
   ├── index.md                  # what each top-level folder is for (seeded by init)
@@ -100,10 +102,12 @@ per-turn timestamps, Gem personas and thought traces, which the Takeout export
 doesn't have. Claude's gets slightly less than the manual export: the endpoint
 strips `<antThinking>` blocks server-side (issue #6).
 
-A fourth source, `claude-memory`, mirrors claude.ai's file-based memory into
-`memory/claude/`, each file at the path claude.ai gives it, titled with the
-name claude.ai displays.
-It is a mirror rather than an import: a memory deleted upstream is deleted
+Two more sources mirror assistant memory. `claude-memory` mirrors claude.ai's
+file-based memory into `memory/claude/`, each file at the path claude.ai gives
+it, titled with the name claude.ai displays. `gemini-memory` mirrors Gemini's
+[saved info](https://gemini.google.com/saved-info) into
+`memory/gemini/saved-info.md`, one bullet per item, oldest first.
+Each is a mirror rather than an import: a memory deleted upstream is deleted
 here on the next fetch, and git history keeps what it used to say. Memory is
 materially more personal than chat logs — think before syncing it to a remote,
 or leave it out with `--source`.
