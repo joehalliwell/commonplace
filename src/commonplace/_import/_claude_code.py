@@ -17,6 +17,7 @@ class ClaudeCodeImporter:
     """
 
     source: str = "claude-code"
+    name: str = "Claude"
     member: str | None = None  # Not an archive
 
     def can_import(self, path: Path) -> bool:

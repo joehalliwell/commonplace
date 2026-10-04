@@ -22,6 +22,7 @@ NO_TEXT_NOTE = "> [!NOTE]\n> Message had no recoverable text"
 
 class ClaudeImporter(BaseWireImporter):
     source: str = "claude"
+    name: str = "Claude"
 
     def _claims_legacy(self, path: Path) -> bool:
         entry = sniff_gzipped_jsonl(path)

@@ -162,6 +162,27 @@ def test_import_chat_resource_is_the_conversation_url_per_source(sample_export, 
         assert metadata.get("resource") == RESOURCES[sample_export.name](metadata)
 
 
+ASSISTANTS = {
+    "claude.zip": "Claude",
+    "claude.jsonl.gz": "Claude",
+    "chatgpt.zip": "ChatGPT",
+    "gemini.jsonl.gz": "Gemini",
+    "claude-code.jsonl": "Claude",
+    "gemini-takeout.zip": "Gemini",
+}
+
+
+def test_import_speaker_headings_use_the_assistant_name(sample_export, test_repo):
+    import_(sample_export.path, test_repo, user="Human")
+
+    speakers = {
+        speaker
+        for path in (test_repo.root / "chats").glob("**/*.md")
+        for speaker in re.findall(r"^## (\S+) \[created::", path.read_text(), re.MULTILINE)
+    }
+    assert speakers == {"Human", ASSISTANTS[sample_export.name]}
+
+
 def test_import_no_index_skips_indexing(test_repo, index_spy, claude_export):
     """Test that import with auto_index=False does not trigger indexing."""
     import_(claude_export, test_repo, user="Human", auto_index=False)

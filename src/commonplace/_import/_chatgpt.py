@@ -22,6 +22,7 @@ from commonplace._wire import read_entries
 DEFAULT_TIME = datetime.fromtimestamp(0, tz=UTC)  # Default time if not provided
 
 SOURCE = "chatgpt"
+NAME = "ChatGPT"
 
 
 class ChatGptWireImporter(BaseWireImporter):
@@ -29,6 +30,7 @@ class ChatGptWireImporter(BaseWireImporter):
     no headerless archive to recognise — hence no `_claims_legacy` override."""
 
     source: str = SOURCE
+    name: str = NAME
 
     def import_(self, path: Path) -> list[EventLog]:
         return [
@@ -42,6 +44,7 @@ class ChatGptImporter:
     """Consumes the ChatGPT export ZIP."""
 
     source: str = SOURCE
+    name: str = NAME
     member: str | None = "conversations.json"
 
     def can_import(self, path: Path) -> bool:

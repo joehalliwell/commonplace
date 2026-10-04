@@ -32,6 +32,7 @@ def _is_claude_conversations(path: Path) -> bool:
 
 class ClaudeExportImporter:
     source: str = "claude"
+    name: str = "Claude"
     member: str | None = "conversations.json"
 
     def can_import(self, path: Path) -> bool:

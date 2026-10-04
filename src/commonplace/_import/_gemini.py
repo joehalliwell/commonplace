@@ -33,6 +33,7 @@ class GeminiImporter(BaseWireImporter):
     """Consumes gemini-wire.jsonl emitted by the fetcher."""
 
     source: str = "gemini"
+    name: str = "Gemini"
 
     def _claims_legacy(self, path: Path) -> bool:
         entry = sniff_gzipped_jsonl(path)
