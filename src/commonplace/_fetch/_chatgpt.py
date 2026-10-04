@@ -1,7 +1,5 @@
 """Fetch conversations directly from chatgpt.com using the browser session cookie."""
 
-from collections.abc import Iterator
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
@@ -13,11 +11,6 @@ from commonplace._fetch._base import BaseFetcher
 SESSION_URL = "https://chatgpt.com/api/auth/session"
 LIST_URL = "https://chatgpt.com/backend-api/conversations"
 DETAIL_URL = "https://chatgpt.com/backend-api/conversation/{cid}"
-
-# NextAuth splits the session token into `.0`, `.1`, ... once it exceeds ~4KB,
-# so the cookie is identified by prefix. httpx sends every chunk and the server
-# reassembles them; nothing here needs to join them.
-SESSION_COOKIE_PREFIX = "__Secure-next-auth.session-token"
 
 PAGE_SIZE = 100
 
@@ -35,6 +28,10 @@ class ChatGptFetcher(BaseFetcher):
     cookie_domain = "chatgpt.com"
     service_name = "ChatGPT"
     login_url = "https://chatgpt.com"
+    # NextAuth splits the session token into `.0`, `.1`, ... once it exceeds
+    # ~4KB, so this is a prefix. httpx sends every chunk and the server
+    # reassembles them; nothing here needs to join them.
+    session_cookie = "__Secure-next-auth.session-token"
     extra_headers: ClassVar[dict[str, str]] = {"Accept": "application/json", "Referer": "https://chatgpt.com/"}
     follow_redirects = True
 
@@ -52,28 +49,22 @@ class ChatGptFetcher(BaseFetcher):
 
         return self._write_archive(destination) if fresh else None
 
-    @contextmanager
-    def _signed_in(self) -> Iterator[httpx.Client | None]:
-        """A client carrying the bearer token `backend-api` wants, or None, reported, without a ChatGPT session."""
-        cookies = self._read_cookies()
-        if not any(name.startswith(SESSION_COOKIE_PREFIX) for name in cookies):
+    def _has_session(self, cookies: dict[str, str]) -> bool:
+        """Matched by prefix, since NextAuth may have chunked the cookie."""
+        if not any(name.startswith(self.session_cookie) for name in cookies):
             self._report_no_session()
-            yield None
-            return
-        with self._session(cookies) as client:
-            client.headers["Authorization"] = f"Bearer {self._read_access_token()}"
-            yield client
+            return False
+        return True
 
-    def _read_access_token(self) -> str:
+    def _authorise(self, client: httpx.Client) -> None:
         """Trade the session cookie for the bearer token `backend-api` wants.
 
         Not recorded to the wire log: it is a credential, and it is not
         conversation material."""
-        r = self._get(SESSION_URL)
-        token = r.json().get("accessToken")
+        token = self._get(SESSION_URL).json().get("accessToken")
         if not token:
             raise RuntimeError("No access token in the ChatGPT session response — the auth flow may have changed.")
-        return token
+        client.headers["Authorization"] = f"Bearer {token}"
 
     def _list_fresh_ids(self, since: datetime | None):
         """Walk listing pages, yielding ids updated after `since`.

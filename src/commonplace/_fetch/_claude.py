@@ -30,6 +30,7 @@ class ClaudeSessionFetcher(BaseFetcher):
     cookie_domain = "claude.ai"
     service_name = "Claude"
     login_url = "https://claude.ai"
+    session_cookie = "sessionKey"
     extra_headers: ClassVar[dict[str, str]] = {"Accept": "application/json", "Referer": "https://claude.ai/"}
 
     #: Whether a listing with nothing new is still worth an archive.
@@ -38,11 +39,9 @@ class ClaudeSessionFetcher(BaseFetcher):
     _org_uuid: str
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        cookies = self._authenticate()
-        if cookies is None:
-            return None
-
-        with self._session(cookies):
+        with self._signed_in() as client:
+            if client is None:
+                return None
             items = self._list()
             fresh = [i for i in items if since is None or datetime.fromisoformat(i["updated_at"]) > since]
             self._read_fresh(fresh, since, self._read)
@@ -57,18 +56,16 @@ class ClaudeSessionFetcher(BaseFetcher):
         """Record the full response for one listed item."""
         raise NotImplementedError
 
-    def _authenticate(self) -> dict[str, str] | None:
-        """The session's cookies, with `_org_uuid` set — or `None`, having said why, if there is no usable session."""
-        cookies = self._read_cookies()
+    def _has_session(self, cookies: dict[str, str]) -> bool:
+        """Also records `_org_uuid`: every API path is scoped to the organisation."""
+        if not super()._has_session(cookies):
+            return False
         org_uuid = cookies.get("lastActiveOrg")
-        if not cookies.get("sessionKey"):
-            self._report_no_session()
-            return None
         if not org_uuid:
             logger.error(f"No lastActiveOrg cookie. Visit {self.login_url} in Chrome to set it.")
-            return None
+            return False
         self._org_uuid = org_uuid
-        return cookies
+        return True
 
     def _api(
         self, method: str, path: str, *, endpoint: str, key: dict[str, str] | None = None, **kwargs: Any

@@ -13,6 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import ClassVar
 
+import httpx
+
 from commonplace._fetch._base import BaseFetcher
 from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso_dt
 
@@ -30,6 +32,7 @@ class GeminiFetcher(BaseFetcher):
     cookie_domain = ".google.com"
     service_name = "Gemini"
     login_url = "https://gemini.google.com"
+    session_cookie = "__Secure-1PSID"
     extra_headers: ClassVar[dict[str, str]] = {
         "Origin": "https://gemini.google.com",
         "Referer": "https://gemini.google.com/",
@@ -43,14 +46,9 @@ class GeminiFetcher(BaseFetcher):
     _session_id: str
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        cookies = self._read_cookies()
-        if not cookies.get("__Secure-1PSID"):
-            self._report_no_session()
-            return None
-
-        with self._session(cookies):
-            self._read_session_tokens()
-
+        with self._signed_in() as client:
+            if client is None:
+                return None
             # Walk list_chats pages to find fresh cids. Full parse of each chat
             # happens in the importer against the same wire we're logging here.
             fresh = list(self._list_fresh_cids(since))
@@ -60,7 +58,7 @@ class GeminiFetcher(BaseFetcher):
 
         return self._write_archive(destination) if fresh else None
 
-    def _read_session_tokens(self) -> None:
+    def _authorise(self, client: httpx.Client) -> None:
         """Scrape SNlM0e (access token), cfb2h (build label), and FdrFJe
         (session id) from the /app page HTML."""
         r = self._get(INIT_URL)

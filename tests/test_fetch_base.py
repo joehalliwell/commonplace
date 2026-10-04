@@ -77,10 +77,41 @@ class _StubFetcher(BaseFetcher):
     cookie_domain = "example.com"
     service_name = "Stub"
     login_url = "https://example.com"
+    session_cookie = "session"
 
 
 def _stub(handler) -> _StubFetcher:
     return _StubFetcher(cookies={"session": "x"}, transport=httpx.MockTransport(handler))
+
+
+class _AuthorisingStub(_StubFetcher):
+    """Records each client `_authorise` is handed."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.authorised: list[httpx.Client] = []
+
+    def _authorise(self, client: httpx.Client) -> None:
+        self.authorised.append(client)
+
+
+def test_signed_in_without_session_cookie_yields_none_unauthorised(caplog):
+    fetcher = _AuthorisingStub(cookies={"other": "x"})
+
+    with fetcher._signed_in() as client:
+        assert client is None
+
+    assert fetcher.authorised == []
+    assert "Stub" in caplog.text
+    assert "https://example.com" in caplog.text
+
+
+def test_signed_in_with_session_cookie_yields_the_client_it_authorised():
+    fetcher = _AuthorisingStub(cookies={"session": "x"}, transport=httpx.MockTransport(lambda r: httpx.Response(200)))
+
+    with fetcher._signed_in() as client:
+        assert client is not None
+        assert fetcher.authorised == [client]
 
 
 def test_archive_is_named_for_the_source(tmp_path):

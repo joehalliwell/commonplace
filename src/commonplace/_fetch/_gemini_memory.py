@@ -14,13 +14,9 @@ class GeminiMemoryFetcher(GeminiFetcher):
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
         # `since` goes unused: the listing is the whole state, and it is how a deletion is seen.
-        cookies = self._read_cookies()
-        if not cookies.get("__Secure-1PSID"):
-            self._report_no_session()
-            return None
-
-        with self._session(cookies):
-            self._read_session_tokens()
+        with self._signed_in() as client:
+            if client is None:
+                return None
             if self._call_rpc(RPC_LIST_SAVED_INFO, [], source_path="/saved-info") is None:
                 raise RuntimeError(f"{RPC_LIST_SAVED_INFO} returned a null wrb.fr body — protocol may have changed.")
 
