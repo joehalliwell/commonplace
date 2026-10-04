@@ -195,9 +195,11 @@ name them to the user (`grep -l '^  - {slug}$' topics/resonances/*.md`).
 
 ### 6. Agent Journal (optional)
 
-This step is yours. If the run left something a later session should know (a
-correction the user made, a mistake of yours or a subagent's, what you'd do
-differently) or something you want to say, write it in
+This step is yours. What came up with the user belongs in this run's output,
+recorded as the review step says; don't move or repeat it here. If what's
+left (how the work went, a mistake of yours or a subagent's, what you'd do
+differently) is worth a later session knowing, or you want to say something,
+write it in
 `agent-journal/{agent}/{yyyy}/{mm}/{yyyy-mm-dd}.md`, where `{agent}` names
 you, e.g. `claude`. If nothing comes to mind, skip it.
 

@@ -116,7 +116,8 @@ topics/
 - **Agent journal**: Entries agents write as themselves, for the user and
   for later sessions that don't remember this one. Never evidence of the
   user's thinking, so never a source; quote one only attributed to its agent.
-  Not private. A stop-gap until the journal moves to per-author folders.
+  What the user says in a skill's review stays in that skill's output, not
+  here. Not private. A stop-gap until the journal moves to per-author folders.
   If `agent-journal/README.md` exists, its conventions win.
 - **Notes**: The user's own writing. Primitive. `/rake` proposes entries for
   `ideas.md`, `todo.md` and `projects/`; add only what the user approves, and
