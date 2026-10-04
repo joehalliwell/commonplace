@@ -19,7 +19,6 @@ SAVED_INFO = PurePosixPath("saved-info.md")
 class GeminiMemoryImporter(BaseWireImporter):
     source: str = "gemini-memory"
     tree: Path = Path("memory") / "gemini"
-    exhaustive: bool = True
 
     def snapshot(self, path: Path) -> Snapshot:
         [entry] = read_entries(path)

@@ -29,8 +29,8 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
     files = {p: parts for p, parts in snapshot.files.items() if _inside(p)}
     for refused in snapshot.files.keys() - files.keys():
         logger.warning(f"Skipping file with unusable path '{refused}'")
-    if importer.exhaustive:
-        files = {p: parts for p, parts in files.items() if not _landed(repo.root / tree / p, parts)}
+    # A re-read is a new blob, so rewriting what is already there would change only its provenance.
+    files = {p: parts for p, parts in files.items() if not _landed(repo.root / tree / p, parts)}
 
     stale: list[Path] = []
     if snapshot.listed is None:
