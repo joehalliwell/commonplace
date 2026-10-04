@@ -50,10 +50,8 @@ class TaskFieldColumn(ProgressColumn):
         self.field = field
 
     def render(self, task):
-        t = Text.from_markup(
-            f"{self.field}: [bold blue]{task.fields.get(self.field)}[/]",
-            overflow="ellipsis",
-        )
+        # Assembled, not parsed: the value is arbitrary text, and `[/...]` in it would read as a closing tag.
+        t = Text.assemble(f"{self.field}: ", (str(task.fields.get(self.field)), "bold blue"), overflow="ellipsis")
         t.no_wrap = True
         return t
 
