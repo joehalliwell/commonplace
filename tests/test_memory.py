@@ -210,6 +210,20 @@ def test_mirror_archive_that_changes_nothing_leaves_no_trace(test_repo, tmp_path
     assert _blobs(test_repo) == blobs
 
 
+def test_mirror_reread_of_unchanged_files_leaves_no_trace(test_repo, tmp_path, write_jsonl_gz):
+    """A re-read is a new archive, hence a new blob, but nothing upstream changed."""
+    content = "---\nname: a\n---\nsame\n"
+    _mirror(test_repo, _archive(tmp_path, {"/a.md": content}))
+    head, blobs = git(test_repo.root, "rev-parse", "HEAD"), _blobs(test_repo)
+
+    header = {"wire": "claude-memory", "version": 3, "fetched_at": datetime.now(UTC).isoformat()}
+    reread = write_jsonl_gz(tmp_path / "claude-memory-wire.jsonl.gz", [header, *_entries({"/a.md": content})])
+    _mirror(test_repo, reread)
+
+    assert git(test_repo.root, "rev-parse", "HEAD") == head
+    assert _blobs(test_repo) == blobs
+
+
 def test_mirror_archive_without_listing_prunes_nothing(test_repo, tmp_path):
     _mirror(test_repo, _archive(tmp_path, {"/a.md": "a\n"}))
     unlisted = write_archive(tmp_path / "claude-memory-wire.jsonl.gz", "claude-memory", _entries({"/b.md": "b\n"})[1:])

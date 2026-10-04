@@ -14,7 +14,6 @@ from commonplace._wire import read_entries
 class ChatGptMemoryImporter(BaseWireImporter):
     source: str = "chatgpt-memory"
     tree: Path = Path("memory") / "chatgpt"
-    exhaustive: bool = True
 
     def snapshot(self, path: Path) -> Snapshot:
         for entry in read_entries(path):
