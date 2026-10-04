@@ -42,13 +42,12 @@ class ChatGptImporter:
     """Consumes the ChatGPT export ZIP."""
 
     source: str = SOURCE
-
-    def required_paths(self) -> list[str]:
-        return ["conversations.json", "user.json"]
+    member: str | None = "conversations.json"
 
     def can_import(self, path: Path) -> bool:
         """Check if the importer can handle the given file path."""
-        return zip_contains(path, *self.required_paths())
+        # `user.json` is only a marker, telling this ZIP from Claude's, which also has `conversations.json`.
+        return zip_contains(path, "conversations.json", "user.json")
 
     def import_(self, path: Path) -> list[EventLog]:
         """Import activity logs from the ChatGPT file."""

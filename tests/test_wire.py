@@ -188,7 +188,7 @@ def test_an_importer_added_after_versioning_claims_no_headerless_archive(tmp_pat
 @pytest.mark.parametrize("importer_class", [ClaudeImporter, GeminiImporter, ChatGptWireImporter])
 def test_wire_importers_extract_nothing(importer_class):
     """A wire archive is gzipped JSONL, not a ZIP, so it is stored whole."""
-    assert importer_class().required_paths() == []
+    assert importer_class().member is None
 
 
 # ---------------------------------------------------------------------------

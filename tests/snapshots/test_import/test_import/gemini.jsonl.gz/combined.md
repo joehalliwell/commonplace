@@ -11,8 +11,7 @@ generated:
   by: commonplace/1.2.3
   at: '2025-06-17T06:27:18+00:00'
 source: gemini
-source_exports:
-- .commonplace/blobs/64324d9d824c69a54ec2dce250093d9fc9a81c0c370ec33cb5221836a5272605/gemini.jsonl.gz
+source_export: .commonplace/blobs/64324d9d824c69a54ec2dce250093d9fc9a81c0c370ec33cb5221836a5272605/gemini.jsonl.gz
 ---
 
 # CHAT_TITLE_0 [created:: 2025-06-17T06:01:53+00:00]
@@ -66,8 +65,7 @@ generated:
   by: commonplace/1.2.3
   at: '2025-06-17T06:27:18+00:00'
 source: gemini
-source_exports:
-- .commonplace/blobs/64324d9d824c69a54ec2dce250093d9fc9a81c0c370ec33cb5221836a5272605/gemini.jsonl.gz
+source_export: .commonplace/blobs/64324d9d824c69a54ec2dce250093d9fc9a81c0c370ec33cb5221836a5272605/gemini.jsonl.gz
 ---
 
 # CHAT_TITLE_2 [created:: 2025-06-17T06:01:53+00:00]

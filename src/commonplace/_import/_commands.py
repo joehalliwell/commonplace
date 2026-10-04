@@ -74,14 +74,10 @@ def autodetect_importer(path: Path) -> ChatImporter | MemoryImporter | None:
     return None
 
 
-def extract_and_store(archive: Path, paths: list[str], repo: Commonplace) -> list[RepoPath]:
-    """Extract specific files from archive and store each as a blob."""
-    result = []
+def extract_and_store(archive: Path, member: str, repo: Commonplace) -> RepoPath:
+    """Extract one member from an archive and store it as a blob."""
     with tempfile.TemporaryDirectory() as tmp, ZipFile(archive) as zf:
-        for p in paths:
-            zf.extract(p, tmp)
-            result.append(repo.store_blob(Path(tmp) / p))
-    return result
+        return repo.store_blob(Path(zf.extract(member, tmp)))
 
 
 def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None = None):
@@ -95,15 +91,13 @@ def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None
         return
     serializer = MarkdownSerializer(human=user, assistant=importer.source.title())
 
-    # Store only the required files from archives, or the whole file for non-archives —
+    # Store only the member an archive's importer reads, or the whole file for non-archives —
     # which includes a member already extracted from one, re-imported from the blob store.
-    required = importer.required_paths()
-    if required and is_zipfile(path):
-        blob_paths = extract_and_store(path, required, repo)
+    if importer.member and is_zipfile(path):
+        blob = extract_and_store(path, importer.member, repo)
     else:
-        blob_paths = [repo.store_blob(path)]
-
-    source_exports = [p.path.as_posix() for p in blob_paths]
+        blob = repo.store_blob(path)
+    source_export = blob.path.as_posix()
 
     used_paths: Counter[Path] = Counter()
 
@@ -124,7 +118,7 @@ def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None
                 "at": max((e.created for e in log.events), default=log.created).isoformat(timespec="seconds"),
             },
             "source": log.source,
-            "source_exports": source_exports,
+            "source_export": source_export,
         }
 
         # Create RepoPath for the new note (will get proper ref after commit)

@@ -46,7 +46,7 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         logger.info(f"'{tree}' already matches '{path}'")
         return
 
-    provenance = {"source": importer.source, "source_exports": [repo.store_blob(path).path.as_posix()]}
+    provenance = {"source": importer.source, "source_export": repo.store_blob(path).path.as_posix()}
     for relative, (metadata, body) in files.items():
         target = tree / relative
         repo.save(Note(repo.make_repo_path(target), body, metadata | provenance))
@@ -63,7 +63,7 @@ def _landed(target: Path, parts: tuple[dict[str, Any], str]) -> bool:
     if not target.is_file():
         return False
     metadata, body = load_frontmatter(target.read_text())
-    return ({k: v for k, v in metadata.items() if k not in ("source", "source_exports")}, body) == parts
+    return ({k: v for k, v in metadata.items() if k not in ("source", "source_export")}, body) == parts
 
 
 def _inside(path: PurePosixPath) -> bool:

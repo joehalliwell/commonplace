@@ -152,6 +152,21 @@ def test_landing_tree_chat_source_lands_under_chats():
 # ---------------------------------------------------------------------------
 
 
+MEMORY_EXAMPLES = sorted(EXAMPLE.parent.glob("*-memory-v*.jsonl.gz"))
+
+
+@pytest.mark.parametrize("archive", MEMORY_EXAMPLES, ids=lambda p: p.name)
+def test_mirror_example_archive_renders_as_snapshot(test_repo, archive, snapshot):
+    _mirror(test_repo, archive)
+
+    buffer = ""
+    for path in sorted((test_repo.root / "memory").glob("**/*.md")):
+        buffer += f"<!-- Contents of {path.relative_to(test_repo.root).as_posix()} -->\n"
+        buffer += path.read_text(encoding="utf-8") + "\n"
+
+    snapshot.assert_match(buffer, snapshot_name="combined.md")
+
+
 def test_mirror_example_archive_lands_under_memory_vendor(test_repo):
     _mirror(test_repo, EXAMPLE)
 
@@ -168,8 +183,7 @@ def test_mirror_example_archive_adds_provenance_frontmatter(test_repo):
     assert metadata["category_id"] == "topics"
     assert metadata["version"] == "a1b2c3d4e5f6"
     assert metadata["updated_at"] == "2026-09-30T10:00:00.123456Z"
-    [blob] = metadata["source_exports"]
-    assert (test_repo.root / blob).exists()
+    assert (test_repo.root / metadata["source_export"]).exists()
 
 
 def test_mirror_file_with_frontmatter_keeps_its_own_values_beside_ours(test_repo, tmp_path):

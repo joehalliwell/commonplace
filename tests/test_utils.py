@@ -282,7 +282,7 @@ def test_dump_frontmatter_long_path_stays_on_one_line():
     """A folded path cannot be found by searching for it."""
     path = f".commonplace/blobs/{'0' * 64}/My Activity.html"
 
-    assert path in dump_frontmatter({"source_exports": [path]}, "")
+    assert path in dump_frontmatter({"source_export": path}, "")
 
 
 def test_dump_frontmatter_no_metadata_is_the_body_alone():

@@ -8,8 +8,7 @@ generated:
   by: commonplace/1.2.3
   at: '2024-06-23T11:59:43+00:00'
 source: claude
-source_exports:
-- .commonplace/blobs/46d861a24c65b41d0377fd656b71362b57fd12f46a4958f8e0d16921f504ff5a/claude.jsonl.gz
+source_export: .commonplace/blobs/46d861a24c65b41d0377fd656b71362b57fd12f46a4958f8e0d16921f504ff5a/claude.jsonl.gz
 ---
 
 # Grouping Grey Words [created:: 2024-06-23T11:18:11+00:00]

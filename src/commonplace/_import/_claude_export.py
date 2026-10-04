@@ -32,11 +32,7 @@ def _is_claude_conversations(path: Path) -> bool:
 
 class ClaudeExportImporter:
     source: str = "claude"
-
-    def required_paths(self) -> list[str]:
-        # Both files get extracted and blob-stored so `source_exports`
-        # captures the two primary artefacts from the export bundle.
-        return ["conversations.json", "users.json"]
+    member: str | None = "conversations.json"
 
     def can_import(self, path: Path) -> bool:
         # A stored blob is a bare conversations.json: the ZIP was only packaging,
@@ -45,7 +41,7 @@ class ClaudeExportImporter:
             return _is_claude_conversations(path)
         # `users.json` is the Claude-specific marker — distinguishes this
         # from ChatGPT ZIPs, which also contain `conversations.json`.
-        return zip_contains(path, *self.required_paths())
+        return zip_contains(path, "conversations.json", "users.json")
 
     def import_(self, path: Path) -> list[EventLog]:
         if path.suffix == ".json":

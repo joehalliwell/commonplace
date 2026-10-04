@@ -84,8 +84,6 @@ class MemoryImporter(Protocol):
 
     def snapshot(self, path: Path) -> Snapshot: ...
 
-    def required_paths(self) -> list[str]: ...
-
 
 @runtime_checkable
 class ChatImporter(Protocol):
@@ -99,18 +97,9 @@ class ChatImporter(Protocol):
     """
 
     source: str
+    #: The one ZIP member `import_` reads, stored in place of the archive; `None` stores the file whole.
+    member: str | None
 
     def can_import(self, path: Path) -> bool: ...
 
     def import_(self, path: Path) -> list[EventLog]: ...
-
-    def required_paths(self) -> list[str]:
-        """Return archive-relative paths to extract and store.
-
-        For archive-based imports (ZIP files), returns the paths within the
-        archive that are actually consumed by the importer. Only these files
-        will be extracted and stored as blobs.
-
-        Returns empty list for non-archive imports (e.g., JSONL files).
-        """
-        ...

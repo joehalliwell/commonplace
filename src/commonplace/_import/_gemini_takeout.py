@@ -33,14 +33,12 @@ class GeminiTakeoutImporter:
     """
 
     source: str = "gemini-takeout"
-
-    def required_paths(self) -> list[str]:
-        return [_HTML_PATH]
+    member: str | None = _HTML_PATH
 
     def can_import(self, path: Path) -> bool:
         """Check if the importer can potentially handle the given file path. It
         zip file with the expected path structure."""
-        return zip_contains(path, *self.required_paths())
+        return zip_contains(path, _HTML_PATH)
 
     def import_(self, path: Path) -> list[EventLog]:
         """Import activity logs from the Gemini file."""

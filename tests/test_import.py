@@ -223,7 +223,7 @@ def _takeout(tmp_path: Path, *cells: str) -> Path:
     html = "".join(f'<div class="content-cell">{cell}</div>' for cell in cells)
     path = tmp_path / "takeout.zip"
     with ZipFile(path, "w") as zf:
-        zf.writestr(GeminiTakeoutImporter().required_paths()[0], f"<html><body>{html}</body></html>")
+        zf.writestr(GeminiTakeoutImporter().member, f"<html><body>{html}</body></html>")
     return path
 
 

@@ -110,7 +110,7 @@ def test_offset_calculation(make_note):
 def test_chunk_note_with_metadata_chunks_the_body_only(make_note):
     """Blob hashes and UUIDs are not something to search for (#95)."""
     note = make_note(path="test.md", content="# Title\n\nFirst.")
-    note.metadata = {"uuid": "abc123", "source_exports": [".commonplace/blobs/0000/export.json"]}
+    note.metadata = {"uuid": "abc123", "source_export": ".commonplace/blobs/0000/export.json"}
 
     chunks = list(MarkdownChunker().chunk(note))
 
