@@ -6,14 +6,17 @@ from pathlib import Path, PurePosixPath
 
 import pytest
 
+from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
 from commonplace._import._claude_memory import ClaudeMemoryImporter
 from commonplace._import._commands import IMPORTERS, autodetect_importer, import_, landing_tree
-from commonplace._import._types import ChatImporter, MemoryImporter
+from commonplace._import._types import ChatImporter, MemoryImporter, Snapshot
 from commonplace._utils import load_frontmatter
 from commonplace._wire import write_archive
 from tests.porcelain import git
+from tests.test_fetch_chatgpt_memory import SECTIONS, summary_stream
 
 EXAMPLE = Path(__file__).parent / "resources" / "wire" / "claude-memory-v3.jsonl.gz"
+CHATGPT_EXAMPLE = Path(__file__).parent / "resources" / "wire" / "chatgpt-memory-v3.jsonl.gz"
 
 
 def _entries(files: dict[str, str], listed: list[str] | None = None) -> list[dict]:
@@ -29,6 +32,11 @@ def _entries(files: dict[str, str], listed: list[str] | None = None) -> list[dic
 
 def _archive(tmp_path: Path, files: dict[str, str], listed: list[str] | None = None) -> Path:
     return write_archive(tmp_path / "claude-memory-wire.jsonl.gz", "claude-memory", _entries(files, listed))
+
+
+def _summary(stream: str) -> dict:
+    """A ChatGPT summary wire entry carrying `stream` as its response."""
+    return {"endpoint": "summary", "response": stream}
 
 
 def _mirror(repo, archive: Path) -> None:
@@ -100,6 +108,39 @@ def test_snapshot_archive_without_listing_has_no_listed_set(tmp_path):
 
 def test_landing_tree_memory_source_lands_in_its_own_tree():
     assert landing_tree("claude-memory") == Path("memory/claude")
+
+
+def test_autodetect_chatgpt_example_archive_finds_its_memory_importer():
+    assert isinstance(autodetect_importer(CHATGPT_EXAMPLE), ChatGptMemoryImporter)
+
+
+def test_snapshot_chatgpt_example_archive_lands_a_file_per_section_with_a_description():
+    """The example's `dive-deeper` section is only follow-up prompts, so it has nothing to land."""
+    snapshot = ChatGptMemoryImporter().snapshot(CHATGPT_EXAMPLE)
+
+    assert snapshot.listed == {PurePosixPath("overview.md")}
+    [(path, (metadata, body))] = snapshot.files.items()
+    assert path == PurePosixPath("overview.md")
+    assert body == "# Overview\n\nPrefers tea, and asks for sources."
+    assert metadata == {"updated_at": "2026-10-03T22:27:53.035594+00:00"}
+
+
+def test_snapshot_chatgpt_stream_cut_short_has_no_listed_set(tmp_path):
+    """Without the `done` event the summary may be partial, so absence means nothing."""
+    stream = summary_stream(SECTIONS).split("event: done")[0]
+    archive = write_archive(tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", [_summary(stream)])
+
+    assert ChatGptMemoryImporter().snapshot(archive) == Snapshot({}, None)
+
+
+def test_snapshot_chatgpt_summary_with_no_sections_lists_nothing(tmp_path):
+    archive = write_archive(tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", [_summary(summary_stream([]))])
+
+    assert ChatGptMemoryImporter().snapshot(archive) == Snapshot({}, set())
+
+
+def test_landing_tree_chatgpt_memory_lands_in_its_own_tree():
+    assert landing_tree("chatgpt-memory") == Path("memory/chatgpt")
 
 
 def test_landing_tree_chat_source_lands_under_chats():

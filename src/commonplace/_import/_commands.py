@@ -7,6 +7,7 @@ from pathlib import Path
 from zipfile import ZipFile, is_zipfile
 
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
+from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._claude_code import ClaudeCodeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
@@ -33,6 +34,7 @@ IMPORTERS: list[ChatImporter | MemoryImporter] = [
     ClaudeMemoryImporter(),
     ClaudeCodeImporter(),
     ChatGptWireImporter(),
+    ChatGptMemoryImporter(),
     ChatGptImporter(),
 ]
 
