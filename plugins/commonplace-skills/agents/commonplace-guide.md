@@ -82,7 +82,7 @@ journal/
       {date}.md
 
 agent-journal/
-  {agent}/              # e.g. claude
+  {assistant}/          # the assistant that ran a skill, e.g. claude-code
     {year}/
       {month}/
         {date}.md
@@ -122,7 +122,8 @@ anything in the repository.
   never reword what's there.
 - **Assistant memory** (`memory/`): an assistant's paraphrase of the user; a
   lead to the originating passage, not the user's words.
-- **Agent journal**: agents' own writing. Never a source.
+- **Agent journal**: the writing of the assistant that ran a skill. Never a
+  source.
 - **Distillations, resonances, the topic index** (`topics/`): derived, and
   OKF v0.2 concept documents. Never a source.
 - **Gatherings, chaff, review logs** (`.commonplace/skills/`): skill state.

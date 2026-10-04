@@ -207,7 +207,7 @@ path:
 
 ```bash
 commonplace git -- add agent-journal/
-commonplace git -- commit -m "Agent journal: {agent}"
+commonplace git -- commit -m "Agent journal: {assistant}"
 ```
 
 ### Conforming a Stale Topic
