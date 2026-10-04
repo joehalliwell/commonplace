@@ -88,7 +88,7 @@ agent-journal/
         {date}.md
 
 memory/
-  {agent}/              # Assistant memory, mirrored by import
+  {agent}/              # Agent memory, mirrored by import
 
 notes/
   ideas.md              # Uncommitted backlog: no commitment, no date
@@ -120,7 +120,7 @@ anything in the repository.
 - **Chats, journal, notes**: primitive, and the only sources. The journal and
   notes are the user's own writing: add only what the user approves, and
   never reword what's there.
-- **Assistant memory** (`memory/`): an assistant's paraphrase of the user; a
+- **Agent memory** (`memory/`): an agent's paraphrase of the user; a
   lead to the originating passage, not the user's words.
 - **Agent journal**: the writing of the agent that ran a skill. Never a
   source.

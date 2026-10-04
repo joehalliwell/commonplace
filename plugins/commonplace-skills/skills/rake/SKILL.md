@@ -18,7 +18,7 @@ scale, and deciding which one an item belongs in is the user's call:
 | Todo    | `notes/todo.md`            | committed, for a given year                 |
 | Project | `notes/projects/{slug}.md` | a larger effort, with a note of its own     |
 
-The motivating failure: an assistant filed an essay split as a committed todo,
+The motivating failure: an agent filed an essay split as a committed todo,
 and the user decided it was still only an idea. Nothing is written until the
 user has triaged it.
 
@@ -73,9 +73,9 @@ Before presenting, check the proposals the way you'd check a distillation,
 because all of these are invisible once filed:
 
 - **Whose plan is it?** Every proposal must rest on the *user's* words, or on
-  an assistant's suggestion the user explicitly took up. An assistant's list
+  an agent's suggestion the user explicitly took up. An agent's list
   of next steps is not the user's plan. Drop any proposal whose only evidence
-  is an assistant speaking.
+  is an agent speaking.
 - **Silence is not abandonment, nor completion.** A plan that stopped in a
   chat may have been done offline, or set aside, or merely interrupted. For
   *stopped* and *unclear* items, ask rather than assume.
@@ -251,19 +251,19 @@ and often the richest source.
 counts only if:
 
 - the user stated it, or
-- an assistant suggested it and the user took it up in so many words ("yes,
+- an agent suggested it and the user took it up in so many words ("yes,
   let's do that", "I'll do the second one").
 
-An assistant's "next steps" list that the user didn't answer is not a plan.
+An agent's "next steps" list that the user didn't answer is not a plan.
 
 Chats are not filtered by date: imports backfill old conversations, so an old
 plan may be new to the repository. Phase 1 is what stops re-proposals.
 
-### Phase 4: Plans in Assistant Memory
+### Phase 4: Plans in Agent Memory
 
-Assistant memory is mirrored under `memory/<agent>/`. If it exists, read every
+Agent memory is mirrored under `memory/<agent>/`. If it exists, read every
 file updated since the last rake, or all of them if there was none. A memory
-is an assistant's paraphrase of the user, so treat each plan in it as a
+is an agent's paraphrase of the user, so treat each plan in it as a
 candidate, not as the user's words: search for the originating passage and
 cite it. If you find none, cite the memory file and say the plan rests on it
 alone. If there is no `memory/`, name that gap under Coverage.

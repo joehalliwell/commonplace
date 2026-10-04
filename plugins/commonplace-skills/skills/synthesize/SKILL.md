@@ -105,7 +105,7 @@ because all are invisible once committed:
 
 - **Attributed claims.** If a Shift or Thread describes how the *user's*
   thinking changed, the summary should make clear that's whose thinking it
-  was — not an assistant's framing the user never took up.
+  was — not an agent's framing the user never took up.
 - **Overstated endings.** Language like "abandoned" or "gave up on" is a
   claim about intent. Chats stop for logistical reasons; if the subagent has
   read silence as a decision, flag it.
@@ -407,9 +407,9 @@ relevant section:
 Order all gathered material chronologically.
 
 **Attribution is not optional.** A quote with no speaker is worse than no
-quote: an assistant's speculative riff, gathered unattributed, comes back a
+quote: an agent's speculative riff, gathered unattributed, comes back a
 year later as evidence of how the user's own thinking evolved. Most sources
-here are conversations *with* an assistant, so this is the default failure
+here are conversations *with* an agent, so this is the default failure
 mode, not an edge case. Every quote carries its speaker.
 
 **Scope is relevance, not sensitivity.** This is the user's private record.

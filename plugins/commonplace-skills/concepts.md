@@ -14,7 +14,7 @@ checked per skill, against that skill's newest entry.
 - **Primitive**: captured, not produced. `chats/` (imported conversations),
   `journal/` (the user's daily entries) and `notes/` (the user's own writing).
   These are the only sources. Provenance bottoms out here.
-- **Assistant memory**: `memory/<agent>/`, mirrored from what an agent keeps
+- **Agent memory**: `memory/<agent>/`, mirrored from what an agent keeps
   about the user. Its paraphrase of the user, so a lead to the originating passage,
   never the user's words.
 - **Derived**: produced from other artefacts. Everything under `topics/`:
@@ -52,8 +52,9 @@ it disagrees, follow it and fix this.
   harness, prompt and tools, so it is a different interlocutor from `claude`.
   The agent running a skill is an agent like any other, and writes as itself:
   for these skills, `claude-code`.
-- **assistant**: the role an agent plays in a chat, the other speaker beside
-  the user. "An assistant's riff" means words an agent said in that role.
+- **assistant**: retired, for the identity and the chat role alike. The
+  agent is the other speaker in a chat; transcripts label it by display name
+  (`## Claude`).
 - **coordinating agent, subagent**: roles a session plays in a skill run,
   not identities. Whatever spawns or is spawned, it writes as its agent.
 - **vendor**: the company behind some agents. Skills don't need it, and it is
@@ -63,10 +64,10 @@ it disagrees, follow it and fix this.
 
 ## Attribution
 
-Most sources are conversations *with* an assistant, so the default failure is
-an assistant's riff, quoted without its speaker, coming back a year later as
+Most sources are conversations *with* an agent, so the default failure is an
+agent's riff, quoted without its speaker, coming back a year later as
 evidence of what the user thought. Every quote carries its speaker. A plan,
-claim or shift counts as the user's only if the user said it, or an assistant
+claim or shift counts as the user's only if the user said it, or an agent
 said it and the user took it up in so many words. An agent journal entry is
 its agent's.
 

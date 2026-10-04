@@ -167,9 +167,9 @@ each cited path exists as `<path>.md`; if one is missing, find it by name
 Leave the user's existing citations alone unless they go nowhere; report
 those under Edits.
 
-**Attribute.** Most sources are conversations with an assistant. The Why and
+**Attribute.** Most sources are conversations with an agent. The Why and
 every History entry about intent must rest on the user's words, or on an
-assistant's suggestion the user took up. Say who said it.
+agent's suggestion the user took up. Say who said it.
 
 **If search returns very little**, the project is a sketch that hasn't
 materialised in the commonplace yet. Write a short note that says so; don't

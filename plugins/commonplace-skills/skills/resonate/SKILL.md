@@ -252,7 +252,7 @@ root-relative wikilink, the path without `.md`. Carry both through, and cite
 anything new you quote the same way. A distillation under an older convention
 may still cite `(<date>, <path>)`; rewrite it as the plain wikilink. Where a
 date is the point, it goes in the sentence or as `[<date>](/<path>.md)`. A crossing between two topics is a different and much
-weaker thing if the two passages turn out to be an assistant's phrasing in
+weaker thing if the two passages turn out to be an agent's phrasing in
 both places rather than the user's own.
 
 ### Phase 3: Write the Resonance
