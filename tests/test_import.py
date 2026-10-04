@@ -474,9 +474,11 @@ def test_claude_importer_declines_a_chatgpt_conversations_file(tmp_path):
 
 def test_import_a_directory_of_wire_archives_creates_notes(test_repo, tmp_path):
     """Importing a directory is a documented flow, and nested progress bars used to crash it."""
-    shutil.copy(SAMPLE_EXPORTS_DIR / "claude.jsonl.gz", tmp_path / "claude.jsonl.gz")
+    exports = tmp_path / "exports"  # Not tmp_path itself, which holds the test repo
+    exports.mkdir()
+    shutil.copy(SAMPLE_EXPORTS_DIR / "claude.jsonl.gz", exports / "claude.jsonl.gz")
 
-    import_(tmp_path, test_repo, user="Human")
+    import_(exports, test_repo, user="Human")
 
     assert list((test_repo.root / "chats").glob("**/*.md"))
 
@@ -490,6 +492,19 @@ def test_import_a_directory_of_stored_blobs_creates_notes(test_repo, tmp_path):
     import_(tmp_path / "blobs", test_repo, user="Human")
 
     assert list((test_repo.root / "chats").glob("**/*.md"))
+
+
+@pytest.mark.parametrize("target", ["blob", "store", "root"])
+def test_import_refuses_the_repos_own_blob_store(test_repo, target):
+    """Importing the store again is order-dependent; `doctor --render` replays it in capture order."""
+    blob = test_repo.root / test_repo.store_blob(CLAUDE_CONVERSATIONS).path
+    test_repo.commit("Store an export", auto_index=False)
+    path = {"blob": blob, "store": test_repo.root / ".commonplace" / "blobs", "root": test_repo.root}[target]
+
+    with pytest.raises(ValueError, match="doctor --render"):
+        import_(path, test_repo, user="Human")
+
+    assert not list((test_repo.root / "chats").glob("**/*.md"))
 
 
 ARTIFACT_CODE = """Here is the code:
