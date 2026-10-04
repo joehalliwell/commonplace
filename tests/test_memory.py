@@ -152,6 +152,21 @@ def test_landing_tree_chat_source_lands_under_chats():
 # ---------------------------------------------------------------------------
 
 
+MEMORY_EXAMPLES = sorted(EXAMPLE.parent.glob("*-memory-v*.jsonl.gz"))
+
+
+@pytest.mark.parametrize("archive", MEMORY_EXAMPLES, ids=lambda p: p.name)
+def test_mirror_example_archive_renders_as_snapshot(test_repo, archive, snapshot):
+    _mirror(test_repo, archive)
+
+    buffer = ""
+    for path in sorted((test_repo.root / "memory").glob("**/*.md")):
+        buffer += f"<!-- Contents of {path.relative_to(test_repo.root).as_posix()} -->\n"
+        buffer += path.read_text(encoding="utf-8") + "\n"
+
+    snapshot.assert_match(buffer, snapshot_name="combined.md")
+
+
 def test_mirror_example_archive_lands_under_memory_vendor(test_repo):
     _mirror(test_repo, EXAMPLE)
 
