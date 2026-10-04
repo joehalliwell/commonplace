@@ -32,7 +32,9 @@ checked per skill, against that skill's newest entry.
   evidence of the user's thinking, so never a source; quote one only
   attributed to its agent. See **Agent journal** below.
 
-Everything under `topics/` is an OKF v0.2 concept document: `type: Topic`,
+Everything under `topics/` is an
+[OKF v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+concept document: `type: Topic`,
 `kind` saying which, `sources` and `generated` recording provenance, and
 `verified` recording who approved it.
 

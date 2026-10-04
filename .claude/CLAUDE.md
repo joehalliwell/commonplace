@@ -83,6 +83,7 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 
 **Conventions:**
 
+- Concepts that cut across skills (artefact kinds, attribution, citations, review, the agent journal) are defined once in `plugins/commonplace-skills/concepts.md`; each skill restates inline the rules it acts on and points there
 - Heavy work (search, read, write) runs in a `general-purpose` subagent via the Task tool; the calling agent handles survey, review, and commit
 - Artefacts update in place on incremental runs; prior state is recoverable via git
 - Everything under `topics/` is an OKF v0.2 concept document (`type: Topic`). The spec is vendored verbatim at `.claude/reference/okf-spec.md` (knowledge-catalog@62432a0, Apache-2.0); read it there rather than fetching. The repo root is the bundle; dot-directories are outside it. Staleness is `generated.by` (`<skill>/<plugin release>`) against the skill's newest Conventions entry, which is named by the release that introduced it
