@@ -18,7 +18,7 @@ scale, and deciding which one an item belongs in is the user's call:
 | Todo    | `notes/todo.md`            | committed, for a given year                 |
 | Project | `notes/projects/{slug}.md` | a larger effort, with a note of its own     |
 
-The motivating failure: an assistant filed an essay split as a committed todo,
+The motivating failure: an agent filed an essay split as a committed todo,
 and the user decided it was still only an idea. Nothing is written until the
 user has triaged it.
 
@@ -27,6 +27,9 @@ commit. Use `/project` to draft or update a single project note once `/rake`
 has surfaced it.
 
 ## Prerequisites
+
+Read `${CLAUDE_PLUGIN_ROOT}/concepts.md` first: the concepts every skill
+shares, with their reasons. The steps below restate the rules they act on.
 
 The commonplace must have an index. If search returns errors, ask the user to
 run `commonplace index` first.
@@ -61,24 +64,21 @@ Use the **Task tool** to spawn a `general-purpose` subagent:
   - `{date}` — today as YYYY-MM-DD
   - `{working_dir}` — absolute path to the repository root
   - `{last_rake}` — the date from step 1, or `never`
-
-Wait for the subagent to complete.
+  - `{concepts}` — the absolute path of `${CLAUDE_PLUGIN_ROOT}/concepts.md`
 
 ### 3. Triage
 
 Before presenting, check the proposals the way you'd check a distillation,
 because all of these are invisible once filed:
 
-- **Whose plan is it?** Every proposal must rest on the *user's* words, or on
-  an assistant's suggestion the user explicitly took up. An assistant's list
-  of next steps is not the user's plan. Drop any proposal whose only evidence
-  is an assistant speaking.
-- **Silence is not abandonment, nor completion.** A plan that stopped in a
-  chat may have been done offline, or set aside, or merely interrupted. For
-  *stopped* and *unclear* items, ask rather than assume.
-- **Cold reading.** List every term, name, or reference in the proposals that
-  you couldn't explain from the proposals alone. If the list isn't empty, send
-  it back to the subagent before presenting.
+- **Attribution.** Every proposal rests on the *user's* words, or on an
+  agent's suggestion the user explicitly took up. Drop any whose only
+  evidence is an agent speaking.
+- **Silence** is evidence of neither abandonment nor completion: for
+  *stopped* and *unclear* items, ask.
+- **Cold reading.** List every term, name, or reference in the proposals you
+  couldn't explain from the proposals alone, and send a non-empty list back
+  to the subagent before presenting.
 
 Present the subagent's heaps to the user in its order. For each proposal the
 user chooses one of:
@@ -99,6 +99,9 @@ cheap, while a false commitment nags.
 For the **already filed** heap, ask only about items the subagent flagged as
 possibly done or as having an overturned premise; the user decides whether to
 tick, strike, or edit them.
+
+Triage answers are decisions, not evidence: they land where they are filed,
+and rake keeps no separate review record.
 
 ### 4. File
 
@@ -149,6 +152,20 @@ Then re-index:
 commonplace index
 ```
 
+### 6. Agent Journal (optional)
+
+This step is yours. Write what the work left you with: reflections the
+material prompted, candid opinions of the user and what you'd do about them.
+What came up with the user stays in this run's output, never here. **Agent
+journal** in `concepts.md` says where the entry goes and how. If nothing
+comes, skip it; if you write one, commit it on its own and tell the user its
+path:
+
+```bash
+commonplace git -- add agent-journal/
+commonplace git -- commit -m "Agent journal: {agent}"
+```
+
 ______________________________________________________________________
 
 ## Subagent Prompt Template
@@ -164,9 +181,13 @@ ideas, committed actions, projects.
 - Date: {date}
 - Last rake: {last_rake}
 
-Your job is to find **live intentions**: things the user means to make or do
-that aren't done. Do not write or edit any file. Return proposals; the calling
-agent triages them with the user and files what's accepted.
+Read `{concepts}` first. It defines the terms this prompt uses: *primitive*,
+*attribution*, *closed / stopped / unclear*, *backfill*, *written to be read
+cold*.
+
+Find **live intentions**: things the user means to make or do that aren't
+done. Your output is proposals only, in the return value; the calling agent
+triages them with the user and files what's accepted.
 
 **Commonplace CLI**
 
@@ -201,10 +222,10 @@ Most are open questions and belong to `/synthesize`, not here. Keep only those
 that name an **unmade thing**: an essay, an interview, a prototype, a talk, a
 release.
 
-Distillations are derived. **Never cite one.** Follow each kept thread's
-inline citation back to the primitive it names (`chats/`, `journal/`,
-`notes/`, `memory/`) and read the passage there. If the passage doesn't show
-the user intending to make the thing, drop it.
+Distillations are derived, so **cite the primitive**: follow each kept
+thread's inline citation to the passage it names (`chats/`, `journal/`,
+`notes/`, `memory/`) and read it there. Keep the thread only if the passage
+shows the user intending to make the thing.
 
 ### Phase 3: Stated Plans in Chats and the Journal
 
@@ -226,24 +247,19 @@ Read the journal directly: every entry since the last rake, or the last
 twelve months if there was none. Journal entries are the user's own words
 and often the richest source.
 
-**Attribution is critical.** Transcripts mark speakers with `## Human` /
-`## Claude` (or whatever names the serializer was configured with). A plan
-counts only if:
+**Attribution.** Transcripts mark speakers with `## Human` / `## Claude` (or
+the configured names). A plan counts when the user stated it, or an agent
+suggested it and the user took it up in so many words ("yes, let's do that",
+"I'll do the second one"); an unanswered "next steps" list stays the agent's.
 
-- the user stated it, or
-- an assistant suggested it and the user took it up in so many words ("yes,
-  let's do that", "I'll do the second one").
+Read chats of every date (backfill: an old plan may be new to the
+repository). Phase 1 is what stops re-proposals.
 
-An assistant's "next steps" list that the user didn't answer is not a plan.
+### Phase 4: Plans in Agent Memory
 
-Chats are not filtered by date: imports backfill old conversations, so an old
-plan may be new to the repository. Phase 1 is what stops re-proposals.
-
-### Phase 4: Plans in Assistant Memory
-
-Assistant memory is mirrored under `memory/<vendor>/`. If it exists, read every
+Agent memory is mirrored under `memory/<agent>/`. If it exists, read every
 file updated since the last rake, or all of them if there was none. A memory
-is an assistant's paraphrase of the user, so treat each plan in it as a
+is an agent's paraphrase of the user, so treat each plan in it as a
 candidate, not as the user's words: search for the originating passage and
 cite it. If you find none, cite the memory file and say the plan rests on it
 alone. If there is no `memory/`, name that gap under Coverage.
@@ -260,8 +276,8 @@ For each proposal decide:
 
   - *closed*: done, or set aside in so many words. Don't propose it; if it's
     filed as open, report it under Already Filed as possibly done.
-  - *stopped*: the user stated it, then the record goes quiet. Quiet is not
-    evidence either way; it may have been done offline.
+  - *stopped*: the user stated it, then the record goes quiet; it may have
+    been done offline.
   - *unclear*: mixed or thin evidence.
 
   Always give the date it was last touched.
@@ -284,9 +300,9 @@ For each proposal decide:
   the distillation.
 
 **Write to be read cold.** The user reads only your return value before
-deciding. Each headline is one sentence naming the thing to be made, with no
-pointers outside the text: not "the essay" but "an essay arguing that
-attention is a commons". Gloss any coinage from the chats.
+deciding. Each headline is one sentence naming the thing to be made: "an
+essay arguing that attention is a commons", not "the essay". Gloss any
+coinage from the chats.
 
 ### Return Value
 

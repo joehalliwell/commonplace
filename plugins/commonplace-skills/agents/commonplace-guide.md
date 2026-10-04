@@ -71,7 +71,7 @@ ______________________________________________________________________
 
 ```
 chats/
-  {provider}/           # claude, gemini, chatgpt
+  {agent}/              # claude, claude-code, gemini, chatgpt
     {year}/
       {month}/
         {date}-{title}.md
@@ -80,6 +80,15 @@ journal/
   {year}/
     {month}/
       {date}.md
+
+agent-journal/
+  {agent}/              # the agent that ran a skill, e.g. claude-code
+    {year}/
+      {month}/
+        {date}.md
+
+memory/
+  {agent}/              # Agent memory, mirrored by import
 
 notes/
   ideas.md              # Uncommitted backlog: no commitment, no date
@@ -104,37 +113,23 @@ topics/
 
 ### Artefact Conventions
 
-- **Chats**: Imported AI conversations. Primitive artefacts with provenance
-  linking back to source exports in `.commonplace/blobs/`.
-- **Journal entries**: Daily notes created via the `journal` command.
-- **Notes**: The user's own writing. Primitive. `/rake` proposes entries for
-  `ideas.md`, `todo.md` and `projects/`; add only what the user approves, and
+`${CLAUDE_PLUGIN_ROOT}/concepts.md` defines these, with the rules every skill
+shares: attribution, citations, review, commits. Read it before writing
+anything in the repository.
+
+- **Chats, journal, notes**: primitive, and the only sources. The journal and
+  notes are the user's own writing: add only what the user approves, and
   never reword what's there.
-- **Gatherings**: Chronological compilations of passages on a topic, with
-  source attribution. `/synthesize`'s working material, kept as skill state.
-- **Distillations**: Synthesized analyses of a topic — timeline, shifts, and
-  open threads. Derived from gatherings.
-- **Resonances**: What placing two or more topics side by side generates.
-  Derived from distillations.
-- **Topic index**: Regenerated from the distillations on every run.
-- **Skill state**: What a skill needs to behave correctly next time, and
-  nobody reads for its own sake, lives in `.commonplace/skills/{skill}/`.
-  Neither primitive nor derived; never cite it. Anything a person reads stays
-  visible.
+- **Agent memory** (`memory/`): an agent's paraphrase of the user; a
+  lead to the originating passage, not the user's words.
+- **Agent journal**: the writing of the agent that ran a skill. Never a
+  source.
+- **Distillations, resonances, the topic index** (`topics/`): derived, and
+  OKF v0.2 concept documents. Never a source.
+- **Gatherings, chaff, review logs** (`.commonplace/skills/`): skill state.
+  Never linked, and cited only as a review, in plain text.
 
-Everything under `topics/` is an [OKF v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
-concept document: `type: Topic`, with `kind` saying which, `sources` and
-`generated` recording provenance, and `verified` recording who approved it.
-
-Derived artefacts update in place; git holds prior states. Never cite
-`topics/**` as evidence — provenance bottoms out at primitives.
-
-**Citations** in body text are root-relative wikilinks, the path without
-`.md`: `[[/chats/claude/2026/09/2026-09-07-esta-renewal]]`. The leading `/`
-resolves from the repository root. No date beside it — the path carries one;
-where the date is the point, `[2026-09-07](/chats/…/2026-09-07-esta-renewal.md)`.
-Frontmatter never uses `[[…]]`, since YAML reads it as a nested list. Check that a target exists before citing it;
-`commonplace doctor` reports links that go nowhere.
+Derived artefacts update in place; git holds prior states.
 
 ## CLI Commands
 
