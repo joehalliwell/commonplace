@@ -28,6 +28,9 @@ has surfaced it.
 
 ## Prerequisites
 
+Read `${CLAUDE_PLUGIN_ROOT}/concepts.md` first: the concepts every skill
+shares, with their reasons. The steps below restate the rules they act on.
+
 The commonplace must have an index. If search returns errors, ask the user to
 run `commonplace index` first.
 
@@ -151,21 +154,12 @@ commonplace index
 
 ### 6. Agent Journal (optional)
 
-This step is yours, and it's more than a log. What came up with the user
-belongs in this run's output, recorded as the review step says; don't repeat
-it here. Write what the work left you with: reflections the material
-prompted, however loose; what you make of the user, unflattering included,
-and what you'd do about it; how the run went. Be candid: the user would
-rather read your opinion than a polite one. Write it in
-`agent-journal/{agent}/{yyyy}/{mm}/{yyyy-mm-dd}.md`, where `{agent}` names
-you, e.g. `claude`. If nothing comes, skip it.
-
-If `agent-journal/README.md` exists, read it first. Otherwise: the entry is
-yours, not the user's; they may read it; later sessions won't remember this
-one, so write it to be read cold. Append if today's file exists; head a new
-one like the user's journal, e.g. `# Thursday, October 1 2026`.
-
-Commit it on its own and tell the user its path:
+This step is yours. Write what the work left you with: reflections the
+material prompted, candid opinions of the user and what you'd do about them.
+What came up with the user stays in this run's output, never here. **Agent
+journal** in `concepts.md` says where the entry goes and how. If nothing
+comes, skip it; if you write one, commit it on its own and tell the user its
+path:
 
 ```bash
 commonplace git -- add agent-journal/
