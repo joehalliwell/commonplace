@@ -47,8 +47,7 @@ Use the **Task tool** to spawn a `general-purpose` subagent:
   - `{slug}` — the derived slug
   - `{date}` — today as YYYY-MM-DD
   - `{working_dir}` — absolute path to the repository root
-
-Wait for the subagent to complete.
+  - `{concepts}` — the absolute path of `${CLAUDE_PLUGIN_ROOT}/concepts.md`
 
 ### 3. Review
 
@@ -59,10 +58,10 @@ that no existing History line changed; History only grows. Check the First
 Next Action against the full Next list; if the dependency reasoning looks off,
 flag it. Put the summary's Questions to the user.
 
-**Cold reading.** You haven't read the sources, so test the summary: list
-every term, name, or reference you couldn't explain from it alone. If the
-list isn't empty, send it back to the subagent before presenting. Don't
-rewrite the lines yourself; you'd be putting a guess into the record.
+**Cold reading.** You haven't read the sources, so list every term, name, or
+reference in the summary you couldn't explain from it alone, and send a
+non-empty list back to the subagent before presenting. The subagent rewrites
+the lines; you supply the list.
 
 Wait for explicit approval before committing. If the user rejects an edit,
 revert that hunk (`commonplace git -- checkout -p notes/projects/{slug}.md`) or
@@ -120,9 +119,12 @@ You are drafting a project note in a commonplace repository.
 - Slug: {slug}
 - Date: {date}
 
-Your job is to find all material related to this project and write or update
-`notes/projects/{slug}.md`. Do **not** commit; return a compact review summary
-when done.
+Read `{concepts}` first. It defines the terms this prompt uses: *primitive*,
+*laundering*, *attribution*, *silence*, *backfill*.
+
+Find all material related to this project and write or update
+`notes/projects/{slug}.md`. Leave committing to the calling agent: return the
+compact review summary below.
 
 **Commonplace CLI**
 
@@ -155,10 +157,9 @@ commonplace search -n 20 "<key term> blocked"
 commonplace search -n 20 "<key term> gave up"
 ```
 
-**Cite primitives only.** Sources are `chats/`, `journal/`, `notes/`. Never
-cite `topics/**`: those are derived, and a distillation's reading is not
-evidence. If a distillation points you at something, follow its citation and
-cite the primitive.
+**Cite only primitives**: `chats/`, `journal/`, `notes/`. Where a
+distillation points you at something, follow its citation and cite the
+primitive; citing the distillation is laundering.
 
 **Cite with root-relative wikilinks**: `[[/` + the repo-relative path without
 `.md` + `]]`, e.g. `[[/journal/2026/08/2026-08-28]]`. Before returning, confirm
@@ -172,18 +173,17 @@ every History entry about intent must rest on the user's words, or on an
 agent's suggestion the user took up. Say who said it.
 
 **If search returns very little**, the project is a sketch that hasn't
-materialised in the commonplace yet. Write a short note that says so; don't
-pad it.
+materialised in the commonplace yet: write a short note that says so.
 
 ### Phase 3: Status
 
 Use the status words from `notes/projects/index.md` if it exists. Whatever
 the vocabulary:
 
-- **Silence is not abandonment.** A project going quiet in the record may be
-  paused, done offline, or merely unrecorded. Call it abandoned or dropped
-  only if the user said so in so many words; otherwise say when it was last
-  touched and that you can't tell.
+- **Silence is not abandonment.** A quiet project may be paused, done
+  offline, or merely unrecorded. Call it abandoned or dropped only in the
+  user's words; otherwise say when it was last touched and that you can't
+  tell.
 - A project with little material is speculative, not active.
 
 ### Phase 4: Write the Note
@@ -217,8 +217,8 @@ Open questions, blockers, and next actions, one line each. The first is the
 update the parts the skill keeps.
 
 *New material* is any relevant search hit whose path the note doesn't already
-cite, whatever its date. Don't filter by date: imports backfill old
-conversations, and the note's citations are the record of what's been read.
+cite, whatever its date (backfill: the note's citations are the record of
+what's been read).
 
 *Review* the rest of the note against the record, and edit it where a source
 shows it's out of date:
@@ -230,14 +230,13 @@ shows it's out of date:
 
 Make the smallest edit that fixes the line, in the note's own style, and list
 each one in your return value with its source. Where the only evidence is
-silence, don't edit: silence is not evidence something was done or dropped.
-Return it as a question instead ("no mention since 2025-03; still live?").
+silence, return a question instead ("no mention since 2025-03; still live?").
 
 *Update* the three parts the skill keeps:
 
 - **`Status:`** line: rewrite it in place.
 - **`## History`**: append the new material's milestones, cited as above.
-  Never edit or remove existing History lines; the trajectory stays.
+  Existing History lines stay as written; the trajectory stays.
 - **`## Next`**: rewrite it in place from the current state, then run the
   critique below.
 
