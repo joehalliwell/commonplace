@@ -90,7 +90,7 @@ class GeminiFetcher(BaseFetcher):
                 if not cursor or not rows:
                     break
 
-    def _call_rpc(self, rpcid: str, payload: list) -> list | None:
+    def _call_rpc(self, rpcid: str, payload: list, source_path: str = "/app") -> list | None:
         """Wrap payload in the batchexecute envelope, POST, parse, return the
         RPC response body (parsed from the wrb.fr[2] string). Returns None if
         the wrb.fr entry has a null body (Gemini's way of signalling a per-item
@@ -102,7 +102,7 @@ class GeminiFetcher(BaseFetcher):
             "rpcids": rpcid,
             "_reqid": random.randint(10000, 99999),
             "rt": "c",
-            "source-path": "/app",
+            "source-path": source_path,
             "bl": self._build_label,
             "f.sid": self._session_id,
         }
