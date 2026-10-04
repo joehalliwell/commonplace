@@ -59,9 +59,19 @@ that no existing History line changed; History only grows. Check the First
 Next Action against the full Next list; if the dependency reasoning looks off,
 flag it. Put the summary's Questions to the user.
 
+**Cold reading.** You haven't read the sources, so test the summary: list
+every term, name, or reference you couldn't explain from it alone. If the
+list isn't empty, send it back to the subagent before presenting. Don't
+rewrite the lines yourself; you'd be putting a guess into the record.
+
 Wait for explicit approval before committing. If the user rejects an edit,
 revert that hunk (`commonplace git -- checkout -p notes/projects/{slug}.md`) or
 make the correction directly.
+
+**What the user says in review is a source**, and the note is where it goes:
+the note is theirs, so a correction or answer becomes an edit to it, never a
+journal entry. Where it adds a milestone, append a History line citing
+*(<user>, in review, <date>)* in plain text.
 
 ### 4. Commit
 

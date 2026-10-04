@@ -103,6 +103,9 @@ For the **already filed** heap, ask only about items the subagent flagged as
 possibly done or as having an overturned premise; the user decides whether to
 tick, strike, or edit them.
 
+Triage answers are decisions, not evidence: they land where they are filed,
+and rake keeps no separate review record.
+
 ### 4. File
 
 Write only what the user accepted. The destinations are the user's own notes,
