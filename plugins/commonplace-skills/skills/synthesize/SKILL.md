@@ -294,8 +294,8 @@ around it:
 - Name each thread with its question: **Does making the work legible to an
   audience cost it the ambiguity that made it worth making?**, not **The
   opacity problem**.
-- Thread entries say what's open and the evidence either way; detail and
-  citations live in Timeline and Shifts.
+- Thread entries are short: what's open, and the evidence either way, each
+  piece cited. The fuller story lives in Timeline and Shifts.
 
 Thin material gets a short distillation that says so ("2 sources, early
 exploration").
