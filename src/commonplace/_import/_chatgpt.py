@@ -61,7 +61,8 @@ class ChatGptImporter:
 def _to_log(conversation: dict[str, Any]) -> EventLog:
     """Convert a conversation dictionary to an EventLog."""
     # Export ZIPs key it `id`; fetched detail responses use `conversation_id`.
-    metadata = {"id": conversation.get("id") or conversation["conversation_id"]}
+    id_ = conversation.get("id") or conversation["conversation_id"]
+    metadata = {"id": id_, "resource": f"https://chatgpt.com/c/{id_}"}
 
     return EventLog(
         source=SOURCE,

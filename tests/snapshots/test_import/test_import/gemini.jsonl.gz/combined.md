@@ -1,9 +1,15 @@
 <!-- Contents of chats/gemini/2025/06/2025-06-17-chattitle0.md -->
 ---
+type: Chat
+title: CHAT_TITLE_0
 uuid: c_60772b6269b693f9
+resource: https://gemini.google.com/app/60772b6269b693f9
 updated_at: '2026-07-16T08:22:02.939572Z'
 is_pinned: false
 gem: GEM_NAME
+generated:
+  by: commonplace/1.2.3
+  at: '2025-06-17T06:27:18+00:00'
 source: gemini
 source_exports:
 - .commonplace/blobs/64324d9d824c69a54ec2dce250093d9fc9a81c0c370ec33cb5221836a5272605/gemini.jsonl.gz
@@ -49,10 +55,16 @@ MODEL_TEXT_0_0
 
 <!-- Contents of chats/gemini/2025/06/2025-06-17-chattitle2.md -->
 ---
+type: Chat
+title: CHAT_TITLE_2
 uuid: c_83032b747586b587
+resource: https://gemini.google.com/app/83032b747586b587
 updated_at: '2026-07-10T07:25:49.705902Z'
 is_pinned: false
 gem: GEM_NAME
+generated:
+  by: commonplace/1.2.3
+  at: '2025-06-17T06:27:18+00:00'
 source: gemini
 source_exports:
 - .commonplace/blobs/64324d9d824c69a54ec2dce250093d9fc9a81c0c370ec33cb5221836a5272605/gemini.jsonl.gz

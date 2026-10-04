@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -43,7 +44,13 @@ def sample_export(request, tmp_path_factory):
     return SampleExport(name, path)
 
 
-def test_import(sample_export, test_repo, snapshot):
+@pytest.fixture
+def pinned_version(monkeypatch):
+    """Hold `generated.by` still, so snapshots don't move with every release."""
+    monkeypatch.setattr("commonplace._import._commands.__version__", "1.2.3")
+
+
+def test_import(sample_export, test_repo, snapshot, pinned_version):
     """End-to-end snapshot-based test for all samples"""
     import_(sample_export.path, test_repo, user="Human")
 
@@ -109,17 +116,50 @@ def test_import_existing_note_refreshes_importer_metadata(test_repo, claude_expo
     assert metadata["source"] == "claude"
 
 
-def test_import_preserves_user_metadata(test_repo, claude_export):
-    """Test that re-importing preserves user-added metadata."""
+def test_import_existing_note_is_rewritten_as_a_fresh_import(test_repo, claude_export):
+    """Commonplace owns chats, so re-importing is the backfill: nothing of the old frontmatter survives."""
     import_(claude_export, test_repo, user="Human")
     imported_file = min((test_repo.root / "chats").glob("**/*.md"))
-    _edit_metadata(imported_file, tags=["important", "test"], rating=5)
+    fresh = imported_file.read_text()
+    metadata, body = load_frontmatter(fresh)
+    legacy = {k: v for k, v in metadata.items() if k not in ("type", "title", "resource", "generated")}
+    imported_file.write_text(dump_frontmatter(legacy | {"rating": 5}, body))
 
     import_(claude_export, test_repo, user="Human")
 
-    metadata, _ = load_frontmatter(imported_file.read_text())
-    assert metadata["tags"] == ["important", "test"]
-    assert metadata["rating"] == 5
+    assert imported_file.read_text() == fresh
+
+
+def test_import_chat_frontmatter_has_okf_type_title_and_generated(sample_export, test_repo, pinned_version):
+    import_(sample_export.path, test_repo, user="Human")
+
+    for path in (test_repo.root / "chats").glob("**/*.md"):
+        metadata, body = load_frontmatter(path.read_text())
+        assert metadata["type"] == "Chat"
+        assert body.startswith(f"# {metadata['title']} [created:: ")
+        assert metadata["generated"]["by"] == "commonplace/1.2.3"
+        last = max(
+            datetime.fromisoformat(ts) for ts in re.findall(r"^#+ .* \[created:: ([^\]]+)\]$", body, re.MULTILINE)
+        )
+        assert datetime.fromisoformat(metadata["generated"]["at"]) == last
+
+
+RESOURCES = {
+    "claude.zip": lambda m: f"https://claude.ai/chat/{m['uuid']}",
+    "claude.jsonl.gz": lambda m: f"https://claude.ai/chat/{m['uuid']}",
+    "chatgpt.zip": lambda m: f"https://chatgpt.com/c/{m['id']}",
+    "gemini.jsonl.gz": lambda m: f"https://gemini.google.com/app/{m['uuid'].removeprefix('c_')}",
+    "claude-code.jsonl": lambda m: None,
+    "gemini-takeout.zip": lambda m: None,
+}
+
+
+def test_import_chat_resource_is_the_conversation_url_per_source(sample_export, test_repo):
+    import_(sample_export.path, test_repo, user="Human")
+
+    for path in (test_repo.root / "chats").glob("**/*.md"):
+        metadata, _ = load_frontmatter(path.read_text())
+        assert metadata.get("resource") == RESOURCES[sample_export.name](metadata)
 
 
 def test_import_no_index_skips_indexing(test_repo, index_spy, claude_export):

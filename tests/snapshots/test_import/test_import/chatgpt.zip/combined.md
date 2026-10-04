@@ -1,6 +1,12 @@
 <!-- Contents of chats/chatgpt/2024/02/2024-02-27-big-numbers-summed.md -->
 ---
+type: Chat
+title: Big Numbers Summed
 id: 038fd537-ef57-4f71-8ce1-8e27aa2c61bb
+resource: https://chatgpt.com/c/038fd537-ef57-4f71-8ce1-8e27aa2c61bb
+generated:
+  by: commonplace/1.2.3
+  at: '2024-02-27T13:35:54+00:00'
 source: chatgpt
 source_exports:
 - .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json
@@ -23,7 +29,13 @@ astronomically correct!
 
 <!-- Contents of chats/chatgpt/2024/03/2024-03-06-conventual-life-for-nuns.md -->
 ---
+type: Chat
+title: Conventual Life for Nuns
 id: 2cd72c1e-7631-44c7-b072-5273f45af955
+resource: https://chatgpt.com/c/2cd72c1e-7631-44c7-b072-5273f45af955
+generated:
+  by: commonplace/1.2.3
+  at: '2024-03-06T07:48:44+00:00'
 source: chatgpt
 source_exports:
 - .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json
@@ -85,7 +97,13 @@ broader notions of purity and dedication.
 
 <!-- Contents of chats/chatgpt/2025/03/2025-03-31-ghibli-style-illustration-request.md -->
 ---
+type: Chat
+title: Ghibli-style Illustration Request
 id: 67eb115c-ee28-8001-adbb-d8986cb6793b
+resource: https://chatgpt.com/c/67eb115c-ee28-8001-adbb-d8986cb6793b
+generated:
+  by: commonplace/1.2.3
+  at: '2025-03-31T22:09:44+00:00'
 source: chatgpt
 source_exports:
 - .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json

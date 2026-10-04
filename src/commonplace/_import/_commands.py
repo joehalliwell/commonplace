@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from zipfile import ZipFile, is_zipfile
 
+from commonplace import __version__
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
 from commonplace._import._claude import ClaudeImporter
@@ -84,13 +85,7 @@ def extract_and_store(archive: Path, paths: list[str], repo: Commonplace) -> lis
 
 
 def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None = None):
-    """
-    Import chats from a supported provider into the repository, or hand a mirrored source to `mirror_one`.
-
-    If a conversation already exists at the target path, metadata will be merged:
-    - Fields provided by the importer will be updated with new values
-    - User-added fields (not in importer metadata) will be preserved
-    """
+    """Import chats, overwriting any already there since commonplace owns them, or hand a mirrored source to `mirror_one`."""
     importer = autodetect_importer(path)
     if not importer:
         logger.debug(f"Skipping {path}")
@@ -119,17 +114,23 @@ def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None
         if count > 1:
             rel_path = make_chat_path(source=log.source, date=log.created, title=f"{log.title}-{count}")
 
-        log.metadata["source"] = log.source
-        log.metadata["source_exports"] = source_exports
+        # OKF keys first; `generated` is the importer's rendition, current as of the last event.
+        log.metadata = {
+            "type": "Chat",
+            "title": log.title,
+            **log.metadata,
+            "generated": {
+                "by": f"commonplace/{__version__}",
+                "at": max((e.created for e in log.events), default=log.created).isoformat(timespec="seconds"),
+            },
+            "source": log.source,
+            "source_exports": source_exports,
+        }
 
         # Create RepoPath for the new note (will get proper ref after commit)
         repo_path = repo.make_repo_path(rel_path)
 
         note = Note(repo_path=repo_path, body=serializer.serialize(log), metadata=log.metadata)
-        if (repo.root / rel_path).exists():
-            # Ours win; what the user added by hand survives.
-            note.metadata = repo.load(repo_path).metadata | note.metadata
-            logger.debug(f"Merged metadata for existing file '{rel_path}'")
         repo.save(note)
         logger.info(f"Stored log '{log.title}' at '{rel_path}'")
 
