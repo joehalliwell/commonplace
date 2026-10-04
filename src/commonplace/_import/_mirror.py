@@ -6,11 +6,13 @@ trajectory. Everything here is the same for every vendor.
 """
 
 from pathlib import Path, PurePosixPath
+from typing import Any
 
 from commonplace._import._types import MemoryImporter
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._types import Note
+from commonplace._utils import load_frontmatter
 from commonplace._wire import read_header
 
 
@@ -27,6 +29,8 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
     files = {p: parts for p, parts in snapshot.files.items() if _inside(p)}
     for refused in snapshot.files.keys() - files.keys():
         logger.warning(f"Skipping file with unusable path '{refused}'")
+    if importer.exhaustive:
+        files = {p: parts for p, parts in files.items() if not _landed(repo.root / tree / p, parts)}
 
     stale: list[Path] = []
     if snapshot.listed is None:
@@ -52,6 +56,14 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         logger.info(f"Pruned '{target}'")
 
     repo.commit(f"Mirror '{path}' using '{importer.source}' importer", auto_index=auto_index)
+
+
+def _landed(target: Path, parts: tuple[dict[str, Any], str]) -> bool:
+    """Whether `target` already holds this frontmatter and body, whichever capture it was landed from."""
+    if not target.is_file():
+        return False
+    metadata, body = load_frontmatter(target.read_text())
+    return ({k: v for k, v in metadata.items() if k not in ("source", "source_exports")}, body) == parts
 
 
 def _inside(path: PurePosixPath) -> bool:

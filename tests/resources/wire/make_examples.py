@@ -122,8 +122,62 @@ MEMORY_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
 }
 
 
+# Shaped like the real thing as first fetched on 2026-10-04: newest update first, two trailing ints we don't
+# understand, and an opaque base64 token after the items.
+GEMINI_SAVED_INFO = [
+    [
+        [
+            "0006376600000000000000000000000000000000000000a1",
+            "Prefers tea to coffee.",
+            [1767225600, 0],
+            None,
+            [1767398400, 500000000],
+            None,
+            None,
+            None,
+            None,
+            1,
+            5,
+        ],
+        [
+            "0006376600000000000000000000000000000000000000b2",
+            "Writes in British English.",
+            [1735689600, 0],
+            None,
+            [1767312000, 0],
+            None,
+            None,
+            None,
+            None,
+            2,
+            1,
+        ],
+    ],
+    "c3ludGhldGljIHRva2Vu",
+]
+GEMINI_SAVED_INFO_TEXT = ")]}'\n\n0\n" + json.dumps(
+    [["wrb.fr", "ZKcapf", json.dumps(GEMINI_SAVED_INFO), None, None, None, "generic"]]
+)
+
+GEMINI_MEMORY_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
+    3: (
+        {
+            "wire": "gemini-memory",
+            "version": 3,
+            "fetched_at": "2026-10-04T12:00:00+00:00",
+            "fetched_by": "commonplace/0.0.5",
+        },
+        [{"rpc": "ZKcapf", "payload": [], "response": GEMINI_SAVED_INFO_TEXT}],
+    ),
+}
+
+
 def main() -> None:
-    for source, archives in (("claude", ARCHIVES), ("claude-memory", MEMORY_ARCHIVES)):
+    for source, archives in (
+        ("claude", ARCHIVES),
+        ("claude-memory", MEMORY_ARCHIVES),
+        ("gemini-memory", GEMINI_MEMORY_ARCHIVES),
+    ):
         for version, (header, entries) in archives.items():
             lines = [] if header is None else [json.dumps(header)]
             lines += [json.dumps(entry, ensure_ascii=False) for entry in entries]

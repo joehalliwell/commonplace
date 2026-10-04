@@ -12,6 +12,7 @@ from commonplace._import._claude_code import ClaudeCodeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
 from commonplace._import._claude_memory import ClaudeMemoryImporter
 from commonplace._import._gemini import GeminiImporter
+from commonplace._import._gemini_memory import GeminiMemoryImporter
 from commonplace._import._gemini_takeout import GeminiTakeoutImporter
 from commonplace._import._mirror import mirror_one
 from commonplace._import._serializer import MarkdownSerializer
@@ -26,6 +27,7 @@ from commonplace._utils import slugify
 IMPORTERS: list[ChatImporter | MemoryImporter] = [
     GeminiTakeoutImporter(),
     GeminiImporter(),
+    GeminiMemoryImporter(),
     ClaudeExportImporter(),
     ClaudeImporter(),
     ClaudeMemoryImporter(),

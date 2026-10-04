@@ -79,6 +79,8 @@ class MemoryImporter(Protocol):
     source: str
     #: Where the files land, and so the fetch cursor's pathspec.
     tree: Path
+    #: Whether every snapshot carries every file, so the mirror must skip those unchanged rather than rewrite them.
+    exhaustive: bool
 
     def can_import(self, path: Path) -> bool: ...
 
