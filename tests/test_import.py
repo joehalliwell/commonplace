@@ -167,7 +167,7 @@ ASSISTANTS = {
     "claude.jsonl.gz": "Claude",
     "chatgpt.zip": "ChatGPT",
     "gemini.jsonl.gz": "Gemini",
-    "claude-code.jsonl": "Claude",
+    "claude-code.jsonl": "Claude Code",
     "gemini-takeout.zip": "Gemini",
 }
 
@@ -178,7 +178,8 @@ def test_import_speaker_headings_use_the_assistant_name(sample_export, test_repo
     speakers = {
         speaker
         for path in (test_repo.root / "chats").glob("**/*.md")
-        for speaker in re.findall(r"^## (\S+) \[created::", path.read_text(), re.MULTILINE)
+        for speaker in re.findall(r"^## (.+?) \[created::", path.read_text(), re.MULTILINE)
+        if not speaker.endswith(" call")  # Tool turns
     }
     assert speakers == {"Human", ASSISTANTS[sample_export.name]}
 

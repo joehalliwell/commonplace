@@ -18,7 +18,7 @@ source_export: .commonplace/blobs/52e0e484e5efa8fba74b0cc0b6d3badbd204e4c0d318bd
 
 Please check out the project and understand its purpose and structure
 
-## Claude [created:: 2025-10-01T19:55:56+00:00]
+## Claude Code [created:: 2025-10-01T19:55:56+00:00]
 
 I'll explore the project structure and understand its purpose.
 
@@ -499,7 +499,7 @@ output: 'total 48
 
 ```
 
-## Claude [created:: 2025-10-01T19:56:20+00:00]
+## Claude Code [created:: 2025-10-01T19:56:20+00:00]
 
 ## Summary
 
