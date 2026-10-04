@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from commonplace._import._base import BaseWireImporter
-from commonplace._import._types import EventLog, Message, Role
+from commonplace._import._types import EventLog, Message, Role, models_field
 from commonplace._logging import logger
 from commonplace._utils import sniff_gzipped_jsonl
 from commonplace._wire import read_entries
@@ -85,6 +85,7 @@ def _to_log(summary: dict[str, Any], body: list | None) -> EventLog:
     """Build an EventLog from a summary + a read_chat body. `body` may be None
     for per-chat access glitches; the log is emitted with no events."""
     events: list[Message] = []
+    models: list[str | None] = []
     gem_name: str | None = None
 
     if body is not None:
@@ -115,6 +116,9 @@ def _to_log(summary: dict[str, Any], body: list | None) -> EventLog:
             thoughts = candidate[37][0][0] if len(candidate) > 37 and candidate[37] else None
             if len(turn) > 9 and turn[9]:
                 gem_name = turn[9][0]
+            # Response slot 21 is the model's display label ("3 Pro"), recorded unmapped; older turns lack it.
+            if len(turn[3]) > 21:
+                models.append(turn[3][21])
 
             events.append(Message(sender=Role.USER, content=user_text, created=ts))
             model_meta: dict = {"thoughts": thoughts} if thoughts else {}
@@ -133,6 +137,7 @@ def _to_log(summary: dict[str, Any], body: list | None) -> EventLog:
     }
     if gem_name:
         metadata["gem"] = gem_name
+    metadata.update(models_field(models))
 
     return EventLog(
         source="gemini",

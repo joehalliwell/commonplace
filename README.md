@@ -302,6 +302,8 @@ rewrites it in place, so annotate them in `notes/`, not in the chat itself.
 Each chat is an [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
 document (`type: Chat`) whose `resource` links back to the conversation where
 the agent has a URL for it, so re-importing also brings older chats up to date.
+Its `models` lists the models the conversation used, in order and as the vendor
+names them (`gpt-4o`, `3 Pro`), and is absent where the source records none.
 
 <details>
 <summary>How to export from each vendor</summary>

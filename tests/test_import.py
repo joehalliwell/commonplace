@@ -8,15 +8,17 @@ from zipfile import BadZipFile, ZipFile
 
 import pytest
 
-from commonplace._import._chatgpt import ChatGptImporter
+from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._claude_code import ClaudeCodeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
 from commonplace._import._commands import import_
+from commonplace._import._gemini import _to_log as _gemini_to_log
 from commonplace._import._gemini_takeout import GeminiTakeoutImporter
 from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._import._zip import zip_contains
 from commonplace._utils import dump_frontmatter, load_frontmatter
+from commonplace._wire import write_archive
 
 SAMPLE_EXPORTS_DIR = Path(__file__).parent / "resources" / "sample-exports"
 SAMPLE_EXPORT_NAMES = [p.name for p in SAMPLE_EXPORTS_DIR.glob("*")]
@@ -321,6 +323,94 @@ def test_claude_code_import_titles_a_session_by_its_summary_else_its_id(tmp_path
 
     assert (untitled.title, titled.title) == ("session-1", "A greeting")
     assert titled.metadata == {"sessionId": "session-1", "cwd": "/work"}
+
+
+def test_claude_code_import_records_each_model_once_in_order(tmp_path):
+    session = _claude_code_session(
+        tmp_path,
+        _claude_code_line("user", "hi", "2025-10-01T10:00:00Z"),
+        _claude_code_line("assistant", "one", "2025-10-01T10:00:01Z", model="claude-opus-5"),
+        _claude_code_line("assistant", "error", "2025-10-01T10:00:02Z", model="<synthetic>"),
+        _claude_code_line("assistant", "two", "2025-10-01T10:00:03Z", model="claude-sonnet-5"),
+        _claude_code_line("assistant", "three", "2025-10-01T10:00:04Z", model="claude-opus-5"),
+    )
+
+    [log] = ClaudeCodeImporter().import_(session)
+    assert log.metadata["models"] == ["claude-opus-5", "claude-sonnet-5"]
+    assert "model" not in log.metadata
+
+
+def _chatgpt_message(id_: str, role: str, **metadata) -> dict:
+    return {
+        "id": id_,
+        "author": {"role": role},
+        "content": {"content_type": "text", "parts": [f"{role} {id_}"]},
+        "create_time": 1_750_000_000.0,
+        "metadata": metadata,
+    }
+
+
+def _chatgpt_archive(tmp_path: Path, *messages: dict) -> Path:
+    """A wire archive holding one conversation, its messages a single chain."""
+    ids = [m["id"] for m in messages]
+    mapping = {
+        id_: {"id": id_, "message": m, "parent": parent, "children": [child] if child else []}
+        for id_, m, parent, child in zip(ids, messages, [None, *ids], [*ids[1:], None], strict=False)
+    }
+    conversation = {
+        "conversation_id": "c1",
+        "title": "Models",
+        "create_time": 1_750_000_000.0,
+        "mapping": mapping,
+        "current_node": ids[-1],
+    }
+    entries = [{"endpoint": "conversation", "response": json.dumps(conversation)}]
+    return write_archive(tmp_path / "chatgpt-wire.jsonl.gz", "chatgpt", entries)
+
+
+def test_chatgpt_import_records_the_resolved_agent_models_in_order(tmp_path):
+    archive = _chatgpt_archive(
+        tmp_path,
+        _chatgpt_message("u1", "user", model_slug="gpt-4"),
+        _chatgpt_message("a1", "assistant", resolved_model_slug="gpt-5-5-mini", model_slug="auto"),
+        _chatgpt_message("a2", "assistant", model_slug="gpt-4o"),
+        _chatgpt_message("a3", "assistant", model_slug="auto"),
+        _chatgpt_message("a4", "assistant", resolved_model_slug="gpt-5-5-mini"),
+    )
+
+    [log] = ChatGptWireImporter().import_(archive)
+    assert log.metadata["models"] == ["gpt-5-5-mini", "gpt-4o"]
+
+
+def test_chatgpt_import_without_a_model_records_no_models(tmp_path):
+    archive = _chatgpt_archive(tmp_path, _chatgpt_message("u1", "user"), _chatgpt_message("a1", "assistant"))
+
+    [log] = ChatGptWireImporter().import_(archive)
+    assert "models" not in log.metadata
+
+
+def _gemini_turn(n: int, label: str | None = None, slots: int = 25) -> list:
+    """One read_chat turn; `label` sits in the response's slot 21 when `slots` reaches it."""
+    candidate = [f"rc_{n}", [f"reply {n}"], *[None] * 7, "en"]
+    response: list = [[candidate], *[None] * (slots - 1)]
+    if label is not None:
+        response[21] = label
+    return [[f"c_{n}", f"r_{n}"], None, [[f"prompt {n}"]], response, [1_750_000_000 + n, 0]]
+
+
+def _gemini_log(*turns: list) -> EventLog:
+    summary = {"cid": "c_1", "title": "Models", "is_pinned": False, "updated_at": "2025-06-15T00:00:00+00:00"}
+    return _gemini_to_log(summary, [list(reversed(turns))])  # The wire lists turns newest first
+
+
+def test_gemini_import_records_each_display_label_once_in_order():
+    log = _gemini_log(_gemini_turn(1, "3 Pro"), _gemini_turn(2), _gemini_turn(3, "3.1 Pro"), _gemini_turn(4, "3 Pro"))
+    assert log.metadata["models"] == ["3 Pro", "3.1 Pro"]
+
+
+def test_gemini_import_of_turns_without_a_label_records_no_models():
+    log = _gemini_log(_gemini_turn(1, slots=20), _gemini_turn(2))
+    assert "models" not in log.metadata
 
 
 def test_claude_importer_declines_a_chatgpt_conversations_file(tmp_path):

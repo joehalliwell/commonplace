@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from commonplace._import._base import BaseWireImporter
-from commonplace._import._types import EventLog, Message, Role
+from commonplace._import._types import EventLog, Message, Role, models_field
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._utils import sniff_gzipped_jsonl, truncate
@@ -53,8 +53,19 @@ def _to_log(thread: dict[str, Any], source: str) -> EventLog:
         title=thread["name"],
         created=thread["created_at"],
         events=[_to_message(msg) for msg in thread["chat_messages"]],
-        metadata={"uuid": thread["uuid"], "resource": f"https://claude.ai/chat/{thread['uuid']}"},
+        metadata={
+            "uuid": thread["uuid"],
+            "resource": f"https://claude.ai/chat/{thread['uuid']}",
+            **models_field(_models(thread)),
+        },
     )
+
+
+def _models(thread: dict[str, Any]) -> list[str | None]:
+    """Messages name no model: `model` is the one in use now, and a safeguard fallback names those before it."""
+    fallback = (thread.get("settings") or {}).get("safeguard_fallback") or {}
+    hops = [model for hop in fallback.get("hops", []) for model in (hop["from_model"], hop["to_model"])]
+    return [*(model["model"] for model in hops), thread.get("model")]
 
 
 def _to_message(message: dict[str, Any]) -> Message:

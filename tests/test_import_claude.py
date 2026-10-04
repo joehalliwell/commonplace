@@ -56,6 +56,22 @@ def test_wire_importer_reads_legacy_parsed_responses(tmp_path, write_jsonl_gz):
     assert [e.content for e in logs[0].events] == ["hello", "hi back"]
 
 
+def test_wire_importer_without_a_model_records_no_models(tmp_path):
+    path = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", _entries(json.dumps(_THREAD)))
+
+    [log] = ClaudeImporter().import_(path)
+    assert "models" not in log.metadata
+
+
+def test_wire_importer_names_a_fallback_target_once(tmp_path):
+    hop = {"from_model": {"model": "claude-fable-5"}, "to_model": {"model": "claude-opus-4-8"}}
+    thread = {**_THREAD, "model": "claude-opus-4-8", "settings": {"safeguard_fallback": {"hops": [hop]}}}
+    path = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", _entries(json.dumps(thread)))
+
+    [log] = ClaudeImporter().import_(path)
+    assert log.metadata["models"] == ["claude-fable-5", "claude-opus-4-8"]
+
+
 def _thread_with_message(message: dict) -> dict:
     return {**_THREAD, "chat_messages": [message]}
 

@@ -14,7 +14,7 @@ from typing import Any
 from zipfile import ZipFile
 
 from commonplace._import._base import BaseWireImporter
-from commonplace._import._types import EventLog, Message, Role
+from commonplace._import._types import EventLog, Message, Role, models_field
 from commonplace._import._zip import zip_contains
 from commonplace._logging import logger
 from commonplace._wire import read_entries
@@ -64,7 +64,7 @@ def _to_log(conversation: dict[str, Any]) -> EventLog:
     """Convert a conversation dictionary to an EventLog."""
     # Export ZIPs key it `id`; fetched detail responses use `conversation_id`.
     id_ = conversation.get("id") or conversation["conversation_id"]
-    metadata = {"id": id_, "resource": f"https://chatgpt.com/c/{id_}"}
+    metadata = {"id": id_, "resource": f"https://chatgpt.com/c/{id_}", **models_field(_models(conversation))}
 
     return EventLog(
         source=SOURCE,
@@ -82,6 +82,19 @@ def _messages(conversation: dict[str, Any]):
         msg = _to_message(nodes[node_id])
         if msg:
             yield msg
+
+
+def _models(conversation: dict[str, Any]) -> list[str | None]:
+    """The live branch's agent models: what `auto` resolved to where recorded; `auto` alone names none."""
+    nodes = conversation["mapping"]
+    models: list[str | None] = []
+    for node_id in _thread(nodes, conversation.get("current_node")):
+        msg = nodes[node_id].get("message") or {}
+        if msg.get("author", {}).get("role") == "assistant":
+            metadata = msg.get("metadata", {})
+            slug = metadata.get("resolved_model_slug") or metadata.get("model_slug")
+            models.append(None if slug == "auto" else slug)
+    return models
 
 
 def _thread(nodes: dict[str, Any], current_node: str | None) -> list[str]:

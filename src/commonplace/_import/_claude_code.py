@@ -3,7 +3,7 @@ from itertools import islice
 from pathlib import Path
 from typing import Any
 
-from commonplace._import._types import Event, EventLog, Message, Role, ToolCall
+from commonplace._import._types import Event, EventLog, Message, Role, ToolCall, models_field
 from commonplace._logging import logger
 from commonplace._utils import truncate
 
@@ -47,13 +47,17 @@ class ClaudeCodeImporter:
             "timestamp",
             "cwd",
             "summary",
-            "model",
         )
         metadata = {}
+        models: list[str | None] = []
         tool_calls: dict[str, ToolCall] = {}
 
         for line in path.read_text(encoding="utf-8").splitlines():
             data = json.loads(line)
+
+            # `<synthetic>` marks a message the harness wrote, not a model.
+            if data.get("type") == "assistant" and (model := data["message"].get("model")) != "<synthetic>":
+                models.append(model)
 
             # Extract session metadata opportunistically from envelope or message
             for required in required_metadata:
@@ -74,7 +78,7 @@ class ClaudeCodeImporter:
             return []
 
         # Ensure metadata is correctly ordered for the frontmatter
-        metadata = {k: metadata[k] for k in required_metadata if k in metadata}
+        metadata = {k: metadata[k] for k in required_metadata if k in metadata} | models_field(models)
 
         # Extract title and created time
         created = metadata.pop("timestamp")
