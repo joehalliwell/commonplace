@@ -58,7 +58,7 @@ def _to_log(thread: dict[str, Any], source: str) -> EventLog:
 
 
 def _to_message(message: dict[str, Any]) -> Message:
-    sender = Role.USER if message["sender"] == "human" else Role.ASSISTANT
+    sender = Role.USER if message["sender"] == "human" else Role.AGENT
     created = message["created_at"]
 
     # Export-ZIP messages carry a populated `content` block list; fetcher-wire

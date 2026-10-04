@@ -64,7 +64,7 @@ def test_import(sample_export, test_repo, snapshot, pinned_version):
 
 def test_serialize_log(snapshot):
     """Test basic serialization of ActivityLog to markdown."""
-    serializer = MarkdownSerializer(human="Human", assistant="Assistant")
+    serializer = MarkdownSerializer(human="Human", agent="Agent")
 
     messages = [
         Message(
@@ -74,7 +74,7 @@ def test_serialize_log(snapshot):
             metadata={"id": "message-0"},
         ),
         Message(
-            sender=Role.ASSISTANT,
+            sender=Role.AGENT,
             content="Hi there!",
             created=datetime(2024, 1, 1, 12, 0, 1),  # noqa: DTZ001 - naive on purpose; snapshots pin the rendering
             metadata={"id": "message-1"},
@@ -260,8 +260,8 @@ def test_takeout_import_groups_exchanges_into_day_logs_in_time_order(tmp_path):
     logs = GeminiTakeoutImporter().import_(export)
 
     assert [[(e.sender, e.content) for e in log.events] for log in logs] == [
-        [(Role.USER, "first"), (Role.ASSISTANT, "one"), (Role.USER, "second"), (Role.ASSISTANT, "two")],
-        [(Role.USER, "next day"), (Role.ASSISTANT, "three")],
+        [(Role.USER, "first"), (Role.AGENT, "one"), (Role.USER, "second"), (Role.AGENT, "two")],
+        [(Role.USER, "next day"), (Role.AGENT, "three")],
     ]
     assert logs[0].created == datetime(2025, 6, 8, 12, 37, 50, tzinfo=UTC), "BST is read as an offset, not dropped"
 
@@ -306,9 +306,9 @@ def test_claude_code_import_pairs_a_tool_result_with_its_call(tmp_path):
 
     [log] = ClaudeCodeImporter().import_(session)
 
-    user, assistant, call = log.events
+    user, agent, call = log.events
     assert (user.sender, user.content) == (Role.USER, "list the files")
-    assert (assistant.sender, assistant.content) == (Role.ASSISTANT, "Looking.")
+    assert (agent.sender, agent.content) == (Role.AGENT, "Looking.")
     assert (call.tool, call.args, call.output) == ("Bash", {"command": "ls"}, "a.txt")
 
 
@@ -367,14 +367,14 @@ That's it.
 
 
 def _serialize_message(content: str) -> str:
-    serializer = MarkdownSerializer(human="Human", assistant="Assistant")
+    serializer = MarkdownSerializer(human="Human", agent="Agent")
     log = EventLog(
         source="test",
         title="Artifacts",
         created=datetime(2024, 1, 1, 12, 0, 0),  # noqa: DTZ001 - naive on purpose
         events=[
             Message(
-                sender=Role.ASSISTANT,
+                sender=Role.AGENT,
                 content=content,
                 created=datetime(2024, 1, 1, 12, 0, 0),  # noqa: DTZ001 - naive on purpose
                 metadata={},

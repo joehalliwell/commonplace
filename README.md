@@ -28,7 +28,7 @@ antiquity.
   │   ├── claude-code/2026/06/2026-06-28-session-title.md
   │   ├── gemini/                       # fetched from gemini.google.com
   │   └── gemini-takeout/               # imported from Google Takeout
-  ├── memory/                   # assistant memory, mirrored from the provider
+  ├── memory/                   # agent memory, mirrored from each agent
   │   ├── claude/
   │   ├── chatgpt/
   │   └── gemini/saved-info.md
@@ -103,7 +103,7 @@ per-turn timestamps, Gem personas and thought traces, which the Takeout export
 doesn't have. Claude's gets slightly less than the manual export: the endpoint
 strips `<antThinking>` blocks server-side (issue #6).
 
-Three more sources mirror assistant memory. `claude-memory` mirrors claude.ai's
+Three more sources mirror agent memory. `claude-memory` mirrors claude.ai's
 file-based memory into `memory/claude/`, each file at the path claude.ai gives
 it, titled with the name claude.ai displays. `chatgpt-memory` mirrors the
 sections of ChatGPT's "about you" summary into `memory/chatgpt/`, one file per
@@ -301,7 +301,7 @@ claims are skipped. Chats belong to commonplace: re-importing a conversation
 rewrites it in place, so annotate them in `notes/`, not in the chat itself.
 Each chat is an [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
 document (`type: Chat`) whose `resource` links back to the conversation where
-the assistant has a URL for it, so re-importing also brings older chats up to date.
+the agent has a URL for it, so re-importing also brings older chats up to date.
 
 <details>
 <summary>How to export from each provider</summary>

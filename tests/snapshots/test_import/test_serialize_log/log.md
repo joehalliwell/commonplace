@@ -8,7 +8,7 @@ id: message-0
 
 Hello
 
-## Assistant [created:: 2024-01-01T12:00:01]
+## Agent [created:: 2024-01-01T12:00:01]
 
 ```yaml
 id: message-1

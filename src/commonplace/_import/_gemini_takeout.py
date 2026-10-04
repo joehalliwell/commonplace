@@ -151,7 +151,7 @@ class GeminiTakeoutImporter:
         )
 
         ai_message = Message(
-            sender=Role.ASSISTANT,
+            sender=Role.AGENT,
             content=ai_response,
             created=timestamp,
         )

@@ -146,7 +146,7 @@ def _to_message(node: dict[str, Any]) -> Message | None:
         return None
 
     return Message(
-        sender=Role.USER if msg["author"]["role"] == "user" else Role.ASSISTANT,
+        sender=Role.USER if msg["author"]["role"] == "user" else Role.AGENT,
         content=text,
         created=_timestamp(msg.get("create_time")),
     )

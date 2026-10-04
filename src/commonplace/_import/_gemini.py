@@ -118,7 +118,7 @@ def _to_log(summary: dict[str, Any], body: list | None) -> EventLog:
 
             events.append(Message(sender=Role.USER, content=user_text, created=ts))
             model_meta: dict = {"thoughts": thoughts} if thoughts else {}
-            events.append(Message(sender=Role.ASSISTANT, content=model_text, created=ts, metadata=model_meta))
+            events.append(Message(sender=Role.AGENT, content=model_text, created=ts, metadata=model_meta))
     else:
         logger.warning(f"Empty response for {summary['cid']}; recording chat with no turns.")
 

@@ -40,9 +40,8 @@ concept document: `type: Topic`,
 
 ## Nomenclature
 
-Current terms. The commonplace codebase still says *assistant* where this says
-*agent*; it is moving the same way. Otherwise the codebase is canonical: if
-it disagrees, follow it and fix this.
+Current terms. The commonplace codebase is canonical: if it disagrees, follow
+it and fix this.
 
 - **user**: whose commonplace this is; their name is
   `commonplace config user`.

@@ -13,7 +13,7 @@ class Role(Enum):
 
     SYSTEM = auto()
     USER = auto()
-    ASSISTANT = auto()
+    AGENT = auto()
 
 
 class Event(BaseModel):

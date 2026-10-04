@@ -99,7 +99,7 @@ class ClaudeCodeImporter:
             return None
 
         # Determine role from message type
-        role = Role.USER if msg_type == "user" else Role.ASSISTANT
+        role = Role.USER if msg_type == "user" else Role.AGENT
 
         # Extract content from message structure
         content = data["message"]["content"]

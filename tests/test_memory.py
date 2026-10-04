@@ -1,4 +1,4 @@
-"""Tests for mirroring vendor assistant memory into `memory/<vendor>/`."""
+"""Tests for mirroring agent memory into `memory/<agent>/`."""
 
 import json
 from datetime import UTC, datetime, timedelta
