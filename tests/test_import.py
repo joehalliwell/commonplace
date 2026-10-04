@@ -11,7 +11,7 @@ import pytest
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._claude_code import ClaudeCodeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
-from commonplace._import._commands import autodetect_importer, import_
+from commonplace._import._commands import autodetect_importer, import_, render_chats
 from commonplace._import._gemini import _to_log as _gemini_to_log
 from commonplace._import._gemini_takeout import GeminiTakeoutImporter
 from commonplace._import._serializer import MarkdownSerializer
@@ -19,6 +19,7 @@ from commonplace._import._types import EventLog, Message, Role
 from commonplace._import._zip import zip_contains
 from commonplace._utils import dump_frontmatter, load_frontmatter
 from commonplace._wire import write_archive
+from tests.porcelain import git
 
 SAMPLE_EXPORTS_DIR = Path(__file__).parent / "resources" / "sample-exports"
 SAMPLE_EXPORT_NAMES = [p.name for p in SAMPLE_EXPORTS_DIR.glob("*")]
@@ -258,6 +259,21 @@ def test_import_stored_blob_is_claimed_by_the_same_importer_and_yields_the_same_
     importer, blob_importer = autodetect_importer(sample_export.path), autodetect_importer(blob)
     assert type(blob_importer) is type(importer)
     assert blob_importer.import_(blob) == importer.import_(sample_export.path)
+
+
+def test_render_chats_of_a_stored_blob_reproduces_what_import_wrote_without_writing(sample_export, test_repo):
+    """The seam `doctor --render` replays through: same notes, nothing on disk touched."""
+    import_(sample_export.path, test_repo, user="Human")
+    written = {
+        path.relative_to(test_repo.root): path.read_text() for path in (test_repo.root / "chats").glob("**/*.md")
+    }
+    [stored] = {load_frontmatter(text)[0]["source_export"] for text in written.values()}
+    blob = test_repo.root / stored
+
+    rendered = render_chats(blob, autodetect_importer(blob), user="Human", source_export=stored)
+
+    assert {path: dump_frontmatter(metadata, body) for path, (metadata, body) in rendered.items()} == written
+    assert git(test_repo.root, "status", "--porcelain") == ""
 
 
 def test_takeout_importer_declines_another_products_activity_page(tmp_path):
