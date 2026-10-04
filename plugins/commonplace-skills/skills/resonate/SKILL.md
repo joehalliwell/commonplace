@@ -86,6 +86,7 @@ Use the **Task tool** to spawn a `general-purpose` subagent:
   - `{sorted_key}` — alphabetically sorted, hyphen-joined (e.g.
     `ai-consciousness-art-career`)
   - `{output_path}` — `topics/resonances/{sorted_key}.md`
+  - `{review_log}` — `.commonplace/skills/resonate/{sorted_key}.md`
   - `{date}` — today as YYYY-MM-DD
   - `{working_dir}` — absolute path to the repository root
   - `{version}` — this plugin's release, from step 1
@@ -107,6 +108,22 @@ the record.
 If the user requests changes, spawn a revision subagent or make small edits
 directly.
 
+**What the user says in review is a source.** A correction or addition made
+here is recorded where the review happened, never deferred to a journal.
+Before revising, append it verbatim to the review log,
+`.commonplace/skills/resonate/{sorted_key}.md`, creating it headed
+`# Review: {topics}` if missing:
+
+```markdown
+## <date> — Review
+**<user>:**
+> <their words, exactly as said>
+```
+
+The resonance cites it inline as *(<user>, in review, <date>)*, in plain
+text, since topics don't link into `.commonplace/`. Pass the entry to the
+revision subagent with the correction.
+
 ### 5. Commit
 
 The user's approval is OKF's human review, so record it: set `verified` in
@@ -115,7 +132,7 @@ the resonance's frontmatter, beside `generated`, to
 this line, and only after approval — never the subagent.
 
 ```bash
-commonplace git -- add topics/resonances/
+commonplace git -- add topics/resonances/ .commonplace/skills/resonate/
 commonplace git -- commit -m "Resonate: {topics}"
 ```
 
@@ -179,6 +196,7 @@ You are surfacing cross-topic resonance in a commonplace repository.
 - Topics: {topics}
 - Slugs: {slugs}
 - Output path: `{output_path}`
+- Review log: `{review_log}`
 - Date: {date}
 - Plugin release: {version}
 
@@ -206,6 +224,11 @@ Take notes on:
 
 If `{output_path}` already exists, read it — this is an update run. Note what
 has changed in the distillations since it was last written.
+
+Read `{review_log}` too, if it exists. Each `## <date> — Review` entry is
+the user's own words from reviewing an earlier run: full evidence, which you
+cite inline as *(<speaker>, in review, <date>)*, in plain text, and keep
+honouring on update runs. Never edit the log; the calling agent appends to it.
 
 ### Phase 2: Search for Cross-Topic Material
 

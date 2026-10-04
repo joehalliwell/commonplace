@@ -111,12 +111,15 @@ happened, verbatim, before revising:
 
 Artefacts cite it as *(<user>, in review, <date>)*, in plain text.
 
-| Skill        | Where review words go                                                                                                                                    |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `synthesize` | the gathering, `.commonplace/skills/synthesize/{slug}.md`                                                                                                |
-| `resonate`   | the review log, `.commonplace/skills/resonate/{sorted-slugs}.md`                                                                                         |
-| `project`    | the note itself: it is the user's, so their correction is an edit to it, cited *(<user>, in review, <date>)* where it changes History                    |
-| `rake`       | nowhere separate: triage answers are decisions, not evidence, and land where they are filed (`notes/`, or chaff); "done" is recorded where the user asks |
+Where each skill records it:
+
+- **synthesize**: the gathering, `.commonplace/skills/synthesize/{slug}.md`.
+- **resonate**: the review log, `.commonplace/skills/resonate/{sorted-slugs}.md`.
+- **project**: the note itself. It is the user's, so their correction is an
+  edit to it, cited *(<user>, in review, <date>)* where it adds to History.
+- **rake**: nowhere separate. Triage answers are decisions, not evidence, and
+  land where they are filed (`notes/`, or chaff); "done" is recorded where
+  the user asks.
 
 Never defer review material to a journal, the user's or an agent's.
 
