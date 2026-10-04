@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, auto
@@ -55,6 +55,12 @@ class EventLog(BaseModel):
         default_factory=dict,
         description="Dictionary for any other metadata associated with this log (e.g., model used, token count)",
     )
+
+
+def models_field(names: Iterable[str | None]) -> dict[str, list[str]]:
+    """The `models` frontmatter: each vendor-given name once, in order of first use; none known, no field."""
+    distinct = list(dict.fromkeys(name for name in names if name))
+    return {"models": distinct} if distinct else {}
 
 
 @dataclass(frozen=True)

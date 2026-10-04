@@ -4,6 +4,8 @@ type: Chat
 title: Big Numbers Summed
 id: 038fd537-ef57-4f71-8ce1-8e27aa2c61bb
 resource: https://chatgpt.com/c/038fd537-ef57-4f71-8ce1-8e27aa2c61bb
+models:
+- gpt-4
 generated:
   by: commonplace/1.2.3
   at: '2024-02-27T13:35:54+00:00'
@@ -31,6 +33,8 @@ type: Chat
 title: Conventual Life for Nuns
 id: 2cd72c1e-7631-44c7-b072-5273f45af955
 resource: https://chatgpt.com/c/2cd72c1e-7631-44c7-b072-5273f45af955
+models:
+- gpt-4
 generated:
   by: commonplace/1.2.3
   at: '2024-03-06T07:48:44+00:00'
@@ -97,6 +101,8 @@ type: Chat
 title: Ghibli-style Illustration Request
 id: 67eb115c-ee28-8001-adbb-d8986cb6793b
 resource: https://chatgpt.com/c/67eb115c-ee28-8001-adbb-d8986cb6793b
+models:
+- gpt-4o
 generated:
   by: commonplace/1.2.3
   at: '2025-03-31T22:09:44+00:00'

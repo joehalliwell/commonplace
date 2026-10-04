@@ -4,7 +4,8 @@ type: Chat
 title: Hybrid Search Implementation for Semantic Text Retrieval
 sessionId: 1510b7e5-ed4a-454b-9acf-bb29fb72ea26
 cwd: /var/home/joe/work/commonplace
-model: claude-sonnet-4-5-20250929
+models:
+- claude-sonnet-4-5-20250929
 generated:
   by: commonplace/1.2.3
   at: '2025-10-01T19:57:17+00:00'

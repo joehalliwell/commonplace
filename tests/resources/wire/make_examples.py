@@ -25,6 +25,14 @@ THREAD = {
     "name": "Example",
     "created_at": "2026-07-15T00:00:00Z",
     "updated_at": "2026-07-15T00:00:01Z",
+    # The model in use now; a safeguard fallback names the ones before it.
+    "model": "claude-sonnet-4-6",
+    "settings": {
+        "safeguard_fallback": {
+            "turn_uuid": "m2",
+            "hops": [{"from_model": {"model": "claude-fable-5"}, "to_model": {"model": "claude-opus-4-8"}}],
+        }
+    },
     "chat_messages": [
         {"uuid": "m1", "sender": "human", "text": "hello", "created_at": "2026-07-15T00:00:00Z"},
         {"uuid": "m2", "sender": "assistant", "text": "hi back", "created_at": "2026-07-15T00:00:01Z"},

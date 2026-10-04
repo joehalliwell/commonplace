@@ -141,6 +141,11 @@ def test_every_wire_version_imports_to_the_same_conversation(any_wire_version):
     assert [e.content for e in logs[0].events] == ["hello", "hi back"]
 
 
+def test_every_wire_version_records_the_conversation_models_in_order(any_wire_version):
+    [log] = ClaudeImporter().import_(any_wire_version.path)
+    assert log.metadata["models"] == ["claude-fable-5", "claude-opus-4-8", "claude-sonnet-4-6"]
+
+
 def test_provenance_is_absent_before_v3_and_present_from_v3(any_wire_version):
     header = read_header(any_wire_version.path)
     if any_wire_version.version < 3:
