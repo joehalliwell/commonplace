@@ -14,7 +14,7 @@ checked per skill, against that skill's newest entry.
 - **Primitive**: captured, not produced. `chats/` (imported conversations),
   `journal/` (the user's daily entries) and `notes/` (the user's own writing).
   These are the only sources. Provenance bottoms out here.
-- **Assistant memory**: `memory/<vendor>/`, mirrored from an assistant. An
+- **Assistant memory**: `memory/<assistant>/`, mirrored from an assistant. An
   assistant's paraphrase of the user, so a lead to the originating passage,
   never the user's words.
 - **Derived**: produced from other artefacts. Everything under `topics/`:

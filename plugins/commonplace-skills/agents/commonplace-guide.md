@@ -71,7 +71,7 @@ ______________________________________________________________________
 
 ```
 chats/
-  {provider}/           # claude, gemini, chatgpt
+  {assistant}/          # claude, gemini, chatgpt
     {year}/
       {month}/
         {date}-{title}.md
@@ -88,7 +88,7 @@ agent-journal/
         {date}.md
 
 memory/
-  {vendor}/             # Assistant memory, mirrored by import
+  {assistant}/          # Assistant memory, mirrored by import
 
 notes/
   ideas.md              # Uncommitted backlog: no commitment, no date
