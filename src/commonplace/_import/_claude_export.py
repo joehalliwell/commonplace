@@ -16,18 +16,8 @@ from zipfile import ZipFile
 
 from commonplace._import._claude import _to_log
 from commonplace._import._types import EventLog
-from commonplace._import._zip import zip_contains
+from commonplace._import._zip import head_contains, zip_contains
 from commonplace._progress import track
-
-_SNIFF_BYTES = 1 << 20
-
-
-def _is_claude_conversations(path: Path) -> bool:
-    """True if this looks like Claude's conversations.json rather than ChatGPT's same-named file."""
-    # Claude names a thread's messages `chat_messages`; ChatGPT uses `mapping`.
-    # Co-location with users.json told us this inside a ZIP; on its own, only content can.
-    with path.open(encoding="utf-8", errors="replace") as f:
-        return '"chat_messages"' in f.read(_SNIFF_BYTES)
 
 
 class ClaudeExportImporter:
@@ -38,8 +28,9 @@ class ClaudeExportImporter:
     def can_import(self, path: Path) -> bool:
         # A stored blob is a bare conversations.json: the ZIP was only packaging,
         # and the repo keeps the members, so the members have to be importable.
+        # Bare, only content tells it from ChatGPT's same-named file: Claude says `chat_messages`, ChatGPT `mapping`.
         if path.suffix == ".json":
-            return _is_claude_conversations(path)
+            return head_contains(path, '"chat_messages"')
         # `users.json` is the Claude-specific marker — distinguishes this
         # from ChatGPT ZIPs, which also contain `conversations.json`.
         return zip_contains(path, "conversations.json", "users.json")

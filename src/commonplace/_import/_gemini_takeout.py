@@ -12,12 +12,13 @@ from dateutil.tz import gettz
 from html_to_markdown import convert_to_markdown
 
 from commonplace._import._types import EventLog, Message, Role
-from commonplace._import._zip import zip_contains
+from commonplace._import._zip import head_contains, zip_contains
 from commonplace._logging import logger
 from commonplace._progress import track
 
 _PROMPT_PREFIX = "Prompted"
 _HTML_PATH = "Takeout/My Activity/Gemini Apps/My Activity.html"
+_GEMINI_HEADING = '<p class="mdl-typography--title">Gemini Apps'
 
 
 class GeminiTakeoutImporter:
@@ -37,16 +38,18 @@ class GeminiTakeoutImporter:
     member: str | None = _HTML_PATH
 
     def can_import(self, path: Path) -> bool:
-        """Check if the importer can potentially handle the given file path. It
-        zip file with the expected path structure."""
+        """Claim a Takeout ZIP holding Gemini's activity page, or that page stored bare."""
+        # Every product's page is `My Activity.html`, so a bare one is claimed by its Gemini heading.
+        if path.suffix == ".html":
+            return head_contains(path, _GEMINI_HEADING)
         return zip_contains(path, _HTML_PATH)
 
     def import_(self, path: Path) -> list[EventLog]:
         """Import activity logs from the Gemini file."""
-        # Read the HTML file from the zip
+        if path.suffix == ".html":
+            return self._parse_gemini_html(path.read_text(encoding="utf-8"))
         with ZipFile(path, "r") as zip_file, zip_file.open(_HTML_PATH) as file:
-            content = file.read().decode("utf-8")
-            return self._parse_gemini_html(content)
+            return self._parse_gemini_html(file.read().decode("utf-8"))
 
     def _parse_gemini_html(self, html_content: str) -> list[EventLog]:
         soup = BeautifulSoup(html_content, "lxml")
