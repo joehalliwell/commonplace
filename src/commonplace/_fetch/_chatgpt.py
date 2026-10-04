@@ -1,7 +1,6 @@
 """Fetch conversations directly from chatgpt.com using the browser session cookie."""
 
 from collections.abc import Iterator
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
@@ -11,30 +10,24 @@ import httpx
 from commonplace._fetch._base import BaseFetcher
 
 SESSION_URL = "https://chatgpt.com/api/auth/session"
-LIST_URL = "https://chatgpt.com/backend-api/conversations"
-DETAIL_URL = "https://chatgpt.com/backend-api/conversation/{cid}"
-
-# NextAuth splits the session token into `.0`, `.1`, ... once it exceeds ~4KB,
-# so the cookie is identified by prefix. httpx sends every chunk and the server
-# reassembles them; nothing here needs to join them.
-SESSION_COOKIE_PREFIX = "__Secure-next-auth.session-token"
 
 PAGE_SIZE = 100
 
 
-class ChatGptFetcher(BaseFetcher):
-    """Records one listing page per 100 conversations plus N conversation
-    details from chatgpt.com's internal API. Endpoints are unofficial; expect
-    drift.
+class ChatGptSessionFetcher(BaseFetcher):
+    """Signs in to chatgpt.com's internal `backend-api`; endpoints are unofficial, so expect drift.
 
-    Unlike the other fetchers, the session cookie is not itself the credential:
-    it buys a short-lived bearer token from `/api/auth/session`, which every
-    `backend-api` call then carries."""
+    The session cookie is not itself the credential: it buys a short-lived
+    bearer token from `/api/auth/session`, which every `backend-api` call then
+    carries."""
 
-    source = "chatgpt"
     cookie_domain = "chatgpt.com"
     service_name = "ChatGPT"
     login_url = "https://chatgpt.com"
+    # NextAuth splits the session token into `.0`, `.1`, ... once it exceeds
+    # ~4KB, so this is a prefix. httpx sends every chunk and the server
+    # reassembles them; nothing here needs to join them.
+    session_cookie = "__Secure-next-auth.session-token"
     extra_headers: ClassVar[dict[str, str]] = {"Accept": "application/json", "Referer": "https://chatgpt.com/"}
     follow_redirects = True
 
@@ -43,39 +36,47 @@ class ChatGptFetcher(BaseFetcher):
     # have not needed pacing.
     request_interval = 0.25
 
-    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        with self._signed_in() as client:
-            if client is None:
-                return None
-            fresh = list(self._list_fresh_ids(since))
-            self._read_fresh(fresh, since, self._fetch_detail)
-
-        return self._write_archive(destination) if fresh else None
-
-    @contextmanager
-    def _signed_in(self) -> Iterator[httpx.Client | None]:
-        """A client carrying the bearer token `backend-api` wants, or None, reported, without a ChatGPT session."""
-        cookies = self._read_cookies()
-        if not any(name.startswith(SESSION_COOKIE_PREFIX) for name in cookies):
+    def _has_session(self, cookies: dict[str, str]) -> bool:
+        """Matched by prefix, since NextAuth may have chunked the cookie."""
+        if not any(name.startswith(self.session_cookie) for name in cookies):
             self._report_no_session()
-            yield None
-            return
-        with self._session(cookies) as client:
-            client.headers["Authorization"] = f"Bearer {self._read_access_token()}"
-            yield client
+            return False
+        return True
 
-    def _read_access_token(self) -> str:
+    def _authorise(self, client: httpx.Client) -> None:
         """Trade the session cookie for the bearer token `backend-api` wants.
 
         Not recorded to the wire log: it is a credential, and it is not
         conversation material."""
-        r = self._get(SESSION_URL)
-        token = r.json().get("accessToken")
+        token = self._get(SESSION_URL).json().get("accessToken")
         if not token:
             raise RuntimeError("No access token in the ChatGPT session response — the auth flow may have changed.")
-        return token
+        client.headers["Authorization"] = f"Bearer {token}"
 
-    def _list_fresh_ids(self, since: datetime | None):
+    def _api(
+        self, method: str, path: str, *, endpoint: str, key: dict[str, Any] | None = None, **kwargs: Any
+    ) -> httpx.Response:
+        """Call `backend-api` and log the response verbatim under `endpoint` and `key`."""
+        r = self._request(method, f"https://chatgpt.com/backend-api/{path}", **kwargs)
+        self._log(endpoint=endpoint, **(key or {}), response=r.text)
+        return r
+
+
+class ChatGptFetcher(ChatGptSessionFetcher):
+    """Records one listing page per 100 conversations plus N conversation details."""
+
+    source = "chatgpt"
+
+    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+        with self._signed_in() as client:
+            if client is None:
+                return None
+            fresh = list(self._list_fresh(since))
+            self._read_fresh(fresh, since, self._read)
+
+        return self._write_archive(destination) if fresh else None
+
+    def _list_fresh(self, since: datetime | None) -> Iterator[str]:
         """Walk listing pages, yielding ids updated after `since`.
 
         The listing is ordered by `update_time` descending, so the first stale
@@ -101,10 +102,8 @@ class ChatGptFetcher(BaseFetcher):
             offset += len(items)
 
     def _list_page(self, offset: int) -> dict[str, Any]:
-        r = self._get(LIST_URL, params={"offset": offset, "limit": PAGE_SIZE, "order": "updated"})
-        self._log(endpoint="conversations", offset=offset, response=r.text)
-        return r.json()
+        params = {"offset": offset, "limit": PAGE_SIZE, "order": "updated"}
+        return self._api("GET", "conversations", endpoint="conversations", key={"offset": offset}, params=params).json()
 
-    def _fetch_detail(self, cid: str) -> None:
-        r = self._get(DETAIL_URL.format(cid=cid))
-        self._log(endpoint="conversation", cid=cid, response=r.text)
+    def _read(self, cid: str) -> None:
+        self._api("GET", f"conversation/{cid}", endpoint="conversation", key={"cid": cid})

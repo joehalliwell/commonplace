@@ -133,7 +133,7 @@ def test_fetch_raises_on_403(tmp_path):
         _make_fetcher(handler=handler).fetch(tmp_path, since=None)
 
 
-def test_read_session_tokens_raises_on_missing_html(tmp_path):
+def test_fetch_app_page_without_tokens_raises(tmp_path):
     def handler(request):
         if request.url.path.endswith("/app"):
             return httpx.Response(200, text="<html>no tokens here</html>")

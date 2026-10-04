@@ -9,9 +9,12 @@ surfaces immediately rather than as silent data loss.
 import json
 import random
 import re
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import ClassVar
+
+import httpx
 
 from commonplace._fetch._base import BaseFetcher
 from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso_dt
@@ -23,13 +26,13 @@ RPC_LIST_CHATS = "MaZiqc"
 RPC_READ_CHAT = "hNvQHb"
 
 
-class GeminiFetcher(BaseFetcher):
-    """Fetch Gemini conversations via gemini.google.com's `batchexecute` RPC."""
+class GeminiSessionFetcher(BaseFetcher):
+    """Signs in to gemini.google.com and calls its `batchexecute` RPC."""
 
-    source = "gemini"
     cookie_domain = ".google.com"
     service_name = "Gemini"
     login_url = "https://gemini.google.com"
+    session_cookie = "__Secure-1PSID"
     extra_headers: ClassVar[dict[str, str]] = {
         "Origin": "https://gemini.google.com",
         "Referer": "https://gemini.google.com/",
@@ -42,53 +45,13 @@ class GeminiFetcher(BaseFetcher):
     _build_label: str
     _session_id: str
 
-    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        cookies = self._read_cookies()
-        if not cookies.get("__Secure-1PSID"):
-            self._report_no_session()
-            return None
-
-        with self._session(cookies):
-            self._read_session_tokens()
-
-            # Walk list_chats pages to find fresh cids. Full parse of each chat
-            # happens in the importer against the same wire we're logging here.
-            fresh = list(self._list_fresh_cids(since))
-            self._read_fresh(
-                fresh, since, lambda cid: self._call_rpc(RPC_READ_CHAT, [cid, 1000, None, 1, [1], [4], None, 1])
-            )
-
-        return self._write_archive(destination) if fresh else None
-
-    def _read_session_tokens(self) -> None:
+    def _authorise(self, client: httpx.Client) -> None:
         """Scrape SNlM0e (access token), cfb2h (build label), and FdrFJe
         (session id) from the /app page HTML."""
         r = self._get(INIT_URL)
         self._access_token = _require_match(r.text, r'"SNlM0e":"([^"]+)"', "access token (SNlM0e)")
         self._build_label = _require_match(r.text, r'"cfb2h":"([^"]+)"', "build label (cfb2h)")
         self._session_id = _require_match(r.text, r'"FdrFJe":"(-?\d+)"', "session id (FdrFJe)")
-
-    def _list_fresh_cids(self, since: datetime | None):
-        """Walk both pinned + unpinned buckets. Yield cids whose updated_at is
-        newer than `since`. All list_chats responses are still logged verbatim
-        to wire.jsonl (the importer re-parses them for title / is_pinned)."""
-        for pinned in (1, 0):
-            cursor: str | None = None
-            while True:
-                body = self._call_rpc(RPC_LIST_CHATS, [100, cursor, [pinned, None, 1]])
-                # A null body from list_chats would be a real protocol issue
-                # (unlike read_chat, where it signals a per-item glitch).
-                if body is None:
-                    raise RuntimeError("list_chats returned a null wrb.fr body — protocol may have changed.")
-                cursor = body[1]
-                rows = body[2]
-                for row in rows:
-                    seconds, nanos = row[5]
-                    updated_at = _ts_to_iso_dt(seconds, nanos)
-                    if since is None or updated_at > since:
-                        yield row[0]
-                if not cursor or not rows:
-                    break
 
     def _call_rpc(self, rpcid: str, payload: list, source_path: str = "/app") -> list | None:
         """Wrap payload in the batchexecute envelope, POST, parse, return the
@@ -112,6 +75,48 @@ class GeminiFetcher(BaseFetcher):
         r = self._request("POST", BATCH_URL, params=params, data=data, headers=headers)
         self._log(rpc=rpcid, payload=payload, response=r.text)
         return _extract_rpc_body(r.text, rpcid)
+
+
+class GeminiFetcher(GeminiSessionFetcher):
+    """Records every `list_chats` page across both buckets plus a `read_chat` per fresh conversation."""
+
+    source = "gemini"
+
+    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+        with self._signed_in() as client:
+            if client is None:
+                return None
+            # Walk list_chats pages to find fresh cids. Full parse of each chat
+            # happens in the importer against the same wire we're logging here.
+            fresh = list(self._list_fresh(since))
+            self._read_fresh(fresh, since, self._read)
+
+        return self._write_archive(destination) if fresh else None
+
+    def _list_fresh(self, since: datetime | None) -> Iterator[str]:
+        """Walk both pinned + unpinned buckets. Yield cids whose updated_at is
+        newer than `since`. All list_chats responses are still logged verbatim
+        to wire.jsonl (the importer re-parses them for title / is_pinned)."""
+        for pinned in (1, 0):
+            cursor: str | None = None
+            while True:
+                body = self._call_rpc(RPC_LIST_CHATS, [100, cursor, [pinned, None, 1]])
+                # A null body from list_chats would be a real protocol issue
+                # (unlike read_chat, where it signals a per-item glitch).
+                if body is None:
+                    raise RuntimeError("list_chats returned a null wrb.fr body — protocol may have changed.")
+                cursor = body[1]
+                rows = body[2]
+                for row in rows:
+                    seconds, nanos = row[5]
+                    updated_at = _ts_to_iso_dt(seconds, nanos)
+                    if since is None or updated_at > since:
+                        yield row[0]
+                if not cursor or not rows:
+                    break
+
+    def _read(self, cid: str) -> None:
+        self._call_rpc(RPC_READ_CHAT, [cid, 1000, None, 1, [1], [4], None, 1])
 
 
 def _require_match(text: str, pattern: str, name: str) -> str:

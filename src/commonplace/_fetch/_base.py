@@ -6,16 +6,20 @@ transient failures and names blocking ones, and a wire archive at the end.
 Only the details differ, and they differ by *value* — a domain, a service name,
 a few headers — not by shape.
 
-What deliberately stays out of this class: `fetch()` itself, session validation
-(Claude needs two cookies, ChatGPT prefix-matches a chunked one, Gemini scrapes
-tokens out of HTML), and pagination. Across providers those differ by shape,
-and a template method over them would obscure more than it saved.
+Signing in is the same three steps everywhere — check the session cookie,
+open the client, do whatever the API wants before its first real call — so
+[[BaseFetcher._signed_in]] runs them, and a provider fills in only the cookie
+check and the post-open step. What stays out of this class is `fetch()` itself
+and its walk: they differ by shape — a chat fetcher lists what is fresh and
+reads each item, a memory fetcher records the whole state every run — and a
+template method over them would obscure more than it saved.
 
-Within a provider they do not, so share everything there: the claude.ai
-fetchers put the whole walk in [[commonplace._fetch._claude.ClaudeSessionFetcher]].
-Sharing costs nothing in robustness. A fetcher is brittle by nature — it tracks
-an unofficial upstream and breaks when that moves — so code two fetchers share
-is not new coupling, only one place to fix instead of two.
+Each provider has one `<Provider>SessionFetcher` saying how to talk to it —
+sign-in and the call that wraps its API — with its chat and memory fetchers as
+siblings beneath, each saying what to fetch. Share freely through it. A fetcher
+is brittle by nature — it tracks an unofficial upstream and breaks when that
+moves — so code two fetchers share is not new coupling, only one place to fix
+instead of two.
 
 [[commonplace._fetch._types.Fetcher]] remains the contract — this class is
 shared implementation, not a type. A fetcher that has no use for it can satisfy
@@ -64,6 +68,8 @@ class BaseFetcher:
     #: How the provider is named in messages to the user, and where to log in.
     service_name: str
     login_url: str
+    #: The cookie whose presence means the browser is signed in.
+    session_cookie: str
 
     #: Provider headers, sandwiched between User-Agent and Accept-Language by
     #: `_headers`. Ordering matters — see there.
@@ -118,6 +124,27 @@ class BaseFetcher:
     def _report_no_session(self) -> None:
         """Tell the user the browser holds no session cookie for this provider."""
         logger.error(f"No {self.service_name} session cookie found. Log in at {self.login_url} in Chrome first.")
+
+    def _has_session(self, cookies: dict[str, str]) -> bool:
+        """Whether `cookies` hold a usable session, having said what's missing if not."""
+        if not cookies.get(self.session_cookie):
+            self._report_no_session()
+            return False
+        return True
+
+    def _authorise(self, client: httpx.Client) -> None:
+        """Whatever the API needs between opening the client and its first real call; nothing by default."""
+
+    @contextmanager
+    def _signed_in(self) -> Iterator[httpx.Client | None]:
+        """An authorised client, or None, reported, when the browser holds no session."""
+        cookies = self._read_cookies()
+        if not self._has_session(cookies):
+            yield None
+            return
+        with self._session(cookies) as client:
+            self._authorise(client)
+            yield client
 
     @contextmanager
     def _session(self, cookies: dict[str, str]) -> Iterator[httpx.Client]:

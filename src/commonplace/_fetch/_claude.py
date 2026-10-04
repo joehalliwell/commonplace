@@ -21,54 +21,32 @@ def _provenance(r: httpx.Response) -> dict[str, str]:
     return {"request_id": request_id} if request_id else {}
 
 
-class ClaudeSessionFetcher(BaseFetcher):
-    """The walk every claude.ai fetcher makes: one listing, then a read per item newer than the cursor.
+def updated_after(items: list[dict[str, Any]], since: datetime | None) -> list[dict[str, Any]]:
+    """The listed items whose `updated_at` is after `since`."""
+    return [i for i in items if since is None or datetime.fromisoformat(i["updated_at"]) > since]
 
-    Subclasses name the endpoints by implementing `_list` and `_read`. Endpoints
-    are unofficial; expect drift."""
+
+class ClaudeSessionFetcher(BaseFetcher):
+    """Signs in to claude.ai and calls its organisation API; endpoints are unofficial, so expect drift."""
 
     cookie_domain = "claude.ai"
     service_name = "Claude"
     login_url = "https://claude.ai"
+    session_cookie = "sessionKey"
     extra_headers: ClassVar[dict[str, str]] = {"Accept": "application/json", "Referer": "https://claude.ai/"}
-
-    #: Whether a listing with nothing new is still worth an archive.
-    archive_when_unchanged: bool = False
 
     _org_uuid: str
 
-    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        cookies = self._authenticate()
-        if cookies is None:
-            return None
-
-        with self._session(cookies):
-            items = self._list()
-            fresh = [i for i in items if since is None or datetime.fromisoformat(i["updated_at"]) > since]
-            self._read_fresh(fresh, since, self._read)
-
-        return self._write_archive(destination) if fresh or self.archive_when_unchanged else None
-
-    def _list(self) -> list[dict[str, Any]]:
-        """Record the listing and return its items, each carrying `updated_at`."""
-        raise NotImplementedError
-
-    def _read(self, item: dict[str, Any]) -> None:
-        """Record the full response for one listed item."""
-        raise NotImplementedError
-
-    def _authenticate(self) -> dict[str, str] | None:
-        """The session's cookies, with `_org_uuid` set — or `None`, having said why, if there is no usable session."""
-        cookies = self._read_cookies()
+    def _has_session(self, cookies: dict[str, str]) -> bool:
+        """Also records `_org_uuid`: every API path is scoped to the organisation."""
+        if not super()._has_session(cookies):
+            return False
         org_uuid = cookies.get("lastActiveOrg")
-        if not cookies.get("sessionKey"):
-            self._report_no_session()
-            return None
         if not org_uuid:
             logger.error(f"No lastActiveOrg cookie. Visit {self.login_url} in Chrome to set it.")
-            return None
+            return False
         self._org_uuid = org_uuid
-        return cookies
+        return True
 
     def _api(
         self, method: str, path: str, *, endpoint: str, key: dict[str, str] | None = None, **kwargs: Any
@@ -84,8 +62,17 @@ class ClaudeFetcher(ClaudeSessionFetcher):
 
     source = "claude"
 
-    def _list(self) -> list[dict[str, Any]]:
-        return self._api("GET", "chat_conversations", endpoint="conversations").json()
+    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+        with self._signed_in() as client:
+            if client is None:
+                return None
+            fresh = self._list_fresh(since)
+            self._read_fresh(fresh, since, self._read)
+
+        return self._write_archive(destination) if fresh else None
+
+    def _list_fresh(self, since: datetime | None) -> list[dict[str, Any]]:
+        return updated_after(self._api("GET", "chat_conversations", endpoint="conversations").json(), since)
 
     def _read(self, item: dict[str, Any]) -> None:
         self._api(
