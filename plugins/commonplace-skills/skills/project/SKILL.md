@@ -102,7 +102,7 @@ path:
 
 ```bash
 commonplace git -- add agent-journal/
-commonplace git -- commit -m "Agent journal: {assistant}"
+commonplace git -- commit -m "Agent journal: {agent}"
 ```
 
 ______________________________________________________________________

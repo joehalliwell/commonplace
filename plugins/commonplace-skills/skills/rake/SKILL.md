@@ -166,7 +166,7 @@ path:
 
 ```bash
 commonplace git -- add agent-journal/
-commonplace git -- commit -m "Agent journal: {assistant}"
+commonplace git -- commit -m "Agent journal: {agent}"
 ```
 
 ______________________________________________________________________
@@ -261,7 +261,7 @@ plan may be new to the repository. Phase 1 is what stops re-proposals.
 
 ### Phase 4: Plans in Assistant Memory
 
-Assistant memory is mirrored under `memory/<assistant>/`. If it exists, read every
+Assistant memory is mirrored under `memory/<agent>/`. If it exists, read every
 file updated since the last rake, or all of them if there was none. A memory
 is an assistant's paraphrase of the user, so treat each plan in it as a
 candidate, not as the user's words: search for the originating passage and

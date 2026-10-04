@@ -14,8 +14,8 @@ checked per skill, against that skill's newest entry.
 - **Primitive**: captured, not produced. `chats/` (imported conversations),
   `journal/` (the user's daily entries) and `notes/` (the user's own writing).
   These are the only sources. Provenance bottoms out here.
-- **Assistant memory**: `memory/<assistant>/`, mirrored from an assistant. An
-  assistant's paraphrase of the user, so a lead to the originating passage,
+- **Assistant memory**: `memory/<agent>/`, mirrored from what an agent keeps
+  about the user. Its paraphrase of the user, so a lead to the originating passage,
   never the user's words.
 - **Derived**: produced from other artefacts. Everything under `topics/`:
   distillations, resonances and the topic index. Never a source: every run
@@ -28,10 +28,9 @@ checked per skill, against that skill's newest entry.
   gathering, rake's chaff, a review log. Never linked (the link checker can't
   follow it), and cited only as a review, in plain text. Anything a person
   reads stays visible.
-- **Agent journal**: `agent-journal/{assistant}/`. The writing of the
-  assistant that ran a skill. Never evidence of the user's thinking, so never
-  a source; quote one only attributed to its assistant. See **Agent journal**
-  below.
+- **Agent journal**: `agent-journal/{agent}/`. The writing of the agent that
+  ran a skill. Never evidence of the user's thinking, so never a source; quote
+  one only attributed to its agent. See **Agent journal** below.
 
 Everything under `topics/` is an
 [OKF v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
@@ -41,21 +40,24 @@ concept document: `type: Topic`,
 
 ## Nomenclature
 
-Current terms. The commonplace codebase is canonical: if it disagrees, follow
-it and fix this.
+Current terms. The commonplace codebase still says *assistant* where this says
+*agent*; it is moving the same way. Otherwise the codebase is canonical: if
+it disagrees, follow it and fix this.
 
 - **user**: whose commonplace this is; their name is
   `commonplace config user`.
-- **assistant**: an AI the user talks to, keyed the same wherever it appears:
-  `chats/{assistant}/`, `memory/{assistant}/`, `agent-journal/{assistant}/`.
-  The keys are `claude`, `chatgpt`, `gemini` and `claude-code`; Claude Code
-  has its own harness, prompt and tools, so it is a different interlocutor
-  from `claude`. The assistant running a skill is an assistant like any
-  other, and writes as itself: for these skills, `claude-code`.
-- **agent**: a role, not an identity: the coordinating agent, a subagent.
-  Never a path segment or a name.
-- **vendor**: the company behind some assistants. Skills don't need it, and
-  it is never a path segment.
+- **agent**: an AI the user works with, keyed the same wherever it appears:
+  `chats/{agent}/`, `memory/{agent}/`, `agent-journal/{agent}/`. The keys are
+  `claude`, `chatgpt`, `gemini` and `claude-code`; Claude Code has its own
+  harness, prompt and tools, so it is a different interlocutor from `claude`.
+  The agent running a skill is an agent like any other, and writes as itself:
+  for these skills, `claude-code`.
+- **assistant**: the role an agent plays in a chat, the other speaker beside
+  the user. "An assistant's riff" means words an agent said in that role.
+- **coordinating agent, subagent**: roles a session plays in a skill run,
+  not identities. Whatever spawns or is spawned, it writes as its agent.
+- **vendor**: the company behind some agents. Skills don't need it, and it is
+  never a path segment.
 - **source**: a primitive an artefact cites, as in OKF `sources`. Not the
   CLI's `--source`, which names a fetcher/importer pair.
 
@@ -66,7 +68,7 @@ an assistant's riff, quoted without its speaker, coming back a year later as
 evidence of what the user thought. Every quote carries its speaker. A plan,
 claim or shift counts as the user's only if the user said it, or an assistant
 said it and the user took it up in so many words. An agent journal entry is
-its assistant's.
+its agent's.
 
 ## Silence is not abandonment
 
@@ -144,7 +146,7 @@ Where each skill records it:
   land where they are filed (`notes/`, or chaff); "done" is recorded where
   the user asks.
 
-Never defer review material to a journal, the user's or an assistant's.
+Never defer review material to a journal, the user's or an agent's.
 
 ## Commits
 
@@ -155,23 +157,23 @@ An agent journal entry is its own commit.
 
 ## Agent journal
 
-The last step of every skill, optional, and the assistant's own. What came
-up with the user belongs in the run's output (see **Review**); this is for
-what the work left the assistant with: reflections the material prompted,
+The last step of every skill, optional, and the agent's own. What came up
+with the user belongs in the run's output (see **Review**); this is for what
+the work left the agent with: reflections the material prompted,
 however loose; what it makes of the user, unflattering included, and what it
 would do about it; how the run went. Candour over tact: the user would rather
 read an opinion than a polite one. If nothing comes, skip it.
 
-Write it in `agent-journal/{assistant}/{yyyy}/{mm}/{yyyy-mm-dd}.md`, where
-`{assistant}` is the assistant running the skill, e.g. `claude-code` (see
+Write it in `agent-journal/{agent}/{yyyy}/{mm}/{yyyy-mm-dd}.md`, where
+`{agent}` is the agent running the skill, e.g. `claude-code` (see
 **Nomenclature**). If `agent-journal/README.md` exists, its conventions win.
-Otherwise: the entry is the assistant's, not the user's; the user may read
+Otherwise: the entry is the agent's, not the user's; the user may read
 it; later sessions won't remember this one, so write it to be read cold.
 Append if today's file exists; head a new one like the user's journal, e.g.
 `# Thursday, October 1 2026`. Commit it on its own, as
-`Agent journal: {assistant}`, and tell the user its path.
+`Agent journal: {agent}`, and tell the user its path.
 
 The folder is indexed, so entries can turn up in search; only the rule that
 they are never a source keeps them out of evidence. It is a stop-gap until
 the journal moves to per-author folders, `journal/<author>/`, which should
-also keep assistants' entries out of the index.
+also keep agents' entries out of the index.

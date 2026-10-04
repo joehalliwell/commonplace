@@ -71,7 +71,7 @@ ______________________________________________________________________
 
 ```
 chats/
-  {assistant}/          # claude, gemini, chatgpt
+  {agent}/              # claude, claude-code, gemini, chatgpt
     {year}/
       {month}/
         {date}-{title}.md
@@ -82,13 +82,13 @@ journal/
       {date}.md
 
 agent-journal/
-  {assistant}/          # the assistant that ran a skill, e.g. claude-code
+  {agent}/              # the agent that ran a skill, e.g. claude-code
     {year}/
       {month}/
         {date}.md
 
 memory/
-  {assistant}/          # Assistant memory, mirrored by import
+  {agent}/              # Assistant memory, mirrored by import
 
 notes/
   ideas.md              # Uncommitted backlog: no commitment, no date
@@ -122,7 +122,7 @@ anything in the repository.
   never reword what's there.
 - **Assistant memory** (`memory/`): an assistant's paraphrase of the user; a
   lead to the originating passage, not the user's words.
-- **Agent journal**: the writing of the assistant that ran a skill. Never a
+- **Agent journal**: the writing of the agent that ran a skill. Never a
   source.
 - **Distillations, resonances, the topic index** (`topics/`): derived, and
   OKF v0.2 concept documents. Never a source.

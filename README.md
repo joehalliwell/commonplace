@@ -347,7 +347,7 @@ concept document, recording its sources, the release that wrote it, and who
 approved it.
 
 At the end of a run, a skill may write an entry of its own in
-`agent-journal/{assistant}/`, committed separately. Those entries are never
+`agent-journal/{agent}/`, committed separately. Those entries are never
 treated as evidence of your thinking.
 
 ## Configuration
