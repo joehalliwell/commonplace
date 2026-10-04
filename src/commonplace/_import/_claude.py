@@ -22,6 +22,7 @@ NO_TEXT_NOTE = "> [!NOTE]\n> Message had no recoverable text"
 
 class ClaudeImporter(BaseWireImporter):
     source: str = "claude"
+    name: str = "Claude"
 
     def _claims_legacy(self, path: Path) -> bool:
         entry = sniff_gzipped_jsonl(path)
@@ -57,7 +58,7 @@ def _to_log(thread: dict[str, Any], source: str) -> EventLog:
 
 
 def _to_message(message: dict[str, Any]) -> Message:
-    sender = Role.USER if message["sender"] == "human" else Role.ASSISTANT
+    sender = Role.USER if message["sender"] == "human" else Role.AGENT
     created = message["created_at"]
 
     # Export-ZIP messages carry a populated `content` block list; fetcher-wire

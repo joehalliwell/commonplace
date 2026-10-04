@@ -13,7 +13,7 @@ class Role(Enum):
 
     SYSTEM = auto()
     USER = auto()
-    ASSISTANT = auto()
+    AGENT = auto()
 
 
 class Event(BaseModel):
@@ -97,6 +97,8 @@ class ChatImporter(Protocol):
     """
 
     source: str
+    #: The agent's display name, which labels its turns; declared, since no key `.title()`s into "ChatGPT".
+    name: str
     #: The one ZIP member `import_` reads, stored in place of the archive; `None` stores the file whole.
     member: str | None
 

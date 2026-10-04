@@ -17,7 +17,7 @@ source_export: .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16
 
 What's 6372525838482625 + 374382874474927?
 
-## Chatgpt [created:: 2024-02-27T13:35:54+00:00]
+## ChatGPT [created:: 2024-02-27T13:35:54+00:00]
 
 The sum of 6,372,525,838,482,625 and 374,382,874,474,927 is
 6,746,908,712,957,552. In the grand scheme of things, it's a reminder that even
@@ -44,7 +44,7 @@ source_export: .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16
 
 What's the equivalent of "monastic" for nuns?
 
-## Chatgpt [created:: 2024-03-06T07:47:34+00:00]
+## ChatGPT [created:: 2024-03-06T07:47:34+00:00]
 
 The equivalent term for "monastic" specifically for nuns is "conventual,"
 pertaining to a convent. Like monks in monasteries, nuns follow a conventual
@@ -55,7 +55,7 @@ but the settings differ: monasteries for monks and convents for nuns.
 
 Is there another word?
 
-## Chatgpt [created:: 2024-03-06T07:47:51+00:00]
+## ChatGPT [created:: 2024-03-06T07:47:51+00:00]
 
 Yes, another term closely aligned with "monastic" when referring to nuns is
 "cloistered." This term emphasizes the aspect of seclusion and living in a
@@ -68,7 +68,7 @@ monks.
 
 A word that means "relating to nuns"
 
-## Chatgpt [created:: 2024-03-06T07:48:07+00:00]
+## ChatGPT [created:: 2024-03-06T07:48:07+00:00]
 
 The word you're looking for is "nunlike" or "nunnish," both of which directly
 mean "relating to nuns" or characteristic of nuns.
@@ -77,7 +77,7 @@ mean "relating to nuns" or characteristic of nuns.
 
 What does vestal mean?
 
-## Chatgpt [created:: 2024-03-06T07:48:44+00:00]
+## ChatGPT [created:: 2024-03-06T07:48:44+00:00]
 
 "Vestal" has a rich tapestry of meanings, primarily rooted in ancient Roman
 religion and culture. Initially, it refers to the Vestal Virgins, a group of
@@ -134,7 +134,7 @@ source_export: .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16
 
 Can you studio ghiblify this please?
 
-## Chatgpt [created:: 2025-03-31T22:04:37+00:00]
+## ChatGPT [created:: 2025-03-31T22:04:37+00:00]
 
 ```json
 {
@@ -180,12 +180,12 @@ Can you studio ghiblify this please?
 
 Is that it?
 
-## Chatgpt [created:: 2025-03-31T22:09:24+00:00]
+## ChatGPT [created:: 2025-03-31T22:09:24+00:00]
 
 It looks like the generated image didn’t capture what you were expecting. Let me
 try again to create a Studio Ghibli-style version of your original image.
 
-## Chatgpt [created:: 2025-03-31T22:09:44+00:00]
+## ChatGPT [created:: 2025-03-31T22:09:44+00:00]
 
 ```json
 {

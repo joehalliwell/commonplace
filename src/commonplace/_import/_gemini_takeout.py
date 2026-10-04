@@ -33,6 +33,7 @@ class GeminiTakeoutImporter:
     """
 
     source: str = "gemini-takeout"
+    name: str = "Gemini"
     member: str | None = _HTML_PATH
 
     def can_import(self, path: Path) -> bool:
@@ -150,7 +151,7 @@ class GeminiTakeoutImporter:
         )
 
         ai_message = Message(
-            sender=Role.ASSISTANT,
+            sender=Role.AGENT,
             content=ai_response,
             created=timestamp,
         )

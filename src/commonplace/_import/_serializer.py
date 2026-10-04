@@ -37,7 +37,7 @@ class MarkdownSerializer(BaseModel):
     """
 
     human: str = Field(default="Human", description="Name to use for the human interlocutor")
-    assistant: str = Field(default="Assistant", description="Name to use for the AI assistant")
+    agent: str = Field(default="Agent", description="Name to use for the AI agent")
     timespec: str = Field(default="seconds", description="Timespec for isoformat used in titles")
     wrap: int = Field(default=80, description="Target characters per line for text wrapping")
     inline_tool_output: bool = Field(default=True, description="If true, tool output will be included in full")
@@ -57,7 +57,7 @@ class MarkdownSerializer(BaseModel):
 
         for event in log.events:
             if isinstance(event, Message):
-                sender = self.human if event.sender == Role.USER else self.assistant
+                sender = self.human if event.sender == Role.USER else self.agent
 
                 self._add_header(
                     lines,

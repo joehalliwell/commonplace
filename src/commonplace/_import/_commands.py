@@ -89,7 +89,7 @@ def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None
     if isinstance(importer, MemoryImporter):
         mirror_one(path, repo, importer, auto_index=auto_index)
         return
-    serializer = MarkdownSerializer(human=user, assistant=importer.source.title())
+    serializer = MarkdownSerializer(human=user, agent=importer.name)
 
     # Store only the member an archive's importer reads, or the whole file for non-archives —
     # which includes a member already extracted from one, re-imported from the blob store.
