@@ -42,11 +42,13 @@ class ClaudeSessionFetcher(BaseFetcher):
         with self._signed_in() as client:
             if client is None:
                 return None
-            items = self._list()
-            fresh = [i for i in items if since is None or datetime.fromisoformat(i["updated_at"]) > since]
+            fresh = self._list_fresh(since)
             self._read_fresh(fresh, since, self._read)
 
         return self._write_archive(destination) if fresh or self.archive_when_unchanged else None
+
+    def _list_fresh(self, since: datetime | None) -> list[dict[str, Any]]:
+        return [i for i in self._list() if since is None or datetime.fromisoformat(i["updated_at"]) > since]
 
     def _list(self) -> list[dict[str, Any]]:
         """Record the listing and return its items, each carrying `updated_at`."""

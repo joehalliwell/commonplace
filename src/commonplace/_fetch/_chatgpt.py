@@ -1,5 +1,6 @@
 """Fetch conversations directly from chatgpt.com using the browser session cookie."""
 
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
@@ -44,8 +45,8 @@ class ChatGptFetcher(BaseFetcher):
         with self._signed_in() as client:
             if client is None:
                 return None
-            fresh = list(self._list_fresh_ids(since))
-            self._read_fresh(fresh, since, self._fetch_detail)
+            fresh = list(self._list_fresh(since))
+            self._read_fresh(fresh, since, self._read)
 
         return self._write_archive(destination) if fresh else None
 
@@ -66,7 +67,7 @@ class ChatGptFetcher(BaseFetcher):
             raise RuntimeError("No access token in the ChatGPT session response — the auth flow may have changed.")
         client.headers["Authorization"] = f"Bearer {token}"
 
-    def _list_fresh_ids(self, since: datetime | None):
+    def _list_fresh(self, since: datetime | None) -> Iterator[str]:
         """Walk listing pages, yielding ids updated after `since`.
 
         The listing is ordered by `update_time` descending, so the first stale
@@ -96,6 +97,6 @@ class ChatGptFetcher(BaseFetcher):
         self._log(endpoint="conversations", offset=offset, response=r.text)
         return r.json()
 
-    def _fetch_detail(self, cid: str) -> None:
+    def _read(self, cid: str) -> None:
         r = self._get(DETAIL_URL.format(cid=cid))
         self._log(endpoint="conversation", cid=cid, response=r.text)

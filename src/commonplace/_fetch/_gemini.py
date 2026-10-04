@@ -9,6 +9,7 @@ surfaces immediately rather than as silent data loss.
 import json
 import random
 import re
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import ClassVar
@@ -51,10 +52,8 @@ class GeminiFetcher(BaseFetcher):
                 return None
             # Walk list_chats pages to find fresh cids. Full parse of each chat
             # happens in the importer against the same wire we're logging here.
-            fresh = list(self._list_fresh_cids(since))
-            self._read_fresh(
-                fresh, since, lambda cid: self._call_rpc(RPC_READ_CHAT, [cid, 1000, None, 1, [1], [4], None, 1])
-            )
+            fresh = list(self._list_fresh(since))
+            self._read_fresh(fresh, since, self._read)
 
         return self._write_archive(destination) if fresh else None
 
@@ -66,7 +65,7 @@ class GeminiFetcher(BaseFetcher):
         self._build_label = _require_match(r.text, r'"cfb2h":"([^"]+)"', "build label (cfb2h)")
         self._session_id = _require_match(r.text, r'"FdrFJe":"(-?\d+)"', "session id (FdrFJe)")
 
-    def _list_fresh_cids(self, since: datetime | None):
+    def _list_fresh(self, since: datetime | None) -> Iterator[str]:
         """Walk both pinned + unpinned buckets. Yield cids whose updated_at is
         newer than `since`. All list_chats responses are still logged verbatim
         to wire.jsonl (the importer re-parses them for title / is_pinned)."""
@@ -87,6 +86,9 @@ class GeminiFetcher(BaseFetcher):
                         yield row[0]
                 if not cursor or not rows:
                     break
+
+    def _read(self, cid: str) -> None:
+        self._call_rpc(RPC_READ_CHAT, [cid, 1000, None, 1, [1], [4], None, 1])
 
     def _call_rpc(self, rpcid: str, payload: list, source_path: str = "/app") -> list | None:
         """Wrap payload in the batchexecute envelope, POST, parse, return the
