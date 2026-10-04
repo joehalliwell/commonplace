@@ -97,7 +97,7 @@ class ChatImporter(Protocol):
     """
 
     source: str
-    #: The assistant's display name, which labels its turns; declared, since no key `.title()`s into "ChatGPT".
+    #: The agent's display name, which labels its turns; declared, since no key `.title()`s into "ChatGPT".
     name: str
     #: The one ZIP member `import_` reads, stored in place of the archive; `None` stores the file whole.
     member: str | None

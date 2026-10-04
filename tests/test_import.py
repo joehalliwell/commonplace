@@ -162,7 +162,7 @@ def test_import_chat_resource_is_the_conversation_url_per_source(sample_export, 
         assert metadata.get("resource") == RESOURCES[sample_export.name](metadata)
 
 
-ASSISTANTS = {
+AGENTS = {
     "claude.zip": "Claude",
     "claude.jsonl.gz": "Claude",
     "chatgpt.zip": "ChatGPT",
@@ -172,7 +172,7 @@ ASSISTANTS = {
 }
 
 
-def test_import_speaker_headings_use_the_assistant_name(sample_export, test_repo):
+def test_import_speaker_headings_use_the_agent_name(sample_export, test_repo):
     import_(sample_export.path, test_repo, user="Human")
 
     speakers = {
@@ -181,7 +181,7 @@ def test_import_speaker_headings_use_the_assistant_name(sample_export, test_repo
         for speaker in re.findall(r"^## (.+?) \[created::", path.read_text(), re.MULTILINE)
         if not speaker.endswith(" call")  # Tool turns
     }
-    assert speakers == {"Human", ASSISTANTS[sample_export.name]}
+    assert speakers == {"Human", AGENTS[sample_export.name]}
 
 
 def test_import_no_index_skips_indexing(test_repo, index_spy, claude_export):
