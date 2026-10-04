@@ -11,7 +11,7 @@ import pytest
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._claude_code import ClaudeCodeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
-from commonplace._import._commands import import_
+from commonplace._import._commands import autodetect_importer, import_
 from commonplace._import._gemini import _to_log as _gemini_to_log
 from commonplace._import._gemini_takeout import GeminiTakeoutImporter
 from commonplace._import._serializer import MarkdownSerializer
@@ -231,6 +231,41 @@ def test_zip_importer_claims_only_its_own_export(importer_class, claimed, tmp_pa
     export = _prepare_export(SAMPLE_EXPORTS_DIR / claimed, tmp_path)
 
     assert claims(importer_class(), export) == (ZIP_IMPORTERS[claimed] is importer_class)
+
+
+#: What `import` stores of each export: the bare member its importer reads.
+STORED_MEMBERS = {
+    "chatgpt.zip/conversations.json": ChatGptImporter,
+    "claude.zip/conversations.json": ClaudeExportImporter,
+    f"gemini-takeout.zip/{GeminiTakeoutImporter.member}": GeminiTakeoutImporter,
+}
+
+
+@pytest.mark.parametrize("stored", STORED_MEMBERS)
+@pytest.mark.parametrize("importer_class", STORED_MEMBERS.values(), ids=lambda c: c.__name__)
+def test_stored_member_is_claimed_only_by_its_own_importer(importer_class, stored, claims):
+    assert claims(importer_class(), SAMPLE_EXPORTS_DIR / stored) == (STORED_MEMBERS[stored] is importer_class)
+
+
+def test_import_stored_blob_is_claimed_by_the_same_importer_and_yields_the_same_logs(sample_export, test_repo):
+    """Re-rendering from the blob store (#71) reads what import stored, so every source must round-trip."""
+    import_(sample_export.path, test_repo, user="Human")
+    [stored] = {
+        load_frontmatter(path.read_text())[0]["source_export"] for path in (test_repo.root / "chats").glob("**/*.md")
+    }
+    blob = test_repo.root / stored
+
+    importer, blob_importer = autodetect_importer(sample_export.path), autodetect_importer(blob)
+    assert type(blob_importer) is type(importer)
+    assert blob_importer.import_(blob) == importer.import_(sample_export.path)
+
+
+def test_takeout_importer_declines_another_products_activity_page(tmp_path):
+    """Takeout names every product's page `My Activity.html`; only Gemini's is ours."""
+    page = tmp_path / "My Activity.html"
+    page.write_text('<html><body><p class="mdl-typography--title">YouTube</p></body></html>')
+
+    assert not GeminiTakeoutImporter().can_import(page)
 
 
 def test_zip_contains_file_that_is_not_a_zip_raises(tmp_path):
