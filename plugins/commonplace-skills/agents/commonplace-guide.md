@@ -81,6 +81,12 @@ journal/
     {month}/
       {date}.md
 
+agent-journal/
+  {agent}/              # e.g. claude
+    {year}/
+      {month}/
+        {date}.md
+
 notes/
   ideas.md              # Uncommitted backlog: no commitment, no date
   todo.md               # Committed actions, by year
@@ -107,6 +113,11 @@ topics/
 - **Chats**: Imported AI conversations. Primitive artefacts with provenance
   linking back to source exports in `.commonplace/blobs/`.
 - **Journal entries**: Daily notes created via the `journal` command.
+- **Agent journal**: Entries agents write as themselves, for the user and
+  for later sessions that don't remember this one. Never evidence of the
+  user's thinking, so never a source; quote one only attributed to its agent.
+  Not private. A stop-gap until the journal moves to per-author folders.
+  If `agent-journal/README.md` exists, its conventions win.
 - **Notes**: The user's own writing. Primitive. `/rake` proposes entries for
   `ideas.md`, `todo.md` and `projects/`; add only what the user approves, and
   never reword what's there.

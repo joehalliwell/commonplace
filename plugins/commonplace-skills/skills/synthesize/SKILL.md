@@ -193,6 +193,26 @@ commonplace index
 Resonances that include `{slug}` were written against the old distillation;
 name them to the user (`grep -l '^  - {slug}$' topics/resonances/*.md`).
 
+### 6. Agent Journal (optional)
+
+This step is yours. If the run left something a later session should know (a
+correction the user made, a mistake of yours or a subagent's, what you'd do
+differently) or something you want to say, write it in
+`agent-journal/{agent}/{yyyy}/{mm}/{yyyy-mm-dd}.md`, where `{agent}` names
+you, e.g. `claude`. If nothing comes to mind, skip it.
+
+If `agent-journal/README.md` exists, read it first. Otherwise: the entry is
+yours, not the user's; they may read it; later sessions won't remember this
+one, so write it to be read cold. Append if today's file exists; head a new
+one like the user's journal, e.g. `# Thursday, October 1 2026`.
+
+Commit it on its own and tell the user its path:
+
+```bash
+commonplace git -- add agent-journal/
+commonplace git -- commit -m "Agent journal: {agent}"
+```
+
 ### Conforming a Stale Topic
 
 Bring a stale topic up to date in its own commit before adding new material,

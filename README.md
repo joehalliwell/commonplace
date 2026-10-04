@@ -346,6 +346,10 @@ runs update them in place. Everything under `topics/` is an
 concept document, recording its sources, the release that wrote it, and who
 approved it.
 
+At the end of a run, a skill may write an entry of its own in
+`agent-journal/{agent}/`, committed separately. Those entries are never
+treated as evidence of your thinking.
+
 ## Configuration
 
 The defaults are meant to work untouched. To change one, set it in a TOML file
