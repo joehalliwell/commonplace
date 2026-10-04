@@ -1,9 +1,9 @@
 # Commonplace Concepts
 
-The ideas every skill in this plugin shares, with the reasons for them. Each
-skill restates the rules it acts on where it acts on them, since a subagent
-sees only its prompt; this file is where a rule is defined and argued. If a
-skill and this file disagree, fix one of them.
+The ideas every skill in this plugin shares, with the reasons for them. Skills
+and their subagents read this first; each still states inline, as a leading
+word, the rules it acts on. This file is where a rule is defined and argued.
+If a skill and this file disagree, fix one of them.
 
 A change here that alters what an artefact looks like still needs a
 **Conventions** entry in each skill whose artefacts change: staleness is
@@ -18,16 +18,16 @@ checked per skill, against that skill's newest entry.
   about the user. Its paraphrase of the user, so a lead to the originating passage,
   never the user's words.
 - **Derived**: produced from other artefacts. Everything under `topics/`:
-  distillations, resonances and the topic index. Never a source: every run
-  commits and re-indexes them, so they surface in search beside real sources,
-  and quoting one launders a conclusion back into evidence and counts the same
-  claim twice. Follow a derived artefact's citation to the primitive and cite
-  that.
+  distillations, resonances and the topic index. Every run commits and
+  re-indexes them, so they surface in search beside real sources. Quoting one
+  is **laundering**: a conclusion passed back off as evidence, counting the
+  same claim twice. Follow a derived artefact's citation to the primitive and
+  cite that.
 - **Skill state**: `.commonplace/skills/{skill}/`. What a skill needs to
   behave correctly next time, and nobody reads for its own sake: a topic's
-  gathering, rake's chaff, a review log. Never linked (the link checker can't
-  follow it), and cited only as a review, in plain text. Anything a person
-  reads stays visible.
+  gathering, rake's chaff, a review log. Cited only as a review, in plain
+  text, since the link checker can't follow it there. Anything a person reads
+  stays visible.
 - **Agent journal**: `agent-journal/{agent}/`. The writing of the agent that
   ran a skill. Never evidence of the user's thinking, so never a source; quote
   one only attributed to its agent. See **Agent journal** below.
@@ -84,11 +84,12 @@ resumes in a later, separate chat. Mark a thread or plan:
 Always give the date it was last touched. "Abandoned" or "dropped" is a claim
 about intent; make it only when the user did.
 
-## Imports backfill
+## Backfill
 
-A fresh export or a deeper fetch adds *old* conversations. Never filter new
-material by date; diff against the artefact's own record of what it has read
-(a topic's `sources`, a note's citations, rake's filed items and chaff).
+A fresh export or a deeper fetch adds *old* conversations. New material is
+whatever the artefact's own record of what it has read doesn't name (a
+topic's `sources`, a note's citations, rake's filed items and chaff),
+whatever its date.
 
 ## Citations
 
@@ -96,8 +97,8 @@ Root-relative wikilinks in body text, the path without `.md`:
 `[[/chats/claude/2026/09/2026-09-07-esta-renewal]]`. The leading `/` resolves
 from the repository root. No date beside it, since the path carries one;
 where the date is the point, `[2026-09-07](/chats/…/2026-09-07-esta-renewal.md)`.
-Frontmatter never uses `[[…]]`, which YAML reads as a nested list, and its
-paths are root-relative with a leading `/`.
+Frontmatter paths are bare and root-relative, with a leading `/`, since YAML
+reads `[[…]]` as a nested list.
 
 Check every target exists before returning. Files move (a re-import can
 rename a directory); find a missing one with
@@ -115,7 +116,8 @@ coinage is glossed wherever it is used.
 **Cold reading** is the coordinator's check on that. It hasn't read the
 sources, so it is the right test: list every term, name or reference in the
 subagent's summary it couldn't explain from the summary alone, and send the
-list back. Don't rewrite the lines yourself; that puts a guess into the record.
+list back. The subagent, which read the sources, rewrites the lines; a
+rewrite by the coordinator would put a guess into the record.
 
 ## Review
 
@@ -147,7 +149,8 @@ Where each skill records it:
   land where they are filed (`notes/`, or chaff); "done" is recorded where
   the user asks.
 
-Never defer review material to a journal, the user's or an agent's.
+Review material lives in the run's output, never in a journal, the user's or
+an agent's.
 
 ## Commits
 
