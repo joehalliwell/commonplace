@@ -304,6 +304,8 @@ The format is detected per file — Claude export, ChatGPT export, Gemini
 Takeout, Claude Code session log, or wire archive — and files no importer
 claims are skipped. Chats belong to commonplace: re-importing a conversation
 rewrites it in place, so annotate them in `notes/`, not in the chat itself.
+Import refuses the repo's own `.commonplace/blobs`: to re-render chats from the
+archives already stored there, run `commonplace doctor --render`.
 Each chat is an [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
 document (`type: Chat`) whose `resource` links back to the conversation where
 the agent has a URL for it, so re-importing also brings older chats up to date.
