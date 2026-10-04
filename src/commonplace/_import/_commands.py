@@ -22,7 +22,7 @@ from commonplace._import._types import ChatImporter, MemoryImporter
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
-from commonplace._types import Note, RepoPath
+from commonplace._types import Metadata, Note, RepoPath
 from commonplace._utils import slugify
 
 #: Everything that can claim a file: chat importers accumulate, memory importers mirror live state.
@@ -89,16 +89,24 @@ def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None
     if isinstance(importer, MemoryImporter):
         mirror_one(path, repo, importer, auto_index=auto_index)
         return
-    serializer = MarkdownSerializer(human=user, agent=importer.name)
-
     # Store only the member an archive's importer reads, or the whole file for non-archives —
     # which includes a member already extracted from one, re-imported from the blob store.
     if importer.member and is_zipfile(path):
         blob = extract_and_store(path, importer.member, repo)
     else:
         blob = repo.store_blob(path)
-    source_export = blob.path.as_posix()
 
+    for rel_path, (metadata, body) in render_chats(path, importer, user, blob.path.as_posix()).items():
+        repo.save(Note(repo_path=repo.make_repo_path(rel_path), body=body, metadata=metadata))
+        logger.info(f"Stored log '{metadata['title']}' at '{rel_path}'")
+
+    repo.commit(f"Import from '{path}' using '{importer.source}' importer", auto_index=auto_index)
+
+
+def render_chats(path: Path, importer: ChatImporter, user: str, source_export: str) -> dict[Path, tuple[Metadata, str]]:
+    """Each chat note the file at `path` renders to, by path, as frontmatter and body; writes nothing."""
+    serializer = MarkdownSerializer(human=user, agent=importer.name)
+    rendered: dict[Path, tuple[Metadata, str]] = {}
     used_paths: Counter[Path] = Counter()
 
     for log in importer.import_(path):
@@ -121,14 +129,9 @@ def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None
             "source_export": source_export,
         }
 
-        # Create RepoPath for the new note (will get proper ref after commit)
-        repo_path = repo.make_repo_path(rel_path)
+        rendered[rel_path] = (log.metadata, serializer.serialize(log))
 
-        note = Note(repo_path=repo_path, body=serializer.serialize(log), metadata=log.metadata)
-        repo.save(note)
-        logger.info(f"Stored log '{log.title}' at '{rel_path}'")
-
-    repo.commit(f"Import from '{path}' using '{importer.source}' importer", auto_index=auto_index)
+    return rendered
 
 
 def make_chat_path(source: str, date: datetime, title: str | None) -> Path:
