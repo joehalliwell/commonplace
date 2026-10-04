@@ -11,7 +11,7 @@ antiquity.
 
 ### Current Capabilities
 
-- 🛰️ **Fetch conversations** straight from the provider, using your browser
+- 🛰️ **Fetch conversations** straight from the vendor, using your browser
   session: Claude, Gemini, ChatGPT
 - 💬 **Import conversations** from manual exports and local logs:
   - Claude (ZIP export from claude.ai)
@@ -73,7 +73,7 @@ step 3 is optional.
 
 ### Fetch conversations
 
-The main way in: pull new conversations straight from the provider, no export
+The main way in: pull new conversations straight from the vendor, no export
 request or download to wait for.
 
 ```bash
@@ -84,7 +84,7 @@ commonplace fetch
 commonplace fetch --source claude
 commonplace fetch -s gemini -s chatgpt
 
-# Ignore the cursor and pull everything the provider has
+# Ignore the cursor and pull everything the vendor has
 commonplace fetch --all
 
 # Skip indexing this run (see `commonplace index`)
@@ -116,9 +116,9 @@ here on the next fetch, and git history keeps what it used to say. Memory is
 materially more personal than chat logs — think before syncing it to a remote,
 or leave it out with `--source`.
 
-These are the providers' internal endpoints — unofficial, and they change
+These are the vendors' internal endpoints — unofficial, and they change
 without notice. If a fetcher breaks, fall back to
-[manual exports](#importing-exports-and-local-logs); if a provider starts
+[manual exports](#importing-exports-and-local-logs); if a vendor starts
 rejecting you as a bot, see [Configuration](#configuration).
 
 **If you previously imported Gemini history from Takeout**, move it aside
@@ -280,12 +280,12 @@ resolves it from the vault root. Wikilinks name a note rather than a place, so
 
 ## Importing exports and local logs
 
-`fetch` covers the three chat providers. Import is for everything else: local
+`fetch` covers the three chat agents. Import is for everything else: local
 logs, historical archives, and conversations a fetcher can't reach (see the
 `<antThinking>` caveat above).
 
 ```bash
-# A provider export, or a wire archive written by `fetch`
+# A vendor export, or a wire archive written by `fetch`
 commonplace import path/to/export.zip
 
 # A directory: every file an importer recognizes, recursively
@@ -304,7 +304,7 @@ document (`type: Chat`) whose `resource` links back to the conversation where
 the agent has a URL for it, so re-importing also brings older chats up to date.
 
 <details>
-<summary>How to export from each provider</summary>
+<summary>How to export from each vendor</summary>
 
 **Claude**: [claude.ai](https://claude.ai) → profile icon (bottom left) →
 **Settings** → **Data & Privacy** → **Export data**. You'll get an email with
@@ -379,7 +379,7 @@ prints just that one value.
 | `auto_index` | `true`                      | index new notes as they're committed       |
 | `ua`         | a current Chrome UA         | User-Agent sent by fetchers                |
 
-`ua` is the one worth knowing about: every provider fronts its internal API
+`ua` is the one worth knowing about: every vendor fronts its internal API
 with a bot check that a stale User-Agent fails, so if fetches start getting
 blocked, copy `navigator.userAgent` from your browser's console and set
 `COMMONPLACE_UA` (or `ua`) to it — no need to wait for a release.
