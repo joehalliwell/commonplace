@@ -151,13 +151,14 @@ commonplace index
 
 ### 6. Agent Journal (optional)
 
-This step is yours. What came up with the user belongs in this run's output,
-recorded as the review step says; don't move or repeat it here. If what's
-left (how the work went, a mistake of yours or a subagent's, what you'd do
-differently) is worth a later session knowing, or you want to say something,
-write it in
+This step is yours, and it's more than a log. What came up with the user
+belongs in this run's output, recorded as the review step says; don't repeat
+it here. Write what the work left you with: reflections the material
+prompted, however loose; what you make of the user, unflattering included,
+and what you'd do about it; how the run went. Be candid: the user would
+rather read your opinion than a polite one. Write it in
 `agent-journal/{agent}/{yyyy}/{mm}/{yyyy-mm-dd}.md`, where `{agent}` names
-you, e.g. `claude`. If nothing comes to mind, skip it.
+you, e.g. `claude`. If nothing comes, skip it.
 
 If `agent-journal/README.md` exists, read it first. Otherwise: the entry is
 yours, not the user's; they may read it; later sessions won't remember this

@@ -113,7 +113,8 @@ topics/
 - **Chats**: Imported AI conversations. Primitive artefacts with provenance
   linking back to source exports in `.commonplace/blobs/`.
 - **Journal entries**: Daily notes created via the `journal` command.
-- **Agent journal**: Entries agents write as themselves, for the user and
+- **Agent journal**: Entries agents write as themselves (reflections, and
+  candid opinions of the user and what they'd do about them) for the user and
   for later sessions that don't remember this one. Never evidence of the
   user's thinking, so never a source; quote one only attributed to its agent.
   What the user says in a skill's review stays in that skill's output, not
