@@ -10,8 +10,7 @@ providers that existed to write one.
 remain the contracts. Importers that
 consume something other than a wire archive — export ZIPs, Takeout, Claude
 Code — satisfy that Protocol directly and have no business here: they identify
-themselves by archive contents, and several of them do declare
-`required_paths`.
+themselves by archive contents, and the ZIP ones declare the `member` they read.
 """
 
 from pathlib import Path
@@ -23,11 +22,8 @@ class BaseWireImporter:
     """Recognises the wire archive written by the fetcher of the same `source`."""
 
     source: str
-
-    def required_paths(self) -> list[str]:
-        """Nothing to extract: a wire archive is gzipped JSONL, not a ZIP, so
-        it is stored whole. True of every wire importer, not just a default."""
-        return []
+    #: A wire archive is gzipped JSONL, not a ZIP, so it is stored whole.
+    member: str | None = None
 
     def can_import(self, path: Path) -> bool:
         source = read_header(path).source

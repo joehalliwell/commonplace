@@ -8,9 +8,7 @@ generated:
   by: commonplace/1.2.3
   at: '2024-02-27T13:35:54+00:00'
 source: chatgpt
-source_exports:
-- .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json
-- .commonplace/blobs/971a918d499d6e369dbc58850d5549139b6a02ae6a331671c2b179dd7cd7e4fd/user.json
+source_export: .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json
 ---
 
 # Big Numbers Summed [created:: 2024-02-27T13:35:45+00:00]
@@ -37,9 +35,7 @@ generated:
   by: commonplace/1.2.3
   at: '2024-03-06T07:48:44+00:00'
 source: chatgpt
-source_exports:
-- .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json
-- .commonplace/blobs/971a918d499d6e369dbc58850d5549139b6a02ae6a331671c2b179dd7cd7e4fd/user.json
+source_export: .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json
 ---
 
 # Conventual Life for Nuns [created:: 2024-03-06T07:47:29+00:00]
@@ -105,9 +101,7 @@ generated:
   by: commonplace/1.2.3
   at: '2025-03-31T22:09:44+00:00'
 source: chatgpt
-source_exports:
-- .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json
-- .commonplace/blobs/971a918d499d6e369dbc58850d5549139b6a02ae6a331671c2b179dd7cd7e4fd/user.json
+source_export: .commonplace/blobs/84be4584aaf5b35213369c87fc9706a56afa1a0800ab16ba08e47d2d335c5245/conversations.json
 ---
 
 # Ghibli-style Illustration Request [created:: 2025-03-31T22:04:13+00:00]
