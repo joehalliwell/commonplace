@@ -366,6 +366,25 @@ class Commonplace:
         # %aI carries the committer's local offset; fetchers work in UTC.
         return datetime.fromisoformat(raw).astimezone(UTC)
 
+    def first_added(self, pathspec: str) -> list[str]:
+        """Committed paths under `pathspec` in the order history first added them, oldest first."""
+        out = self._git("log", "--reverse", "--diff-filter=A", "--format=", "--name-only", "--", pathspec)
+        return list(dict.fromkeys(line for line in out.splitlines() if line))
+
+    def last_subjects(self, pathspec: str) -> dict[str, str]:
+        """Each committed path under `pathspec`, with the subject of the last commit that changed it."""
+        subjects: dict[str, str] = {}
+        for commit in self._git("log", "--format=%x00%s", "--name-only", "--", pathspec).split("\0")[1:]:
+            subject, *paths = commit.splitlines()
+            for path in paths:
+                if path:
+                    subjects.setdefault(path, subject)
+        return subjects
+
+    def uncommitted(self, pathspec: str) -> set[str]:
+        """Paths under `pathspec` that differ from HEAD, untracked ones included."""
+        return self._status(pathspec, untracked=True)[1]
+
     def source(self, repo_path: RepoPath) -> str:
         """The source of this collection of notes/chats."""
         parts = repo_path.path.parts
