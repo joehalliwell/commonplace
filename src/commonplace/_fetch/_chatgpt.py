@@ -10,8 +10,6 @@ import httpx
 from commonplace._fetch._base import BaseFetcher
 
 SESSION_URL = "https://chatgpt.com/api/auth/session"
-LIST_URL = "https://chatgpt.com/backend-api/conversations"
-DETAIL_URL = "https://chatgpt.com/backend-api/conversation/{cid}"
 
 PAGE_SIZE = 100
 
@@ -55,6 +53,14 @@ class ChatGptSessionFetcher(BaseFetcher):
             raise RuntimeError("No access token in the ChatGPT session response — the auth flow may have changed.")
         client.headers["Authorization"] = f"Bearer {token}"
 
+    def _api(
+        self, method: str, path: str, *, endpoint: str, key: dict[str, Any] | None = None, **kwargs: Any
+    ) -> httpx.Response:
+        """Call `backend-api` and log the response verbatim under `endpoint` and `key`."""
+        r = self._request(method, f"https://chatgpt.com/backend-api/{path}", **kwargs)
+        self._log(endpoint=endpoint, **(key or {}), response=r.text)
+        return r
+
 
 class ChatGptFetcher(ChatGptSessionFetcher):
     """Records one listing page per 100 conversations plus N conversation details."""
@@ -96,10 +102,8 @@ class ChatGptFetcher(ChatGptSessionFetcher):
             offset += len(items)
 
     def _list_page(self, offset: int) -> dict[str, Any]:
-        r = self._get(LIST_URL, params={"offset": offset, "limit": PAGE_SIZE, "order": "updated"})
-        self._log(endpoint="conversations", offset=offset, response=r.text)
-        return r.json()
+        params = {"offset": offset, "limit": PAGE_SIZE, "order": "updated"}
+        return self._api("GET", "conversations", endpoint="conversations", key={"offset": offset}, params=params).json()
 
     def _read(self, cid: str) -> None:
-        r = self._get(DETAIL_URL.format(cid=cid))
-        self._log(endpoint="conversation", cid=cid, response=r.text)
+        self._api("GET", f"conversation/{cid}", endpoint="conversation", key={"cid": cid})
