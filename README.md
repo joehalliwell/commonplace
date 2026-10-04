@@ -297,8 +297,8 @@ commonplace import ~/.claude/projects/
 
 The format is detected per file — Claude export, ChatGPT export, Gemini
 Takeout, Claude Code session log, or wire archive — and files no importer
-claims are skipped. Re-importing a conversation updates it in place: fields
-the importer owns are refreshed, and frontmatter you added by hand survives.
+claims are skipped. Chats belong to commonplace: re-importing a conversation
+rewrites it in place, so annotate them in `notes/`, not in the chat itself.
 Each chat is an [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
 document (`type: Chat`) whose `resource` links back to the conversation where
 the assistant has a URL for it, so re-importing also brings older chats up to date.

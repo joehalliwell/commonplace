@@ -85,13 +85,7 @@ def extract_and_store(archive: Path, paths: list[str], repo: Commonplace) -> lis
 
 
 def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None = None):
-    """
-    Import chats from a supported provider into the repository, or hand a mirrored source to `mirror_one`.
-
-    If a conversation already exists at the target path, metadata will be merged:
-    - Fields provided by the importer will be updated with new values
-    - User-added fields (not in importer metadata) will be preserved
-    """
+    """Import chats, overwriting any already there since commonplace owns them, or hand a mirrored source to `mirror_one`."""
     importer = autodetect_importer(path)
     if not importer:
         logger.debug(f"Skipping {path}")
@@ -137,10 +131,6 @@ def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None
         repo_path = repo.make_repo_path(rel_path)
 
         note = Note(repo_path=repo_path, body=serializer.serialize(log), metadata=log.metadata)
-        if (repo.root / rel_path).exists():
-            # Ours win; what the user added by hand survives.
-            note.metadata = repo.load(repo_path).metadata | note.metadata
-            logger.debug(f"Merged metadata for existing file '{rel_path}'")
         repo.save(note)
         logger.info(f"Stored log '{log.title}' at '{rel_path}'")
 
