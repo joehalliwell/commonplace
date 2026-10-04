@@ -10,14 +10,16 @@ Signing in is the same three steps everywhere — check the session cookie,
 open the client, do whatever the API wants before its first real call — so
 [[BaseFetcher._signed_in]] runs them, and a provider fills in only the cookie
 check and the post-open step. What stays out of this class is `fetch()` itself
-and pagination: across providers those differ by shape, and a template method
-over them would obscure more than it saved.
+and its walk: they differ by shape — a chat fetcher lists what is fresh and
+reads each item, a memory fetcher records the whole state every run — and a
+template method over them would obscure more than it saved.
 
-Within a provider they do not, so share everything there: the claude.ai
-fetchers put the whole walk in [[commonplace._fetch._claude.ClaudeSessionFetcher]].
-Sharing costs nothing in robustness. A fetcher is brittle by nature — it tracks
-an unofficial upstream and breaks when that moves — so code two fetchers share
-is not new coupling, only one place to fix instead of two.
+Each provider has one `<Provider>SessionFetcher` saying how to talk to it —
+sign-in and the call that wraps its API — with its chat and memory fetchers as
+siblings beneath, each saying what to fetch. Share freely through it. A fetcher
+is brittle by nature — it tracks an unofficial upstream and breaks when that
+moves — so code two fetchers share is not new coupling, only one place to fix
+instead of two.
 
 [[commonplace._fetch._types.Fetcher]] remains the contract — this class is
 shared implementation, not a type. A fetcher that has no use for it can satisfy

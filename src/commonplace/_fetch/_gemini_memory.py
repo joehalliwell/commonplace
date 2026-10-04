@@ -3,11 +3,11 @@
 from datetime import datetime
 from pathlib import Path
 
-from commonplace._fetch._gemini import GeminiFetcher
+from commonplace._fetch._gemini import GeminiSessionFetcher
 from commonplace._import._gemini_memory import RPC_LIST_SAVED_INFO
 
 
-class GeminiMemoryFetcher(GeminiFetcher):
+class GeminiMemoryFetcher(GeminiSessionFetcher):
     """Records the one call that returns every saved item; there is nothing per item to read."""
 
     source = "gemini-memory"

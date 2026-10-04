@@ -16,16 +16,13 @@ DETAIL_URL = "https://chatgpt.com/backend-api/conversation/{cid}"
 PAGE_SIZE = 100
 
 
-class ChatGptFetcher(BaseFetcher):
-    """Records one listing page per 100 conversations plus N conversation
-    details from chatgpt.com's internal API. Endpoints are unofficial; expect
-    drift.
+class ChatGptSessionFetcher(BaseFetcher):
+    """Signs in to chatgpt.com's internal `backend-api`; endpoints are unofficial, so expect drift.
 
-    Unlike the other fetchers, the session cookie is not itself the credential:
-    it buys a short-lived bearer token from `/api/auth/session`, which every
-    `backend-api` call then carries."""
+    The session cookie is not itself the credential: it buys a short-lived
+    bearer token from `/api/auth/session`, which every `backend-api` call then
+    carries."""
 
-    source = "chatgpt"
     cookie_domain = "chatgpt.com"
     service_name = "ChatGPT"
     login_url = "https://chatgpt.com"
@@ -40,15 +37,6 @@ class ChatGptFetcher(BaseFetcher):
     # deliberately non-zero; it is otherwise a guess. The other two providers
     # have not needed pacing.
     request_interval = 0.25
-
-    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        with self._signed_in() as client:
-            if client is None:
-                return None
-            fresh = list(self._list_fresh(since))
-            self._read_fresh(fresh, since, self._read)
-
-        return self._write_archive(destination) if fresh else None
 
     def _has_session(self, cookies: dict[str, str]) -> bool:
         """Matched by prefix, since NextAuth may have chunked the cookie."""
@@ -66,6 +54,21 @@ class ChatGptFetcher(BaseFetcher):
         if not token:
             raise RuntimeError("No access token in the ChatGPT session response — the auth flow may have changed.")
         client.headers["Authorization"] = f"Bearer {token}"
+
+
+class ChatGptFetcher(ChatGptSessionFetcher):
+    """Records one listing page per 100 conversations plus N conversation details."""
+
+    source = "chatgpt"
+
+    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+        with self._signed_in() as client:
+            if client is None:
+                return None
+            fresh = list(self._list_fresh(since))
+            self._read_fresh(fresh, since, self._read)
+
+        return self._write_archive(destination) if fresh else None
 
     def _list_fresh(self, since: datetime | None) -> Iterator[str]:
         """Walk listing pages, yielding ids updated after `since`.

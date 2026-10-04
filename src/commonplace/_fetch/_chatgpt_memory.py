@@ -3,13 +3,13 @@
 from datetime import datetime
 from pathlib import Path
 
-from commonplace._fetch._chatgpt import ChatGptFetcher
+from commonplace._fetch._chatgpt import ChatGptSessionFetcher
 
 MEMORIES_URL = "https://chatgpt.com/backend-api/memories"
 SUMMARY_URL = "https://chatgpt.com/backend-api/memories/about_you/summary/stream"
 
 
-class ChatGptMemoryFetcher(ChatGptFetcher):
+class ChatGptMemoryFetcher(ChatGptSessionFetcher):
     """Records the saved-memories list and the streamed about-you summary, whole, on every run."""
 
     source = "chatgpt-memory"
