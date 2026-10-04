@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from zipfile import ZipFile, is_zipfile
 
+from commonplace import __version__
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
 from commonplace._import._claude import ClaudeImporter
@@ -119,8 +120,18 @@ def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None
         if count > 1:
             rel_path = make_chat_path(source=log.source, date=log.created, title=f"{log.title}-{count}")
 
-        log.metadata["source"] = log.source
-        log.metadata["source_exports"] = source_exports
+        # OKF keys first; `generated` is the importer's rendition, current as of the last event.
+        log.metadata = {
+            "type": "Chat",
+            "title": log.title,
+            **log.metadata,
+            "generated": {
+                "by": f"commonplace/{__version__}",
+                "at": max((e.created for e in log.events), default=log.created).isoformat(timespec="seconds"),
+            },
+            "source": log.source,
+            "source_exports": source_exports,
+        }
 
         # Create RepoPath for the new note (will get proper ref after commit)
         repo_path = repo.make_repo_path(rel_path)

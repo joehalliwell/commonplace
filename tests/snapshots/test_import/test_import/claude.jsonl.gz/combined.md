@@ -1,6 +1,12 @@
 <!-- Contents of chats/claude/2024/06/2024-06-23-grouping-grey-words.md -->
 ---
+type: Chat
+title: Grouping Grey Words
 uuid: fb817842-a38b-4b71-824b-947a20859b83
+resource: https://claude.ai/chat/fb817842-a38b-4b71-824b-947a20859b83
+generated:
+  by: commonplace/1.2.3
+  at: '2024-06-23T11:59:43+00:00'
 source: claude
 source_exports:
 - .commonplace/blobs/46d861a24c65b41d0377fd656b71362b57fd12f46a4958f8e0d16921f504ff5a/claude.jsonl.gz

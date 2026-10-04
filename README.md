@@ -299,6 +299,9 @@ The format is detected per file — Claude export, ChatGPT export, Gemini
 Takeout, Claude Code session log, or wire archive — and files no importer
 claims are skipped. Re-importing a conversation updates it in place: fields
 the importer owns are refreshed, and frontmatter you added by hand survives.
+Each chat is an [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+document (`type: Chat`) whose `resource` links back to the conversation where
+the assistant has a URL for it, so re-importing also brings older chats up to date.
 
 <details>
 <summary>How to export from each provider</summary>

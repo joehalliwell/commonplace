@@ -52,7 +52,7 @@ def _to_log(thread: dict[str, Any], source: str) -> EventLog:
         title=thread["name"],
         created=thread["created_at"],
         events=[_to_message(msg) for msg in thread["chat_messages"]],
-        metadata={"uuid": thread["uuid"]},
+        metadata={"uuid": thread["uuid"], "resource": f"https://claude.ai/chat/{thread['uuid']}"},
     )
 
 

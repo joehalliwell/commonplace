@@ -125,6 +125,8 @@ def _to_log(summary: dict[str, Any], body: list | None) -> EventLog:
 
     metadata: dict = {
         "uuid": summary["cid"],
+        # The web app addresses a chat by its cid without the `c_` the RPCs use.
+        "resource": f"https://gemini.google.com/app/{summary['cid'].removeprefix('c_')}",
         "updated_at": summary["updated_at"],
         "is_pinned": summary["is_pinned"],
     }
