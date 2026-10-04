@@ -239,9 +239,14 @@ commonplace git status
 
 ```bash
 commonplace doctor
+
+# Skip an operation, or report what would change without writing
+commonplace doctor --no-links
+commonplace doctor --check
 ```
 
-Restores and commits any scaffolding that has gone missing (`.gitignore`,
+Each operation runs in turn under its own heading, and a closing line totals
+what was fixed and what needs a look. The scaffolding operation restores and commits any scaffolding that has gone missing (`.gitignore`,
 `.gitattributes`, `.claude/settings.json`, `.commonplace/config.toml`, the root
 `index.md`, and the mdformat config in `.pre-commit-config.yaml` and
 `.mdformat.toml`, which keeps wikilinks from being escaped, and a `.gitkeep` in

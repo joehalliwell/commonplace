@@ -305,20 +305,15 @@ def sync(
 @app.command(group=SYSTEM_SECTION)
 def doctor(
     *,
+    scaffold: Annotated[bool, Parameter(help="Restore missing scaffolding and report template drift.")] = True,
+    links: Annotated[bool, Parameter(help="Report broken links.")] = True,
+    check: Annotated[bool, Parameter(help="Report what would change without writing.", negative="")] = False,
     repo: Repo,
 ) -> None:
-    """Check and fix repository scaffolding (settings, LFS config, etc.), and report broken links."""
-    report = repo.doctor()
-    for action in report.actions:
-        logger.info(action)
-    for warning in report.warnings:
-        logger.warning(warning)
-    if not report.actions and not report.warnings:
-        logger.info("Everything looks good")
+    """Check and fix the repository, one operation at a time: each flag selects one."""
+    from commonplace._doctor import doctor
 
-    logger.info("")
-    logger.info("To enable Claude Code plugins, run in Claude Code:")
-    logger.info("  /plugin marketplace add joehalliwell/commonplace")
+    doctor(repo, check=check, scaffold=scaffold, links=links)
 
 
 @app.command(group=SYSTEM_SECTION)

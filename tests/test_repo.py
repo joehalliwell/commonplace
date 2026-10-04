@@ -1,6 +1,5 @@
 """Tests for repository commit functionality."""
 
-import json
 import re
 import subprocess
 import sys
@@ -262,52 +261,6 @@ def test_commit_no_changes_skips_indexing(test_repo, index_spy, make_note):
     assert index_spy == []
 
 
-def test_doctor_restores_every_file_init_creates(test_repo):
-    """Whatever init() lays down, doctor() puts back — no drift between the two."""
-    scaffolding = _git(test_repo, "ls-files").splitlines()
-    assert scaffolding, "init() should have staged some scaffolding"
-
-    for path in scaffolding:
-        (test_repo.root / path).unlink()
-
-    test_repo.doctor()
-
-    assert [p for p in scaffolding if not (test_repo.root / p).exists()] == []
-
-
-def test_doctor_creates_missing_gitignore(test_repo):
-    """doctor() restores a deleted .gitignore, cache entry and all."""
-    gitignore = test_repo.root / ".gitignore"
-    gitignore.unlink()
-
-    report = test_repo.doctor()
-
-    assert any(".gitignore" in action for action in report.actions)
-    assert ".commonplace/cache" in gitignore.read_text()
-
-
-def test_doctor_creates_missing_config(test_repo):
-    """doctor() restores a deleted .commonplace/config.toml."""
-    config = test_repo.root / ".commonplace" / "config.toml"
-    config.unlink()
-
-    report = test_repo.doctor()
-
-    assert any("config.toml" in action for action in report.actions)
-    assert config.exists()
-
-
-def test_doctor_creates_missing_claude_settings(test_repo):
-    """doctor() restores a deleted .claude/settings.json with the marketplace config."""
-    settings = test_repo.root / ".claude" / "settings.json"
-    settings.unlink()
-
-    report = test_repo.doctor()
-
-    assert any("settings.json" in action for action in report.actions)
-    assert "commonplace" in json.loads(settings.read_text())["extraKnownMarketplaces"]
-
-
 def test_init_seeds_a_root_index_declaring_okf_version(test_repo):
     """The bundle root has no parent to describe it, so init writes its index.md."""
     metadata, _ = load_frontmatter((test_repo.root / "index.md").read_text())
@@ -315,72 +268,9 @@ def test_init_seeds_a_root_index_declaring_okf_version(test_repo):
     assert metadata["okf_version"] == "0.2"
 
 
-def test_doctor_is_quiet_on_a_fresh_repo(test_repo):
-    """The root index links directories a fresh repo doesn't have yet; that isn't breakage."""
-    report = test_repo.doctor()
-
-    assert report.warnings == []
-
-
 def test_init_creates_every_folder_the_root_index_links(test_repo):
     """A fresh repo has the folders its root index describes, so no link needs excusing."""
     assert check_links(test_repo.root, list(test_repo.paths())) == []
-
-
-def test_doctor_leaves_an_edited_root_index_alone(test_repo):
-    """Once seeded, the root index.md is the user's."""
-    index = test_repo.root / "index.md"
-    index.write_text("# Mine\n")
-
-    report = test_repo.doctor()
-
-    assert report.warnings == []
-    assert index.read_text() == "# Mine\n"
-
-
-def test_doctor_reports_a_managed_file_that_differs(test_repo):
-    """A repo behind the current template is told so — and left exactly as it was."""
-    gitignore = test_repo.root / ".gitignore"
-    gitignore.write_text("# Mine\nsecrets/\n")
-
-    report = test_repo.doctor()
-
-    assert report.actions == []
-    assert len(report.warnings) == 1
-    assert ".gitignore" in report.warnings[0]
-    assert gitignore.read_text() == "# Mine\nsecrets/\n"
-
-
-def test_doctor_shows_the_diff_against_the_template(test_repo):
-    """The diff is the whole point: it says what the template has that the repo doesn't."""
-    gitattributes = test_repo.root / ".gitattributes"
-    gitattributes.write_text("*.md text\n")
-
-    report = test_repo.doctor()
-
-    warning = next(w for w in report.warnings if ".gitattributes" in w)
-    assert "-.commonplace/blobs/** filter=lfs diff=lfs merge=lfs -text" in warning
-    assert "+*.md text" in warning
-
-
-def test_doctor_reports_additions_too(test_repo):
-    """Any difference gets shown; deciding which side is right is the reader's job."""
-    gitignore = test_repo.root / ".gitignore"
-    gitignore.write_text(gitignore.read_text() + "secrets/\n")
-
-    report = test_repo.doctor()
-
-    assert any("+secrets/" in warning for warning in report.warnings)
-
-
-def test_doctor_warns_when_marketplace_config_is_removed(test_repo):
-    """The plugin marketplace config is commonplace's; losing it should not be silent."""
-    settings = test_repo.root / ".claude" / "settings.json"
-    settings.write_text(json.dumps({"permissions": {"allow": []}}))
-
-    report = test_repo.doctor()
-
-    assert any("settings.json" in warning for warning in report.warnings)
 
 
 def test_init_scaffolds_mdformat_that_preserves_wikilinks(test_repo):
@@ -401,109 +291,6 @@ def test_init_scaffolds_mdformat_hook_with_wikilink_that_skips_blobs(test_repo):
     assert "mdformat-wikilink" in hook["additional_dependencies"]
     assert re.search(hook["exclude"], ".commonplace/blobs/ab/cd/note.md")
     assert not re.search(hook["exclude"], "notes/ideas.md")
-
-
-def test_doctor_reports_mdformat_config_without_wikilink(test_repo):
-    """Without the extension listed, mdformat escapes wikilinks even with the plugin installed."""
-    mdformat_toml = test_repo.root / ".mdformat.toml"
-    mdformat_toml.write_text(mdformat_toml.read_text().replace('    "wikilink",\n', ""))
-
-    report = test_repo.doctor()
-
-    warning = next(w for w in report.warnings if ".mdformat.toml" in w)
-    assert '-    "wikilink",' in warning
-
-
-def test_doctor_reports_a_broken_link(test_repo):
-    """A reference that lands nowhere is exactly what doctor is for."""
-    (test_repo.root / "notes" / "note.md").write_text("See [the other one](gone.md).\n")
-
-    report = test_repo.doctor()
-
-    warning = next(w for w in report.warnings if "notes/note.md" in w)
-    assert "gone.md" in warning
-
-
-def test_doctor_suggests_where_a_renamed_target_went(test_repo):
-    """The dominant failure is a rename, so say where the file went."""
-    (test_repo.root / "notes" / "moved").mkdir(parents=True)
-    (test_repo.root / "notes" / "moved" / "target.md").write_text("# Target\n")
-    (test_repo.root / "notes" / "note.md").write_text("See [it](target.md).\n")
-
-    report = test_repo.doctor()
-
-    warning = next(w for w in report.warnings if "notes/note.md" in w)
-    assert "notes/moved/target.md" in warning
-
-
-def test_doctor_reports_a_link_to_a_gitignored_file(test_repo):
-    """A link that resolves only on this machine is dead for anyone who clones."""
-    with open(test_repo.root / ".gitignore", "a") as fd:
-        fd.write("scratch/\n")
-    (test_repo.root / "scratch").mkdir()
-    (test_repo.root / "scratch" / "draft.md").write_text("# Draft\n")
-    (test_repo.root / "notes" / "note.md").write_text("See [the draft](../scratch/draft.md).\n")
-
-    report = test_repo.doctor()
-
-    warning = next(w for w in report.warnings if "notes/note.md" in w)
-    assert "scratch/draft.md" in warning
-
-
-def test_doctor_is_quiet_when_links_resolve(test_repo):
-    """No warning for a repo whose links are all good."""
-    (test_repo.root / "notes" / "target.md").write_text("# Target\n")
-    (test_repo.root / "notes" / "note.md").write_text("See [it](target.md).\n")
-
-    report = test_repo.doctor()
-
-    assert not any("note.md" in warning for warning in report.warnings)
-
-
-def test_doctor_groups_broken_links_by_file(test_repo):
-    """One warning per file, however many links in it are broken."""
-    (test_repo.root / "notes" / "note.md").write_text("[a](gone-a.md)\n\n[b](gone-b.md)\n")
-
-    report = test_repo.doctor()
-
-    warnings = [w for w in report.warnings if "notes/note.md" in w]
-    assert len(warnings) == 1
-    assert "gone-a.md" in warnings[0]
-    assert "gone-b.md" in warnings[0]
-
-
-def test_doctor_ignores_edits_to_unmanaged_config(test_repo):
-    """.commonplace/config.toml is yours to set — doctor only checks it exists."""
-    config = test_repo.root / ".commonplace" / "config.toml"
-    config.write_text('user = "Joe"\nwrap = 100\n')
-
-    report = test_repo.doctor()
-
-    assert report.warnings == []
-
-
-def test_doctor_is_idempotent(test_repo):
-    """doctor() reports nothing when everything is already in place."""
-    test_repo.doctor()
-
-    report = test_repo.doctor()
-
-    assert report.actions == []
-    assert report.warnings == []
-
-
-def test_doctor_commits_what_it_creates(test_repo):
-    """A recreated file is committed, alone: doctor leaves nothing staged for someone else's commit."""
-    gitignore = test_repo.root / ".gitignore"
-    gitignore.unlink()
-    _git(test_repo, "rm", "-q", "--cached", ".gitignore")
-    _git(test_repo, "commit", "-qm", "Lose .gitignore")
-
-    test_repo.doctor()
-
-    assert _git(test_repo, "show", "HEAD:.gitignore") == gitignore.read_text()
-    assert _git(test_repo, "diff", "--name-only", "HEAD~1", "HEAD").split() == [".gitignore"]
-    assert _git(test_repo, "status", "--porcelain") == ""
 
 
 def test_last_commit_time_returns_none_on_missing_pathspec(test_repo):

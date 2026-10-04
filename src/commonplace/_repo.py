@@ -10,7 +10,6 @@ from datetime import UTC, datetime
 from functools import cached_property, lru_cache
 from pathlib import Path
 
-from commonplace._links import check_links, summarize
 from commonplace._logging import logger
 from commonplace._types import Note, Pathlike, RepoPath
 from commonplace._utils import dump_frontmatter, load_frontmatter
@@ -83,14 +82,6 @@ _SCAFFOLDING: tuple[ConfigFile, ...] = tuple(
     if file.is_file()
 )
 _GIT_ATTRIBUTES = _scaffold(".gitattributes")
-
-
-@dataclass(frozen=True)
-class DoctorReport:
-    """What `doctor` put right, and what it wants a human to look at."""
-
-    actions: list[str]
-    warnings: list[str]
 
 
 def _create_missing(root: Path, config: ConfigFile) -> bool:
@@ -238,27 +229,26 @@ class Commonplace:
 
         return self.make_repo_path(rel_path)
 
-    def doctor(self) -> DoctorReport:
-        """Restore and commit missing scaffolding, diff whatever has fallen behind `init`'s templates, and find broken links."""
-        actions: list[str] = []
-        warnings: list[str] = []
+    def missing_scaffolding(self) -> list[str]:
+        """The scaffolding `init` lays down that is no longer there."""
+        return [config.path for config in _SCAFFOLDING if not (self.root / config.path).exists()]
 
-        for config in _SCAFFOLDING:
-            if _create_missing(self.root, config):
-                self._pending.add(config.path)
-                actions.append(f"Created {config.path}")
-                continue
-
-            divergence = config.divergence((self.root / config.path).read_text())
-            if divergence:
-                warnings.append(f"{config.path} differs from the template init now writes:\n" + "\n".join(divergence))
-
-        warnings.extend(summarize(check_links(self.root, list(self.paths()))))
-
-        if actions:
+    def restore_scaffolding(self) -> list[str]:
+        """Recreate and commit the missing scaffolding; returns what was restored."""
+        restored = [config.path for config in _SCAFFOLDING if _create_missing(self.root, config)]
+        if restored:
+            self._pending.update(restored)
             self.commit("Restore scaffolding", auto_index=False)
+        return restored
 
-        return DoctorReport(actions=actions, warnings=warnings)
+    def scaffolding_drift(self) -> dict[str, list[str]]:
+        """The diff, by path, of each managed file present but behind the template `init` now writes."""
+        drift = {}
+        for config in _SCAFFOLDING:
+            target = self.root / config.path
+            if target.exists() and (divergence := config.divergence(target.read_text())):
+                drift[config.path] = divergence
+        return drift
 
     def _ensure_gitattributes(self) -> None:
         """Create .gitattributes with LFS config if it doesn't exist yet."""
