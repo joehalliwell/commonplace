@@ -137,13 +137,23 @@ class SQLiteSearchIndex(SearchIndex):
         if not chunks:
             return
 
-        # Batch embed all chunks
-        texts = [chunk.text for chunk in chunks]
-        embeddings = self._embedder.embed_docs(texts)
+        # A chunk whose text another version of its note already has keeps that embedding: an edit
+        # makes the whole note new to the index, but usually changes few of its chunks.
+        known = self._embeddings_by_text({str(chunk.repo_path.path) for chunk in chunks})
+        missing = list(dict.fromkeys(chunk.text for chunk in chunks if chunk.text not in known))
+        if missing:
+            known.update(zip(missing, self._embedder.embed_docs(missing)))
 
-        # Add all chunks with their embeddings
-        for chunk, embedding in zip(chunks, embeddings):
-            self._add_with_embedding(chunk, embedding)
+        for chunk in chunks:
+            self._add_with_embedding(chunk, known[chunk.text])
+
+    def _embeddings_by_text(self, paths: set[str]) -> dict[str, NDArray[np.float32]]:
+        """This model's stored embeddings for any version of the notes at `paths`, by chunk text."""
+        rows = self._conn.execute(
+            f"SELECT text, embedding FROM chunks WHERE model_id = ? AND path IN ({', '.join('?' * len(paths))})",
+            (self._embedder.model_id, *paths),
+        )
+        return {text: np.frombuffer(blob, dtype=np.float32) for text, blob in rows}
 
     def _add_with_embedding(self, chunk: Chunk, embedding: NDArray[np.float32]) -> None:
         """
