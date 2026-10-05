@@ -41,8 +41,6 @@ def index(
     indexed = set(repo.index.get_indexed_paths())
 
     to_index = live - indexed
-    if prune:
-        repo.index.remove(indexed - live)
 
     logger.info(f"Indexing {len(to_index)} notes")
 
@@ -55,5 +53,9 @@ def index(
     # Process chunks in batches
     for chunk_batch in batched(chunk_stream(), batch_size):
         repo.index.add_chunks(chunk_batch)
+
+    # After adding, so the versions being replaced can lend their unchanged chunks' embeddings.
+    if prune:
+        repo.index.remove(indexed - live)
 
     logger.info("Indexing complete")

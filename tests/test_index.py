@@ -238,6 +238,26 @@ def test_index_commonplace_dir_pruned(test_repo, make_note):
     assert stale not in set(test_repo.index.get_indexed_paths())
 
 
+def test_index_reembeds_only_the_chunks_an_edit_changed(test_repo, make_note, monkeypatch):
+    """A new commit makes the whole note new to the index; unchanged chunks keep their embeddings."""
+    body = "# Draft\n\n## Herrings\n\nHerrings are silver.\n\n## Sprats\n\nSprats are small.\n"
+    test_repo.save(make_note(path="draft.md", content=body))
+    test_repo.commit("Add note", auto_index=False)
+    _commands.index(test_repo)
+    embedded: list[str] = []
+    embed_docs = test_repo.index._embedder.embed_docs
+    monkeypatch.setattr(
+        test_repo.index._embedder, "embed_docs", lambda texts: embedded.extend(texts) or embed_docs(texts)
+    )
+
+    test_repo.save(make_note(path="draft.md", content=body.replace("small", "tiny")))
+    test_repo.commit("Edit one section", auto_index=False)
+    _commands.index(test_repo)
+
+    assert len(embedded) == 1 and "tiny" in embedded[0]
+    assert test_repo.index.search_keyword("silver", limit=10)
+
+
 def test_index_prunes_superseded_versions(test_repo, make_note):
     """Editing a note replaces its chunks rather than accumulating a version per edit."""
     test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
