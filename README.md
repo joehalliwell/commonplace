@@ -26,7 +26,7 @@ antiquity.
   │   ├── claude/2026/06/2026-06-28-conversation-title.md
   │   ├── chatgpt/2026/06/2026-06-28-conversation-title.md
   │   ├── claude-code/2026/06/2026-06-28-session-title.md
-  │   ├── claude-tasks/2026/06/2026-06-28-task-name-0600.md
+  │   ├── claude-tasks/2026/06/2026-06-28-run-title.md
   │   ├── gemini/                       # fetched from gemini.google.com
   │   └── gemini-takeout/               # imported from Google Takeout
   ├── memory/                   # agent memory, mirrored from each agent
@@ -106,10 +106,9 @@ strips `<antThinking>` blocks server-side (issue #6).
 
 `claude-tasks` fetches the runs of your claude.ai scheduled tasks, which
 claude.ai keeps apart from your chats. Each run lands as a chat in
-`chats/claude-tasks/`, filed under the task's name and the time it started.
-It is titled by the first line of its output shaped like `[AI] What happened`,
-which a task's prompt can ask for, and otherwise by its file name; `task`
-in the frontmatter names the task. It opens with what the run produced; reply to it in claude.ai and the
+`chats/claude-tasks/`, titled by the first line of its output shaped like
+`[AI] What happened`, which a task's prompt can ask for, or otherwise by the
+task's name and the time it started; `task` in the frontmatter names the task. It opens with what the run produced; reply to it in claude.ai and the
 conversation follows on the next fetch. The prompt and the steps behind the
 output stay in the wire archive, and the task definitions are not fetched.
 

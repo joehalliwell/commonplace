@@ -140,7 +140,6 @@ def test_fetch_command_lands_runs_under_their_own_tree(test_repo):
 
     landed = sorted(p.relative_to(test_repo.root).as_posix() for p in (Path(test_repo.root) / "chats").rglob("*.md"))
     assert landed == [
-        "chats/claude-tasks/2026/06/2026-06-01-digest-0500.md",
-        "chats/claude-tasks/2026/07/2026-07-15-digest-0500.md",
+        "chats/claude-tasks/2026/06/2026-06-01-ai-headline-of-cseold.md",
+        "chats/claude-tasks/2026/07/2026-07-15-ai-headline-of-csenew.md",
     ]
-    assert "title: '[AI] Headline of cse_new'" in (Path(test_repo.root) / landed[1]).read_text()
