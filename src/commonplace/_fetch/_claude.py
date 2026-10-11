@@ -9,6 +9,9 @@ import httpx
 from commonplace._fetch._base import BaseFetcher
 from commonplace._logging import logger
 
+#: The Code sessions API rejects a request without it, cookie or not.
+ANTHROPIC_VERSION = "2023-06-01"
+
 
 def _provenance(r: httpx.Response) -> dict[str, str]:
     """The `request-id` claude.ai stamps on each response.
@@ -55,6 +58,24 @@ class ClaudeSessionFetcher(BaseFetcher):
         r = self._request(method, f"https://claude.ai/api/organizations/{self._org_uuid}/{path}", **kwargs)
         self._log(endpoint=endpoint, **(key or {}), **_provenance(r), response=r.text)
         return r
+
+    def _code_pages(self, path: str, *, endpoint: str, key: dict[str, str] | None = None, **params: str) -> list[Any]:
+        """Every item of a Code sessions listing, logging each page verbatim with the cursor that fetched it."""
+        items: list[Any] = []
+        cursor: dict[str, str] = {}
+        while True:
+            r = self._request(
+                "GET",
+                f"https://claude.ai/v1/code/{path}",
+                params=params | cursor,
+                headers={"anthropic-version": ANTHROPIC_VERSION},
+            )
+            self._log(endpoint=endpoint, **(key or {}), **cursor, **_provenance(r), response=r.text)
+            page = r.json()
+            items.extend(page["data"])
+            if not page.get("next_cursor"):
+                return items
+            cursor = {"cursor": page["next_cursor"]}
 
 
 class ClaudeFetcher(ClaudeSessionFetcher):

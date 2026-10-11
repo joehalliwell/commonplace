@@ -226,10 +226,88 @@ CHATGPT_MEMORY_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
 }
 
 
+# Synthetic, shaped like one scheduled run as first fetched on 2026-10-11. Numbers arrive as strings,
+# events newest first, thinking only as a signature, and the prompt from the client with no payload timestamp.
+TASK_RUN = {
+    "id": "cse_01Example",
+    "trigger_id": "trig_01Example",
+    "title": "⚡ Morning digest",
+    "created_at": "2026-10-11T05:10:31.312825Z",
+    "updated_at": "2026-10-11T09:36:49.480652Z",
+    "last_event_at": "2026-10-11T05:13:12.369251Z",
+    "config": {"model": "claude-opus-5-5", "origin": "scheduled_trigger", "permission_mode": "auto"},
+    "environment_kind": "anthropic_cloud",
+    "status": "active",
+    "tags": ["cowork-scheduled"],
+    "user_message_count": "0",
+}
+
+
+def _task_event(seq: int, at: str, payload: dict, source: str = "worker") -> dict:
+    stamp = {"timestamp": at} if source == "worker" else {}
+    return {
+        "event_id": f"ev-{seq}",
+        "event_type": payload["type"],
+        "sequence_num": str(seq),
+        "source": source,
+        "created_at": at,
+        "payload": {"session_id": "s-example", "uuid": f"u-{seq}", **stamp, **payload},
+    }
+
+
+def _assistant(*content: dict) -> dict:
+    return {"type": "assistant", "message": {"role": "assistant", "model": "claude-opus-5-5", "content": list(content)}}
+
+
+TASK_EVENTS = [
+    _task_event(
+        1, "2026-10-11T05:10:40Z", {"type": "user", "message": {"role": "user", "content": "Find news."}}, "client"
+    ),
+    _task_event(2, "2026-10-11T05:10:41Z", {"type": "system", "subtype": "status"}),
+    _task_event(3, "2026-10-11T05:10:45Z", _assistant({"type": "thinking", "thinking": "", "signature": "c2ln"})),
+    _task_event(
+        4,
+        "2026-10-11T05:10:46Z",
+        _assistant({"type": "tool_use", "id": "toolu_1", "name": "WebSearch", "input": {"query": "news"}}),
+    ),
+    _task_event(
+        5,
+        "2026-10-11T05:11:54Z",
+        {
+            "type": "user",
+            "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_1", "content": "x"}]},
+        },
+    ),
+    _task_event(6, "2026-10-11T05:13:12Z", _assistant({"type": "text", "text": "[AI] Nothing new today"})),
+    _task_event(7, "2026-10-11T05:13:13Z", {"type": "result", "subtype": "success", "result": "[AI] Nothing new"}),
+]
+
+#: The scheduled-run wire first appeared at v3, so it has no earlier examples.
+TASK_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
+    3: (
+        {
+            "wire": "claude-tasks",
+            "version": 3,
+            "fetched_at": "2026-10-11T12:00:00+00:00",
+            "fetched_by": "commonplace/0.0.5",
+        },
+        [
+            {"endpoint": "sessions", "response": json.dumps({"data": [TASK_RUN], "resume_token": "cmVzdW1l"})},
+            {
+                "endpoint": "events",
+                "sid": "cse_01Example",
+                "response": json.dumps({"data": TASK_EVENTS[::-1], "resume_cursor": "cmVzdW1l"}),
+            },
+        ],
+    ),
+}
+
+
 def main() -> None:
     for source, archives in (
         ("claude", ARCHIVES),
         ("claude-memory", MEMORY_ARCHIVES),
+        ("claude-tasks", TASK_ARCHIVES),
         ("chatgpt-memory", CHATGPT_MEMORY_ARCHIVES),
         ("gemini-memory", GEMINI_MEMORY_ARCHIVES),
     ):

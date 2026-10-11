@@ -26,6 +26,7 @@ antiquity.
   │   ├── claude/2026/06/2026-06-28-conversation-title.md
   │   ├── chatgpt/2026/06/2026-06-28-conversation-title.md
   │   ├── claude-code/2026/06/2026-06-28-session-title.md
+  │   ├── claude-tasks/2026/06/2026-06-28-task-name-0600.md
   │   ├── gemini/                       # fetched from gemini.google.com
   │   └── gemini-takeout/               # imported from Google Takeout
   ├── memory/                   # agent memory, mirrored from each agent
@@ -102,6 +103,12 @@ The three sources — `claude`, `gemini`, `chatgpt` — land in
 per-turn timestamps, Gem personas and thought traces, which the Takeout export
 doesn't have. Claude's gets slightly less than the manual export: the endpoint
 strips `<antThinking>` blocks server-side (issue #6).
+
+`claude-tasks` fetches the runs of your claude.ai scheduled tasks, which
+claude.ai keeps apart from your chats. Each run lands as a chat in
+`chats/claude-tasks/`, titled with the task's name and the time it started,
+and begins with the prompt it ran with. The task definitions themselves are
+not fetched.
 
 Three more sources mirror agent memory. `claude-memory` mirrors claude.ai's
 file-based memory into `memory/claude/`, each file at the path claude.ai gives
