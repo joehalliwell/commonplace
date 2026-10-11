@@ -94,7 +94,8 @@ class ClaudeCodeImporter:
             )
         ]
 
-    def _process_event(self, data: dict[str, Any], tool_calls: dict[str, ToolCall]) -> Message | None:
+    @staticmethod
+    def _process_event(data: dict[str, Any], tool_calls: dict[str, ToolCall]) -> Message | None:
         """Parse a user or assistant message from Messages API format."""
         msg_type = data["type"]
 
@@ -129,9 +130,9 @@ class ClaudeCodeImporter:
                 blocks.append(block["text"])
 
             elif block_type == "thinking":
-                # Include thinking blocks as collapsed sections
-                thinking = block["thinking"]
-                blocks.append(f"<!--\n{thinking}\n-->")
+                # Include thinking blocks as collapsed sections; a redacted one carries only its signature
+                if thinking := block["thinking"]:
+                    blocks.append(f"<!--\n{thinking}\n-->")
 
             elif block_type == "tool_use":
                 # Format tool calls
