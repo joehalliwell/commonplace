@@ -106,9 +106,10 @@ strips `<antThinking>` blocks server-side (issue #6).
 
 `claude-tasks` fetches the runs of your claude.ai scheduled tasks, which
 claude.ai keeps apart from your chats. Each run lands as a chat in
-`chats/claude-tasks/`, titled with the task's name and the time it started,
-and begins with the prompt it ran with. The task definitions themselves are
-not fetched.
+`chats/claude-tasks/`, titled with the task's name and the time it started.
+It opens with what the run produced; reply to it in claude.ai and the
+conversation follows on the next fetch. The prompt and the steps behind the
+output stay in the wire archive, and the task definitions are not fetched.
 
 Three more sources mirror agent memory. `claude-memory` mirrors claude.ai's
 file-based memory into `memory/claude/`, each file at the path claude.ai gives
