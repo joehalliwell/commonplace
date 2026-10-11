@@ -594,3 +594,13 @@ def test_serialize_leaves_markdown_artifacts_as_prose():
     out = _serialize_message(content)
     assert "# Heading" in out
     assert "```" not in out
+
+
+def test_claude_code_redacted_thinking_yields_no_message():
+    """A thinking block carrying only its signature has nothing to show, so it isn't an empty comment."""
+    line = {
+        "type": "assistant",
+        "timestamp": "2026-10-11T05:10:45Z",
+        "message": {"content": [{"type": "thinking", "thinking": "", "signature": "c2ln"}]},
+    }
+    assert ClaudeCodeImporter._process_event(line, {}) is None
