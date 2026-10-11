@@ -30,10 +30,25 @@ def test_claude_tasks_importer_declines_other_claude_archives(other):
     assert not ClaudeTasksImporter().can_import(WIRE / f"{other}.jsonl.gz")
 
 
+def _rewritten(tmp_path, edit) -> Path:
+    """The example archive with its events passed through `edit`."""
+    entries = list(read_entries(EXAMPLE))
+    events = json.loads(entries[1]["response"])
+    events["data"] = edit(events["data"])
+    return write_archive(
+        tmp_path / "claude-tasks-wire.jsonl.gz",
+        "claude-tasks",
+        [entries[0], entries[1] | {"response": json.dumps(events)}],
+    )
+
+
 def test_claude_tasks_run_opens_with_its_output_then_reads_on_in_sequence(run):
-    """The prompt is a template, not something said that day, so the chat starts at what the run produced."""
+    """The prompt is a template, not something said that day, so the chat starts at what the run produced.
+
+    All of the scheduled turn's text, not just `result`: that repeats only the last of it, which can be a sign-off."""
     assert [(e.sender, e.content) for e in run.events if isinstance(e, Message)] == [
-        (Role.AGENT, "[AI] Nothing new today"),
+        (Role.AGENT, "Done.\n[AI] Nothing new today"),
+        (Role.AGENT, "Log updated."),
         (Role.USER, "Why not?"),
         (Role.AGENT, "A quiet night."),
     ]
@@ -45,26 +60,36 @@ def test_claude_tasks_run_leaves_out_the_work_behind_its_output(run):
 
 def test_claude_tasks_run_without_output_yet_is_skipped(tmp_path):
     """A run caught mid-flight has nothing to show; its later events bring it back on the next fetch."""
-    entries = list(read_entries(EXAMPLE))
-    events = json.loads(entries[1]["response"])
-    events["data"] = [e for e in events["data"] if int(e["sequence_num"]) < 7]
-    archive = write_archive(
-        tmp_path / "claude-tasks-wire.jsonl.gz",
-        "claude-tasks",
-        [entries[0], entries[1] | {"response": json.dumps(events)}],
-    )
+    archive = _rewritten(tmp_path, lambda events: [e for e in events if e["event_type"] != "result"])
 
     assert ClaudeTasksImporter().import_(archive) == []
 
 
-def test_claude_tasks_run_title_drops_decoration_and_carries_the_time(run):
-    """Twice-daily runs share a title and a date, so the time keeps their paths apart."""
-    assert run.title == "Morning digest 05:10"
+def test_claude_tasks_run_is_titled_by_the_first_headline_in_its_output(run):
+    """Narration can come before the headline, so it is searched for, not expected first."""
+    assert run.title == "[AI] Nothing new today"
+
+
+def test_claude_tasks_run_without_a_headline_is_titled_by_task_and_time(tmp_path):
+    def unheadline(events):
+        for event in events:
+            if event["sequence_num"] == "6":
+                event["payload"]["message"]["content"][0]["text"] = "Nothing new today, see [the log](x)."
+        return events
+
+    [log] = ClaudeTasksImporter().import_(_rewritten(tmp_path, unheadline))
+    assert log.title == "Morning digest 05:10"
+
+
+def test_claude_tasks_run_is_filed_by_task_and_time_whatever_its_title(run):
+    """Twice-daily runs share a task and a date, so the time keeps their paths apart; the decoration is dropped."""
+    assert run.stem == "Morning digest 05:10"
     assert run.created == datetime(2026, 10, 11, 5, 10, 31, 312825, tzinfo=UTC)
 
 
 def test_claude_tasks_run_metadata_ties_it_to_its_task(run):
     assert run.metadata == {
+        "task": "Morning digest",
         "session_id": "cse_01Example",
         "trigger_id": "trig_01Example",
         "resource": "https://claude.ai/code/session_01Example",
