@@ -64,13 +64,12 @@ def _to_log(run: dict[str, Any], run_events: list[dict[str, Any]], source: str) 
     created = datetime.fromisoformat(run["created_at"])
     # The app decorates titles (a leading "⚡") and may stop; the slug must not move when it does.
     task = run["title"].lstrip("⚡ ")
-    stem = f"{task} {created:%H:%M}"
     # A prompt can ask the run to title its own chat with a line like `[AI] What happened`; narration can precede it.
+    # Without one, the time keeps twice-daily runs of a task from sharing a path.
     headline = HEADLINE.search("\n".join(m.content for m in output))
     return EventLog(
         source=source,
-        title=headline[0] if headline else stem,
-        stem=stem,
+        title=headline[0] if headline else f"{task} {created:%H:%M}",
         created=created,
         events=events,
         metadata={

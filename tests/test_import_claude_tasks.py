@@ -71,6 +71,8 @@ def test_claude_tasks_run_is_titled_by_the_first_headline_in_its_output(run):
 
 
 def test_claude_tasks_run_without_a_headline_is_titled_by_task_and_time(tmp_path):
+    """Twice-daily runs share a task and a date, so the time keeps their paths apart; the decoration is dropped."""
+
     def unheadline(events):
         for event in events:
             if event["sequence_num"] == "6":
@@ -81,9 +83,7 @@ def test_claude_tasks_run_without_a_headline_is_titled_by_task_and_time(tmp_path
     assert log.title == "Morning digest 05:10"
 
 
-def test_claude_tasks_run_is_filed_by_task_and_time_whatever_its_title(run):
-    """Twice-daily runs share a task and a date, so the time keeps their paths apart; the decoration is dropped."""
-    assert run.stem == "Morning digest 05:10"
+def test_claude_tasks_run_is_dated_by_when_it_started(run):
     assert run.created == datetime(2026, 10, 11, 5, 10, 31, 312825, tzinfo=UTC)
 
 

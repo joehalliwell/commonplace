@@ -49,7 +49,6 @@ class EventLog(BaseModel):
 
     source: str = Field(description="Source of the log (e.g., 'Gemini', 'ChatGPT')")
     title: str = Field(description="A short title for this conversation")
-    stem: str | None = Field(default=None, description="Names the file in place of the title, when that can't")
     events: Sequence[Event] = Field(description="A list of events in this log")
     created: datetime = Field(description="When this log was started")
     metadata: dict[str, Any] = Field(
