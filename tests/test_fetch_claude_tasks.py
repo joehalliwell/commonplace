@@ -30,13 +30,15 @@ RUNS = [
 
 
 def _events(sid: str) -> list[dict]:
-    """A prompt and the run's output, newest first as the API sends them."""
+    """A prompt, the run's reply, and the result repeating it, newest first as the API sends them."""
     at = next(r["created_at"] for r in RUNS if r["id"] == sid)
     prompt = {"type": "user", "message": {"role": "user", "content": "Go."}}
-    output = {"type": "result", "result": f"Output of {sid}"}
+    text = f"[AI] Headline of {sid}\n\nOutput of {sid}"
+    reply = {"type": "assistant", "timestamp": at, "message": {"role": "assistant", "content": text}}
+    result = {"type": "result", "result": text}
     return [
         {"event_type": p["type"], "sequence_num": str(n), "created_at": at, "payload": p}
-        for n, p in ((2, output), (1, prompt))
+        for n, p in ((3, result), (2, reply), (1, prompt))
     ]
 
 
@@ -101,8 +103,10 @@ def test_fetch_follows_cursors_through_every_page(tmp_path):
         ("sessions", None, "1"),
         ("events", "cse_new", None),
         ("events", "cse_new", "1"),
+        ("events", "cse_new", "2"),
         ("events", "cse_old", None),
         ("events", "cse_old", "1"),
+        ("events", "cse_old", "2"),
     ]
 
 
@@ -139,4 +143,4 @@ def test_fetch_command_lands_runs_under_their_own_tree(test_repo):
         "chats/claude-tasks/2026/06/2026-06-01-digest-0500.md",
         "chats/claude-tasks/2026/07/2026-07-15-digest-0500.md",
     ]
-    assert "Output of cse_new" in (Path(test_repo.root) / landed[1]).read_text()
+    assert "title: '[AI] Headline of cse_new'" in (Path(test_repo.root) / landed[1]).read_text()

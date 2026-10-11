@@ -118,11 +118,12 @@ def render_chats(path: Path, importer: ChatImporter, user: str, source_export: s
     used_paths: Counter[Path] = Counter()
 
     for log in importer.import_(path):
-        rel_path = make_chat_path(source=log.source, date=log.created, title=log.title)
+        name = log.stem or log.title
+        rel_path = make_chat_path(source=log.source, date=log.created, title=name)
         used_paths.update([rel_path])
         count = used_paths[rel_path]
         if count > 1:
-            rel_path = make_chat_path(source=log.source, date=log.created, title=f"{log.title}-{count}")
+            rel_path = make_chat_path(source=log.source, date=log.created, title=f"{name}-{count}")
 
         # OKF keys first; `generated` is the importer's rendition, current as of the last event.
         log.metadata = {
