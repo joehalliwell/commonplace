@@ -1,6 +1,5 @@
 """Tests for the scheduled-run fetcher, and its archive's path through the paired importer."""
 
-import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -31,16 +30,13 @@ RUNS = [
 
 
 def _events(sid: str) -> list[dict]:
-    """Two messages, newest first as the API sends them."""
+    """A prompt and the run's output, newest first as the API sends them."""
     at = next(r["created_at"] for r in RUNS if r["id"] == sid)
+    prompt = {"type": "user", "message": {"role": "user", "content": "Go."}}
+    output = {"type": "result", "result": f"Output of {sid}"}
     return [
-        {
-            "event_type": t,
-            "sequence_num": str(n),
-            "created_at": at,
-            "payload": {"type": t, "timestamp": at, "message": {"role": t, "content": f"{t} in {sid}"}},
-        }
-        for n, t in ((2, "assistant"), (1, "user"))
+        {"event_type": p["type"], "sequence_num": str(n), "created_at": at, "payload": p}
+        for n, p in ((2, output), (1, prompt))
     ]
 
 
@@ -143,4 +139,4 @@ def test_fetch_command_lands_runs_under_their_own_tree(test_repo):
         "chats/claude-tasks/2026/06/2026-06-01-digest-0500.md",
         "chats/claude-tasks/2026/07/2026-07-15-digest-0500.md",
     ]
-    assert "user in cse_new" in json.dumps((Path(test_repo.root) / landed[1]).read_text())
+    assert "Output of cse_new" in (Path(test_repo.root) / landed[1]).read_text()

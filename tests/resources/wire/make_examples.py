@@ -279,7 +279,15 @@ TASK_EVENTS = [
         },
     ),
     _task_event(6, "2026-10-11T05:13:12Z", _assistant({"type": "text", "text": "[AI] Nothing new today"})),
-    _task_event(7, "2026-10-11T05:13:13Z", {"type": "result", "subtype": "success", "result": "[AI] Nothing new"}),
+    _task_event(
+        7, "2026-10-11T05:13:13Z", {"type": "result", "subtype": "success", "result": "[AI] Nothing new today"}
+    ),
+    # A reply in the run's chat makes it a conversation: one more turn, one more result.
+    _task_event(
+        8, "2026-10-11T07:00:00Z", {"type": "user", "message": {"role": "user", "content": "Why not?"}}, "client"
+    ),
+    _task_event(9, "2026-10-11T07:00:05Z", _assistant({"type": "text", "text": "A quiet night."})),
+    _task_event(10, "2026-10-11T07:00:06Z", {"type": "result", "subtype": "success", "result": "A quiet night."}),
 ]
 
 #: The scheduled-run wire first appeared at v3, so it has no earlier examples.
