@@ -13,6 +13,7 @@ from commonplace._fetch._chatgpt import ChatGptFetcher
 from commonplace._fetch._chatgpt_memory import ChatGptMemoryFetcher
 from commonplace._fetch._claude import ClaudeFetcher
 from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
+from commonplace._fetch._claude_tasks import ClaudeTasksFetcher
 from commonplace._fetch._commands import default_fetchers
 from commonplace._fetch._gemini import GeminiFetcher
 from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
@@ -25,6 +26,7 @@ FETCHERS = [
     ChatGptMemoryFetcher,
     ClaudeFetcher,
     ClaudeMemoryFetcher,
+    ClaudeTasksFetcher,
     GeminiFetcher,
     GeminiMemoryFetcher,
 ]
