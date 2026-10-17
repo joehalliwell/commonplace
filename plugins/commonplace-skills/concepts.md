@@ -26,14 +26,13 @@ checked per skill, against that skill's newest entry.
   cite that.
 - **Skill state**: `.commonplace/skills/{skill}/`. What a skill needs to
   behave correctly next time, and nobody reads for its own sake: a topic's
-  gathering, rake's chaff, a review log. Cited only as a review, in plain
-  text, since the link checker can't follow it there. Anything a person reads
-  stays visible, except, for now, dreams: `dream/{agent}/`, one dated file per
-  dream, each the agent's dream of the commonplace, never the user's, kept
-  out of search so a dream never passes for evidence.
+  gathering, rake's chaff, a review log, a dream's record. Cited only as a
+  review, in plain text, since the link checker can't follow it there.
+  Anything a person reads stays visible.
 - **Agent journal**: `agent-journal/{agent}/`. The writing of the agent that
-  ran a skill. Never evidence of the user's thinking, so never a source; quote
-  one only attributed to its agent. The folder is indexed, so entries can
+  ran a skill, its dreams included: each the agent's dream of the
+  commonplace, never the user's. Never evidence of the user's thinking, so
+  never a source; quote one only attributed to its agent. The folder is indexed, so entries can
   turn up in search; only this rule keeps them out of evidence, a stop-gap
   until the journal moves to per-author folders (`journal/<author>/`).
   `operating-model.md` says how a run writes one.
@@ -156,8 +155,9 @@ Where each skill records it:
 - **rake**: nowhere separate. Triage answers are decisions, not evidence, and
   land where they are filed (`notes/`, or chaff); "done" is recorded where
   the user asks.
-- **dream**: the dream file's `## Waking`. The dream itself is never a
-  source, nor is the agent's own waking there; the user's reaction is.
+- **dream**: the dream's record, `.commonplace/skills/dream/{agent}/…`,
+  under `## Waking`. The dream and the agent's own waking go in its agent
+  journal and are never a source; the user's reaction is.
 
 Review material lives in the run's output, never in a journal, the user's or
 an agent's.
