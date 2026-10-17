@@ -62,7 +62,9 @@ grep -n '^## ' {file} | shuf -n 1
 ```
 
 Note each fragment's path, its heading (for a chat, the speaker) and its
-text. Any speaker counts.
+text. Any speaker counts, and any primitive, the journal's most private
+entries included: it is the user's commonplace, and **Discard** in Waking is
+the guard.
 
 ### 2. Imagery
 
@@ -94,8 +96,9 @@ Record which images were dropped as leaked.
 ### 4. Condensation
 
 `condense.md` goes to a fresh subagent, `description` `"Scenes"`, with
-`{images}` set to the shuffled pool, one per line. It returns three to five
-scenes and, verbatim, the images that didn't gel: record those as unused.
+`{images}` set to the shuffled pool, one per line. It plots three to five
+scenes around someone who wants something, and returns them with, verbatim,
+the images the plot didn't use: record those as unused.
 
 ### 5. Narration
 
