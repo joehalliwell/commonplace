@@ -74,6 +74,7 @@ A PR that changes the plugin bumps its version in its own commit (minor for beha
 - `/resonate <slug1> <slug2> [...]` — surface interference patterns between synthesized topics
 - `/rake` — surface unmade ideas, todos and projects; propose where to file them in `notes/`
 - `/project <sketch>` — draft one project note, `notes/projects/{slug}.md`, or review and update an existing one
+- `/dream` — fuse random fragments into a dream, each phase in a fresh subagent, and record the user's waking reaction
 
 **Artefact paths** (no dated filenames — git is the versioning layer):
 
@@ -82,6 +83,7 @@ A PR that changes the plugin bumps its version in its own commit (minor for beha
 - `.commonplace/skills/synthesize/{slug}.md` — a topic's gathering
 - `notes/ideas.md`, `notes/todo.md`, `notes/projects/{slug}.md` — the user's own notes; `/rake` and `/project` only add what the user approves
 - `.commonplace/skills/{skill}/` — skill-managed state nobody reads for its own sake (e.g. `rake/chaff.md`, items dropped in triage); never a source. Artefacts a person reads stay visible
+- `.commonplace/skills/dream/{agent}/{yyyy}/{mm}/{date}-{summary}.md` — a dream and its waking; dated and kept out of search for now, pending a layout rethink
 
 **Conventions:**
 

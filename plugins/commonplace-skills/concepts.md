@@ -28,7 +28,8 @@ checked per skill, against that skill's newest entry.
   behave correctly next time, and nobody reads for its own sake: a topic's
   gathering, rake's chaff, a review log. Cited only as a review, in plain
   text, since the link checker can't follow it there. Anything a person reads
-  stays visible.
+  stays visible, except, for now, dreams: `dream/{agent}/`, one dated file per
+  dream, kept out of search so a dream never passes for evidence.
 - **Agent journal**: `agent-journal/{agent}/`. The writing of the agent that
   ran a skill. Never evidence of the user's thinking, so never a source; quote
   one only attributed to its agent. The folder is indexed, so entries can
@@ -154,6 +155,8 @@ Where each skill records it:
 - **rake**: nowhere separate. Triage answers are decisions, not evidence, and
   land where they are filed (`notes/`, or chaff); "done" is recorded where
   the user asks.
+- **dream**: the dream file's `## Waking`. The dream itself is never a
+  source; the user's reaction to it is.
 
 Review material lives in the run's output, never in a journal, the user's or
 an agent's.
