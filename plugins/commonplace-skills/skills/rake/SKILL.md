@@ -36,6 +36,27 @@ run `commonplace index` first.
 
 ## Workflow
 
+### 0. Preflight and Enter
+
+The run works in a worktree (**Worktrees** in `concepts.md`). In the root
+checkout, note the branch and look for uncommitted files:
+
+```bash
+commonplace git -- branch --show-current
+commonplace git -- status --porcelain
+```
+
+If there are any, list the paths and ask: **Sync** (`commonplace sync`),
+**Continue** without them, or **Cancel**. Then `EnterWorktree`, and
+fast-forward it to the noted branch, stopping if that fails:
+
+```bash
+git merge --ff-only {branch}
+```
+
+Everything the run writes, subagents included, goes in the worktree;
+`commonplace` still reads from the root.
+
 ### 1. Survey
 
 Index first, so the most recent chats are searchable:
@@ -62,7 +83,7 @@ Use the **Task tool** to spawn a `general-purpose` subagent:
 - `subagent_type`: `"general-purpose"`
 - `prompt`: Use the **Subagent Prompt Template** below, substituting:
   - `{date}` — today as YYYY-MM-DD
-  - `{working_dir}` — absolute path to the repository root
+  - `{working_dir}` — absolute path of the worktree
   - `{last_rake}` — the date from step 1, or `never`
   - `{concepts}` — the absolute path of `${CLAUDE_PLUGIN_ROOT}/concepts.md`
 
@@ -139,18 +160,12 @@ Show the user the diff and wait for approval.
 ### 5. Commit
 
 ```bash
-commonplace git -- add notes/ .commonplace/skills/rake/
-commonplace git -- commit -m "Rake: file {n} intentions" -m "Skill: rake@{plugin version}"
+commonplace --root "$PWD" git -- add notes/ .commonplace/skills/rake/
+commonplace --root "$PWD" git -- commit -m "Rake: file {n} intentions" -m "Skill: rake@{plugin version}"
 ```
 
 If a pre-commit hook reformats files, re-stage and retry. The trailer is how
 the next run finds this one.
-
-Then re-index:
-
-```bash
-commonplace index
-```
 
 ### 6. Agent Journal (optional)
 
@@ -162,9 +177,24 @@ comes, skip it; if you write one, commit it on its own and tell the user its
 path:
 
 ```bash
-commonplace git -- add agent-journal/
-commonplace git -- commit -m "Agent journal: {agent}"
+commonplace --root "$PWD" git -- add agent-journal/
+commonplace --root "$PWD" git -- commit -m "Agent journal: {agent}"
 ```
+
+### 7. Land
+
+Approval in step 4 was the go-ahead to merge: don't ask again.
+`ExitWorktree` with `action: keep`, then:
+
+```bash
+commonplace git -- merge --ff-only {worktree branch}
+commonplace git -- worktree remove {worktree path}
+commonplace git -- branch -d {worktree branch}
+commonplace index
+```
+
+If the merge fails, stop and report, leaving the worktree and branch for the
+user. Never push either branch.
 
 ______________________________________________________________________
 

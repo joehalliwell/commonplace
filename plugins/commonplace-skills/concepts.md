@@ -151,12 +151,50 @@ Where each skill records it:
 Review material lives in the run's output, never in a journal, the user's or
 an agent's.
 
-## Commits
+## Worktrees
 
-Commit with `commonplace git`, staging exactly the paths the run wrote. A
-pre-commit hook that reformats files fails the commit: re-stage them and retry
-the same commit. Then `commonplace index`, so the new artefacts are searchable.
-An agent journal entry is its own commit.
+Every run that writes works in a git worktree, so a run's changes land on
+the user's branch as one fast-forward or not at all. `commonplace` acts on the
+root checkout (`COMMONPLACE_ROOT`) whatever the cwd: search, stats, index and
+history there are what the run should read; only commits go to the worktree.
+
+1. **Preflight**, in the root checkout, before writing anything. Note the
+   branch (`commonplace git -- branch --show-current`) and check for
+   uncommitted files (`commonplace git -- status --porcelain`). If there are
+   any, list the paths and ask:
+
+   - **Sync**: `commonplace sync` commits everything, pulls and pushes. If it
+     fails, stop and report.
+   - **Continue**: leave them. The run won't see them, and landing refuses
+     only if the run wrote the same paths.
+   - **Cancel**: stop, so the user can look into it with their own tools.
+
+1. **Enter**: `EnterWorktree`, then `git merge --ff-only {branch}` in it, so
+   the worktree holds what the index searches (it starts from the remote's
+   default branch, which lags local imports). If that fails, stop and report.
+   Note the worktree's path and branch: landing needs them. Subagents write
+   there too, so give them the worktree's path, not the root's.
+
+1. **Commit** in the worktree with `commonplace --root "$PWD" git`, staging
+   exactly the paths the run wrote. A pre-commit hook that reformats files
+   fails the commit: re-stage them and retry the same commit. An agent journal
+   entry is its own commit, on the same branch. Never push the worktree
+   branch.
+
+1. **Land** once the user has approved the run's output: that approval is the
+   go-ahead to merge, so don't ask again. `ExitWorktree` with `action: keep`,
+   then:
+
+   ```bash
+   commonplace git -- merge --ff-only {worktree branch}
+   commonplace git -- worktree remove {worktree path}
+   commonplace git -- branch -d {worktree branch}
+   commonplace index
+   ```
+
+   If the merge fails (the branch moved, or it would overwrite uncommitted
+   files), stop and report, leaving the worktree and branch for the user.
+   Never rebase, and never push: the user's sync does that.
 
 ## Agent journal
 
