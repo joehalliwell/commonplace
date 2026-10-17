@@ -36,6 +36,9 @@ If there are any, list the paths and ask:
   if the run wrote the same paths.
 - **Cancel**: stop, so the user can look into it with their own tools.
 
+If none of the paths is one the run will write, **Continue** is the default:
+take it without asking, and say so.
+
 Then bring the index up to date, so the newest chats are searchable (it is
 incremental and cheap), and note this plugin's release (`version` in
 `.claude-plugin/plugin.json`, beside this file) and the user's name:
