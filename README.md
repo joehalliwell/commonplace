@@ -360,12 +360,13 @@ To enable them, run in Claude Code:
 /plugin marketplace add joehalliwell/commonplace
 ```
 
-| Skill                       | What it does                                             |
-| --------------------------- | -------------------------------------------------------- |
-| `/synthesize [topic]`       | gather and distil a topic into `topics/{slug}.md`        |
-| `/resonate <slug> <slug> …` | surface interference patterns between synthesized topics |
-| `/rake`                     | surface unmade ideas, todos and projects for you to file |
-| `/project <sketch>`         | draft, or review and update, `notes/projects/{slug}.md`  |
+| Skill                       | What it does                                                 |
+| --------------------------- | ------------------------------------------------------------ |
+| `/synthesize [topic]`       | gather and distil a topic into `topics/{slug}.md`            |
+| `/resonate <slug> <slug> …` | surface interference patterns between synthesized topics     |
+| `/rake`                     | surface unmade ideas, todos and projects for you to file     |
+| `/project <sketch>`         | draft, or review and update, `notes/projects/{slug}.md`      |
+| `/dream`                    | fuse random fragments into a dream, and record what it stirs |
 
 Artefacts have no dated filenames — git is the versioning layer, and repeat
 runs update them in place. Everything under `topics/` is an
