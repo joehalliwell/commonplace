@@ -36,10 +36,17 @@ still a folder, `topics/{slug}/distillation.md`.
 With no topic argument, discover candidates with broad searches
 (`commonplace search -n 50 "<broad query>"`), seeded from the repository: the
 agent and date spread in `commonplace stats`, recently modified notes
-(`commonplace git -- log --oneline -20 --name-only`), and `topics/index.md`,
-whose topics show what the user cares about and whose threads suggest what's
-adjacent. Propose 3-5 candidates, list any stale topics, and wait for
-confirmation. With a topic argument, go straight to step 2.
+(`commonplace git -- log --oneline -20 --name-only`), and the existing
+topics, whose descriptions show what the user cares about and whose pressing
+threads suggest what's adjacent:
+
+```bash
+grep -m1 -H '^description:' topics/*.md
+grep -A2 -H '^### Most Pressing Thread' topics/*.md
+```
+
+Propose 3-5 candidates, list any stale topics, and wait for confirmation.
+With a topic argument, go straight to step 2.
 
 Refuse the slugs `index`, `log` and `resonances`: OKF reserves `index.md`
 and `log.md`, and `topics/resonances/` is taken.
@@ -74,49 +81,25 @@ If the subagent returned **Stopped — overlaps `{existing-slug}`**, nothing was
 written: put the choice (extend that topic, or fork this one) to the user,
 and re-spawn with their answer.
 
-### 4. Regenerate the Topic Index
-
-Rewrite `topics/index.md` from scratch, as a pure function of the topics, so
-the next run, `/resonate` and the user can find this one. It is an OKF §8
-index, so it has no frontmatter:
-
-```markdown
-# Topics
-
-- [<title>]({slug}.md) - <description> (N sources, updated <YYYY-MM-DD>)
-  - **Pressing**: <the Most Pressing Thread's headline sentence, verbatim>
-
-# Resonances
-
-- [Resonances](resonances/) - what placing two or more of these topics side by side generates, written by `/resonate`
-```
-
-One entry per `topics/*.md` other than `index.md`, alphabetical by slug,
-built from `title`, `description`, the date of `generated.at`, N from
-`sources`, and the bold headline under `### Most Pressing Thread`. Write
-`not recorded` for anything missing (the slug, for a missing title). Include
-Resonances only if `topics/resonances/` exists. List each unconformed
-`topics/*/distillation.md` too, in the same order, as
-`- [{slug}]({slug}/distillation.md) - (stale: pre-0.13.0)`.
-
-### 5. Commit
+### 4. Commit
 
 **Commit** as in `operating-model.md`, with `verified` set on the
-distillation:
+distillation. `topics/index.md` is retired: if it still exists, remove it in
+the same commit (`commonplace --root "$PWD" git -- rm -q topics/index.md`).
 
 ```bash
-commonplace --root "$PWD" git -- add topics/{slug}.md topics/index.md .commonplace/skills/synthesize/{slug}.md
+commonplace --root "$PWD" git -- add topics/{slug}.md .commonplace/skills/synthesize/{slug}.md
 commonplace --root "$PWD" git -- commit -m "Synthesize: {topic name}"
 ```
 
 Then name to the user the resonances written against the old distillation
 (`grep -l '^  - {slug}$' topics/resonances/*.md`).
 
-### 6. Agent Journal (optional)
+### 5. Agent Journal (optional)
 
 This step is yours: **Agent journal** in `operating-model.md`.
 
-### 7. Land
+### 6. Land
 
 **Land** as in `operating-model.md`. The user's approval in step 3 is the
 go-ahead.

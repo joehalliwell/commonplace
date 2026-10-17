@@ -35,9 +35,10 @@ they establish coverage and make this an update run (see **Incremental
 Mode**).
 
 **Check for overlap.** Topics accrete: `memory-and-continuity`, `continuity`
-and `persistence` can become three topics gathering the same chats. Read
-`topics/index.md` and the `queries` and `patterns` of any topic whose slug or
-entry looks adjacent to `{slug}`. If a substantial part of what you'd gather
+and `persistence` can become three topics gathering the same chats. List
+the topics' descriptions (`grep -m1 -H '^description:' topics/*.md`), and
+read the `queries` and `patterns` of any topic whose slug or description
+looks adjacent to `{slug}`. If a substantial part of what you'd gather
 is already gathered elsewhere, **stop** and return the overlap form of the
 Return Value: one thick topic beats two thin ones, and merging later means
 reconciling two Revisions histories by hand. Incidental overlap (shared
@@ -181,12 +182,12 @@ How thinking has changed. What prompted the shifts.
 
 `type` makes this an OKF v0.2 concept document; the other keys are OKF
 provenance. `description` says what ground the topic covers, which holds from
-run to run, and is what the index lists it by. `sources` lists every source
+run to run, and is what other runs list it by. `sources` lists every source
 the gathering quotes, in its order, each a bare `resource` (the path already
 says what kind of source it is). Write `generated` every time you write the
 file; `verified` is the calling agent's, added after review. The Most
-Pressing Thread's headline is copied verbatim into `topics/index.md`, so it
-must stand alone.
+Pressing Thread's headline is read on its own when runs survey the topics, so
+it must stand alone.
 
 **Revisions carry the trajectory.** The distillation updates in place, and
 the index sees only the working tree, so this section is the in-band record
