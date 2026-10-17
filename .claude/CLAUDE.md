@@ -84,8 +84,8 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 **Conventions:**
 
 - Concepts that cut across skills (artefact kinds, attribution, citations, review) are defined once in `plugins/commonplace-skills/concepts.md`; each skill restates inline, by name, the rules it acts on and points there
-- The run lifecycle (preflight, worktree, commit, agent journal, land) is defined once in `plugins/commonplace-skills/operating-model.md`; each skill names those steps as its own headings and supplies only its approval step, paths and commit message, so each procedure has one copy
-- Heavy work (search, read, write) runs in a `general-purpose` subagent via the Task tool; the calling agent handles survey, review, and commit
+- The run lifecycle (preflight, worktree, spawn, review, commit, agent journal, land) is defined once in `plugins/commonplace-skills/operating-model.md`; each skill names those steps as its own headings and supplies only its approval step, paths and commit message, so each procedure has one copy
+- Heavy work (search, read, write) runs in a `general-purpose` subagent whose prompt is the skill's `subagent.md`, read by path; the calling agent handles survey, review, and commit
 - Artefacts update in place on incremental runs; prior state is recoverable via git
 - Everything under `topics/` is an OKF v0.2 concept document (`type: Topic`). The spec is vendored verbatim at `.claude/reference/okf-spec.md` (knowledge-catalog@62432a0, Apache-2.0); read it there rather than fetching. The repo root is the bundle; dot-directories are outside it. Staleness is `generated.by` (`<skill>/<plugin release>`) against the skill's newest Conventions entry, which is named by the release that introduced it
 - Distillations and resonances carry a `## Revisions` section — one appended line per run, so the trajectory stays visible in-band rather than only in `git log`

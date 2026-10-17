@@ -4,6 +4,8 @@ How every skill run that writes goes, from start to landing. `concepts.md`
 says what the artefacts are; this file says how a run makes them. Each skill
 names these steps as its own headings and supplies only what differs:
 
+- its subagent's `description` and placeholders;
+- its own review checks, and where review words are recorded;
 - the step where the user approves its output;
 - the paths it stages, and its commit message.
 
@@ -31,6 +33,18 @@ If there are any, list the paths and ask:
   if the run wrote the same paths.
 - **Cancel**: stop, so the user can look into it with their own tools.
 
+Then bring the index up to date, so the newest chats are searchable (it is
+incremental and cheap), and note this plugin's release (`version` in
+`.claude-plugin/plugin.json`, beside this file) and the user's name:
+
+```bash
+commonplace index
+commonplace config user
+```
+
+If `commonplace config` is an unknown command, the installed commonplace is
+older than this plugin: ask the user to update it before going on.
+
 ## Enter
 
 `EnterWorktree`, then fast-forward it to the noted branch, so the worktree
@@ -43,8 +57,45 @@ git merge --ff-only {branch}
 
 If that fails, stop and report. Note the worktree's path and branch: landing
 needs them. Everything the run writes goes in the worktree, subagents
-included: give them the worktree's path as `{working_dir}`, and run any git
-that changes files with `commonplace --root "$PWD" git`.
+included, and any git that changes files runs as
+`commonplace --root "$PWD" git`.
+
+## Spawn
+
+The heavy work (searching, reading, writing) runs in a `general-purpose`
+subagent, which keeps your context for the review. Start it with the
+`description` the skill names, and this prompt:
+
+```text
+Follow {subagent}, with these values for its placeholders:
+
+- working_dir: <the worktree's absolute path>
+- date: <today, YYYY-MM-DD>
+- concepts: <absolute path of concepts.md, beside this file>
+- <each placeholder the skill lists>: <its value>
+```
+
+`{subagent}` is the absolute path of the skill's `subagent.md`. The subagent
+returns a compact summary, written to be read cold, and the paths it wrote.
+
+## Review
+
+Present the subagent's summary to the user without re-reading what it wrote:
+you are the summary's first cold reader. Before presenting, run the skill's
+own checks and **cold reading**: list every term, name or reference in the
+summary you couldn't explain from it alone. If the list isn't empty, send it
+back, continuing the subagent or spawning a revision subagent with the list
+and the paths it wrote. The subagent rewrites the lines; you supply the list.
+
+**What the user says in review is a source.** Before revising, record each
+correction or addition verbatim where the skill says (**Review** in
+`concepts.md`), then pass it to the revision subagent with the correction, or
+make small edits directly.
+
+Wait for explicit approval: it is what **Land** acts on. For a derived
+artefact, record it as OKF's human review: set `verified` beside `generated`
+to `{by: human:<user>, at: <now, e.g. 2026-10-01T14:00:00Z>}`. You write this
+line, after approval; the subagent never does.
 
 ## Commit
 
