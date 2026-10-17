@@ -45,36 +45,28 @@ fast-forwarded to their branch.
 
 ### 1. Residue
 
-Sample twelve fragments with the shell, never by choosing: a model's
+Sample twelve fragments with the script, never by choosing: a model's
 "random" pick is a preference. Six are **recent**, from primitives and agent
-memory touched in the last week; six are **deep**, from anywhere. Top up from
-deep if recent has fewer than six. Twelve is more than a dream holds:
-condensation keeps what its plot turns on.
+memory touched in the last week; six are **deep**, from anywhere, topping up
+if recent has fewer. Twelve is more than a dream holds: condensation keeps
+what its plot turns on.
 
 Scheduled task output (`chats/claude-tasks/`) is excluded: it is the agent
-reporting the news, not the user's life, and it would crowd the recent half.
-Agent memory (`memory/`) is in: the agent's paraphrase of the user is no
-source, but a dream's residue needn't be one.
+reporting the news, not the user's life. Agent memory (`memory/`) is in: the
+agent's paraphrase of the user is no source, but a dream's residue needn't
+be one. It takes at most two of the recent six, since tasks rewrite it daily.
 
 ```bash
-git log --since=7.days --name-only --format= -- chats journal notes memory ':!chats/claude-tasks' | sort -u | shuf -n 6
-git ls-files -- chats journal notes memory ':!chats/claude-tasks' | shuf -n 6
+python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/residue.py" --root "$PWD"
 ```
 
-Skip a path that no longer exists, isn't `.md`, or was already picked, and
-draw again. In
-each file, pick one `## ` section at random and take it up to the next `## `
-heading, cut at 2,000 characters; a file with no `## ` heading is one
-section:
-
-```bash
-grep -n '^## ' {file} | shuf -n 1
-```
-
-Note each fragment's path, its heading (for a chat, the speaker) and its
-text. Any speaker counts, and any file, the journal's most private entries
-included: it is the user's commonplace, and **Discard** in Waking is
-the guard.
+It prints a JSON list, one fragment per file: `path`, `heading` (for a chat,
+the speaker; null for a file with no `## ` heading, which is one section),
+`text` (one random section, frontmatter stripped, cut at 2,000 characters)
+and `draw`. `--seed` repeats a draw. The list's order is your mapping from
+images back to fragments. Any speaker counts, and any file, the journal's
+most private entries included: it is the user's commonplace, and **Discard**
+in Waking is the guard.
 
 ### 2. Imagery
 
