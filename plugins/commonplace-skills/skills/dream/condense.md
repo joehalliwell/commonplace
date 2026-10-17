@@ -16,10 +16,13 @@ Build three to five scenes from the list, as one plot.
 
 - **A plot.** One person, who will tell it, wants something ordinary, and
   across the scenes it keeps nearly happening and going wrong. Each scene
-  moves it on.
+  moves it on. It may resolve, but not into consolation: no gentle last line.
+- **Explained, not plausible.** Things happen for reasons, and the plot gives
+  them, but a reason needn't make sense outside it.
 - **Use what can take part.** There are more images than the plot needs. Keep
-  those that can do something in it, whatever their setting, and leave the
-  rest out, however well they would sit together.
+  those the plot turns on, whatever their setting, and leave the rest out,
+  however well they would sit together. An image that only decorates a scene
+  or carries the plot from one place to the next is left out.
 - **Merge images**: one person, object or place standing for two. At least
   one merge across the scenes; more where they come naturally.
 - **Emphasis needn't follow importance.** What would be striking can be
