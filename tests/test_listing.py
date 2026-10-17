@@ -55,6 +55,15 @@ def test_ls_lists_subfolders_after_files_and_skips_dot_directories(test_app, tes
     assert out == "# topics\n\n- [B](b.md)\n- [resonances](resonances/)\n"
 
 
+def test_ls_without_a_folder_lists_the_root(test_app, test_repo, capsys):
+    write(test_repo.root, "topics/b.md", "---\ntitle: B\n---\n")
+
+    out = listing(test_app, capsys)
+
+    assert out.startswith("# .\n")
+    assert "- [topics](topics/)\n" in out
+
+
 def test_ls_unknown_folder_fails(test_app, caplog):
     with pytest.raises(SystemExit):
         test_app(["ls", "nowhere"])
