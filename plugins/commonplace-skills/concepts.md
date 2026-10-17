@@ -29,7 +29,8 @@ checked per skill, against that skill's newest entry.
   gathering, rake's chaff, a review log. Cited only as a review, in plain
   text, since the link checker can't follow it there. Anything a person reads
   stays visible, except, for now, dreams: `dream/{agent}/`, one dated file per
-  dream, kept out of search so a dream never passes for evidence.
+  dream, each the agent's dream of the commonplace, never the user's, kept
+  out of search so a dream never passes for evidence.
 - **Agent journal**: `agent-journal/{agent}/`. The writing of the agent that
   ran a skill. Never evidence of the user's thinking, so never a source; quote
   one only attributed to its agent. The folder is indexed, so entries can

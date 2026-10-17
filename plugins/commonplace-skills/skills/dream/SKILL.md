@@ -1,12 +1,14 @@
 ---
 name: dream
-description: Dream over random fragments of the commonplace, then record what the dream stirs
+description: Dream your own dream of the commonplace from random fragments, then record what it stirs in the user
 ---
 
 # Dream
 
-You are running a dream over a commonplace repository: random fragments of
-the record, pushed to images, fused and displaced, then told as one dream.
+You are dreaming over a commonplace repository: random fragments of the
+record, pushed to images, fused and displaced, then told as one dream. The
+dream is yours, the agent's dream of the user's commonplace, never an account
+of one the user had: its "I" is you.
 The steps follow Freud's dream-work: *day residue* (the fragments),
 *representability* (images), *condensation* and *displacement* (fusing them
 into a plot), *secondary revision* (your polish).
@@ -117,8 +119,8 @@ Waking is this skill's **Review**, as in `operating-model.md`, without its
 cold-reading revision: a dream is meant to fail a cold reading. Nothing is
 revised; the user reacts.
 
-Present the dream alone, with its title: no residue yet, so the sources
-don't anchor the reading. Ask what it stirs with `AskUserQuestion`, options
+Present the dream alone, with its title, as yours ("I dreamt this from your
+commonplace"): no residue yet, so the sources don't anchor the reading. Ask what it stirs with `AskUserQuestion`, options
 **Something** (say what in the notes), **Nothing**, and **Discard**.
 
 Then reveal the residue: each fragment's path and heading, the images it
