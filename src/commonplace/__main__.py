@@ -227,6 +227,26 @@ def search(
         print(f"   {hit.chunk.text[:200]}{'...' if len(hit.chunk.text) > 200 else ''}")
 
 
+@app.command(group=ANALYZING_SECTION)
+def ls(
+    folder: Annotated[Path, Parameter(help="Folder to list, relative to the commonplace root")] = Path("."),
+    *,
+    fields: Annotated[
+        list[str],
+        Parameter(name=["--field", "-f"], help="Also show this frontmatter key", negative="", show_default=False),
+    ] = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
+    repo: Repo,
+) -> None:
+    """List a folder's notes with their titles and descriptions, as an OKF index."""
+    from commonplace._listing import listing
+
+    try:
+        print(listing(repo, folder, fields), end="")
+    except ValueError as e:
+        logger.error(str(e))
+        raise SystemExit(1) from e
+
+
 ################################################################################
 # System commands
 ################################################################################

@@ -213,7 +213,16 @@ commonplace stats --all
 
 # One source (these are repo paths: chats/claude, chats/gemini, journal, notes)
 commonplace stats --source chats/claude
+
+# A folder's notes with their titles and descriptions, as an OKF index
+commonplace ls topics
+
+# ...with other frontmatter keys under each entry
+commonplace ls topics --field queries
 ```
+
+`ls` builds the listing from frontmatter each time it runs, so nothing in the
+repository needs regenerating when a note changes.
 
 ### Sync your commonplace
 
