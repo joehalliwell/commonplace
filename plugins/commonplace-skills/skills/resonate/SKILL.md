@@ -35,17 +35,10 @@ fast-forwarded to their branch.
 ### 1. Parse Arguments
 
 The argument is a space-separated list of topic slugs (e.g.
-`art ai-consciousness career`). List the topics with their descriptions and
-pressing threads, and use them to resolve partial or misspelled slugs, to
-suggest combinations when the user is vague, and to confirm ambiguous slugs
-with the user:
-
-```bash
-grep -m1 -H '^description:' topics/*.md
-grep -A2 -H '^### Most Pressing Thread' topics/*.md
-```
-
-Check that each distillation exists.
+`art ai-consciousness career`). List the topics with their descriptions
+(`commonplace ls topics`), and use them to resolve partial or misspelled
+slugs, to suggest combinations when the user is vague, and to confirm
+ambiguous slugs with the user. Check that each distillation exists.
 
 ### 2. Determine Output Path
 

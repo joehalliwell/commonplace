@@ -36,8 +36,8 @@ Mode**).
 
 **Check for overlap.** Topics accrete: `memory-and-continuity`, `continuity`
 and `persistence` can become three topics gathering the same chats. List
-the topics' descriptions (`grep -m1 -H '^description:' topics/*.md`), and
-read the `queries` and `patterns` of any topic whose slug or description
+the topics (`commonplace ls topics --field queries --field patterns`), and
+compare the `queries` and `patterns` of any topic whose slug or description
 looks adjacent to `{slug}`. If a substantial part of what you'd gather
 is already gathered elsewhere, **stop** and return the overlap form of the
 Return Value: one thick topic beats two thin ones, and merging later means
