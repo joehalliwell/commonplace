@@ -95,3 +95,27 @@ def test_claude_tasks_run_metadata_ties_it_to_its_task(run):
         "resource": "https://claude.ai/code/session_01Example",
         "models": ["claude-opus-5-5"],
     }
+
+
+def _errored(tmp_path, sequence_num: str) -> Path:
+    """The example archive with the `result` at `sequence_num` marked as an error."""
+
+    def fail(events):
+        for event in events:
+            if event["sequence_num"] == sequence_num:
+                event["payload"]["is_error"] = True
+        return events
+
+    return _rewritten(tmp_path, fail)
+
+
+def test_claude_tasks_run_whose_scheduled_turn_errored_is_flagged_failed(tmp_path):
+    """Read from `is_error`, not `subtype`: an API error can end a turn with `subtype: success`."""
+    [log] = ClaudeTasksImporter().import_(_errored(tmp_path, "8"))
+    assert log.metadata["failed"] is True
+
+
+def test_claude_tasks_run_whose_follow_up_errored_is_not_flagged_failed(tmp_path):
+    """The run is the scheduled turn; a follow-up failing afterwards doesn't undo its output."""
+    [log] = ClaudeTasksImporter().import_(_errored(tmp_path, "11"))
+    assert "failed" not in log.metadata
