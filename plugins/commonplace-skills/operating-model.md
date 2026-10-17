@@ -15,6 +15,9 @@ one fast-forward or not at all. `commonplace` acts on the root checkout
 are what the run should read; only the run's writes and commits go to the
 worktree.
 
+Fix obvious markdown errors in any file the run edits (an escaped wikilink, a
+link that goes nowhere) rather than preserving them, and say so.
+
 ## Preflight
 
 In the root checkout, before writing anything. Note the branch, and check for
@@ -74,6 +77,8 @@ Follow {subagent}, with these values for its placeholders:
 - date: <today, YYYY-MM-DD>
 - concepts: <absolute path of concepts.md, beside this file>
 - <each placeholder the skill lists>: <its value>
+
+Fix obvious markdown errors in any file you edit, and report each fix.
 ```
 
 `{subagent}` is the absolute path of the skill's `subagent.md`. The subagent
