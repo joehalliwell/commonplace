@@ -88,12 +88,25 @@ summary you couldn't explain from it alone. If the list isn't empty, send it
 back, continuing the subagent or spawning a revision subagent with the list
 and the paths it wrote. The subagent rewrites the lines; you supply the list.
 
+The review is the point of the run: the output is a draft written to be
+argued with, and the user's corrections are the best material it produces.
+
+**Questions come first.** A reading that rests on the subagent's inference
+rather than the user's words is written hedged and returned as a question the
+user can answer in a line; each skill names what counts. Ask
+these, and any choice the skill hands the user, with `AskUserQuestion`
+before presenting the summary, never as prose. Offer the plausible readings
+as options without marking one recommended: the point is to hear the user,
+not to confirm a guess. Then present the summary, and close with "What's
+wrong or missing?", not "Approve?".
+
 **What the user says in review is a source.** Before revising, record each
 correction or addition verbatim where the skill says (**Review** in
 `concepts.md`), then pass it to the revision subagent with the correction, or
 make small edits directly.
 
-Wait for explicit approval: it is what **Land** acts on. For a derived
+Wait for explicit approval, which comes once the user has nothing more to
+add: it is what **Land** acts on. For a derived
 artefact, record it as OKF's human review: set `verified` beside `generated`
 to `{by: human:<user>, at: <now, e.g. 2026-10-01T14:00:00Z>}`. You write this
 line, after approval; the subagent never does.

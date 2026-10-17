@@ -140,6 +140,9 @@ happened, verbatim, before revising:
 > <their words, exactly as said>
 ```
 
+An answer to a question goes in with the question, so it reads on its own:
+the agent's question under `**<agent>:**`, then the answer as given.
+
 Artefacts cite it as *(<user>, in review, <date>)*, in plain text.
 
 Where each skill records it:
