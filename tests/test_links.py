@@ -244,6 +244,45 @@ def test_extract_records_one_based_line_numbers():
     assert [(link.target, link.line) for link in extract_links(text, source=SOURCE)] == [("a.md", 3), ("b.md", 5)]
 
 
+def lines(text: str) -> list[tuple[str, int]]:
+    """The targets extracted from `text`, each with its line."""
+    return [(link.target, link.line) for link in extract_links(text, source=SOURCE)]
+
+
+def test_extract_repeated_target_across_lines_of_a_paragraph_yields_each_line():
+    assert lines("[a](x.md) and\n[b](x.md)\n") == [("x.md", 1), ("x.md", 2)]
+
+
+def test_extract_repeated_target_on_one_line_yields_each_occurrence():
+    assert lines("[a](x.md) [b](x.md)\n") == [("x.md", 1), ("x.md", 1)]
+
+
+def test_extract_wikilink_beside_link_to_same_target_yields_both():
+    links = extract_links("[a](x.md) [[x.md]]\n", source=SOURCE)
+    assert [(link.target, link.kind) for link in links] == [("x.md", LinkKind.PATH), ("x.md", LinkKind.WIKILINK)]
+
+
+def test_extract_line_ignores_earlier_prose_mentioning_the_target():
+    assert lines("see x.md, or\n[x](x.md)\n") == [("x.md", 2)]
+
+
+def test_extract_line_counts_newlines_inside_code_spans_and_destinations():
+    assert lines("`code\nspan` [a](\na.md)\n[b](b.md)\n") == [("a.md", 2), ("b.md", 4)]
+
+
+def test_extract_line_in_blockquote_and_list_continuation():
+    assert lines("> [a](a.md)\n> [b](b.md)\n\n- [c](c.md)\n  [d](d.md)\n") == [
+        ("a.md", 1),
+        ("b.md", 2),
+        ("c.md", 4),
+        ("d.md", 5),
+    ]
+
+
+def test_extract_html_attribute_line_is_where_the_attribute_is_written():
+    assert lines('<div>\n<a\nhref="a.md">a</a>\n</div>\n\nx <a\nhref="b.md">b</a>\n') == [("a.md", 3), ("b.md", 7)]
+
+
 # --- Resolution and checking ------------------------------------------------
 
 

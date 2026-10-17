@@ -2,7 +2,7 @@
 
 import os
 import re
-from collections.abc import Collection, Iterator
+from collections.abc import Callable, Collection, Iterator
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -75,21 +75,39 @@ _MARKDOWN.normalizeLink = lambda url: url  # type: ignore[method-assign]
 _MARKDOWN.validateLink = lambda url: True  # type: ignore[method-assign]
 
 
-def _locate(lines: list[str], span: list[int] | None, needle: str) -> int:
-    """The 1-based line holding `needle`, which markdown-it maps only as far as its block."""
-    if span is None:
-        return 1
-    for i in range(span[0], min(span[1], len(lines))):
-        if needle in lines[i]:
-            return i + 1
-    return span[0] + 1
+def _positioned(rule: Callable[[StateInline, bool], bool]) -> Callable[[StateInline, bool], bool]:
+    """`rule`, stamping each token it pushes with the offset into its block's source where the token starts."""
+
+    def stamped(state: StateInline, silent: bool) -> bool:
+        start, pushed = state.pos, len(state.tokens)
+        matched = rule(state, silent)
+        for token in state.tokens[pushed:]:
+            token.meta.setdefault("pos", start)  # Tokens nested inside this one keep their own
+        return matched
+
+    return stamped
 
 
-def _html_targets(html: str) -> Iterator[str]:
-    """The `href` and `src` attributes in a piece of raw HTML."""
+# markdown-it maps lines only as far as the block, so inline tokens need their own offsets.
+for _rule in list(_MARKDOWN.inline.ruler.__rules__):
+    _MARKDOWN.inline.ruler.at(_rule.name, _positioned(_rule.fn))
+
+
+def _line(block: Token, offset: int) -> int:
+    """The 1-based line of `offset` into a block's source, which keeps the block's line breaks."""
+    return (block.map[0] if block.map else 0) + block.content.count("\n", 0, offset) + 1
+
+
+def _locate(lines: list[str], needle: str) -> int:
+    """The first 1-based line holding `needle`."""
+    return next((i + 1 for i, line in enumerate(lines) if needle in line), 1)
+
+
+def _html_targets(html: str) -> Iterator[tuple[int, str]]:
+    """The `href` and `src` attributes in a piece of raw HTML, each with its offset."""
     for attribute in _HTML_ATTRIBUTE.finditer(html):
         if target := attribute.group(1).strip("\"'"):
-            yield target
+            yield attribute.start(), target
 
 
 def _strings(value: object) -> Iterator[str]:
@@ -112,35 +130,36 @@ def _frontmatter_citations(text: str, lines: list[str]) -> Iterator[tuple[int, s
             for target in _strings(value):
                 if target.endswith(".md"):
                     # Frontmatter comes first, so the first line to mention a path is the one that cites it.
-                    yield _locate(lines, [0, len(lines)], target), target, LinkKind.CITATION
+                    yield _locate(lines, target), target, LinkKind.CITATION
 
 
-def _inline_references(child: Token, span: list[int] | None, lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
+def _inline_references(child: Token, block: Token) -> Iterator[tuple[int, str, LinkKind]]:
     """The references in one inline token, whichever syntax carried it."""
+    start = child.meta.get("pos", 0)
     if child.type == "wikilink":
         # `page#section` names `page`.
         if target := child.content.strip("[]").split("#")[0].strip():
-            yield _locate(lines, span, child.content), target, LinkKind.WIKILINK
+            yield _line(block, start), target, LinkKind.WIKILINK
     elif child.type == "html_inline":
-        for target in _html_targets(child.content):
-            yield _locate(lines, span, target), target, LinkKind.PATH
+        for offset, target in _html_targets(child.content):
+            yield _line(block, start + offset), target, LinkKind.PATH
     # Reference, collapsed and shortcut links arrive already resolved to their
     # definition, so every one of them looks inline by here.
     elif (attribute := {"link_open": "href", "image": "src"}.get(child.type)) and (
         target := str(child.attrGet(attribute) or "")
     ):
-        yield _locate(lines, span, target), target, LinkKind.PATH
+        yield _line(block, start), target, LinkKind.PATH
 
 
-def _references(tokens: list[Token], lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
+def _references(tokens: list[Token]) -> Iterator[tuple[int, str, LinkKind]]:
     """Every reference in the token stream, now that the parser knows every syntax we use."""
     for token in tokens:
         if token.type == "html_block":
-            for target in _html_targets(token.content):
-                yield _locate(lines, token.map, target), target, LinkKind.PATH
+            for offset, target in _html_targets(token.content):
+                yield _line(token, offset), target, LinkKind.PATH
         elif token.type == "inline":
             for child in token.children or []:
-                yield from _inline_references(child, token.map, lines)
+                yield from _inline_references(child, token)
 
 
 def _is_repo_reference(target: str) -> bool:
@@ -154,13 +173,12 @@ def _is_repo_reference(target: str) -> bool:
 def extract_links(text: str, *, source: Path) -> list[Link]:
     """Every reference in `text` that could point into the repository, in document order."""
     lines = text.split("\n")
-    found = [*_frontmatter_citations(text, lines), *_references(_MARKDOWN.parse(text), lines)]
-
-    links: dict[tuple[int, str], Link] = {}
+    found = [*_frontmatter_citations(text, lines), *_references(_MARKDOWN.parse(text))]
+    links = []
     for line, target, kind in sorted(found, key=lambda item: item[0]):
         if _is_repo_reference(target := target.strip()):
-            links.setdefault((line, target), Link(source=source, line=line, target=target, kind=kind))
-    return list(links.values())
+            links.append(Link(source=source, line=line, target=target, kind=kind))
+    return links
 
 
 # --- Resolution -------------------------------------------------------------
