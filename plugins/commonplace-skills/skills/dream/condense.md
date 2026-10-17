@@ -12,8 +12,11 @@ came from: work only with these.
 
 ## Make Scenes
 
-Build three to five scenes from the list, using most of it.
+Build three to five scenes from the list.
 
+- **Use what gels.** There are more images than the scenes need. Keep those
+  that hold together as one sequence of places and people, and leave the rest
+  out, however striking.
 - **Merge images**: one person, object or place standing for two. At least
   one merge across the scenes; more where they come naturally.
 - **Emphasis needn't follow importance.** What would be striking can be
@@ -23,4 +26,5 @@ Build three to five scenes from the list, using most of it.
 
 ## Return Value
 
-Return **only** the scenes, each a short paragraph headed `Scene <n>:`.
+Return **only** the scenes, each a short paragraph headed `Scene <n>:`, then
+`Unused:` and the images you left out, verbatim, one per line.

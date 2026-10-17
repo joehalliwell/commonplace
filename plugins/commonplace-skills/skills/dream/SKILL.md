@@ -41,14 +41,15 @@ fast-forwarded to their branch.
 
 ### 1. Residue
 
-Sample six fragments with the shell, never by choosing: a model's "random"
-pick is a preference. Three are **recent**, from primitives touched in the
-last week; three are **deep**, from anywhere. Top up from deep if recent has
-fewer than three.
+Sample twelve fragments with the shell, never by choosing: a model's
+"random" pick is a preference. Six are **recent**, from primitives touched in
+the last week; six are **deep**, from anywhere. Top up from deep if recent
+has fewer than six. Twelve is more than a dream holds: condensation keeps
+what gels.
 
 ```bash
-git log --since=7.days --name-only --format= -- chats journal notes | sort -u | shuf -n 3
-git ls-files chats journal notes | shuf -n 3
+git log --since=7.days --name-only --format= -- chats journal notes | sort -u | shuf -n 6
+git ls-files chats journal notes | shuf -n 6
 ```
 
 Skip a path that no longer exists or was already picked, and draw again. In
@@ -71,8 +72,9 @@ which names the skill.
 
 `imagery.md` goes to one subagent per fragment, all spawned in parallel,
 each with `description` `"Imagery"` and `{fragment}` set to the fragment's
-text and nothing else: no path, no heading, no date. Each returns two images, one per line: something from the fragment as
-itself, misplaced, and a phrase from it taken literally. Residue showing up
+text and nothing else: no path, no heading, no date. Each returns two
+images, one per line: something from the fragment as itself, misplaced, and
+a phrase from it taken literally. Residue showing up
 literally is how dreams work, so keep the fragment's things and words; an
 image of what a fragment means or feels like makes the dream an allegory.
 
@@ -80,21 +82,20 @@ image of what a fragment means or feels like makes the dream an allegory.
 
 Mechanical, in your own context. Drop any image that names a person,
 product or place from its fragment: the things may come through, the names
-may not. Then write what is left, unlabelled, one per
-line, to a scratch file outside the worktree, and keep a random two thirds,
-`{n}`, rounded down:
+may not. Then write what is left, unlabelled, one per line, to a scratch
+file outside the worktree, and shuffle it:
 
 ```bash
-shuf -n {n} {pool file}
+shuf {pool file}
 ```
 
-Record which images were dropped, and why: leaked or forgotten.
+Record which images were dropped as leaked.
 
 ### 4. Condensation
 
 `condense.md` goes to a fresh subagent, `description` `"Scenes"`, with
 `{images}` set to the shuffled pool, one per line. It returns three to five
-scenes.
+scenes and, verbatim, the images that didn't gel: record those as unused.
 
 ### 5. Narration
 
@@ -113,7 +114,7 @@ don't anchor the reading. Ask what it stirs with `AskUserQuestion`, options
 **Something** (say what in the notes), **Nothing**, and **Discard**.
 
 Then reveal the residue: each fragment's path and heading, the images it
-became, and which were dropped. Ask again, options **Keep** and **Discard**,
+became, and which leaked or went unused. Ask again, options **Keep** and **Discard**,
 with the notes for anything the reveal changes.
 
 On **Discard**, at either question, `ExitWorktree` with `action: remove`:
@@ -148,7 +149,7 @@ generated: {by: dream/<plugin release>, at: <now, e.g. 2026-10-01T14:00:00Z>}
 > <their words, exactly as said>
 
 ## Residue
-- [[/<path without .md>]], <heading>: <its images, kept and dropped, each marked>
+- [[/<path without .md>]], <heading>: <its images, each marked used, unused or leaked>
 
 ## Scenes
 <the scenes, as returned>
