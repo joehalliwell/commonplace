@@ -59,7 +59,8 @@ own:
 
 - On an update run, every edit outside Status, History and Next appears in
   the summary's Edits list with a source, and no existing History line
-  changed; History only grows.
+  changed; History only grows, and only by events and decisions, never
+  reports of inactivity.
 - The First Next Action holds up against the full Next list; flag dependency
   reasoning that looks off.
 - The summary's Questions go to the user.
