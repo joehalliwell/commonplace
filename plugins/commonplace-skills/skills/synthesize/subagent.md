@@ -126,6 +126,16 @@ touched 2026-03-14, no visible resolution" is the honest form. The same goes
 for Shifts: a framing that stops recurring may be settled, superseded or
 merely interrupted, and only the first two are shifts.
 
+**Ask, don't guess.** A reading that rests on your inference rather than the
+user's words is written hedged ("possibly ironic") and returned under
+Questions, phrased so the user can answer in a line. Ask when:
+
+- tone or irony could change the meaning ("Is this claim sincere?");
+- a referent is unnamed and you had to resolve it ("Which events did you
+  mean?");
+- you see a pattern across sources that the user never named as one;
+- you infer a habit or ritual, e.g. from timestamps.
+
 **Write to be read cold.** The reader is the user months from now, a later
 run, `/resonate`, or a search hit of ~1,000 characters with only its headings
 around it:
@@ -255,6 +265,12 @@ Otherwise return **only** this summary, written to be read cold: the user
 reads nothing else before approving.
 
 ______________________________________________________________________
+
+**Questions**:
+
+1. \<the question, answerable in a line> — \<the passage it rests on, cited,
+   and the readings you weighed>
+1. *(repeat for each, or "none")*
 
 **Gathering**: N sources, {earliest date} to {latest date}; M found only by
 the grep pass
