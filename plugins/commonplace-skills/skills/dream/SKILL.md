@@ -8,8 +8,8 @@ description: Dream over random fragments of the commonplace, then record what th
 You are running a dream over a commonplace repository: random fragments of
 the record, pushed to images, fused and displaced, then told as one dream.
 The steps follow Freud's dream-work: *day residue* (the fragments),
-*representability* (images), *condensation* and *displacement* (fusing them,
-moving emphasis), *secondary revision* (the story).
+*representability* (images), *condensation* and *displacement* (fusing them
+into a plot), *secondary revision* (your polish).
 
 The dream is not evidence of anything. What it is for is **Waking**: the
 user's reaction, in their own words, which is a source.
@@ -20,7 +20,8 @@ returned, and you put a mechanical gap between imagery and condensation. You
 hold the mapping back to the sources; no subagent gets a repository path, and
 only you write to the worktree. Only you know it's a dream: the phase prompts
 never say so, because a model told "dream" writes the genre's stock imagery,
-and fresh subagents share that prior however high the walls.
+and fresh subagents share that prior however high the walls. The one breach
+is deliberate and last: your polish, which knows the sources.
 
 ## Prerequisites
 
@@ -28,7 +29,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/concepts.md` and
 `${CLAUDE_PLUGIN_ROOT}/operating-model.md` first: the concepts every skill
 shares, and how every run goes from preflight to landing. The steps below
 restate the rules they act on, and name the operating model's steps where
-they run them. This skill departs from **Spawn**: it has three phase prompts
+they run them. This skill departs from **Spawn**: it has two phase prompts
 instead of one `subagent.md`, and passes them text, not a working directory.
 
 ## Workflow
@@ -45,7 +46,7 @@ Sample twelve fragments with the shell, never by choosing: a model's
 "random" pick is a preference. Six are **recent**, from primitives touched in
 the last week; six are **deep**, from anywhere. Top up from deep if recent
 has fewer than six. Twelve is more than a dream holds: condensation keeps
-what gels.
+what its plot turns on.
 
 ```bash
 git log --since=7.days --name-only --format= -- chats journal notes | sort -u | shuf -n 6
@@ -96,15 +97,19 @@ Record which images were dropped as leaked.
 ### 4. Condensation
 
 `condense.md` goes to a fresh subagent, `description` `"Scenes"`, with
-`{images}` set to the shuffled pool, one per line. It plots three to five
-scenes around someone who wants something, and returns them with, verbatim,
-the images the plot didn't use: record those as unused.
+`{images}` set to the shuffled pool, one per line. It plots the images,
+using at least a third, around someone who wants something, and returns a
+title, a summary slug, the telling, and the images it left out. Check that
+list against the telling yourself: it is the record of what went unused.
 
-### 5. Narration
+### 5. Secondary Revision
 
-`narrate.md` goes to a fresh subagent, `description` `"Retelling"`, with
-`{scenes}` set to the scenes as returned.
-It returns a title, a short summary slug and the dream.
+Yours, and the only phase that knows the sources. Polish the telling:
+tighten it, and you may accentuate what resonates with the residue, an image
+or detail that echoes something live in the fragments, so the dream leans
+toward what is pertinent. The plot stays the subagent's. Don't name a source,
+bring its words back, or say what anything means: a dream that explains its
+residue is an allegory again. Keep the unpolished telling for the file.
 
 ### 6. Waking
 
@@ -117,8 +122,9 @@ don't anchor the reading. Ask what it stirs with `AskUserQuestion`, options
 **Something** (say what in the notes), **Nothing**, and **Discard**.
 
 Then reveal the residue: each fragment's path and heading, the images it
-became, and which leaked or went unused. Ask again, options **Keep** and **Discard**,
-with the notes for anything the reveal changes.
+became, which leaked or went unused, and what your polish accentuated. Ask
+again, options **Keep** and **Discard**, with the notes for anything the
+reveal changes.
 
 On **Discard**, at either question, `ExitWorktree` with `action: remove`:
 nothing is written or landed. On **Keep**, write the dream file
@@ -136,7 +142,7 @@ generated: {by: dream/<plugin release>, at: <now, e.g. 2026-10-01T14:00:00Z>}
 # <title>
 
 ## Dream
-<the dream, as returned>
+<the dream, as polished>
 
 ## Waking
 **<agent>:**
@@ -154,8 +160,8 @@ generated: {by: dream/<plugin release>, at: <now, e.g. 2026-10-01T14:00:00Z>}
 ## Residue
 - [[/<path without .md>]], <heading>: <its images, each marked used, unused or leaked>
 
-## Scenes
-<the scenes, as returned>
+## Unpolished
+<the telling, as returned>
 ```
 
 **What the user says on waking is a source**, recorded verbatim, so record
