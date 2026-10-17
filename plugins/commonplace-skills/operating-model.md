@@ -42,8 +42,9 @@ commonplace index
 commonplace config user
 ```
 
-If `commonplace config` is an unknown command, the installed commonplace is
-older than this plugin: ask the user to update it before going on.
+If a `commonplace` command a skill names is unknown (`config`, `ls`), the
+installed commonplace is older than this plugin: ask the user to update it
+before going on.
 
 ## Enter
 

@@ -36,16 +36,10 @@ still a folder, `topics/{slug}/distillation.md`.
 With no topic argument, discover candidates with broad searches
 (`commonplace search -n 50 "<broad query>"`), seeded from the repository: the
 agent and date spread in `commonplace stats`, recently modified notes
-(`commonplace git -- log --oneline -20 --name-only`), and the existing
-topics, whose descriptions show what the user cares about and whose pressing
-threads suggest what's adjacent:
-
-```bash
-grep -m1 -H '^description:' topics/*.md
-grep -A2 -H '^### Most Pressing Thread' topics/*.md
-```
-
-Propose 3-5 candidates, list any stale topics, and wait for confirmation.
+(`commonplace git -- log --oneline -20 --name-only`), and the existing topics
+(`commonplace ls topics`), whose descriptions show what the user cares about;
+a topic's pressing thread, in its file, suggests what's adjacent. Propose 3-5
+candidates, list any stale topics, and wait for confirmation.
 With a topic argument, go straight to step 2.
 
 Refuse the slugs `index`, `log` and `resonances`: OKF reserves `index.md`
