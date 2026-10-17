@@ -19,7 +19,7 @@ checked per skill, against that skill's newest entry.
   about the user. Its paraphrase of the user, so a lead to the originating passage,
   never the user's words.
 - **Derived**: produced from other artefacts. Everything under `topics/`:
-  distillations, resonances and the topic index. Every run commits and
+  distillations and resonances. Every run commits and
   re-indexes them, so they surface in search beside real sources. Quoting one
   is **laundering**: a conclusion passed back off as evidence, counting the
   same claim twice. Follow a derived artefact's citation to the primitive and

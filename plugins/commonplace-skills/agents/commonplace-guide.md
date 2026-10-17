@@ -97,7 +97,6 @@ notes/
     {slug}.md           # One note per larger effort
 
 topics/
-  index.md
   {slug}.md             # A topic's distillation
   resonances/
     {sorted-slugs}.md
@@ -125,7 +124,7 @@ anything in the repository.
   lead to the originating passage, not the user's words.
 - **Agent journal**: the writing of the agent that ran a skill. Never a
   source.
-- **Distillations, resonances, the topic index** (`topics/`): derived, and
+- **Distillations and resonances** (`topics/`): derived, and
   OKF v0.2 concept documents. Never a source.
 - **Gatherings, chaff, review logs** (`.commonplace/skills/`): skill state.
   Never linked, and cited only as a review, in plain text.

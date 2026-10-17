@@ -75,7 +75,7 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 
 **Artefact paths** (no dated filenames — git is the versioning layer):
 
-- `topics/{slug}.md` (the distillation), `topics/index.md`
+- `topics/{slug}.md` (the distillation); no generated index pages: skills list topics from their frontmatter
 - `topics/resonances/{sorted-slugs}.md`
 - `.commonplace/skills/synthesize/{slug}.md` — a topic's gathering
 - `notes/ideas.md`, `notes/todo.md`, `notes/projects/{slug}.md` — the user's own notes; `/rake` and `/project` only add what the user approves
