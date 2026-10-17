@@ -18,7 +18,9 @@ user's reaction, in their own words, which is a source.
 so each phase runs in a fresh subagent that sees only what the previous phase
 returned, and you put a mechanical gap between imagery and condensation. You
 hold the mapping back to the sources; no subagent gets a repository path, and
-only you write to the worktree.
+only you write to the worktree. Only you know it's a dream: the phase prompts
+never say so, because a model told "dream" writes the genre's stock imagery,
+and fresh subagents share that prior however high the walls.
 
 ## Prerequisites
 
@@ -63,22 +65,22 @@ text. Any speaker counts.
 
 ### 2. Imagery
 
-One subagent per fragment, all spawned in parallel, each with `description`
-`"Dream: imagery"` and this prompt:
+Each phase's prompt is the text of its file beside this one, which you read
+and send with its one placeholder filled: send the text, never the path,
+which names the skill.
 
-```text
-Follow ${CLAUDE_PLUGIN_ROOT}/skills/dream/imagery.md (resolve the path), with this fragment:
-
-<the fragment's text, and nothing else: no path, no heading, no date>
-```
-
-Each returns two or three images, one per line.
+`imagery.md` goes to one subagent per fragment, all spawned in parallel,
+each with `description` `"Imagery"` and `{fragment}` set to the fragment's
+text and nothing else: no path, no heading, no date. Each returns three images, one per line: something from the fragment as
+itself, misplaced; a phrase from it taken literally; and what it is like.
+Residue showing up literally is how dreams work, so keep the fragment's
+things and words.
 
 ### 3. The Gap
 
-Mechanical, in your own context. For each fragment's images, drop any that
-reuses a capitalised word from its fragment (a name leaking through), except
-at the start of a sentence. Then write what is left, unlabelled, one per
+Mechanical, in your own context. Drop any image that names a person,
+product or place from its fragment: the things may come through, the names
+may not. Then write what is left, unlabelled, one per
 line, to a scratch file outside the worktree, and keep a random two thirds,
 `{n}`, rounded down:
 
@@ -90,26 +92,14 @@ Record which images were dropped, and why: leaked or forgotten.
 
 ### 4. Condensation
 
-A fresh subagent, `description` `"Dream: condensation"`:
-
-```text
-Follow ${CLAUDE_PLUGIN_ROOT}/skills/dream/condense.md (resolve the path), with these images:
-
-<the shuffled pool, one per line>
-```
-
-It returns three to five scenes.
+`condense.md` goes to a fresh subagent, `description` `"Scenes"`, with
+`{images}` set to the shuffled pool, one per line. It returns three to five
+scenes.
 
 ### 5. Narration
 
-A fresh subagent, `description` `"Dream: narration"`:
-
-```text
-Follow ${CLAUDE_PLUGIN_ROOT}/skills/dream/narrate.md (resolve the path), with these scenes:
-
-<the scenes, as returned>
-```
-
+`narrate.md` goes to a fresh subagent, `description` `"Retelling"`, with
+`{scenes}` set to the scenes as returned.
 It returns a title, a short summary slug and the dream.
 
 ### 6. Waking

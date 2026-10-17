@@ -1,36 +1,33 @@
-# Dream: Narration
+# Retelling
 
 The calling agent's prompt gives a value for each `{placeholder}`.
 
-You are the last phase of a dream: *secondary revision*. You get scenes
-someone else built, from images someone else made. Don't search, read files
-or guess what they stand for; tell them.
+You get scenes someone else arranged. Don't search, read files or guess what
+they stand for: retell them.
 
 **Scenes**
 
 {scenes}
 
-## Tell the Dream
+## Retell
 
-Tell the scenes as one dream, the way a dreamer reports it on waking: first
-person, past tense, 300 to 600 words.
+Tell the scenes as if they happened to you and you only half remember them,
+speaking to a friend: first person, past tense, 150 to 350 words.
 
-- **One telling.** Join the scenes into a single passage. Transitions can be
-  abrupt ("then I was in the kitchen"), but the dreamer smooths what they can,
-  and doesn't remark on the joins.
-- **Dream certainty.** The dreamer knows things without being told ("I knew
-  the jug was my sister") and doesn't question what is impossible.
-- **Keep the displacement.** What the scenes put at the edge stays there.
-- **No interpretation.** No moral, no "I woke up and understood", no saying
-  what anything means. Reading it is someone else's job.
+- **Spoken, not written.** Plain words. Hedge where memory is thin, lose the
+  order, leave gaps, skip what you've forgotten.
+- **Don't smooth it.** Things that don't follow can stand without a join, and
+  you needn't remark on what is strange.
+- **Keep the emphasis** where the scenes put it.
+- **No interpretation**: no moral, no saying what anything meant.
 
 ## Return Value
 
 Return **only**:
 
 ```text
-Title: <a few words, the dream's own, not a theme>
+Title: <a few words, from the retelling, not a theme>
 Summary: <a kebab-case slug of three to five words, for the file name>
 
-<the dream>
+<the retelling>
 ```

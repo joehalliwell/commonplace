@@ -1,31 +1,28 @@
-# Dream: Imagery
+# Imagery
 
 The calling agent's prompt gives a value for each `{placeholder}`.
 
-You are the first phase of a dream: *representability*. You get one fragment
-of someone's record (a passage of a conversation, a journal entry, a note)
-and turn it into images. Nothing else: don't search, read files or ask what
-the fragment comes from. You are meant to see only this.
+You get one passage from someone's records: part of a conversation, a journal
+entry, a note. Turn it into things that could be seen. Don't search, read
+files or ask where the passage comes from: work only with this.
 
-**Fragment**
+**Passage**
 
 {fragment}
 
-## Make Images
+## Make Three Images
 
-Return two or three images the fragment suggests. An image is something you
-could see, hear, touch or smell: a place, an object, a figure, a weather, an
-action. Not a concept, not a summary.
+1. **As itself, misplaced.** An object, person or setting from the passage,
+   exactly as it is, somewhere it doesn't belong.
+1. **Taken literally.** A phrase from the passage whose words are made into
+   things, as if the figure of speech were physical: "the deadline slipped"
+   as a line painted on a floor, sliding under a door.
+1. **What it is like.** The passage's mood or pressure, shown with things
+   from its own world, not a symbol borrowed from elsewhere.
 
-- **Leave the fragment's words behind.** No names, jargon, numbers or phrases
-  from it. If it is about a database migration, the image is not a database;
-  it might be furniture carried down a stairwell at night.
-- **Take the feeling, not the topic.** What the fragment is like (its
-  pressure, its mood, its shape) matters more than what it is about.
-- **Concrete and particular.** "A blue enamel jug with a chipped lip, full of
-  pond water", not "a container".
-- **One sentence each**, no explanation of what it stands for.
+Each is one sentence, present-day and ordinary unless the passage isn't,
+with no proper names and no explanation of what it stands for.
 
 ## Return Value
 
-Return **only** the images, one per line, no numbering.
+Return **only** the three images, one per line, no numbering.
