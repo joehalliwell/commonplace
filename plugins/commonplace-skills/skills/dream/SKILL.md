@@ -101,7 +101,8 @@ Record which images were dropped as leaked.
 `{images}` set to the shuffled pool, one per line. It plots the images,
 using at least a third, around someone who wants something, and returns a
 title, a summary slug, the telling, and the images it left out. Check that
-list against the telling yourself: it is the record of what went unused.
+list against the pool, line for line, and against the telling yourself: it
+is the record of what went unused.
 
 ### 5. Secondary Revision
 
@@ -124,8 +125,9 @@ owning what your polish put there, since you knew the sources. Then reveal
 the residue: each fragment's path and heading, the images it became, which
 leaked or went unused, and what your polish accentuated.
 
-Ask with `AskUserQuestion`, options **Keep** and **Discard**, with the notes
-for what it stirs in the user.
+Ask with `AskUserQuestion`, options **Keep** and **Discard**, and say in
+the question that the notes are for what it stirs in them: they are the
+waking.
 
 On **Discard**, `ExitWorktree` with `action: remove`: nothing is written or
 landed. On **Keep**, a kept dream is split by whose words are whose, where
