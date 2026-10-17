@@ -116,7 +116,11 @@ dates) and **Shifts** (how the thinking changed, and why).
 **Second pass, tensions:** re-read the gathering for contradictions,
 unresolved questions and gaps, and write **Threads**, the most valuable
 section. End it with one **Most Pressing Thread**: the open question most
-worth the user's attention now.
+worth the user's attention now. The user picks it in review, so choose two or
+three candidates and write the first. Rank by what the user is working on and
+keeps returning to, not by emotional charge. A candidate never rests on a
+hedged reading, and a thread a Review entry records the user declining as
+Most Pressing is not a candidate again.
 
 **Read silence as silence.** Mark each thread *closed* (resolved, or set
 aside in so many words), *stopped* (the record goes quiet) or *unclear*,
@@ -282,7 +286,11 @@ the grep pass
 - Threads:
   - \<thread headline, verbatim> — *(closed / stopped / unclear)*
   - *(repeat for each thread)*
-  - **Most Pressing Thread**: \<its headline, verbatim>
+
+**Most Pressing candidates**, the first as written:
+
+1. \<headline, verbatim> — \<one sentence: why it matters now>
+1. *(repeat for each, two or three in all)*
 
 **This run changed**: \<the Revisions line, verbatim>
 

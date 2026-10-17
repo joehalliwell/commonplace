@@ -60,8 +60,13 @@ and these placeholders:
 
 ### 3. Review
 
-**Review** as in `operating-model.md`, with two checks of this skill's own,
-since both are invisible once committed:
+**Review** as in `operating-model.md`. With the subagent's Questions, ask
+which of its **Most Pressing candidates** the user wants. If they pick another
+candidate, rewrite the Most Pressing Thread section from it yourself; a
+thread they name instead goes to the revision subagent. Record the choice,
+naming the candidates declined, with the review words.
+
+Two checks are this skill's own, since both are invisible once committed:
 
 - **Attribution.** A Shift or Thread about the *user's* thinking rests on the
   user's words, not an agent's framing the user never took up.
