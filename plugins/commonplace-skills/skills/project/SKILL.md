@@ -30,6 +30,27 @@ run `commonplace index` first.
 
 ## Workflow
 
+### 0. Preflight and Enter
+
+The run works in a worktree (**Worktrees** in `concepts.md`). In the root
+checkout, note the branch and look for uncommitted files:
+
+```bash
+commonplace git -- branch --show-current
+commonplace git -- status --porcelain
+```
+
+If there are any, list the paths and ask: **Sync** (`commonplace sync`),
+**Continue** without them, or **Cancel**. Then `EnterWorktree`, and
+fast-forward it to the noted branch, stopping if that fails:
+
+```bash
+git merge --ff-only {branch}
+```
+
+Everything the run writes, subagents included, goes in the worktree;
+`commonplace` still reads from the root.
+
 ### 1. Derive the Slug
 
 Convert the sketch to a kebab-case slug. If ambiguous, confirm with the user.
@@ -46,7 +67,7 @@ Use the **Task tool** to spawn a `general-purpose` subagent:
   - `{sketch}` — the user's original sketch
   - `{slug}` — the derived slug
   - `{date}` — today as YYYY-MM-DD
-  - `{working_dir}` — absolute path to the repository root
+  - `{working_dir}` — absolute path of the worktree
   - `{concepts}` — the absolute path of `${CLAUDE_PLUGIN_ROOT}/concepts.md`
 
 ### 3. Review
@@ -64,7 +85,7 @@ non-empty list back to the subagent before presenting. The subagent rewrites
 the lines; you supply the list.
 
 Wait for explicit approval before committing. If the user rejects an edit,
-revert that hunk (`commonplace git -- checkout -p notes/projects/{slug}.md`) or
+revert that hunk (`commonplace --root "$PWD" git -- checkout -p notes/projects/{slug}.md`) or
 make the correction directly.
 
 **What the user says in review is a source**, and the note is where it goes:
@@ -78,17 +99,11 @@ If `notes/projects/index.md` exists, add or update the project's line there,
 following the file's own sections and style. Don't touch other entries.
 
 ```bash
-commonplace git -- add notes/projects/
-commonplace git -- commit -m "Project note: {sketch}"
+commonplace --root "$PWD" git -- add notes/projects/
+commonplace --root "$PWD" git -- commit -m "Project note: {sketch}"
 ```
 
 If a pre-commit hook reformats files, re-stage and retry.
-
-Then re-index:
-
-```bash
-commonplace index
-```
 
 ### 5. Agent Journal (optional)
 
@@ -100,9 +115,24 @@ comes, skip it; if you write one, commit it on its own and tell the user its
 path:
 
 ```bash
-commonplace git -- add agent-journal/
-commonplace git -- commit -m "Agent journal: {agent}"
+commonplace --root "$PWD" git -- add agent-journal/
+commonplace --root "$PWD" git -- commit -m "Agent journal: {agent}"
 ```
+
+### 6. Land
+
+Approval in step 3 was the go-ahead to merge: don't ask again.
+`ExitWorktree` with `action: keep`, then:
+
+```bash
+commonplace git -- merge --ff-only {worktree branch}
+commonplace git -- worktree remove {worktree path}
+commonplace git -- branch -d {worktree branch}
+commonplace index
+```
+
+If the merge fails, stop and report, leaving the worktree and branch for the
+user. Never push either branch.
 
 ______________________________________________________________________
 

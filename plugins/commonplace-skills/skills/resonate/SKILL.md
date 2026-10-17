@@ -24,6 +24,27 @@ returns errors, ask the user to run `commonplace index`.
 
 ## Workflow
 
+### 0. Preflight and Enter
+
+The run works in a worktree (**Worktrees** in `concepts.md`). In the root
+checkout, note the branch and look for uncommitted files:
+
+```bash
+commonplace git -- branch --show-current
+commonplace git -- status --porcelain
+```
+
+If there are any, list the paths and ask: **Sync** (`commonplace sync`),
+**Continue** without them, or **Cancel**. Then `EnterWorktree`, and
+fast-forward it to the noted branch, stopping if that fails:
+
+```bash
+git merge --ff-only {branch}
+```
+
+Everything the run writes, subagents included, goes in the worktree;
+`commonplace` still reads from the root.
+
 ### 1. Parse Arguments
 
 The argument is a space-separated list of topic slugs (e.g.
@@ -67,7 +88,7 @@ Template** below with every placeholder filled:
 - `{output_path}` — `topics/resonances/{sorted_key}.md`
 - `{review_log}` — `.commonplace/skills/resonate/{sorted_key}.md`
 - `{date}` — today as YYYY-MM-DD
-- `{working_dir}` — absolute path to the repository root
+- `{working_dir}` — absolute path of the worktree
 - `{version}` — this plugin's release, from step 1
 - `{concepts}` — the absolute path of `${CLAUDE_PLUGIN_ROOT}/concepts.md`
 
@@ -104,9 +125,8 @@ to `{by: human:<user>, at: <now, e.g. 2026-10-01T14:00:00Z>}`. You write this
 line, after approval; the subagent never does.
 
 ```bash
-commonplace git -- add topics/resonances/ .commonplace/skills/resonate/
-commonplace git -- commit -m "Resonate: {topics}"
-commonplace index
+commonplace --root "$PWD" git -- add topics/resonances/ .commonplace/skills/resonate/
+commonplace --root "$PWD" git -- commit -m "Resonate: {topics}"
 ```
 
 If a pre-commit hook reformats files, re-stage them and retry the same
@@ -121,9 +141,24 @@ What came up with the user stays in this run's output. **Agent journal** in
 if you write one, commit it on its own and tell the user its path:
 
 ```bash
-commonplace git -- add agent-journal/
-commonplace git -- commit -m "Agent journal: {agent}"
+commonplace --root "$PWD" git -- add agent-journal/
+commonplace --root "$PWD" git -- commit -m "Agent journal: {agent}"
 ```
+
+### 7. Land
+
+Approval in step 4 was the go-ahead to merge: don't ask again.
+`ExitWorktree` with `action: keep`, then:
+
+```bash
+commonplace git -- merge --ff-only {worktree branch}
+commonplace git -- worktree remove {worktree path}
+commonplace git -- branch -d {worktree branch}
+commonplace index
+```
+
+If the merge fails, stop and report, leaving the worktree and branch for the
+user. Never push either branch.
 
 ______________________________________________________________________
 

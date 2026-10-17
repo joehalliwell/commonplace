@@ -54,8 +54,8 @@ follows it:
 
 ```bash
 mkdir -p .commonplace/skills/synthesize
-commonplace git -- mv topics/{slug}/distillation.md topics/{slug}.md
-commonplace git -- mv topics/{slug}/gathering.md .commonplace/skills/synthesize/{slug}.md
+commonplace --root "$PWD" git -- mv topics/{slug}/distillation.md topics/{slug}.md
+commonplace --root "$PWD" git -- mv topics/{slug}/gathering.md .commonplace/skills/synthesize/{slug}.md
 ```
 
 The gathering's `queries` and `sources` move into the topic's frontmatter,

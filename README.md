@@ -364,6 +364,13 @@ runs update them in place. Everything under `topics/` is an
 concept document, recording its sources, the release that wrote it, and who
 approved it.
 
+Each skill works in a git worktree, so a run lands on your branch whole or not
+at all. Before starting it asks what to do with any uncommitted files
+(`commonplace sync` them, leave them, or cancel). Once you approve its output,
+it fast-forwards your branch, removes the worktree and re-indexes, without
+asking again. It never pushes; if your branch moved during the run, it stops
+and leaves the worktree for you.
+
 At the end of a run, a skill may write an entry of its own in
 `agent-journal/{agent}/`, committed separately. Those entries are never
 treated as evidence of your thinking.
