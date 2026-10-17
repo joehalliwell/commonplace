@@ -11,13 +11,14 @@ they stand for: retell them.
 
 ## Retell
 
-Tell the scenes as if they happened to you and you only half remember them,
-speaking to a friend: first person, past tense, 150 to 350 words.
+Tell the scenes as if they happened to you: first person, past tense, 150 to
+300 words.
 
-- **Spoken, not written.** Plain words. Hedge where memory is thin, lose the
-  order, leave gaps, skip what you've forgotten.
-- **Don't smooth it.** Things that don't follow can stand without a join, and
-  you needn't remark on what is strange.
+- **Crisp.** Plain, exact sentences. No imitation of speech: no fillers,
+  asides or performed uncertainty.
+- **Gaps by omission.** Leave out what doesn't fit rather than saying you've
+  forgotten it. Things that don't follow can stand without a join, and you
+  needn't remark on what is strange.
 - **Keep the emphasis** where the scenes put it.
 - **No interpretation**: no moral, no saying what anything meant.
 
