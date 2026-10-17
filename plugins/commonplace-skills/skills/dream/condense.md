@@ -12,17 +12,20 @@ came from: work only with these.
 
 ## Make Scenes
 
-Build three to five scenes from the list.
+Build three to five scenes from the list, as one plot.
 
-- **Use what gels.** There are more images than the scenes need. Keep those
-  that hold together as one sequence of places and people, and leave the rest
-  out, however striking.
+- **A plot.** One person, who will tell it, wants something ordinary, and
+  across the scenes it keeps nearly happening and going wrong. Each scene
+  moves it on.
+- **Use what can take part.** There are more images than the plot needs. Keep
+  those that can do something in it, whatever their setting, and leave the
+  rest out, however well they would sit together.
 - **Merge images**: one person, object or place standing for two. At least
   one merge across the scenes; more where they come naturally.
 - **Emphasis needn't follow importance.** What would be striking can be
   passed over; something small can matter.
-- **Places and people, not plot.** Each scene says where it is, who or what is
-  there, and what is happening.
+- **Places can jump.** Each scene says where it is, who or what is there, and
+  what happens; the next can be anywhere.
 
 ## Return Value
 
