@@ -17,6 +17,10 @@ Three to five scenes, as one plot.
 - **A plot.** One person, who will tell it, wants something ordinary, and
   across the scenes it keeps nearly happening and going wrong. Each scene
   moves it on. It may resolve, but not into consolation: no gentle last line.
+- **No one the teller knows.** The want is the teller's own, not on anyone's
+  behalf. The other people are the images' figures or strangers known by
+  their role (a cashier, a porter): no family, friends, partners or
+  colleagues, however described.
 - **Explained, not plausible.** Things happen for reasons, and the plot gives
   them, but a reason needn't make sense outside it.
 - **Use what the plot turns on, and at least a third.** There are more images
