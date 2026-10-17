@@ -17,6 +17,9 @@ Three to five scenes, as one plot.
 - **A plot.** One person, who will tell it, wants something ordinary, and
   across the scenes it keeps nearly happening and going wrong. Each scene
   moves it on. It may resolve, but not into consolation: no gentle last line.
+- **The teller can be anyone.** Themselves, or someone they are only in this
+  story, given in a line ("I was a painter in a dip shop"), when the images
+  suggest a role.
 - **Known people only as symbols.** The want is the teller's own, not on
   anyone's behalf. Someone the teller knows (family, a friend, a colleague)
   may appear, but never as themselves: merged with an image and doing what
