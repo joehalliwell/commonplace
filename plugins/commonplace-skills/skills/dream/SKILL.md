@@ -13,8 +13,9 @@ The steps follow Freud's dream-work: *day residue* (the fragments),
 *representability* (images), *condensation* and *displacement* (fusing them
 into a plot), *secondary revision* (your polish).
 
-The dream is not evidence of anything. What it is for is **Waking**: the
-user's reaction, in their own words, which is a source.
+The dream is not evidence of anything: it goes in your agent journal. What it
+is for is **Waking**: the user's reaction, in their own words, which is a
+source.
 
 **Walls between phases.** The imagery must break free of the source material,
 so each phase runs in a fresh subagent that sees only what the previous phase
@@ -134,28 +135,32 @@ leaked or went unused, and what your polish accentuated.
 Ask with `AskUserQuestion`, options **Keep** and **Discard**, with the notes
 for what it stirs in the user.
 
-On **Discard**, `ExitWorktree` with `action: remove`:
-nothing is written or landed. On **Keep**, write the dream file
-(`.commonplace/skills/dream/{agent}/{yyyy}/{mm}/{yyyy-mm-dd}-{summary}.md`,
-where `{agent}` is you, e.g. `claude-code`):
+On **Discard**, `ExitWorktree` with `action: remove`: nothing is written or
+landed. On **Keep**, a kept dream is split by whose words are whose, where
+`{agent}` is you, e.g. `claude-code`:
+
+- **The dream and your waking are yours**, so they go in your agent journal
+  (step 8), never a source.
+- **The user's waking is a source**, so it goes in the dream's record, skill
+  state beside the residue: never in a journal, the user's or yours.
+
+Write the record first,
+`.commonplace/skills/dream/{agent}/{yyyy}/{mm}/{yyyy-mm-dd}-{summary}.md`:
 
 ```markdown
 ---
 title: <title>
 residue:
   - /<path of each fragment>
+journal: /agent-journal/<agent>/<yyyy>/<mm>/<yyyy-mm-dd>.md
 generated: {by: dream/<plugin release>, at: <now, e.g. 2026-10-01T14:00:00Z>}
 ---
 
 # <title>
 
-## Dream
-<the dream, as polished>
+The dream and the agent's waking: [[/agent-journal/<agent>/<yyyy>/<mm>/<yyyy-mm-dd>]].
 
 ## Waking
-**<agent>:**
-> <what it stirs in you, as you said it>
-
 **<user>:**
 > <their words, exactly as said, or "Nothing.">
 
@@ -179,9 +184,23 @@ commonplace --root "$PWD" git -- add .commonplace/skills/dream/
 commonplace --root "$PWD" git -- commit -m "Dream: {title}"
 ```
 
-### 8. Agent Journal (optional)
+### 8. Agent Journal
 
-This step is yours: **Agent journal** in `operating-model.md`.
+Not optional here: the dream is this run's entry. **Agent journal** as in
+`operating-model.md`, appending to today's file:
+
+```markdown
+## Dream: <title>
+
+<the dream, as polished>
+
+**Waking.** <what it stirs in you, as you said it>
+
+Its residue and the user's waking: `.commonplace/skills/dream/<agent>/<yyyy>/<mm>/<file>`.
+```
+
+The record's path stays plain text: skill state is cited only that way.
+Anything else the run left you with goes after it, as the step describes.
 
 ### 9. Land
 
