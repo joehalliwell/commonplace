@@ -124,10 +124,10 @@ rewrite by the coordinator would put a guess into the record.
 
 ## Review
 
-Each skill's coordinator presents the subagent's summary and waits for
-explicit approval before committing. For a derived artefact, approval is OKF's
-human review: the coordinator, never the subagent, sets `verified` to
-`{by: human:<user>, at: <now>}`.
+For a derived artefact, the user's approval is OKF's human review, recorded
+in `verified` as `{by: human:<user>, at: <now>}`. Only a human approves, so a
+subagent never writes it. **Review** in `operating-model.md` says how a run
+gets there.
 
 **What the user says in review is a source.** A correction or addition (who
 someone is, what a passage meant, something the sources don't say) is the
