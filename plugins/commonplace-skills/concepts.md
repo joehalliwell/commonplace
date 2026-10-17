@@ -157,7 +157,7 @@ Where each skill records it:
   land where they are filed (`notes/`, or chaff); "done" is recorded where
   the user asks.
 - **dream**: the dream file's `## Waking`. The dream itself is never a
-  source; the user's reaction to it is.
+  source, nor is the agent's own waking there; the user's reaction is.
 
 Review material lives in the run's output, never in a journal, the user's or
 an agent's.

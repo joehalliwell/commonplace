@@ -45,17 +45,23 @@ fast-forwarded to their branch.
 ### 1. Residue
 
 Sample twelve fragments with the shell, never by choosing: a model's
-"random" pick is a preference. Six are **recent**, from primitives touched in
-the last week; six are **deep**, from anywhere. Top up from deep if recent
-has fewer than six. Twelve is more than a dream holds: condensation keeps
-what its plot turns on.
+"random" pick is a preference. Six are **recent**, from primitives and agent
+memory touched in the last week; six are **deep**, from anywhere. Top up from
+deep if recent has fewer than six. Twelve is more than a dream holds:
+condensation keeps what its plot turns on.
+
+Scheduled task output (`chats/claude-tasks/`) is excluded: it is the agent
+reporting the news, not the user's life, and it would crowd the recent half.
+Agent memory (`memory/`) is in: the agent's paraphrase of the user is no
+source, but a dream's residue needn't be one.
 
 ```bash
-git log --since=7.days --name-only --format= -- chats journal notes | sort -u | shuf -n 6
-git ls-files chats journal notes | shuf -n 6
+git log --since=7.days --name-only --format= -- chats journal notes memory ':!chats/claude-tasks' | sort -u | shuf -n 6
+git ls-files -- chats journal notes memory ':!chats/claude-tasks' | shuf -n 6
 ```
 
-Skip a path that no longer exists or was already picked, and draw again. In
+Skip a path that no longer exists, isn't `.md`, or was already picked, and
+draw again. In
 each file, pick one `## ` section at random and take it up to the next `## `
 heading, cut at 2,000 characters; a file with no `## ` heading is one
 section:
@@ -65,8 +71,8 @@ grep -n '^## ' {file} | shuf -n 1
 ```
 
 Note each fragment's path, its heading (for a chat, the speaker) and its
-text. Any speaker counts, and any primitive, the journal's most private
-entries included: it is the user's commonplace, and **Discard** in Waking is
+text. Any speaker counts, and any file, the journal's most private entries
+included: it is the user's commonplace, and **Discard** in Waking is
 the guard.
 
 ### 2. Imagery
@@ -117,18 +123,18 @@ residue is an allegory again. Keep the unpolished telling for the file.
 
 Waking is this skill's **Review**, as in `operating-model.md`, without its
 cold-reading revision: a dream is meant to fail a cold reading. Nothing is
-revised; the user reacts.
+revised; the dreamer wakes first, then the user reacts.
 
-Present the dream alone, with its title, as yours ("I dreamt this from your
-commonplace"): no residue yet, so the sources don't anchor the reading. Ask what it stirs with `AskUserQuestion`, options
-**Something** (say what in the notes), **Nothing**, and **Discard**.
+Present the dream with its title, as yours ("I dreamt this from your
+commonplace"). Then wake: say what it stirs in you, candidly and briefly,
+owning what your polish put there, since you knew the sources. Then reveal
+the residue: each fragment's path and heading, the images it became, which
+leaked or went unused, and what your polish accentuated.
 
-Then reveal the residue: each fragment's path and heading, the images it
-became, which leaked or went unused, and what your polish accentuated. Ask
-again, options **Keep** and **Discard**, with the notes for anything the
-reveal changes.
+Ask with `AskUserQuestion`, options **Keep** and **Discard**, with the notes
+for what it stirs in the user.
 
-On **Discard**, at either question, `ExitWorktree` with `action: remove`:
+On **Discard**, `ExitWorktree` with `action: remove`:
 nothing is written or landed. On **Keep**, write the dream file
 (`.commonplace/skills/dream/{agent}/{yyyy}/{mm}/{yyyy-mm-dd}-{summary}.md`,
 where `{agent}` is you, e.g. `claude-code`):
@@ -148,16 +154,10 @@ generated: {by: dream/<plugin release>, at: <now, e.g. 2026-10-01T14:00:00Z>}
 
 ## Waking
 **<agent>:**
-> What does it stir?
+> <what it stirs in you, as you said it>
 
 **<user>:**
 > <their words, exactly as said, or "Nothing.">
-
-**<agent>:**
-> <the residue, revealed: does that change anything?>
-
-**<user>:**
-> <their words, exactly as said>
 
 ## Residue
 - [[/<path without .md>]], <heading>: <its images, each marked used, unused or leaked>
