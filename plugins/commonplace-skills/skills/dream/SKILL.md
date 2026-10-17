@@ -71,10 +71,10 @@ which names the skill.
 
 `imagery.md` goes to one subagent per fragment, all spawned in parallel,
 each with `description` `"Imagery"` and `{fragment}` set to the fragment's
-text and nothing else: no path, no heading, no date. Each returns three images, one per line: something from the fragment as
-itself, misplaced; a phrase from it taken literally; and what it is like.
-Residue showing up literally is how dreams work, so keep the fragment's
-things and words.
+text and nothing else: no path, no heading, no date. Each returns two images, one per line: something from the fragment as
+itself, misplaced, and a phrase from it taken literally. Residue showing up
+literally is how dreams work, so keep the fragment's things and words; an
+image of what a fragment means or feels like makes the dream an allegory.
 
 ### 3. The Gap
 

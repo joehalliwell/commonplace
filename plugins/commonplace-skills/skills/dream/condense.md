@@ -14,8 +14,8 @@ came from: work only with these.
 
 Build three to five scenes from the list, using most of it.
 
-- **Let images merge** where they can: one person, object or place standing
-  for two. Not every scene needs one.
+- **Merge images**: one person, object or place standing for two. At least
+  one merge across the scenes; more where they come naturally.
 - **Emphasis needn't follow importance.** What would be striking can be
   passed over; something small can matter.
 - **Places and people, not plot.** Each scene says where it is, who or what is
