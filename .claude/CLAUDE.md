@@ -66,6 +66,8 @@ Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it reco
 
 `plugins/commonplace-skills/` contains Claude Code skills and agents (version in `.claude-plugin/plugin.json`). These are **end-user tools** — they run inside a user's *commonplace repository* (their knowledge base), not in this Python codebase. Do not use them here.
 
+A PR that changes the plugin bumps its version in its own commit (minor for behaviour changes), unless main already carries an unreleased bump: skills judge staleness by the release in `generated.by`.
+
 **Skills:**
 
 - `/synthesize [topic]` — gather and distil a topic from the commonplace
