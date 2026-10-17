@@ -111,12 +111,6 @@ toward what is pertinent. The plot stays the subagent's. Don't name a source,
 bring its words back, or say what anything means: a dream that explains its
 residue is an allegory again. Keep the unpolished telling for the file.
 
-Where the dream contradicts the user's waking life, you may mark it as a
-dreamer telling it would: "My car. I don't have a car, I can't even drive.
-But in this dream I did." Only for a fact the record states (`memory/`, the
-residue, a quick search), never a guess, and once or twice at most: the
-frisson is in the rarity.
-
 ### 6. Waking
 
 Waking is this skill's **Review**, as in `operating-model.md`, without its
