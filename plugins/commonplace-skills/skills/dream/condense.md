@@ -53,7 +53,7 @@ Return **only**:
 
 ```text
 Title: <a few words, from the telling, not a theme>
-Summary: <a kebab-case slug of three to five words, for the file name>
+Summary: <a kebab-case slug of three to five words from the telling, for the file name>
 
 <the telling>
 
