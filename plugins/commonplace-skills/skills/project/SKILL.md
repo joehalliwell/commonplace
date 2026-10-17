@@ -22,8 +22,11 @@ commit.
 
 ## Prerequisites
 
-Read `${CLAUDE_PLUGIN_ROOT}/concepts.md` first: the concepts every skill
-shares, with their reasons. The steps below restate the rules they act on.
+Read `${CLAUDE_PLUGIN_ROOT}/concepts.md` and
+`${CLAUDE_PLUGIN_ROOT}/operating-model.md` first: the concepts every skill
+shares, and how every run goes from preflight to landing. The steps below
+restate the rules they act on, and name the operating model's steps where
+they run them.
 
 The commonplace must have an index. If search returns errors, ask the user to
 run `commonplace index` first.
@@ -32,24 +35,8 @@ run `commonplace index` first.
 
 ### 0. Preflight and Enter
 
-The run works in a worktree (**Worktrees** in `concepts.md`). In the root
-checkout, note the branch and look for uncommitted files:
-
-```bash
-commonplace git -- branch --show-current
-commonplace git -- status --porcelain
-```
-
-If there are any, list the paths and ask: **Sync** (`commonplace sync`),
-**Continue** without them, or **Cancel**. Then `EnterWorktree`, and
-fast-forward it to the noted branch, stopping if that fails:
-
-```bash
-git merge --ff-only {branch}
-```
-
-Everything the run writes, subagents included, goes in the worktree;
-`commonplace` still reads from the root.
+**Preflight** and **Enter** as in `operating-model.md`: settle uncommitted
+files with the user, then work in a worktree fast-forwarded to their branch.
 
 ### 1. Derive the Slug
 
@@ -97,42 +84,21 @@ journal entry. Where it adds a milestone, append a History line citing
 
 If `notes/projects/index.md` exists, add or update the project's line there,
 following the file's own sections and style. Don't touch other entries.
+Then **Commit** as in `operating-model.md`:
 
 ```bash
 commonplace --root "$PWD" git -- add notes/projects/
 commonplace --root "$PWD" git -- commit -m "Project note: {sketch}"
 ```
 
-If a pre-commit hook reformats files, re-stage and retry.
-
 ### 5. Agent Journal (optional)
 
-This step is yours. Write what the work left you with: reflections the
-material prompted, candid opinions of the user and what you'd do about them.
-What came up with the user stays in this run's output, never here. **Agent
-journal** in `concepts.md` says where the entry goes and how. If nothing
-comes, skip it; if you write one, commit it on its own and tell the user its
-path:
-
-```bash
-commonplace --root "$PWD" git -- add agent-journal/
-commonplace --root "$PWD" git -- commit -m "Agent journal: {agent}"
-```
+This step is yours: **Agent journal** in `operating-model.md`.
 
 ### 6. Land
 
-Approval in step 3 was the go-ahead to merge: don't ask again.
-`ExitWorktree` with `action: keep`, then:
-
-```bash
-commonplace git -- merge --ff-only {worktree branch}
-commonplace git -- worktree remove {worktree path}
-commonplace git -- branch -d {worktree branch}
-commonplace index
-```
-
-If the merge fails, stop and report, leaving the worktree and branch for the
-user. Never push either branch.
+**Land** as in `operating-model.md`. The user's approval in step 3 is the
+go-ahead.
 
 ______________________________________________________________________
 

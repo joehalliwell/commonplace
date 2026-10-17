@@ -14,8 +14,11 @@ and commit.
 
 ## Prerequisites
 
-Read `${CLAUDE_PLUGIN_ROOT}/concepts.md` first: the concepts every skill
-shares, with their reasons. The steps below restate the rules they act on.
+Read `${CLAUDE_PLUGIN_ROOT}/concepts.md` and
+`${CLAUDE_PLUGIN_ROOT}/operating-model.md` first: the concepts every skill
+shares, and how every run goes from preflight to landing. The steps below
+restate the rules they act on, and name the operating model's steps where
+they run them.
 
 Each topic needs a distillation at `topics/{slug}.md`. If one is missing, or
 still at `topics/{slug}/distillation.md`, ask the user to run
@@ -26,24 +29,8 @@ returns errors, ask the user to run `commonplace index`.
 
 ### 0. Preflight and Enter
 
-The run works in a worktree (**Worktrees** in `concepts.md`). In the root
-checkout, note the branch and look for uncommitted files:
-
-```bash
-commonplace git -- branch --show-current
-commonplace git -- status --porcelain
-```
-
-If there are any, list the paths and ask: **Sync** (`commonplace sync`),
-**Continue** without them, or **Cancel**. Then `EnterWorktree`, and
-fast-forward it to the noted branch, stopping if that fails:
-
-```bash
-git merge --ff-only {branch}
-```
-
-Everything the run writes, subagents included, goes in the worktree;
-`commonplace` still reads from the root.
+**Preflight** and **Enter** as in `operating-model.md`: settle uncommitted
+files with the user, then work in a worktree fast-forwarded to their branch.
 
 ### 1. Parse Arguments
 
@@ -122,43 +109,22 @@ directly.
 
 Record the approval, OKF's human review: set `verified` beside `generated`
 to `{by: human:<user>, at: <now, e.g. 2026-10-01T14:00:00Z>}`. You write this
-line, after approval; the subagent never does.
+line, after approval; the subagent never does. Then **Commit** as in
+`operating-model.md`:
 
 ```bash
 commonplace --root "$PWD" git -- add topics/resonances/ .commonplace/skills/resonate/
 commonplace --root "$PWD" git -- commit -m "Resonate: {topics}"
 ```
 
-If a pre-commit hook reformats files, re-stage them and retry the same
-commit.
-
 ### 6. Agent Journal (optional)
 
-This step is yours. Write what the work left you with: reflections the
-material prompted, candid opinions of the user and what you'd do about them.
-What came up with the user stays in this run's output. **Agent journal** in
-`concepts.md` says where the entry goes and how. If nothing comes, skip it;
-if you write one, commit it on its own and tell the user its path:
-
-```bash
-commonplace --root "$PWD" git -- add agent-journal/
-commonplace --root "$PWD" git -- commit -m "Agent journal: {agent}"
-```
+This step is yours: **Agent journal** in `operating-model.md`.
 
 ### 7. Land
 
-Approval in step 4 was the go-ahead to merge: don't ask again.
-`ExitWorktree` with `action: keep`, then:
-
-```bash
-commonplace git -- merge --ff-only {worktree branch}
-commonplace git -- worktree remove {worktree path}
-commonplace git -- branch -d {worktree branch}
-commonplace index
-```
-
-If the merge fails, stop and report, leaving the worktree and branch for the
-user. Never push either branch.
+**Land** as in `operating-model.md`. The user's approval in step 4 is the
+go-ahead.
 
 ______________________________________________________________________
 

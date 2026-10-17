@@ -114,7 +114,8 @@ topics/
 ### Artefact Conventions
 
 `${CLAUDE_PLUGIN_ROOT}/concepts.md` defines these, with the rules every skill
-shares: attribution, citations, review, worktrees. Read it before writing
+shares: attribution, citations, review; `operating-model.md` beside it says
+how a skill run goes, from preflight to landing. Read both before writing
 anything in the repository.
 
 - **Chats, journal, notes**: primitive, and the only sources. The journal and
