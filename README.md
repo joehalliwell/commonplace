@@ -108,7 +108,7 @@ strips `<antThinking>` blocks server-side (issue #6).
 claude.ai keeps apart from your chats. Each run lands as a chat in
 `chats/claude-tasks/`, titled by the first line of its output shaped like
 `[AI] What happened`, which a task's prompt can ask for, or otherwise by the
-task's name and the time it started; `task` in the frontmatter names the task. It opens with what the run produced; reply to it in claude.ai and the
+task's name and the time it started; `task` in the frontmatter names the task, and `failed: true` marks a run that ended in an error. It opens with what the run produced; reply to it in claude.ai and the
 conversation follows on the next fetch. The prompt and the steps behind the
 output stay in the wire archive, and the task definitions are not fetched.
 

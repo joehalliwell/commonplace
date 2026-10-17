@@ -79,5 +79,7 @@ def _to_log(run: dict[str, Any], run_events: list[dict[str, Any]], source: str) 
             "resource": f"https://claude.ai/code/{run['id'].replace('cse_', 'session_', 1)}",
             # `<synthetic>` marks a message the harness wrote, not a model.
             **models_field(model for line in replies if (model := line["message"].get("model")) != "<synthetic>"),
+            # `is_error`, not `subtype`: an API error can end the turn with `subtype: success`.
+            **({"failed": True} if lines[end].get("is_error") else {}),
         },
     )
