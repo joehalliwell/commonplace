@@ -100,6 +100,9 @@ facts; capture it while it's live.
 
 Chronological milestones and decisions, each dated and citing its source:
 "2024-03-12: decided to X ([[/chats/claude/2024/03/2024-03-12-foo]])".
+Events and decisions only: something happened, or the user decided
+something. Reports of mood or inactivity ("I've done nothing") are state,
+and go in Status.
 
 ## Next
 
@@ -128,8 +131,11 @@ silence, return a question instead ("no mention since 2025-03; still live?").
 
 *Update* the three parts the skill keeps:
 
-- **`Status:`** line: rewrite it in place.
-- **`## History`**: append the new material's milestones, cited as above.
+- **`Status:`** line: rewrite it in place. It carries any gap ("no outreach
+  since late September"), stated, not judged, so inactivity never
+  accumulates.
+- **`## History`**: append the new material's events and decisions, cited as
+  above.
   Existing History lines stay as written; the trajectory stays.
 - **`## Next`**: rewrite it in place from the current state, then run the
   critique below.
