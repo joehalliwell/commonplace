@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -20,15 +21,18 @@ def commit(root: Path, files: dict[str, str], date: str | None = None) -> None:
     subprocess.run(["git", "-C", str(root), "commit", "-qm", "files"], check=True, env=env)
 
 
+def run(root: Path, out: Path, seed: int = 0) -> str:
+    """Run the script as the skill does, returning what it prints."""
+    args = [sys.executable, "-I", str(SCRIPT), "--root", str(root), "--out", str(out), "--seed", str(seed)]
+    return subprocess.run(args, check=True, capture_output=True, text=True).stdout
+
+
 def residue(root: Path, seed: int = 0) -> list[dict]:
-    """Run the script as the skill does and parse its fragments."""
-    out = subprocess.run(
-        [sys.executable, "-I", str(SCRIPT), "--root", str(root), "--seed", str(seed)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return json.loads(out.stdout)
+    """The fragments a run writes, each with the text of its passage file."""
+    out = Path(tempfile.mkdtemp())
+    run(root, out, seed)
+    fragments = json.loads((out / "fragments.json").read_text())
+    return [f | {"text": (out / "passages" / f"{n}.txt").read_text()} for n, f in enumerate(fragments, 1)]
 
 
 @pytest.fixture
@@ -54,16 +58,15 @@ def test_residue_file_with_headings_takes_one_section_cut_to_limit(repo: Path):
     commit(repo, {"chats/a.md": "---\ntitle: t\n---\n# T\n\n## User\n\n" + "x" * 3000 + "\n"})
     [fragment] = residue(repo)
     assert fragment["heading"] == "User"
-    assert fragment["text"].startswith("## User")
-    assert len(fragment["text"]) == 2000
+    assert fragment["text"] == "x" * 2000
 
 
-def test_residue_section_stops_at_next_heading(repo: Path):
-    commit(repo, {"chats/a.md": "## User\n\nask\n\n## Claude\n\nanswer\n"})
+def test_residue_section_stops_at_next_heading_without_heading_line(repo: Path):
+    commit(repo, {"chats/a.md": "## User [created:: 2026-10-14]\n\nask\n\n## Claude\n\nanswer\n"})
     fragments = [residue(repo, seed)[0] for seed in range(20)]
     assert {f["heading"]: f["text"].split() for f in fragments} == {
-        "User": ["##", "User", "ask"],
-        "Claude": ["##", "Claude", "answer"],
+        "User [created:: 2026-10-14]": ["ask"],
+        "Claude": ["answer"],
     }
 
 
@@ -96,3 +99,10 @@ def test_residue_same_seed_same_sample(repo: Path):
     commit(repo, {f"journal/{i}.md": f"## A\n\n{i}a\n\n## B\n\n{i}b\n" for i in range(30)})
     assert residue(repo, seed=7) == residue(repo, seed=7)
     assert residue(repo, seed=7) != residue(repo, seed=8)
+
+
+def test_residue_prints_no_fragment_text(repo: Path, tmp_path: Path):
+    commit(repo, {"journal/a.md": "## Morning\n\nThe kettle sang.\n"})
+    printed = run(repo, tmp_path / "out")
+    assert "kettle" not in printed
+    assert "journal" not in printed
