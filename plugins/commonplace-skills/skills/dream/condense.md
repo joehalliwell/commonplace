@@ -2,13 +2,10 @@
 
 The calling agent's prompt gives a value for each `{placeholder}`.
 
-You get a list of images, shuffled, from unrelated sources you will never
-see. Build them into a story and tell it. Don't search, read files or guess
-where they came from: work only with these.
-
-**Images**
-
-{images}
+You get a list of images, one per line in `{pool}`, shuffled, from unrelated
+sources you will never see. Read that file and no other. Build the images
+into a story and tell it. Don't search, read anything else or guess where
+they came from: work only with these.
 
 ## Build the Plot
 
@@ -49,11 +46,11 @@ First person, past tense, as the one who wants something, 200 to 400 words.
 
 ## Return Value
 
-Return **only**:
+Write **only** this to `{scenes}`, then return only `Done.`: not the story.
 
 ```text
 Title: <a few words, from the telling, not a theme>
-Summary: <a kebab-case slug of three to five words, for the file name>
+Summary: <a kebab-case slug of three to five words from the telling, for the file name>
 
 <the telling>
 
