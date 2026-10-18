@@ -11,20 +11,22 @@ dream is yours, the agent's dream of the user's commonplace, never an account
 of one the user had: its "I" is you.
 The steps follow Freud's dream-work: *day residue* (the fragments),
 *representability* (images), *condensation* and *displacement* (fusing them
-into a plot), *secondary revision* (your polish).
+into a plot), *secondary revision* (the polish).
 
 The dream is not evidence of anything: it goes in your agent journal. What it
 is for is **Waking**: the user's reaction, in their own words, which is a
 source.
 
 **Walls between phases.** The imagery must break free of the source material,
-so each phase runs in a fresh subagent that sees only what the previous phase
-returned, and you put a mechanical gap between imagery and condensation. You
-hold the mapping back to the sources; no subagent gets a repository path, and
+so each phase runs in a fresh subagent that reads only what the previous
+phase wrote, and a script puts a mechanical gap between imagery and
+condensation. **You are blind too**, so the dream can surprise you: phases
+pass files in a scratch dir, every subagent returns only `Done.`, and you
+read nothing there until Waking. No subagent gets a repository path, and
 only you write to the worktree. Only you know it's a dream: the phase prompts
 never say so, because a model told "dream" writes the genre's stock imagery,
 and fresh subagents share that prior however high the walls. The one breach
-is deliberate and last: your polish, which knows the sources.
+is deliberate and last: the revision, which knows the sources.
 
 ## Prerequisites
 
@@ -32,8 +34,9 @@ Read `${CLAUDE_PLUGIN_ROOT}/concepts.md` and
 `${CLAUDE_PLUGIN_ROOT}/operating-model.md` first: the concepts every skill
 shares, and how every run goes from preflight to landing. The steps below
 restate the rules they act on, and name the operating model's steps where
-they run them. This skill departs from **Spawn**: it has two phase prompts
-instead of one `subagent.md`, and passes them text, not a working directory.
+they run them. This skill departs from **Spawn**: it has three phase prompts
+instead of one `subagent.md`, and passes them files in a scratch dir, not a
+working directory.
 
 ## Workflow
 
@@ -56,62 +59,65 @@ reporting the news, not the user's life. Agent memory (`memory/`) is in: the
 agent's paraphrase of the user is no source, but a dream's residue needn't
 be one. It takes at most two of the recent six, since tasks rewrite it daily.
 
+Make the scratch dir with `mktemp -d`, outside the worktree, and note its
+path as `{scratch}`; then draw:
+
 ```bash
-python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/residue.py" --root "$PWD"
+python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/residue.py" --root "$PWD" --out {scratch}
 ```
 
-It prints a JSON list, one fragment per file: `path`, `heading` (for a chat,
-the speaker; null for a file with no `## ` heading, which is one section),
-`text` (one random section, frontmatter stripped, cut at 2,000 characters)
-and `draw`. `--seed` repeats a draw. The list's order is your mapping from
-images back to fragments. Any speaker counts, and any file, the journal's
-most private entries included: it is the user's commonplace, and **Discard**
-in Waking is the guard.
+It prints only how many passages it drew. Each is one random `## ` section
+of a file (a file with none is one section), its heading and frontmatter
+stripped, cut at 2,000 characters, in `{scratch}/passages/{n}.txt`; `fragments.json` maps
+each `n` to its path and heading. `--seed` repeats a draw. Any speaker
+counts, and any file, the journal's most private entries included: it is the
+user's commonplace, and **Discard** in Waking is the guard.
 
 ### 2. Imagery
 
 Each phase's prompt is the text of its file beside this one, which you read
-and send with its one placeholder filled: send the text, never the path,
-which names the skill.
+and send with its placeholders filled with scratch paths: send the text,
+never the prompt's own path, which names the skill.
 
-`imagery.md` goes to one subagent per fragment, all spawned in parallel,
-each with `description` `"Imagery"` and `{fragment}` set to the fragment's
-text and nothing else: no path, no heading, no date. Each returns two
-images, one per line: something from the fragment as itself, misplaced, and
-a phrase from it taken literally. Residue showing up
-literally is how dreams work, so keep the fragment's things and words; an
-image of what a fragment means or feels like makes the dream an allegory.
+`imagery.md` goes to one subagent per passage, all spawned in parallel,
+each with `description` `"Imagery"`, `{passage}` set to
+`{scratch}/passages/{n}.txt` and `{images}` to `{scratch}/images/{n}.txt`.
+Each writes two images, one per line: something from the passage as
+itself, misplaced, and a phrase from it taken literally. Residue showing up
+literally is how dreams work, so the prompt keeps the passage's things and
+words; an image of what a passage means or feels like makes the dream an
+allegory.
 
 ### 3. The Gap
 
-Mechanical, in your own context. Drop any image that names a person,
-product or place from its fragment: the things may come through, the names
-may not. Then write what is left, unlabelled, one per line, to a scratch
-file outside the worktree, and shuffle it:
+Mechanical, by script:
 
 ```bash
-shuf {pool file}
+python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/gap.py" pool {scratch}
 ```
 
-Record which images were dropped as leaked.
+It drops as leaked any image that reuses a capitalised name from its
+passage (the things may come through, the names may not), shuffles the rest
+unlabelled into `{scratch}/pool.txt`, and prints only the counts.
 
 ### 4. Condensation
 
 `condense.md` goes to a fresh subagent, `description` `"Scenes"`, with
-`{images}` set to the shuffled pool, one per line. It plots the images,
-using at least a third, around someone who wants something, and returns a
-title, a summary slug, the telling, and the images it left out. Check that
-list against the pool, line for line, and against the telling yourself: it
-is the record of what went unused.
+`{pool}` set to `{scratch}/pool.txt` and `{scenes}` to
+`{scratch}/scenes.txt`. It plots the images, using at least a third, around
+someone who wants something, and writes a title, a summary slug, the
+telling, and the images it left out.
 
 ### 5. Secondary Revision
 
-Yours, and the only phase that knows the sources. Polish the telling:
-tighten it, and you may accentuate what resonates with the residue, an image
-or detail that echoes something live in the fragments, so the dream leans
-toward what is pertinent. The plot stays the subagent's. Don't name a source,
-bring its words back, or say what anything means: a dream that explains its
-residue is an allegory again. Keep the unpolished telling for the file.
+The only phase that knows the sources, so the last. `revise.md` goes to a
+fresh subagent, `description` `"Revision"`, with `{passages}` set to
+`{scratch}/passages/`, `{scenes}` to `{scratch}/scenes.txt`, `{dream}` to
+`{scratch}/dream.txt` and `{accents}` to `{scratch}/accents.txt`. It
+polishes the telling into the dream and notes, separately, what it
+accentuated and why. The plot stays the condensation's; the prompt keeps
+the dream from naming a source, bringing its words back or saying what
+anything means.
 
 ### 6. Waking
 
@@ -119,11 +125,19 @@ Waking is this skill's **Review**, as in `operating-model.md`, without its
 cold-reading revision: a dream is meant to fail a cold reading. Nothing is
 revised; the dreamer wakes first, then the user reacts.
 
-Present the dream with its title, as yours ("I dreamt this from your
-commonplace"). Then wake: say what it stirs in you, candidly and briefly,
-owning what your polish put there, since you knew the sources. Then reveal
-the residue: each fragment's path and heading, the images it became, which
-leaked or went unused, and what your polish accentuated.
+Now read `{scratch}/dream.txt`, for the first time. Present the dream with
+its title, as yours ("I dreamt this from your commonplace"). Then wake: say
+what it stirs in you, candidly and briefly, before you read anything else in
+the scratch dir. Then reveal the residue:
+
+```bash
+python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/gap.py" check {scratch}
+```
+
+It prints each fragment's residue line: its path and heading, and the images
+it became, each marked used, unused or leaked. It also lists any line the
+condensation called unused that isn't in the pool, which you report as such.
+Then read `accents.txt` and say what the revision accentuated.
 
 Ask with `AskUserQuestion`, options **Keep** and **Discard**, and say in
 the question that the notes are for what it stirs in them: they are the
@@ -159,10 +173,10 @@ The dream and the agent's waking: [[/agent-journal/<agent>/<yyyy>/<mm>/<yyyy-mm-
 > <their words, exactly as said, or "Nothing.">
 
 ## Residue
-- [[/<path without .md>]], <heading>: <its images, each marked used, unused or leaked>
+<the residue lines, as `gap.py check` printed them>
 
 ## Unpolished
-<the telling, as returned>
+<the telling, as in scenes.txt>
 ```
 
 **What the user says on waking is a source**, recorded verbatim, so record
@@ -186,7 +200,7 @@ Not optional here: the dream is this run's entry. **Agent journal** as in
 ```markdown
 ## Dream: <title>
 
-<the dream, as polished>
+<the dream, as in dream.txt>
 
 **Waking.** <what it stirs in you, as you said it>
 
