@@ -3,12 +3,9 @@
 The calling agent's prompt gives a value for each `{placeholder}`.
 
 You get one passage from someone's records: part of a conversation, a journal
-entry, a note. Turn it into things that could be seen. Don't search, read
-files or ask where the passage comes from: work only with this.
-
-**Passage**
-
-{fragment}
+entry, a note, in `{passage}`. Read that file and no other. Turn the passage
+into things that could be seen. Don't search, read anything else or ask
+where it comes from: work only with this.
 
 ## Make Two Images
 
@@ -24,4 +21,5 @@ what the passage means or how it feels: only its things and its words.
 
 ## Return Value
 
-Return **only** the two images, one per line, no numbering.
+Write **only** the two images, one per line, no numbering, to `{images}`.
+Then return only `Done.`: not the images.
