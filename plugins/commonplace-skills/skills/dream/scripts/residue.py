@@ -1,4 +1,4 @@
-"""Draw a dream's day residue from a commonplace and print it as JSON."""
+"""Draw a dream's day residue from a commonplace into a scratch dir, printing only how many."""
 
 import argparse
 import json
@@ -21,19 +21,20 @@ def git_paths(root: Path, *args: str) -> list[str]:
 
 
 def section(text: str, rng: random.Random) -> tuple[str | None, str]:
-    """One random `## ` section, or the whole file if it has none, without frontmatter and cut to LIMIT."""
+    """One random `## ` section's heading and body, or the whole file if it has none, without frontmatter, cut to LIMIT."""
     text = FRONTMATTER.sub("", text)
     starts = [m.start() for m in HEADING.finditer(text)] + [len(text)]
     if len(starts) == 1:
-        return None, text[:LIMIT]
+        return None, text.strip()[:LIMIT]
     i = rng.randrange(len(starts) - 1)
-    body = text[starts[i] : starts[i + 1]]
-    return body.splitlines()[0][3:].strip(), body[:LIMIT]
+    heading, _, body = text[starts[i] : starts[i + 1]].partition("\n")
+    return heading[3:].strip(), body.strip()[:LIMIT]
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
+    parser.add_argument("--out", type=Path, required=True, help="scratch dir for passages/ and fragments.json")
     parser.add_argument("--seed", type=int, help="reproduce a draw")
     args = parser.parse_args()
     rng = random.Random(args.seed)
@@ -48,12 +49,15 @@ def main() -> None:
     deep_pool = [p for p in git_paths(args.root, "ls-files") if p not in recent]
     deep = rng.sample(deep_pool, min(len(deep_pool), TOTAL - len(recent)))
 
+    (args.out / "passages").mkdir(parents=True, exist_ok=True)
     fragments = []
     for draw, paths in (("recent", recent), ("deep", deep)):
         for path in paths:
             heading, text = section((args.root / path).read_text(errors="replace"), rng)
-            fragments.append({"path": path, "heading": heading, "text": text, "draw": draw})
-    print(json.dumps(fragments, indent=1, ensure_ascii=False))
+            fragments.append({"path": path, "heading": heading, "draw": draw})
+            (args.out / "passages" / f"{len(fragments)}.txt").write_text(text)
+    (args.out / "fragments.json").write_text(json.dumps(fragments, indent=1, ensure_ascii=False))
+    print(f"{len(fragments)} passages")
 
 
 if __name__ == "__main__":
