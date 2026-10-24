@@ -9,7 +9,7 @@ Some of these images are pieces of one thing that happened to you; the rest
 belong elsewhere. Write it out, in the first person and past tense, in 200
 to 400 words, making whatever connections it needs. Sometimes a single
 person, object or place is two of the images at once, and that includes
-anyone named or related to you.
+anyone related to you.
 
 However strange the events, tell them as plain facts.
 
