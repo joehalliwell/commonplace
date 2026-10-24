@@ -70,22 +70,41 @@ def dreamt(scratch: Path) -> Path:
     return scratch
 
 
-def record(scratch: Path, root: Path) -> tuple[str, str]:
-    """Write the record as the skill does, returning what the script printed and what it wrote."""
+TELLING = ".commonplace/skills/dream/claude-code/2026/10/2026-10-24-the-green-door.md"
+
+
+def trace(scratch: Path, root: Path) -> tuple[str, str, str]:
+    """Write the telling and its trace as the skill does, returning what was printed and both files' text."""
     printed = gap(
-        "record", str(scratch), "--root", str(root), "--agent", "claude-code",
+        "trace", str(scratch), "--root", str(root), "--agent", "claude-code",
         "--date", "2026-10-24", "--by", "dream/0.26.0", "--at", "2026-10-24T12:00:00Z",
     )  # fmt: skip
-    return printed, (root / printed.strip()).read_text()
+    telling = root / printed.strip()
+    return printed, telling.read_text(), telling.with_suffix(".trace.md").read_text()
 
 
-def test_gap_record_prints_only_its_path_named_from_the_title(dreamt: Path, tmp_path: Path):
-    printed, _ = record(dreamt, tmp_path)
-    assert printed == ".commonplace/skills/dream/claude-code/2026/10/2026-10-24-the-green-door.md\n"
+def test_gap_trace_prints_only_the_tellings_path_named_from_the_title(dreamt: Path, tmp_path: Path):
+    printed, _, _ = trace(dreamt, tmp_path)
+    assert printed == f"{TELLING}\n"
 
 
-def test_gap_record_marks_leaked_images(dreamt: Path, tmp_path: Path):
-    _, text = record(dreamt, tmp_path)
+def test_gap_trace_writes_the_telling_with_its_journal_link(dreamt: Path, tmp_path: Path):
+    _, telling, _ = trace(dreamt, tmp_path)
+    assert telling == (
+        "---\ntitle: The Green Door\njournal: /agent-journal/claude-code/2026/10/2026-10-24.md\n"
+        "generated: {by: dream/0.26.0, at: 2026-10-24T12:00:00Z}\n---\n\n"
+        "# The Green Door\n\nI watered the form.\n"
+    )
+
+
+def test_gap_trace_keeps_the_residue_out_of_the_telling(dreamt: Path, tmp_path: Path):
+    _, telling, _ = trace(dreamt, tmp_path)
+    assert "journal/a" not in telling and "greenhouse" not in telling
+
+
+def test_gap_trace_lists_residue_and_marks_leaked_images(dreamt: Path, tmp_path: Path):
+    _, _, text = trace(dreamt, tmp_path)
+    assert text.startswith("---\nresidue:\n  - /journal/a.md\n  - /memory/claude/b.md\n")
     assert (
         "- [[/journal/a]], Morning: A grant form pinned to a greenhouse door.;"
         " A woman called Priya waters the filing cabinet. (leaked)\n"
@@ -93,15 +112,6 @@ def test_gap_record_marks_leaked_images(dreamt: Path, tmp_path: Path):
     ) in text
 
 
-def test_gap_record_keeps_frontmatter(dreamt: Path, tmp_path: Path):
-    _, text = record(dreamt, tmp_path)
-    assert text.startswith(
-        "---\ntitle: The Green Door\nresidue:\n  - /journal/a.md\n  - /memory/claude/b.md\n"
-        "journal: /agent-journal/claude-code/2026/10/2026-10-24.md\n"
-        "generated: {by: dream/0.26.0, at: 2026-10-24T12:00:00Z}\n---\n\n# The Green Door\n"
-    )
-
-
-def test_gap_record_scores_interpretation_citations_against_residue(dreamt: Path, tmp_path: Path):
-    _, text = record(dreamt, tmp_path)
+def test_gap_trace_scores_interpretation_citations_against_residue(dreamt: Path, tmp_path: Path):
+    _, _, text = trace(dreamt, tmp_path)
     assert "## Interpretation\n1 of 2 cited sources were residue; 1 of 2 fragments found.\n" in text

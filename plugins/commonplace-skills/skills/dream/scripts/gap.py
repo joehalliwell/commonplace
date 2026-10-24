@@ -1,4 +1,4 @@
-"""Pool a dream's images blind, then write the record nobody reads."""
+"""Pool a dream's images blind, then write its telling and the trace nobody reads."""
 
 import argparse
 import json
@@ -67,55 +67,54 @@ def overlap(scratch: Path) -> str:
     return f"{len(found)} of {len(cited)} cited sources were residue; {len(found)} of {len(paths)} fragments found."
 
 
-def record(scratch: Path, root: Path, agent: str, date: str, by: str, at: str) -> None:
-    """Write the dream's record, unread by anyone, and print only its path."""
+def trace(scratch: Path, root: Path, agent: str, date: str, by: str, at: str) -> None:
+    """Write the telling and, beside it, the trace nobody reads, and print only the telling's path."""
     name = title(scratch)
     yyyy, mm, _ = date.split("-")
-    journal = f"/agent-journal/{agent}/{yyyy}/{mm}/{date}"
     path = Path(".commonplace/skills/dream") / agent / yyyy / mm / f"{date}-{slug(name)}.md"
     fragments = json.loads((scratch / "fragments.json").read_text())
-    text = "\n".join(
-        [
-            "---",
-            f"title: {name}",
-            "residue:",
-            *(f"  - /{f['path']}" for f in fragments),
-            f"journal: {journal}.md",
-            f"generated: {{by: {by}, at: {at}}}",
-            "---",
-            "",
-            f"# {name}",
-            "",
-            f"The dream, its waking and its interpretation: [[{journal}]].",
-            "",
-            "## Residue",
-            *residue(scratch),
-            "",
-            "## Interpretation",
-            overlap(scratch),
-            "",
-        ]
-    )
+    telling = (scratch / "dream.txt").read_text().split("\n\n", 1)[1].strip()
+    front = [f"journal: /agent-journal/{agent}/{yyyy}/{mm}/{date}.md", f"generated: {{by: {by}, at: {at}}}"]
     (root / path).parent.mkdir(parents=True, exist_ok=True)
-    (root / path).write_text(text)
+    (root / path).write_text("\n".join(["---", f"title: {name}", *front, "---", "", f"# {name}", "", telling, ""]))
+    (root / path).with_suffix(".trace.md").write_text(
+        "\n".join(
+            [
+                "---",
+                "residue:",
+                *(f"  - /{f['path']}" for f in fragments),
+                *front,
+                "---",
+                "",
+                f"# Trace: {name}",
+                "",
+                "## Residue",
+                *residue(scratch),
+                "",
+                "## Interpretation",
+                overlap(scratch),
+                "",
+            ]
+        )
+    )
     print(path)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("step", choices=["pool", "record"])
+    parser.add_argument("step", choices=["pool", "trace"])
     parser.add_argument("scratch", type=Path)
     parser.add_argument("--seed", type=int, help="reproduce a shuffle")
-    parser.add_argument("--root", type=Path, help="record: the repository to write into")
-    parser.add_argument("--agent", help="record: the dreaming agent, e.g. claude-code")
-    parser.add_argument("--date", help="record: today, YYYY-MM-DD")
-    parser.add_argument("--by", help="record: generated.by, e.g. dream/0.26.0")
-    parser.add_argument("--at", help="record: generated.at, e.g. 2026-10-24T12:00:00Z")
+    parser.add_argument("--root", type=Path, help="trace: the repository to write into")
+    parser.add_argument("--agent", help="trace: the agent running the skill, e.g. claude-code")
+    parser.add_argument("--date", help="trace: today, YYYY-MM-DD")
+    parser.add_argument("--by", help="trace: generated.by, e.g. dream/0.26.0")
+    parser.add_argument("--at", help="trace: generated.at, e.g. 2026-10-24T12:00:00Z")
     args = parser.parse_args()
     if args.step == "pool":
         pool(args.scratch, args.seed)
     else:
-        record(args.scratch, args.root, args.agent, args.date, args.by, args.at)
+        trace(args.scratch, args.root, args.agent, args.date, args.by, args.at)
 
 
 if __name__ == "__main__":

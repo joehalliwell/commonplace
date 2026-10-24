@@ -1,4 +1,4 @@
-# Interpretation
+# Reflection
 
 The calling agent's prompt gives a value for each `{placeholder}`.
 
@@ -21,12 +21,15 @@ grep -rliE '<pattern>' chats journal notes memory
 Read what you find. Answer plainly: an answer can be mundane, and it only
 has to satisfy the question. Where nothing turns up, say so.
 
+## Write
+
+A reflection on the story, in the first person, as yourself. Write it to be
+read cold, by someone who has not read the story: retell as much of it as
+your reading needs, and no more. Say what made you ask why, and what you
+found, citing each source as `[[/path-without-.md]]` and quoting the words
+it rests on with their speaker.
+
 ## Return Value
 
-Write **only** this to `{interpretation}`, then return only `Done.`:
-
-```text
-<for each question, a short paragraph: the question, then where it comes
-from, citing each source as [[/path-without-.md]] and quoting the words it
-rests on with their speaker>
-```
+Write **only** the reflection, as markdown with no heading, to
+`{interpretation}`. Then return only `Done.`

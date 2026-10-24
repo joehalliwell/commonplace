@@ -26,12 +26,13 @@ checked per skill, against that skill's newest entry.
   cite that.
 - **Skill state**: `.commonplace/skills/{skill}/`. What a skill needs to
   behave correctly next time, and nobody reads for its own sake: a topic's
-  gathering, rake's chaff, a review log, a dream's record. Cited only as a
+  gathering, rake's chaff, a review log, a dream's trace. Cited only as a
   review, in plain text, since the link checker can't follow it there.
-  Anything a person reads stays visible.
+  Anything a person reads stays visible, save a dream's telling: read once,
+  at the run, and carried on by the agent's reflection on it.
 - **Agent journal**: `agent-journal/{agent}/`. The writing of the agent that
-  ran a skill, including the dreams it tells: dreams of the commonplace,
-  never the user's. Never evidence of the user's thinking, so
+  ran a skill, including its reflections on the dreams it tells: dreams of
+  the commonplace, never the user's. Never evidence of the user's thinking, so
   never a source; quote one only attributed to its agent, except where it
   quotes the user under `**<user>:**`, which is the user's words. The folder is indexed, so entries can
   turn up in search; only this rule keeps them out of evidence, a stop-gap

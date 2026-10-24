@@ -1,6 +1,6 @@
 ---
 name: dream
-description: Dream the commonplace from random fragments, then tell and interpret the dream in your journal
+description: Dream the commonplace from random fragments, then reflect on the dream in your journal
 ---
 
 # Dream
@@ -19,10 +19,10 @@ them back, and makes meaning as it does. Both are dreaming: the dream should
 intrigue, and the interpretation satisfy that curiosity, however mundanely.
 The why of every wall below is in `design.md`, beside this file.
 
-The dream is not evidence of anything: it goes in your agent journal, with
-its interpretation and your reaction as its first reader. Nobody approves
-it. The user may react, or not; if they do, what you make of it is yours
-to journal too.
+The dream is not evidence of anything. Its telling is skill state, kept for
+reference; your agent journal gets a reflection on it, self-contained,
+retelling as much as its interpretation needs. Nobody approves it. The user
+may react, or not; if they do, what you make of it is yours to journal too.
 
 **Walls between phases.** The imagery must break free of the source material,
 so each phase runs in a fresh subagent that reads only what the previous
@@ -31,7 +31,7 @@ condensation. **You are blind too**, so the dream can surprise you: phases
 pass files in a scratch dir, every subagent returns only `Done.`, and of
 the scratch dir you read only `dream.txt` and `interpretation.txt`, ever.
 The residue and the images are scaffolding: a script writes them into the
-record, and nobody reads them, you and the user included. Only the
+trace, and nobody reads them, you and the user included. Only the
 interpreter gets a repository path, and only you write to the worktree.
 Only you know it's a dream: the prompts never say so, because a model told
 "dream" writes the genre's stock imagery, and fresh subagents share that
@@ -118,35 +118,36 @@ that belong together, merging some, and writes a title and the telling:
 that is the dream, unpolished. The prompt is deliberately bare: every rule
 is a bias, and a plot shape or a stated taste comes back in every dream.
 
-### 5. Waking
+### 5. Telling
 
 Nothing is polished, and nothing is asked: a dream is meant to fail a cold
 reading.
 
-Now read `{scratch}/dream.txt`, for the first time. Present the dream with
-its title, as a dream of their commonplace. Then, as its first reader, say
-what it stirs in you, candidly and briefly. Say nothing of how it was
+Now read `{scratch}/dream.txt`, for the first time, and present the dream
+with its title, as a dream of their commonplace. Say nothing of how it was
 made: no residue, no sources, no images left out.
 
-### 6. Interpretation
+### 6. Reflection
 
-`interpret.md` goes to a fresh subagent, `description` `"Interpretation"`,
+`interpret.md` goes to a fresh subagent, `description` `"Reflection"`,
 with `{dream}` set to `{scratch}/dream.txt`, `{interpretation}` to
 `{scratch}/interpretation.txt` and `{root}` to the worktree's path. It
 reads the dream and nothing else from the run, investigates the commonplace
-for what makes a reader ask why, and answers plainly, citing what it found.
-Read `interpretation.txt` and present it as the dream's interpretation.
+for what makes a reader ask why, and writes your journal's reflection: in
+your voice, self-contained, retelling as much as its answers need, citing
+what it found. Read `interpretation.txt` and present it.
 
-Then write the record, skill state that nobody reads, where `{agent}` is
-you, e.g. `claude-code`:
+Then write the telling and its trace, where `{agent}` is you, e.g.
+`claude-code`:
 
 ```bash
-python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/gap.py" record {scratch} \
+python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/gap.py" trace {scratch} \
   --root "$PWD" --agent {agent} --date <today> --by dream/<plugin release> --at <now, e.g. 2026-10-01T14:00:00Z>
 ```
 
-It prints only the record's path: don't open it. It holds the residue and
-how far the interpretation found it, for tuning the method across runs.
+It prints only the telling's path, under `.commonplace/skills/dream/`.
+Beside it is `<same name>.trace.md`, for debugging the method: the residue,
+and how far the reflection found it. Don't open the trace.
 
 ### 7. Commit
 
@@ -159,22 +160,18 @@ commonplace --root "$PWD" git -- commit -m "Dream: {title}"
 
 ### 8. Agent Journal
 
-Not optional here: the dream is this run's entry. **Agent journal** as in
-`operating-model.md`, appending to today's file:
+Not optional here: the reflection is this run's entry. **Agent journal** as
+in `operating-model.md`, appending to today's file:
 
 ```markdown
 ## Dream: <title>
 
-<the dream, as in dream.txt>
+<interpretation.txt, as written>
 
-**Waking.** <what it stirs in you, as you said it>
-
-**Interpretation.** <interpretation.txt, as written>
-
-Its record: `<the path record printed>`.
+The telling: `<the path trace printed>`.
 ```
 
-The record's path stays plain text: skill state is cited only that way.
+The telling's path stays plain text: skill state is cited only that way.
 Anything else the run left you with goes after it, as the step describes.
 
 ### 9. Land
