@@ -32,7 +32,8 @@ checked per skill, against that skill's newest entry.
 - **Agent journal**: `agent-journal/{agent}/`. The writing of the agent that
   ran a skill, its dreams included: each the agent's dream of the
   commonplace, never the user's. Never evidence of the user's thinking, so
-  never a source; quote one only attributed to its agent. The folder is indexed, so entries can
+  never a source; quote one only attributed to its agent, except where it
+  quotes the user under `**<user>:**`, which is the user's words. The folder is indexed, so entries can
   turn up in search; only this rule keeps them out of evidence, a stop-gap
   until the journal moves to per-author folders (`journal/<author>/`).
   `operating-model.md` says how a run writes one.
@@ -73,7 +74,7 @@ agent's riff, quoted without its speaker, coming back a year later as
 evidence of what the user thought. Every quote carries its speaker. A plan,
 claim or shift counts as the user's only if the user said it, or an agent
 said it and the user took it up in so many words. An agent journal entry is
-its agent's.
+its agent's, save the user's words it quotes under `**<user>:**`.
 
 ## Silence is not abandonment
 
@@ -155,9 +156,8 @@ Where each skill records it:
 - **rake**: nowhere separate. Triage answers are decisions, not evidence, and
   land where they are filed (`notes/`, or chaff); "done" is recorded where
   the user asks.
-- **dream**: the dream's record, `.commonplace/skills/dream/{agent}/…`,
-  under `## Waking`. The dream and the agent's own waking go in its agent
-  journal and are never a source; the user's reaction is.
+- **dream**: no review. The dream is the agent's and lands unasked; if the
+  user reacts, the agent may quote them in its journal entry, attributed.
 
 Review material lives in the run's output, never in a journal, the user's or
 an agent's.

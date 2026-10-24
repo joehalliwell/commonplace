@@ -1,6 +1,6 @@
 ---
 name: dream
-description: Dream your own dream of the commonplace from random fragments, then record what it stirs in the user
+description: Dream your own dream of the commonplace from random fragments, and wake from it in your journal
 ---
 
 # Dream
@@ -13,9 +13,9 @@ The steps follow Freud's dream-work: *day residue* (the fragments),
 *representability* (images), *condensation* and *displacement* (fusing them
 into a plot), *secondary revision* (the polish).
 
-The dream is not evidence of anything: it goes in your agent journal. What it
-is for is **Waking**: the user's reaction, in their own words, which is a
-source.
+The dream is not evidence of anything: it goes in your agent journal, with
+your waking. Nobody approves it, since it is yours. The user may react, or
+not; if they do, what you make of it is yours to journal too.
 
 **Walls between phases.** The imagery must break free of the source material,
 so each phase runs in a fresh subagent that reads only what the previous
@@ -36,7 +36,7 @@ shares, and how every run goes from preflight to landing. The steps below
 restate the rules they act on, and name the operating model's steps where
 they run them. This skill departs from **Spawn**: it has three phase prompts
 instead of one `subagent.md`, and passes them files in a scratch dir, not a
-working directory.
+working directory. It has no **Review**: a run lands without asking.
 
 ## Workflow
 
@@ -71,7 +71,7 @@ of a file (a file with none is one section), its heading and frontmatter
 stripped, cut at 2,000 characters, in `{scratch}/passages/{n}.txt`; `fragments.json` maps
 each `n` to its path and heading. `--seed` repeats a draw. Any speaker
 counts, and any file, the journal's most private entries included: it is the
-user's commonplace, and **Discard** in Waking is the guard.
+user's commonplace, and they can ask for a landed dream to be reverted.
 
 ### 2. Imagery
 
@@ -121,9 +121,8 @@ anything means.
 
 ### 6. Waking
 
-Waking is this skill's **Review**, as in `operating-model.md`, without its
-cold-reading revision: a dream is meant to fail a cold reading. Nothing is
-revised; the dreamer wakes first, then the user reacts.
+Nothing is revised, and nothing is asked: a dream is meant to fail a cold
+reading, and it is yours to keep.
 
 Now read `{scratch}/dream.txt`, for the first time. Present the dream with
 its title, as yours ("I dreamt this from your commonplace"). Then wake: say
@@ -139,22 +138,9 @@ it became, each marked used, unused or leaked. It also lists any line the
 condensation called unused that isn't in the pool, which you report as such.
 Then read `accents.txt` and say what the revision accentuated.
 
-Then ask for the waking on its own, in prose, since an open reaction has no
-options: "What does it stir in you?" Wait for the answer, which may be
-nothing. Only then ask with `AskUserQuestion`, options **Keep** and
-**Discard**. Anything the user says about the dream from the reveal until
-landing is waking too, and goes in the record verbatim, in the order said.
-
-On **Discard**, `ExitWorktree` with `action: remove`: nothing is written or
-landed. On **Keep**, a kept dream is split by whose words are whose, where
+The dream and your waking go in your agent journal (step 8), never a
+source. What the dream was made from goes in its record, skill state, where
 `{agent}` is you, e.g. `claude-code`:
-
-- **The dream and your waking are yours**, so they go in your agent journal
-  (step 8), never a source.
-- **The user's waking is a source**, so it goes in the dream's record, skill
-  state beside the residue: never in a journal, the user's or yours.
-
-Write the record first,
 `.commonplace/skills/dream/{agent}/{yyyy}/{mm}/{yyyy-mm-dd}-{summary}.md`:
 
 ```markdown
@@ -170,10 +156,6 @@ generated: {by: dream/<plugin release>, at: <now, e.g. 2026-10-01T14:00:00Z>}
 
 The dream and the agent's waking: [[/agent-journal/<agent>/<yyyy>/<mm>/<yyyy-mm-dd>]].
 
-## Waking
-**<user>:**
-> <their words, exactly as said, or "Nothing.">
-
 ## Residue
 <the residue lines, as `gap.py check` printed them>
 
@@ -181,10 +163,7 @@ The dream and the agent's waking: [[/agent-journal/<agent>/<yyyy>/<mm>/<yyyy-mm-
 <the telling, as in scenes.txt>
 ```
 
-**What the user says on waking is a source**, recorded verbatim, so record
-it before anything else and never paraphrase it. Every residue target exists
-as `<path>.md`. If the user reacts after landing, append their words to the
-record's `## Waking` and commit that alone, `Dream: waking for {title}`.
+Every residue target exists as `<path>.md`.
 
 ### 7. Commit
 
@@ -207,7 +186,7 @@ Not optional here: the dream is this run's entry. **Agent journal** as in
 
 **Waking.** <what it stirs in you, as you said it>
 
-Its residue and the user's waking: `.commonplace/skills/dream/<agent>/<yyyy>/<mm>/<file>`.
+Its residue: `.commonplace/skills/dream/<agent>/<yyyy>/<mm>/<file>`.
 ```
 
 The record's path stays plain text: skill state is cited only that way.
@@ -215,4 +194,14 @@ Anything else the run left you with goes after it, as the step describes.
 
 ### 9. Land
 
-**Land** as in `operating-model.md`. **Keep** is the go-ahead.
+**Land** as in `operating-model.md`, without asking: the dream is yours.
+
+If the user reacts to the dream, then or later, you may add what you make of
+it under the entry, quoting them as `**<user>:**` with their words verbatim
+and, when the chat is imported, a link to it. Commit it alone, in their
+checkout:
+
+```bash
+commonplace git -- add agent-journal/
+commonplace git -- commit -m "Agent journal: {agent}"
+```
