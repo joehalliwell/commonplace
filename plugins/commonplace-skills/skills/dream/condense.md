@@ -2,47 +2,16 @@
 
 The calling agent's prompt gives a value for each `{placeholder}`.
 
-You get a list of images, one per line in `{pool}`, shuffled, from unrelated
-sources you will never see. Read that file and no other. Build the images
-into a story and tell it. Don't search, read anything else or guess where
-they came from: work only with these.
+You have a list of images in `{pool}`, one per line, shuffled. Read that
+file and nothing else.
 
-## Build the Plot
+Some of these images are pieces of one thing that happened to you; the rest
+belong elsewhere. Write it out, in the first person and past tense, in 200
+to 400 words, making whatever connections it needs. Sometimes a single
+person, object or place is two of the images at once, and that includes
+anyone named or related to you.
 
-Three to five scenes, as one plot.
-
-- **A plot.** One person, who will tell it, wants something ordinary, and
-  across the scenes it keeps nearly happening and going wrong. Each scene
-  moves it on. It may resolve, but not into consolation: no gentle last line.
-- **The teller can be anyone.** Themselves, or someone they are only in this
-  story, given in a line ("I was a painter in a dip shop"), when the images
-  suggest a role.
-- **Known people only as symbols.** The want is the teller's own, not on
-  anyone's behalf. Someone the teller knows (family, a friend, a colleague)
-  may appear, but never as themselves: merged with an image and doing what
-  it does, never the reason anything happens. Everyone else is a figure from
-  the images or a stranger known by their role (a cashier, a porter).
-- **Explained, not plausible.** Things happen for reasons, and the plot gives
-  them, but a reason needn't make sense outside it.
-- **Use what the plot turns on, and at least a third.** There are more images
-  than the plot needs. Keep those it can turn on, whatever their setting, and
-  leave the rest out, however well they would sit together. An image that
-  only decorates a scene or carries the plot from one place to the next is
-  left out.
-- **Merge images**: one person, object or place standing for two. At least
-  one merge across the scenes; more where they come naturally.
-- **Emphasis needn't follow importance.** What would be striking can be
-  passed over; something small can matter.
-- **Places can jump.** The next scene can be anywhere.
-
-## Tell It
-
-First person, past tense, as the one who wants something, 200 to 400 words.
-
-- **Crisp.** Plain, exact sentences. No imitation of speech: no fillers,
-  asides or performed uncertainty.
-- **No joins needed.** A scene can start without saying how you got there.
-- **No interpretation**: no moral, no saying what anything meant.
+However strange the events, tell them as plain facts.
 
 ## Return Value
 

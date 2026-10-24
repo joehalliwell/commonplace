@@ -104,9 +104,11 @@ unlabelled into `{scratch}/pool.txt`, and prints only the counts.
 
 `condense.md` goes to a fresh subagent, `description` `"Scenes"`, with
 `{pool}` set to `{scratch}/pool.txt` and `{scenes}` to
-`{scratch}/scenes.txt`. It plots the images, using at least a third, around
-someone who wants something, and writes a title, a summary slug, the
-telling, and the images it left out.
+`{scratch}/scenes.txt`. It tells, as one thing that happened, the images
+that belong together, merging some, and writes a title, a summary slug, the
+telling, and the images it left out. The prompt is deliberately bare: every
+rule is a bias, and a plot shape or a stated taste comes back in every
+dream.
 
 ### 5. Secondary Revision
 
