@@ -139,9 +139,11 @@ it became, each marked used, unused or leaked. It also lists any line the
 condensation called unused that isn't in the pool, which you report as such.
 Then read `accents.txt` and say what the revision accentuated.
 
-Ask with `AskUserQuestion`, options **Keep** and **Discard**, and say in
-the question that the notes are for what it stirs in them: they are the
-waking.
+Then ask for the waking on its own, in prose, since an open reaction has no
+options: "What does it stir in you?" Wait for the answer, which may be
+nothing. Only then ask with `AskUserQuestion`, options **Keep** and
+**Discard**. Anything the user says about the dream from the reveal until
+landing is waking too, and goes in the record verbatim, in the order said.
 
 On **Discard**, `ExitWorktree` with `action: remove`: nothing is written or
 landed. On **Keep**, a kept dream is split by whose words are whose, where
@@ -181,7 +183,8 @@ The dream and the agent's waking: [[/agent-journal/<agent>/<yyyy>/<mm>/<yyyy-mm-
 
 **What the user says on waking is a source**, recorded verbatim, so record
 it before anything else and never paraphrase it. Every residue target exists
-as `<path>.md`.
+as `<path>.md`. If the user reacts after landing, append their words to the
+record's `## Waking` and commit that alone, `Dream: waking for {title}`.
 
 ### 7. Commit
 
