@@ -61,17 +61,11 @@ def test_gap_pool_different_seeds_shuffle_differently(scratch: Path):
     assert len(orders) > 1
 
 
-SCENES = "Title: The Door\nSummary: grant-door\n\nI watered the form.\n\nUnused:\nGreenhouse glass frames a calendar.\n"
-
-
 @pytest.fixture
 def dreamt(scratch: Path) -> Path:
-    """A scratch dir after every phase: pooled, condensed, split, revised and interpreted."""
+    """A scratch dir after every phase: pooled, condensed and interpreted."""
     gap("pool", str(scratch))
-    (scratch / "scenes.txt").write_text(SCENES)
-    gap("split", str(scratch))
-    (scratch / "dream.txt").write_text("Title: The Green Door\n\nI watered the form, once.\n")
-    (scratch / "accents.txt").write_text("The grant, from 1.txt, because it was due.\n")
+    (scratch / "dream.txt").write_text("Title: The Green Door\n\nI watered the form.\n")
     (scratch / "interpretation.txt").write_text("The form is the grant [[/journal/a]], and the door [[/notes/x]].\n")
     return scratch
 
@@ -85,58 +79,27 @@ def record(scratch: Path, root: Path) -> tuple[str, str]:
     return printed, (root / printed.strip()).read_text()
 
 
-def test_gap_split_separates_telling_from_unused_list(scratch: Path):
-    gap("pool", str(scratch))
-    (scratch / "scenes.txt").write_text(SCENES)
-    gap("split", str(scratch))
-    assert (scratch / "telling.txt").read_text() == "Title: The Door\nSummary: grant-door\n\nI watered the form.\n"
-    assert (scratch / "unused.txt").read_text() == "Greenhouse glass frames a calendar.\n"
-
-
-def test_gap_split_prints_nothing(scratch: Path):
-    (scratch / "scenes.txt").write_text(SCENES)
-    assert gap("split", str(scratch)) == ""
-
-
-def test_gap_split_without_unused_section_fails(scratch: Path):
-    (scratch / "scenes.txt").write_text("Title: T\nSummary: s\n\nTelling.\n")
-    run = subprocess.run(
-        [sys.executable, "-I", str(SCRIPT), "split", str(scratch)], capture_output=True, text=True, check=False
-    )
-    assert run.returncode != 0
-    assert "Telling" not in run.stderr + run.stdout
-
-
-def test_gap_record_prints_only_its_path_named_from_the_slug(dreamt: Path, tmp_path: Path):
+def test_gap_record_prints_only_its_path_named_from_the_title(dreamt: Path, tmp_path: Path):
     printed, _ = record(dreamt, tmp_path)
-    assert printed == ".commonplace/skills/dream/claude-code/2026/10/2026-10-24-grant-door.md\n"
+    assert printed == ".commonplace/skills/dream/claude-code/2026/10/2026-10-24-the-green-door.md\n"
 
 
-def test_gap_record_marks_each_image_used_unused_or_leaked(dreamt: Path, tmp_path: Path):
+def test_gap_record_marks_leaked_images(dreamt: Path, tmp_path: Path):
     _, text = record(dreamt, tmp_path)
     assert (
-        "- [[/journal/a]], Morning: A grant form pinned to a greenhouse door. (used);"
+        "- [[/journal/a]], Morning: A grant form pinned to a greenhouse door.;"
         " A woman called Priya waters the filing cabinet. (leaked)\n"
-        "- [[/memory/claude/b]]: A painted floor line slides under a door. (used);"
-        " Greenhouse glass frames a calendar. (unused)\n"
+        "- [[/memory/claude/b]]: A painted floor line slides under a door.; Greenhouse glass frames a calendar.\n"
     ) in text
 
 
-def test_gap_record_keeps_frontmatter_unpolished_telling_and_accents(dreamt: Path, tmp_path: Path):
+def test_gap_record_keeps_frontmatter(dreamt: Path, tmp_path: Path):
     _, text = record(dreamt, tmp_path)
     assert text.startswith(
         "---\ntitle: The Green Door\nresidue:\n  - /journal/a.md\n  - /memory/claude/b.md\n"
         "journal: /agent-journal/claude-code/2026/10/2026-10-24.md\n"
         "generated: {by: dream/0.26.0, at: 2026-10-24T12:00:00Z}\n---\n\n# The Green Door\n"
     )
-    assert "## Unpolished\nI watered the form.\n" in text
-    assert "## Accents\nThe grant, from 1.txt, because it was due.\n" in text
-
-
-def test_gap_record_reports_unused_line_not_in_pool(dreamt: Path, tmp_path: Path):
-    (dreamt / "unused.txt").write_text("A greenhouse door.\n")
-    _, text = record(dreamt, tmp_path)
-    assert "Unused but not in the pool:\n- A greenhouse door.\n" in text
 
 
 def test_gap_record_scores_interpretation_citations_against_residue(dreamt: Path, tmp_path: Path):
