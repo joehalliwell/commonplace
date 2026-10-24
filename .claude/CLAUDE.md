@@ -83,7 +83,7 @@ A PR that changes the plugin bumps its version in its own commit (minor for beha
 - `.commonplace/skills/synthesize/{slug}.md` — a topic's gathering
 - `notes/ideas.md`, `notes/todo.md`, `notes/projects/{slug}.md` — the user's own notes; `/rake` and `/project` only add what the user approves
 - `.commonplace/skills/{skill}/` — skill-managed state nobody reads for its own sake (e.g. `rake/chaff.md`, items dropped in triage); never a source. Artefacts a person reads stay visible
-- `.commonplace/skills/dream/{agent}/{yyyy}/{mm}/{date}-{summary}.md` — a dream's record, written by script and read by nobody: the residue, what went unused, the unpolished telling, the accents, and how far the interpretation found the residue. The dream, the agent's waking and the interpretation go in `agent-journal/{agent}/`
+- `.commonplace/skills/dream/{agent}/{yyyy}/{mm}/{date}-{summary}.md` — a dream's record, written by script and read by nobody: the residue, and how far the interpretation found it. The dream, the agent's waking and the interpretation go in `agent-journal/{agent}/`
 
 **Conventions:**
 

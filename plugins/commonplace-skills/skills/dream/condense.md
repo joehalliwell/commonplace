@@ -14,14 +14,10 @@ However strange the events, tell them as plain facts.
 
 ## Return Value
 
-Write **only** this to `{scenes}`, then return only `Done.`: not the story.
+Write **only** this to `{dream}`, then return only `Done.`: not the story.
 
 ```text
 Title: <a few words, from the telling, not a theme>
-Summary: <a kebab-case slug of three to five words from the telling, for the file name>
 
 <the telling>
-
-Unused:
-<each image you left out, verbatim, one per line>
 ```

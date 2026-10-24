@@ -19,17 +19,15 @@ interpreting is itself meaning-creating. Both are part of dreaming.
 
 ## Phases and What Each Sees
 
-| Phase            | Sees                                                  | Does                                                                                |
-| ---------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Residue (script) | the commonplace                                       | draws twelve random fragments, recent and deep; no choosing                         |
-| Imagery          | one passage                                           | two images: a thing misplaced, a phrase taken literally                             |
-| Gap (script)     | the images                                            | drops images that reuse a passage's names; shuffles the rest unlabelled             |
-| Condensation     | the pool only                                         | finds the story in some of the images, merging some, the strange told plain         |
-| Split (script)   | the condensation's output                             | cuts the telling from its Unused list                                               |
-| Revision         | the telling and the passages                          | polishes toward what is live in the sources, naming none: the one deliberate breach |
-| Teller (agent)   | the dream only                                        | tells it, and reacts as its first reader                                            |
-| Interpretation   | the dream, and the commonplace except `.commonplace/` | investigates what makes a reader ask why; answers plainly, with sources             |
-| Record (script)  | everything                                            | writes what nobody reads: residue, unused, unpolished telling, accents, overlap     |
+| Phase            | Sees                                                  | Does                                                                           |
+| ---------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Residue (script) | the commonplace                                       | draws twelve random fragments, recent and deep; no choosing                    |
+| Imagery          | one passage                                           | two images: a thing misplaced, a phrase taken literally                        |
+| Gap (script)     | the images                                            | drops images that reuse a passage's names; shuffles the rest unlabelled        |
+| Condensation     | the pool only                                         | finds the story in some of the images, merging some, the strange told plain    |
+| Teller (agent)   | the dream only                                        | tells it, and reacts as its first reader                                       |
+| Interpretation   | the dream, and the commonplace except `.commonplace/` | investigates what makes a reader ask why; answers plainly, with sources        |
+| Record (script)  | everything                                            | writes what nobody reads: the residue and the interpretation's overlap with it |
 
 ## The Barriers
 
@@ -38,8 +36,12 @@ interpreting is itself meaning-creating. Both are part of dreaming.
 - **No prompt says "dream".** A model told "dream" writes the genre's stock
   imagery; the interpreter told "dream" reaches for dream dictionaries.
 - **No scaffolding for anyone.** The teller, the interpreter and the user
-  see the dream, the reactions and the interpretation, never the residue, the
-  Unused list or the accents. A dream is judged by its telling alone (#176).
+  see the dream, the reactions and the interpretation, never the residue or
+  the images. A dream is judged by its telling alone (#176).
+- **Nothing between the sources and the interpreter.** No phase after the
+  gap sees the sources, so the interpreter finds connections nobody
+  planted. A source-aware polish once did, and only made the interpretation
+  easier and the overlap higher (#178).
 - **The record is ground truth, unread.** Overlap between the
   interpretation's citations and the residue is a diagnostic for tuning
   across many runs, not a measure of success.

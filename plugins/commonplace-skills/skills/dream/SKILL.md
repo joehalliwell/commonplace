@@ -12,7 +12,7 @@ this process, with you as its teller and first reader. It is never an
 account of a dream the user had, and not quite yours either.
 The steps follow Freud's dream-work: *day residue* (the fragments),
 *representability* (images), *condensation* and *displacement* (fusing them
-into a plot), *secondary revision* (the polish).
+into one telling).
 
 The dream loosens concerns so they rub together; the interpretation brings
 them back, and makes meaning as it does. Both are dreaming: the dream should
@@ -30,13 +30,12 @@ phase wrote, and a script puts a mechanical gap between imagery and
 condensation. **You are blind too**, so the dream can surprise you: phases
 pass files in a scratch dir, every subagent returns only `Done.`, and of
 the scratch dir you read only `dream.txt` and `interpretation.txt`, ever.
-The residue, the images, what went unused and what the revision leaned on
-are scaffolding: scripts write them into the record, and nobody reads them,
-you and the user included. Only the interpreter gets a repository path, and
-only you write to the worktree. Only you know it's a dream: the prompts
-never say so, because a model told "dream" writes the genre's stock imagery,
-and fresh subagents share that prior however high the walls. The one breach
-is deliberate: the revision, which knows the sources.
+The residue and the images are scaffolding: a script writes them into the
+record, and nobody reads them, you and the user included. Only the
+interpreter gets a repository path, and only you write to the worktree.
+Only you know it's a dream: the prompts never say so, because a model told
+"dream" writes the genre's stock imagery, and fresh subagents share that
+prior however high the walls.
 
 ## Prerequisites
 
@@ -44,7 +43,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/concepts.md` and
 `${CLAUDE_PLUGIN_ROOT}/operating-model.md` first: the concepts every skill
 shares, and how every run goes from preflight to landing. The steps below
 restate the rules they act on, and name the operating model's steps where
-they run them. This skill departs from **Spawn**: it has four phase prompts
+they run them. This skill departs from **Spawn**: it has three phase prompts
 instead of one `subagent.md`, and passes them files in a scratch dir, not a
 working directory. It has no **Review**: a run lands without asking.
 
@@ -113,36 +112,15 @@ unlabelled into `{scratch}/pool.txt`, and prints only the counts.
 ### 4. Condensation
 
 `condense.md` goes to a fresh subagent, `description` `"Scenes"`, with
-`{pool}` set to `{scratch}/pool.txt` and `{scenes}` to
-`{scratch}/scenes.txt`. It tells, as one thing that happened, the images
-that belong together, merging some, and writes a title, a summary slug, the
-telling, and the images it left out. The prompt is deliberately bare: every
-rule is a bias, and a plot shape or a stated taste comes back in every
-dream. Then split the telling from its Unused list, so no later phase sees
-what was left out:
+`{pool}` set to `{scratch}/pool.txt` and `{dream}` to
+`{scratch}/dream.txt`. It tells, as one thing that happened, the images
+that belong together, merging some, and writes a title and the telling:
+that is the dream, unpolished. The prompt is deliberately bare: every rule
+is a bias, and a plot shape or a stated taste comes back in every dream.
 
-```bash
-python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/gap.py" split {scratch}
-```
+### 5. Waking
 
-It prints nothing; if it fails, the condensation broke its format: spawn it
-again.
-
-### 5. Secondary Revision
-
-The only phase of the dream that knows the sources, so the last.
-`revise.md` goes to a
-fresh subagent, `description` `"Revision"`, with `{passages}` set to
-`{scratch}/passages/`, `{scenes}` to `{scratch}/telling.txt`, `{dream}` to
-`{scratch}/dream.txt` and `{accents}` to `{scratch}/accents.txt`. It
-polishes the telling into the dream and notes, separately, what it
-accentuated and why. The plot stays the condensation's; the prompt keeps
-the dream from naming a source, bringing its words back or saying what
-anything means.
-
-### 6. Waking
-
-Nothing is revised, and nothing is asked: a dream is meant to fail a cold
+Nothing is polished, and nothing is asked: a dream is meant to fail a cold
 reading.
 
 Now read `{scratch}/dream.txt`, for the first time. Present the dream with
@@ -150,7 +128,7 @@ its title, as a dream of their commonplace. Then, as its first reader, say
 what it stirs in you, candidly and briefly. Say nothing of how it was
 made: no residue, no sources, no images left out.
 
-### 7. Interpretation
+### 6. Interpretation
 
 `interpret.md` goes to a fresh subagent, `description` `"Interpretation"`,
 with `{dream}` set to `{scratch}/dream.txt`, `{interpretation}` to
@@ -167,11 +145,10 @@ python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/gap.py" record {scratch} 
   --root "$PWD" --agent {agent} --date <today> --by dream/<plugin release> --at <now, e.g. 2026-10-01T14:00:00Z>
 ```
 
-It prints only the record's path: don't open it. It holds the residue, what
-went unused, the unpolished telling, what the revision accentuated, and how
-far the interpretation found the residue, for tuning the method across runs.
+It prints only the record's path: don't open it. It holds the residue and
+how far the interpretation found it, for tuning the method across runs.
 
-### 8. Commit
+### 7. Commit
 
 **Commit** as in `operating-model.md`:
 
@@ -180,7 +157,7 @@ commonplace --root "$PWD" git -- add .commonplace/skills/dream/
 commonplace --root "$PWD" git -- commit -m "Dream: {title}"
 ```
 
-### 9. Agent Journal
+### 8. Agent Journal
 
 Not optional here: the dream is this run's entry. **Agent journal** as in
 `operating-model.md`, appending to today's file:
@@ -200,7 +177,7 @@ Its record: `<the path record printed>`.
 The record's path stays plain text: skill state is cited only that way.
 Anything else the run left you with goes after it, as the step describes.
 
-### 10. Land
+### 9. Land
 
 **Land** as in `operating-model.md`, without asking.
 
