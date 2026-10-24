@@ -74,7 +74,7 @@ A PR that changes the plugin bumps its version in its own commit (minor for beha
 - `/resonate <slug1> <slug2> [...]` — surface interference patterns between synthesized topics
 - `/rake` — surface unmade ideas, todos and projects; propose where to file them in `notes/`
 - `/project <sketch>` — draft one project note, `notes/projects/{slug}.md`, or review and update an existing one
-- `/dream` — the agent dreams its own dream of the commonplace from random fragments, each phase in a fresh subagent, and wakes from it in its journal
+- `/dream` — the agent dreams its own dream of the commonplace from random fragments, each phase in a fresh subagent, then wakes and interprets it in its journal
 
 **Artefact paths** (no dated filenames — git is the versioning layer):
 
@@ -83,7 +83,7 @@ A PR that changes the plugin bumps its version in its own commit (minor for beha
 - `.commonplace/skills/synthesize/{slug}.md` — a topic's gathering
 - `notes/ideas.md`, `notes/todo.md`, `notes/projects/{slug}.md` — the user's own notes; `/rake` and `/project` only add what the user approves
 - `.commonplace/skills/{skill}/` — skill-managed state nobody reads for its own sake (e.g. `rake/chaff.md`, items dropped in triage); never a source. Artefacts a person reads stay visible
-- `.commonplace/skills/dream/{agent}/{yyyy}/{mm}/{date}-{summary}.md` — a dream's record: the residue and the unpolished telling. The dream itself and the agent's waking go in `agent-journal/{agent}/`
+- `.commonplace/skills/dream/{agent}/{yyyy}/{mm}/{date}-{summary}.md` — a dream's record, written by script and read by nobody: the residue, what went unused, the unpolished telling, the accents, and how far the interpretation found the residue. The dream, the agent's waking and the interpretation go in `agent-journal/{agent}/`
 
 **Conventions:**
 

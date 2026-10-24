@@ -1,6 +1,6 @@
 ---
 name: dream
-description: Dream your own dream of the commonplace from random fragments, and wake from it in your journal
+description: Dream your own dream of the commonplace from random fragments, then wake and interpret it in your journal
 ---
 
 # Dream
@@ -13,20 +13,29 @@ The steps follow Freud's dream-work: *day residue* (the fragments),
 *representability* (images), *condensation* and *displacement* (fusing them
 into a plot), *secondary revision* (the polish).
 
+The dream loosens concerns so they rub together; the interpretation brings
+them back, and makes meaning as it does. Both are dreaming: the dream should
+intrigue, and the interpretation satisfy that curiosity, however mundanely.
+The why of every wall below is in `design.md`, beside this file.
+
 The dream is not evidence of anything: it goes in your agent journal, with
-your waking. Nobody approves it, since it is yours. The user may react, or
-not; if they do, what you make of it is yours to journal too.
+your waking and its interpretation. Nobody approves it, since it is yours.
+The user may react, or not; if they do, what you make of it is yours to
+journal too.
 
 **Walls between phases.** The imagery must break free of the source material,
 so each phase runs in a fresh subagent that reads only what the previous
 phase wrote, and a script puts a mechanical gap between imagery and
 condensation. **You are blind too**, so the dream can surprise you: phases
-pass files in a scratch dir, every subagent returns only `Done.`, and you
-read nothing there until Waking. No subagent gets a repository path, and
-only you write to the worktree. Only you know it's a dream: the phase prompts
+pass files in a scratch dir, every subagent returns only `Done.`, and of
+the scratch dir you read only `dream.txt` and `interpretation.txt`, ever.
+The residue, the images, what went unused and what the revision leaned on
+are scaffolding: scripts write them into the record, and nobody reads them,
+you and the user included. Only the interpreter gets a repository path, and
+only you write to the worktree. Only you know it's a dream: the prompts
 never say so, because a model told "dream" writes the genre's stock imagery,
 and fresh subagents share that prior however high the walls. The one breach
-is deliberate and last: the revision, which knows the sources.
+is deliberate: the revision, which knows the sources.
 
 ## Prerequisites
 
@@ -34,7 +43,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/concepts.md` and
 `${CLAUDE_PLUGIN_ROOT}/operating-model.md` first: the concepts every skill
 shares, and how every run goes from preflight to landing. The steps below
 restate the rules they act on, and name the operating model's steps where
-they run them. This skill departs from **Spawn**: it has three phase prompts
+they run them. This skill departs from **Spawn**: it has four phase prompts
 instead of one `subagent.md`, and passes them files in a scratch dir, not a
 working directory. It has no **Review**: a run lands without asking.
 
@@ -108,13 +117,22 @@ unlabelled into `{scratch}/pool.txt`, and prints only the counts.
 that belong together, merging some, and writes a title, a summary slug, the
 telling, and the images it left out. The prompt is deliberately bare: every
 rule is a bias, and a plot shape or a stated taste comes back in every
-dream.
+dream. Then split the telling from its Unused list, so no later phase sees
+what was left out:
+
+```bash
+python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/gap.py" split {scratch}
+```
+
+It prints nothing; if it fails, the condensation broke its format: spawn it
+again.
 
 ### 5. Secondary Revision
 
-The only phase that knows the sources, so the last. `revise.md` goes to a
+The only phase of the dream that knows the sources, so the last.
+`revise.md` goes to a
 fresh subagent, `description` `"Revision"`, with `{passages}` set to
-`{scratch}/passages/`, `{scenes}` to `{scratch}/scenes.txt`, `{dream}` to
+`{scratch}/passages/`, `{scenes}` to `{scratch}/telling.txt`, `{dream}` to
 `{scratch}/dream.txt` and `{accents}` to `{scratch}/accents.txt`. It
 polishes the telling into the dream and notes, separately, what it
 accentuated and why. The plot stays the condensation's; the prompt keeps
@@ -128,46 +146,31 @@ reading, and it is yours to keep.
 
 Now read `{scratch}/dream.txt`, for the first time. Present the dream with
 its title, as yours ("I dreamt this from your commonplace"). Then wake: say
-what it stirs in you, candidly and briefly, before you read anything else in
-the scratch dir. Then reveal the residue:
+what it stirs in you, candidly and briefly. Say nothing of how it was
+made: no residue, no sources, no images left out.
+
+### 7. Interpretation
+
+`interpret.md` goes to a fresh subagent, `description` `"Interpretation"`,
+with `{dream}` set to `{scratch}/dream.txt`, `{interpretation}` to
+`{scratch}/interpretation.txt` and `{root}` to the worktree's path. It
+reads the dream and nothing else from the run, investigates the commonplace
+for what makes a reader ask why, and answers plainly, citing what it found.
+Read `interpretation.txt` and present it as the dream's interpretation.
+
+Then write the record, skill state that nobody reads, where `{agent}` is
+you, e.g. `claude-code`:
 
 ```bash
-python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/gap.py" check {scratch}
+python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/gap.py" record {scratch} \
+  --root "$PWD" --agent {agent} --date <today> --by dream/<plugin release> --at <now, e.g. 2026-10-01T14:00:00Z>
 ```
 
-It prints each fragment's residue line: its path and heading, and the images
-it became, each marked used, unused or leaked. It also lists any line the
-condensation called unused that isn't in the pool, which you report as such.
-Then read `accents.txt` and say what the revision accentuated.
+It prints only the record's path: don't open it. It holds the residue, what
+went unused, the unpolished telling, what the revision accentuated, and how
+far the interpretation found the residue, for tuning the method across runs.
 
-The dream and your waking go in your agent journal (step 8), never a
-source. What the dream was made from goes in its record, skill state, where
-`{agent}` is you, e.g. `claude-code`:
-`.commonplace/skills/dream/{agent}/{yyyy}/{mm}/{yyyy-mm-dd}-{summary}.md`:
-
-```markdown
----
-title: <title>
-residue:
-  - /<path of each fragment>
-journal: /agent-journal/<agent>/<yyyy>/<mm>/<yyyy-mm-dd>.md
-generated: {by: dream/<plugin release>, at: <now, e.g. 2026-10-01T14:00:00Z>}
----
-
-# <title>
-
-The dream and the agent's waking: [[/agent-journal/<agent>/<yyyy>/<mm>/<yyyy-mm-dd>]].
-
-## Residue
-<the residue lines, as `gap.py check` printed them>
-
-## Unpolished
-<the telling, as in scenes.txt>
-```
-
-Every residue target exists as `<path>.md`.
-
-### 7. Commit
+### 8. Commit
 
 **Commit** as in `operating-model.md`:
 
@@ -176,7 +179,7 @@ commonplace --root "$PWD" git -- add .commonplace/skills/dream/
 commonplace --root "$PWD" git -- commit -m "Dream: {title}"
 ```
 
-### 8. Agent Journal
+### 9. Agent Journal
 
 Not optional here: the dream is this run's entry. **Agent journal** as in
 `operating-model.md`, appending to today's file:
@@ -188,13 +191,15 @@ Not optional here: the dream is this run's entry. **Agent journal** as in
 
 **Waking.** <what it stirs in you, as you said it>
 
-Its residue: `.commonplace/skills/dream/<agent>/<yyyy>/<mm>/<file>`.
+**Interpretation.** <interpretation.txt, as written>
+
+Its record: `<the path record printed>`.
 ```
 
 The record's path stays plain text: skill state is cited only that way.
 Anything else the run left you with goes after it, as the step describes.
 
-### 9. Land
+### 10. Land
 
 **Land** as in `operating-model.md`, without asking: the dream is yours.
 
