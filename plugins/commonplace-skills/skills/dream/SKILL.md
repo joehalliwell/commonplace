@@ -1,14 +1,15 @@
 ---
 name: dream
-description: Dream your own dream of the commonplace from random fragments, then wake and interpret it in your journal
+description: Dream the commonplace from random fragments, then tell and interpret the dream in your journal
 ---
 
 # Dream
 
-You are dreaming over a commonplace repository: random fragments of the
-record, pushed to images, fused and displaced, then told as one dream. The
-dream is yours, the agent's dream of the user's commonplace, never an account
-of one the user had: its "I" is you.
+You are running a dream over a commonplace repository: random fragments of
+the record, pushed to images, fused and displaced, then told as one dream.
+Whose dream it is stays muddy: the commonplace's material, dreamt through
+this process, with you as its teller and first reader. It is never an
+account of a dream the user had, and not quite yours either.
 The steps follow Freud's dream-work: *day residue* (the fragments),
 *representability* (images), *condensation* and *displacement* (fusing them
 into a plot), *secondary revision* (the polish).
@@ -19,9 +20,9 @@ intrigue, and the interpretation satisfy that curiosity, however mundanely.
 The why of every wall below is in `design.md`, beside this file.
 
 The dream is not evidence of anything: it goes in your agent journal, with
-your waking and its interpretation. Nobody approves it, since it is yours.
-The user may react, or not; if they do, what you make of it is yours to
-journal too.
+its interpretation and your reaction as its first reader. Nobody approves
+it. The user may react, or not; if they do, what you make of it is yours
+to journal too.
 
 **Walls between phases.** The imagery must break free of the source material,
 so each phase runs in a fresh subagent that reads only what the previous
@@ -142,10 +143,10 @@ anything means.
 ### 6. Waking
 
 Nothing is revised, and nothing is asked: a dream is meant to fail a cold
-reading, and it is yours to keep.
+reading.
 
 Now read `{scratch}/dream.txt`, for the first time. Present the dream with
-its title, as yours ("I dreamt this from your commonplace"). Then wake: say
+its title, as a dream of their commonplace. Then, as its first reader, say
 what it stirs in you, candidly and briefly. Say nothing of how it was
 made: no residue, no sources, no images left out.
 
@@ -201,7 +202,7 @@ Anything else the run left you with goes after it, as the step describes.
 
 ### 10. Land
 
-**Land** as in `operating-model.md`, without asking: the dream is yours.
+**Land** as in `operating-model.md`, without asking.
 
 If the user reacts to the dream, then or later, you may add what you make of
 it under the entry, quoting them as `**<user>:**` with their words verbatim

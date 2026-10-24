@@ -74,7 +74,7 @@ A PR that changes the plugin bumps its version in its own commit (minor for beha
 - `/resonate <slug1> <slug2> [...]` — surface interference patterns between synthesized topics
 - `/rake` — surface unmade ideas, todos and projects; propose where to file them in `notes/`
 - `/project <sketch>` — draft one project note, `notes/projects/{slug}.md`, or review and update an existing one
-- `/dream` — the agent dreams its own dream of the commonplace from random fragments, each phase in a fresh subagent, then wakes and interprets it in its journal
+- `/dream` — the agent dreams the commonplace from random fragments, each phase in a fresh subagent, then tells and interprets it in its journal
 
 **Artefact paths** (no dated filenames — git is the versioning layer):
 

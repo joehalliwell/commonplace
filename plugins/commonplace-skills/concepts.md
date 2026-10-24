@@ -30,8 +30,8 @@ checked per skill, against that skill's newest entry.
   review, in plain text, since the link checker can't follow it there.
   Anything a person reads stays visible.
 - **Agent journal**: `agent-journal/{agent}/`. The writing of the agent that
-  ran a skill, its dreams included: each the agent's dream of the
-  commonplace, never the user's. Never evidence of the user's thinking, so
+  ran a skill, including the dreams it tells: dreams of the commonplace,
+  never the user's. Never evidence of the user's thinking, so
   never a source; quote one only attributed to its agent, except where it
   quotes the user under `**<user>:**`, which is the user's words. The folder is indexed, so entries can
   turn up in search; only this rule keeps them out of evidence, a stop-gap
@@ -156,8 +156,7 @@ Where each skill records it:
 - **rake**: nowhere separate. Triage answers are decisions, not evidence, and
   land where they are filed (`notes/`, or chaff); "done" is recorded where
   the user asks.
-- **dream**: no review. The dream is the agent's and lands unasked; if the
-  user reacts, the agent may quote them in its journal entry, attributed.
+- **dream**: no review. The dream lands unasked; if the user reacts, the agent may quote them in its journal entry, attributed.
 
 Review material lives in the run's output, never in a journal, the user's or
 an agent's.
