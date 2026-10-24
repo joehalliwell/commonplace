@@ -71,7 +71,11 @@ def trace(scratch: Path, root: Path, agent: str, date: str, by: str, at: str) ->
     """Write the telling and, beside it, the trace nobody reads, and print only the telling's path."""
     name = title(scratch)
     yyyy, mm, _ = date.split("-")
-    path = Path(".commonplace/skills/dream") / agent / yyyy / mm / f"{date}-{slug(name)}.md"
+    stem = Path(".commonplace/skills/dream") / agent / yyyy / mm / f"{date}-{slug(name)}"
+    path, n = Path(f"{stem}.md"), 1
+    while (root / path).exists():  # a second dream with the same title that day
+        n += 1
+        path = Path(f"{stem}-{n}.md")
     fragments = json.loads((scratch / "fragments.json").read_text())
     telling = (scratch / "dream.txt").read_text().split("\n\n", 1)[1].strip()
     front = [f"journal: /agent-journal/{agent}/{yyyy}/{mm}/{date}.md", f"generated: {{by: {by}, at: {at}}}"]

@@ -115,3 +115,13 @@ def test_gap_trace_lists_residue_and_marks_leaked_images(dreamt: Path, tmp_path:
 def test_gap_trace_scores_interpretation_citations_against_residue(dreamt: Path, tmp_path: Path):
     _, _, text = trace(dreamt, tmp_path)
     assert "## Interpretation\n1 of 2 cited sources were residue; 1 of 2 fragments found.\n" in text
+
+
+def test_gap_trace_same_title_same_day_keeps_both_dreams(dreamt: Path, tmp_path: Path):
+    first, _, _ = trace(dreamt, tmp_path)
+    (dreamt / "dream.txt").write_text("Title: The Green Door\n\nI painted the door.\n")
+    second, telling, _ = trace(dreamt, tmp_path)
+    assert second == f"{TELLING.removesuffix('.md')}-2.md\n"
+    assert "I painted the door." in telling
+    assert "I watered the form." in (tmp_path / first.strip()).read_text()
+    assert (tmp_path / first.strip()).with_suffix(".trace.md").exists()
