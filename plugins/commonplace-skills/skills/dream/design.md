@@ -27,7 +27,7 @@ interpreting is itself meaning-creating. Both are part of dreaming.
 | Condensation     | the pool only                                         | finds the story in some of the images, merging some, the strange told plain         |
 | Split (script)   | the condensation's output                             | cuts the telling from its Unused list                                               |
 | Revision         | the telling and the passages                          | polishes toward what is live in the sources, naming none: the one deliberate breach |
-| Dreamer          | the dream only                                        | tells it as its own, and wakes                                                      |
+| Teller (agent)   | the dream only                                        | tells it, and reacts as its first reader                                            |
 | Interpretation   | the dream, and the commonplace except `.commonplace/` | investigates what makes a reader ask why; answers plainly, with sources             |
 | Record (script)  | everything                                            | writes what nobody reads: residue, unused, unpolished telling, accents, overlap     |
 
@@ -37,14 +37,17 @@ interpreting is itself meaning-creating. Both are part of dreaming.
   scripts at the seams: imagery must break free of its source.
 - **No prompt says "dream".** A model told "dream" writes the genre's stock
   imagery; the interpreter told "dream" reaches for dream dictionaries.
-- **No scaffolding for anyone.** The dreamer, the interpreter and the user
-  see the dream, the waking and the interpretation, never the residue, the
+- **No scaffolding for anyone.** The teller, the interpreter and the user
+  see the dream, the reactions and the interpretation, never the residue, the
   Unused list or the accents. A dream is judged by its telling alone (#176).
 - **The record is ground truth, unread.** Overlap between the
   interpretation's citations and the residue is a diagnostic for tuning
   across many runs, not a measure of success.
-- **The dream is the agent's.** It lands unasked, in the agent journal. If
-  the user reacts, the dreamer may quote them, attributed (#170, #174).
+- **Whose dream is muddy.** It is the commonplace's material, dreamt
+  through the process and told by the agent: not the user's, and not quite
+  the agent's. It lands unasked in the agent journal, coupled to the agent
+  that told and interpreted it. If the user reacts, the agent may quote
+  them, attributed (#170, #174).
 
 ## Every Line Is a Bias
 
