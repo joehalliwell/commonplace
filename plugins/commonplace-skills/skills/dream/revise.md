@@ -9,12 +9,12 @@ toward what is live in them. Don't search or read anything else.
 
 ## Polish
 
-- **Tighten it.** Cut what doesn't carry the plot; keep it crisp, first
+- **Tighten it.** Cut what doesn't carry the telling; keep it first
   person, past tense, as written.
 - **Accentuate what resonates.** You may sharpen an image or detail that
   echoes something live in the passages, so the story leans toward what is
   pertinent.
-- **The plot stays.** Same teller, same want, same scenes, same ending.
+- **The story stays.** Same teller, same events, same ending.
 - **No sources in the story.** Don't name anything from the passages, bring
   their words back or say what anything means: a story that explains its
   sources is an allegory. If the story names a person, product or place
