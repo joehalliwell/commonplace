@@ -3,7 +3,7 @@
 Entries are `{"endpoint": "memories"|"summary", "response": ...}`; the summary is a server-sent event stream."""
 
 import json
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 from commonplace._import._base import BaseWireImporter
@@ -21,13 +21,13 @@ class ChatGptMemoryImporter(BaseWireImporter):
             if entry.get("endpoint") == "summary" and (done := _done(entry["response"])) is not None:
                 # Each section's id is a stable slug, so it names the file. Follow-ups are prompts, not
                 # memory, so a section that is nothing else lands nothing.
-                sections = [s for s in done["sections"] if s["description"]]
                 updated = {"updated_at": done["generatedAtIso"]}
-                notes = [
-                    Note.compose(RepoPath(self.tree / f"{s['id']}.md"), "Memory", s["title"], s["description"], updated)
-                    for s in sections
-                ]
-                return Snapshot(notes, {PurePosixPath(f"{s['id']}.md") for s in sections})
+                notes = []
+                for s in done["sections"]:
+                    if s["description"]:
+                        repo_path = RepoPath(self.tree / f"{s['id']}.md")
+                        notes.append(Note.compose(repo_path, "Memory", s["title"], s["description"], updated))
+                return Snapshot.complete(notes)
         return Snapshot([], None)
 
 
