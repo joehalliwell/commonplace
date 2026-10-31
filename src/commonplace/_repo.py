@@ -282,16 +282,7 @@ class Commonplace:
         _commit(root, {scaffold.path for scaffold in _SCAFFOLDING}, "Initial commit")
 
     def make_repo_path(self, path: Pathlike) -> RepoPath:
-        """
-        Create a RepoPath for a file with the commit that last modified it.
-
-        Args:
-            path: Absolute or relative path
-
-        Returns:
-            RepoPath with relative path and last-modified commit ref
-        """
-
+        """A committed file's RepoPath, at the commit that last changed it; a note being written needs no ref."""
         path = Path(path)
         if path.is_absolute():
             path = path.relative_to(self.root, walk_up=False)

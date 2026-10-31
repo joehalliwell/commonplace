@@ -1,9 +1,4 @@
-"""
-Core data types and interfaces for the commonplace package.
-
-This module defines the fundamental data structures used throughout
-the application for representing conversations, messages, and importers.
-"""
+"""Notes, and the paths that identify them."""
 
 import os
 from dataclasses import dataclass, field
