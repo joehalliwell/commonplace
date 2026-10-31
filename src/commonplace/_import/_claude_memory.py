@@ -8,6 +8,7 @@ from typing import Any
 
 from commonplace._import._base import BaseWireImporter
 from commonplace._import._types import Snapshot
+from commonplace._logging import logger
 from commonplace._utils import load_frontmatter
 from commonplace._wire import read_entries
 
@@ -31,7 +32,10 @@ class ClaudeMemoryImporter(BaseWireImporter):
                 metadata, body = load_frontmatter(response["content"])
                 metadata |= {k: response[k] for k in PROVENANCE_KEYS if response.get(k) is not None}
                 # Memory files carry no title of their own; the name the provider displays is one.
-                metadata = {"title": response["display_name"]} | {k: v for k, v in metadata.items() if k != "title"}
+                title = response["display_name"]
+                if metadata.get("title", title) != title:
+                    logger.warning(f"Title '{title}' overrides '{metadata['title']}' in '{response['path']}'")
+                metadata = {"title": title} | {k: v for k, v in metadata.items() if k != "title"}
                 body = f"# {response['display_name']}\n\n{body.lstrip('\n')}"
                 files[_relative(response["path"])] = (metadata, body)
         return Snapshot(files, listed)

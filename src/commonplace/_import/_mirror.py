@@ -28,6 +28,9 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
     snapshot = importer.snapshot(path)
     # The OKF type leads and overrides a vendor's own, which the wire archive keeps verbatim.
     okf = {"type": "Memory"}
+    for relative, (metadata, _) in snapshot.files.items():
+        if metadata.get("type", okf["type"]) != okf["type"]:
+            logger.warning(f"Type '{okf['type']}' overrides '{metadata['type']}' in '{relative}'")
     files = {p: (okf | metadata | okf, body) for p, (metadata, body) in snapshot.files.items() if _inside(p)}
     for refused in snapshot.files.keys() - files.keys():
         logger.warning(f"Skipping file with unusable path '{refused}'")
