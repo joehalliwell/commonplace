@@ -26,6 +26,10 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         return
 
     snapshot = importer.snapshot(path)
+    # Paths come from upstream, and a mirror owns its tree and nothing else.
+    for note in snapshot.notes:
+        if not note.repo_path.path.is_relative_to(tree) or note.repo_path.path == tree:
+            raise ValueError(f"'{path}' names '{note.repo_path}', outside '{tree}'")
     # A re-read is a new blob, so rewriting what is already there would change only its provenance.
     notes = [note for note in snapshot.notes if not _landed(repo.root, note)]
 

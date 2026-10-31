@@ -317,7 +317,7 @@ def test_mirror_archive_older_than_the_tree_is_refused(test_repo, tmp_path, writ
     assert _tree(test_repo) == {"claude/a.md", "claude/b.md"}
 
 
-@pytest.mark.parametrize("path", ["/../../escape.md", "/a/../../escape.md"])
+@pytest.mark.parametrize("path", ["/../../escape.md", "/a/../../escape.md", "/../chatgpt/theirs.md", ""])
 def test_mirror_path_outside_the_tree_fails_the_mirror(test_repo, tmp_path, path):
     with pytest.raises(ValueError):
         _mirror(test_repo, _archive(tmp_path, {path: "nope\n"}))

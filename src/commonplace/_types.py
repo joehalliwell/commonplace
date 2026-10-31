@@ -5,6 +5,7 @@ This module defines the fundamental data structures used throughout
 the application for representing conversations, messages, and importers.
 """
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -22,7 +23,7 @@ class RepoPath:
     Immutable reference to a note: its path, which corresponds to an OKF concept ID, at a version.
 
     Invariants:
-    - path is always relative to repository root, with no `..`
+    - path is normalised and relative to the repository root, as note links resolve
     - ref is a git SHA (not branch name), or None for a note not yet committed
     - instances are hashable and suitable as dict keys
     """
@@ -31,10 +32,10 @@ class RepoPath:
     ref: str | None = None
 
     def __post_init__(self):
-        if self.path.is_absolute() or ".." in self.path.parts:
+        path = Path(os.path.normpath(self.path))
+        if path.is_absolute() or path.parts[:1] == ("..",):
             raise ValueError(f"RepoPath must stay inside the repository: {self.path}")
-        # Ensure path is a Path object, not string
-        object.__setattr__(self, "path", Path(self.path))
+        object.__setattr__(self, "path", path)
 
     def __str__(self) -> str:
         return f"{self.path}@{self.ref[:8]}" if self.ref else str(self.path)
