@@ -50,6 +50,5 @@ class Note:
 
     @classmethod
     def compose(cls, repo_path: RepoPath, type: str, title: str, body: str, metadata: Metadata | None = None) -> "Note":
-        """A note whose `type` and `title` lead and override `metadata`, its body headed by the title."""
-        lead = override(metadata or {}, repo_path, type=type, title=title)
-        return cls(repo_path, f"# {title}\n\n{body.lstrip('\n')}", lead)
+        """A note whose `type` and `title` lead and override `metadata`."""
+        return cls(repo_path, body, override(metadata or {}, repo_path, type=type, title=title))

@@ -74,7 +74,7 @@ def test_snapshot_example_archive_lists_items_oldest_first():
     assert snapshot.notes == [
         Note(
             RepoPath(Path("memory/gemini/saved-info.md")),
-            "# Saved info\n\n- Writes in British English.\n- Prefers tea to coffee.\n",
+            "- Writes in British English.\n- Prefers tea to coffee.\n",
             {"type": "Memory", "title": "Saved info"},
         ),
     ]
@@ -85,7 +85,7 @@ def test_snapshot_multiline_item_stays_one_bullet(tmp_path):
 
     [note] = GeminiMemoryImporter().snapshot(archive).notes
 
-    assert note.body == "# Saved info\n\n- First line.\n  Second line.\n"
+    assert note.body == "- First line.\n  Second line.\n"
 
 
 def test_snapshot_null_body_raises(tmp_path):
@@ -145,7 +145,7 @@ def test_fetch_command_mirrors_into_memory_gemini(test_repo):
     fetch(test_repo, fetchers=[FakeGemini().fetcher()], auto_index=False)
 
     metadata, body = load_frontmatter((test_repo.root / "memory/gemini/saved-info.md").read_text())
-    assert body == "# Saved info\n\n- Writes in British English.\n- Prefers tea to coffee.\n"
+    assert body == "- Writes in British English.\n- Prefers tea to coffee.\n"
     assert metadata["source"] == "gemini-memory"
 
 
@@ -166,4 +166,4 @@ def test_fetch_command_upstream_deletion_rewrites_the_file(test_repo):
     fetch(test_repo, fetchers=[FakeGemini([_item("Kept.", 1, 1)]).fetcher()], auto_index=False)
 
     _, body = load_frontmatter((test_repo.root / "memory/gemini/saved-info.md").read_text())
-    assert body == "# Saved info\n\n- Kept.\n"
+    assert body == "- Kept.\n"
