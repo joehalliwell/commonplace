@@ -81,7 +81,7 @@ def test_snapshot_example_archive_interprets_without_a_repo():
     assert snapshot.unread == set()
     [note] = snapshot.notes
     assert note.repo_path == RepoPath(Path("memory/claude/topics/example.md"))
-    assert note.body == "- [stated] Prefers tea. See [[other]]."
+    assert note.body == "# Example\n\n- [stated] Prefers tea. See [[other]]."
     assert note.metadata == {
         "type": "Memory",
         "title": "Example",
@@ -98,7 +98,7 @@ def test_snapshot_example_archive_interprets_without_a_repo():
 def test_snapshot_file_without_frontmatter_is_titled_all_the_same(tmp_path):
     [note] = ClaudeMemoryImporter().snapshot(_archive(tmp_path, {"/plain.md": "Just a line.\n"})).notes
 
-    assert note.body == "Just a line.\n"
+    assert note.body == "# Title\n\nJust a line.\n"
     assert note.metadata == {
         "type": "Memory",
         "title": "Title",
@@ -135,7 +135,7 @@ def test_snapshot_chatgpt_example_archive_lands_a_file_per_section_with_a_descri
     assert snapshot.unread == set()
     [note] = snapshot.notes
     assert note.repo_path == RepoPath(Path("memory/chatgpt/overview.md"))
-    assert note.body == "Prefers tea, and asks for sources."
+    assert note.body == "# Overview\n\nPrefers tea, and asks for sources."
     assert note.metadata == {"type": "Memory", "title": "Overview", "updated_at": "2026-10-03T22:27:53.035594+00:00"}
 
 
@@ -221,7 +221,7 @@ def test_mirror_file_whose_type_and_title_match_ours_warns_nothing(test_repo, tm
 def test_mirror_file_landed_without_type_gains_it_on_the_next_mirror(test_repo, tmp_path):
     """Files mirrored before `type` existed are otherwise identical, and must not count as landed."""
     old = {"title": "Title", "category_id": "topics", "version": "v1", "updated_at": "2026-09-30"}
-    test_repo.save(Note(RepoPath(Path("memory/claude/a.md")), "Body.\n", old))
+    test_repo.save(Note(RepoPath(Path("memory/claude/a.md")), "# Title\n\nBody.\n", old))
     test_repo.commit("Seed", auto_index=False)
 
     _mirror(test_repo, _archive(tmp_path, {"/a.md": "Body.\n"}))
@@ -240,7 +240,7 @@ def test_mirror_example_archive_adds_provenance_frontmatter(test_repo):
     _mirror(test_repo, EXAMPLE)
 
     metadata, body = load_frontmatter((test_repo.root / "memory/claude/topics/example.md").read_text())
-    assert body == "- [stated] Prefers tea. See [[other]]."
+    assert body == "# Example\n\n- [stated] Prefers tea. See [[other]]."
     assert metadata["sources"] == ["backfill"]
     assert metadata["source"] == "claude-memory"
     assert metadata["category_id"] == "topics"
@@ -256,7 +256,7 @@ def test_mirror_file_with_frontmatter_keeps_its_own_values_beside_ours(test_repo
     metadata, body = load_frontmatter((test_repo.root / "memory/claude/a.md").read_text())
     assert (metadata["name"], metadata["tags"]) == ("a", ["x", "y"])
     assert metadata["source"] == "claude-memory"
-    assert body == "Body   text.\n"
+    assert body == "# Title\n\nBody   text.\n"
 
 
 def test_mirror_path_absent_from_listing_is_pruned(test_repo, tmp_path):

@@ -26,7 +26,8 @@ class ChatGptMemoryImporter(BaseWireImporter):
                 for s in done["sections"]:
                     if s["description"]:
                         repo_path = RepoPath(self.tree / f"{s['id']}.md")
-                        notes.append(Note.compose(repo_path, "Memory", s["title"], s["description"], updated))
+                        body = f"# {s['title']}\n\n{s['description']}"
+                        notes.append(Note.compose(repo_path, "Memory", s["title"], body, updated))
                 return Snapshot(notes)
         return Snapshot([], None)
 
