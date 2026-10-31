@@ -1,5 +1,7 @@
 <!-- Contents of memory/claude/topics/example.md -->
 ---
+type: Memory
+title: Example
 name: example
 description: A synthetic memory
 sources:

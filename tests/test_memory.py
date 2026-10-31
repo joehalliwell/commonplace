@@ -10,6 +10,7 @@ from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
 from commonplace._import._claude_memory import ClaudeMemoryImporter
 from commonplace._import._commands import IMPORTERS, autodetect_importer, import_, landing_tree
 from commonplace._import._types import ChatImporter, MemoryImporter, Snapshot
+from commonplace._types import Note
 from commonplace._utils import load_frontmatter
 from commonplace._wire import write_archive
 from tests.porcelain import git
@@ -81,6 +82,7 @@ def test_snapshot_example_archive_interprets_without_a_repo():
     assert path == PurePosixPath("topics/example.md")
     assert body == "# Example\n\n- [stated] Prefers tea. See [[other]]."
     assert metadata == {
+        "title": "Example",
         "name": "example",
         "description": "A synthetic memory",
         "sources": ["backfill"],
@@ -97,7 +99,7 @@ def test_snapshot_file_without_frontmatter_is_titled_all_the_same(tmp_path):
     )
 
     assert body == "# Title\n\nJust a line.\n"
-    assert metadata == {"category_id": "topics", "version": "v1", "updated_at": "2026-09-30"}
+    assert metadata == {"title": "Title", "category_id": "topics", "version": "v1", "updated_at": "2026-09-30"}
 
 
 def test_snapshot_archive_without_listing_has_no_listed_set(tmp_path):
@@ -122,7 +124,7 @@ def test_snapshot_chatgpt_example_archive_lands_a_file_per_section_with_a_descri
     [(path, (metadata, body))] = snapshot.files.items()
     assert path == PurePosixPath("overview.md")
     assert body == "# Overview\n\nPrefers tea, and asks for sources."
-    assert metadata == {"updated_at": "2026-10-03T22:27:53.035594+00:00"}
+    assert metadata == {"title": "Overview", "updated_at": "2026-10-03T22:27:53.035594+00:00"}
 
 
 def test_snapshot_chatgpt_stream_cut_short_has_no_listed_set(tmp_path):
@@ -165,6 +167,38 @@ def test_mirror_example_archive_renders_as_snapshot(test_repo, archive, snapshot
         buffer += path.read_text(encoding="utf-8") + "\n"
 
     snapshot.assert_match(buffer, snapshot_name="combined.md")
+
+
+@pytest.mark.parametrize("archive", MEMORY_EXAMPLES, ids=lambda p: p.name)
+def test_mirror_example_archive_leads_every_file_with_okf_type_and_title(test_repo, archive):
+    _mirror(test_repo, archive)
+
+    paths = sorted((test_repo.root / "memory").glob("**/*.md"))
+    assert paths
+    for path in paths:
+        metadata, _ = load_frontmatter(path.read_text())
+        assert list(metadata)[:2] == ["type", "title"], path
+        assert metadata["type"] == "Memory"
+        assert metadata["title"]
+
+
+def test_mirror_file_with_its_own_type_and_title_keeps_them(test_repo, tmp_path):
+    _mirror(test_repo, _archive(tmp_path, {"/a.md": "---\ntype: user\ntitle: Mine\n---\n\nBody.\n"}))
+
+    metadata, _ = load_frontmatter((test_repo.root / "memory/claude/a.md").read_text())
+    assert (metadata["type"], metadata["title"]) == ("user", "Mine")
+
+
+def test_mirror_file_landed_without_type_gains_it_on_the_next_mirror(test_repo, tmp_path):
+    """Files mirrored before `type` existed are otherwise identical, and must not count as landed."""
+    old = {"title": "Title", "category_id": "topics", "version": "v1", "updated_at": "2026-09-30"}
+    test_repo.save(Note(test_repo.make_repo_path(Path("memory/claude/a.md")), "# Title\n\nBody.\n", old))
+    test_repo.commit("Seed", auto_index=False)
+
+    _mirror(test_repo, _archive(tmp_path, {"/a.md": "Body.\n"}))
+
+    metadata, _ = load_frontmatter((test_repo.root / "memory/claude/a.md").read_text())
+    assert metadata["type"] == "Memory"
 
 
 def test_mirror_example_archive_lands_under_memory_vendor(test_repo):

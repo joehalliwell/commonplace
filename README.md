@@ -121,7 +121,8 @@ so it changes without you editing anything. `gemini-memory` mirrors Gemini's
 [saved info](https://gemini.google.com/saved-info) into
 `memory/gemini/saved-info.md`, one bullet per item, oldest first.
 Each is a mirror rather than an import: a memory deleted upstream is deleted
-here on the next fetch, and git history keeps what it used to say. Memory is
+here on the next fetch, and git history keeps what it used to say. Every
+mirrored file's frontmatter leads with `type: Memory` and its `title`. Memory is
 materially more personal than chat logs — think before syncing it to a remote,
 or leave it out with `--source`.
 

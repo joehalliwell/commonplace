@@ -71,7 +71,10 @@ def test_snapshot_example_archive_lists_items_oldest_first():
 
     assert snapshot.listed == {SAVED_INFO}
     assert snapshot.files == {
-        SAVED_INFO: ({}, "# Saved info\n\n- Writes in British English.\n- Prefers tea to coffee.\n"),
+        SAVED_INFO: (
+            {"title": "Saved info"},
+            "# Saved info\n\n- Writes in British English.\n- Prefers tea to coffee.\n",
+        ),
     }
 
 
