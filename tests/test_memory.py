@@ -1,6 +1,7 @@
 """Tests for mirroring agent memory into `memory/<agent>/`."""
 
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
 
@@ -188,6 +189,22 @@ def test_mirror_file_with_its_own_type_and_title_is_presented_with_ours(test_rep
 
     metadata, _ = load_frontmatter((test_repo.root / "memory/claude/a.md").read_text())
     assert list(metadata.items())[:2] == [("type", "Memory"), ("title", "Title")]
+
+
+def test_mirror_file_with_its_own_type_and_title_warns_of_each_override(test_repo, tmp_path, caplog):
+    with caplog.at_level(logging.WARNING, logger="commonplace"):
+        _mirror(test_repo, _archive(tmp_path, {"/a.md": "---\ntype: user\ntitle: Mine\n---\n\nBody.\n"}))
+
+    overrides = [r.message for r in caplog.records if "overrides" in r.message]
+    assert len(overrides) == 2
+    assert any("'user'" in m for m in overrides) and any("'Mine'" in m for m in overrides)
+
+
+def test_mirror_file_whose_type_and_title_match_ours_warns_nothing(test_repo, tmp_path, caplog):
+    with caplog.at_level(logging.WARNING, logger="commonplace"):
+        _mirror(test_repo, _archive(tmp_path, {"/a.md": "---\ntype: Memory\ntitle: Title\n---\n\nBody.\n"}))
+
+    assert not caplog.records
 
 
 def test_mirror_file_landed_without_type_gains_it_on_the_next_mirror(test_repo, tmp_path):
