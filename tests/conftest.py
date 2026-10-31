@@ -47,7 +47,7 @@ def make_note():
 def make_chunk():
     """Helper to create a Chunk with RepoPath for testing."""
 
-    def _make_chunk(path: str | Path, section: str, text: str, offset: int, ref: str = TEST_REF) -> Chunk:
+    def _make_chunk(path: str | Path, section: str, text: str, offset: int, ref: str | None = TEST_REF) -> Chunk:
         repo_path = RepoPath(path=Path(path), ref=ref)
         return Chunk(repo_path=repo_path, section=section, text=text, offset=offset)
 
