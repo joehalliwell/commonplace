@@ -26,8 +26,9 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         return
 
     snapshot = importer.snapshot(path)
-    # The OKF type leads, but a vendor's own `type` wins: the mirror's job is fidelity.
-    files = {p: ({"type": "Memory"} | metadata, body) for p, (metadata, body) in snapshot.files.items() if _inside(p)}
+    # The OKF type leads and overrides a vendor's own, which the wire archive keeps verbatim.
+    okf = {"type": "Memory"}
+    files = {p: (okf | metadata | okf, body) for p, (metadata, body) in snapshot.files.items() if _inside(p)}
     for refused in snapshot.files.keys() - files.keys():
         logger.warning(f"Skipping file with unusable path '{refused}'")
     # A re-read is a new blob, so rewriting what is already there would change only its provenance.
