@@ -34,12 +34,13 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
     notes = [note for note in snapshot.notes if not _landed(repo.root, note)]
 
     stale: list[Path] = []
-    if snapshot.listed is None:
+    if snapshot.unread is None:
         # Without the complete listing, absence means nothing.
         logger.warning(f"'{path}' has no listing; nothing pruned")
     else:
+        kept = snapshot.unread | {note.repo_path.path for note in snapshot.notes}
         on_disk = sorted(p.relative_to(repo.root) for p in (repo.root / tree).rglob("*") if p.is_file())
-        stale = [p for p in on_disk if p not in snapshot.listed]
+        stale = [p for p in on_disk if p not in kept]
 
     # Decided before the blob is stored, so a capture that changes nothing leaves no trace.
     if not notes and not stale:

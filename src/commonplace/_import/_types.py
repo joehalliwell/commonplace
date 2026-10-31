@@ -67,17 +67,12 @@ def models_field(names: Iterable[str | None]) -> dict[str, list[str]]:
 
 @dataclass(frozen=True)
 class Snapshot:
-    """What one capture says about upstream state: the notes it read, and every path that existed."""
+    """What one capture says about upstream state: the notes it read, and what else still exists."""
 
     #: Uncommitted notes, each at its path under the importer's `tree`.
     notes: list[Note]
-    #: The paths of everything upstream has, or `None` if the capture has no listing — then absence proves nothing.
-    listed: set[Path] | None
-
-    @classmethod
-    def complete(cls, notes: list[Note]) -> "Snapshot":
-        """A capture that read everything upstream has."""
-        return cls(notes, {note.repo_path.path for note in notes})
+    #: Paths upstream still has but the capture didn't read, or `None` without a listing — then absence proves nothing.
+    unread: frozenset[Path] | None = frozenset()
 
 
 @runtime_checkable

@@ -78,7 +78,7 @@ def test_autodetect_example_archive_finds_the_memory_importer():
 def test_snapshot_example_archive_interprets_without_a_repo():
     snapshot = ClaudeMemoryImporter().snapshot(EXAMPLE)
 
-    assert snapshot.listed == {Path("memory/claude/topics/example.md")}
+    assert snapshot.unread == set()
     [note] = snapshot.notes
     assert note.repo_path == RepoPath(Path("memory/claude/topics/example.md"))
     assert note.body == "- [stated] Prefers tea. See [[other]]."
@@ -108,10 +108,16 @@ def test_snapshot_file_without_frontmatter_is_titled_all_the_same(tmp_path):
     }
 
 
-def test_snapshot_archive_without_listing_has_no_listed_set(tmp_path):
+def test_snapshot_archive_without_listing_does_not_know_what_is_unread(tmp_path):
     archive = write_archive(tmp_path / "claude-memory-wire.jsonl.gz", "claude-memory", _entries({"/b.md": "b\n"})[1:])
 
-    assert ClaudeMemoryImporter().snapshot(archive).listed is None
+    assert ClaudeMemoryImporter().snapshot(archive).unread is None
+
+
+def test_snapshot_listed_but_unread_path_is_unread(tmp_path):
+    snapshot = ClaudeMemoryImporter().snapshot(_archive(tmp_path, {"/a.md": "a\n"}, listed=["/a.md", "/b.md"]))
+
+    assert snapshot.unread == {Path("memory/claude/b.md")}
 
 
 def test_landing_tree_memory_source_lands_in_its_own_tree():
@@ -126,7 +132,7 @@ def test_snapshot_chatgpt_example_archive_lands_a_file_per_section_with_a_descri
     """The example's `dive-deeper` section is only follow-up prompts, so it has nothing to land."""
     snapshot = ChatGptMemoryImporter().snapshot(CHATGPT_EXAMPLE)
 
-    assert snapshot.listed == {Path("memory/chatgpt/overview.md")}
+    assert snapshot.unread == set()
     [note] = snapshot.notes
     assert note.repo_path == RepoPath(Path("memory/chatgpt/overview.md"))
     assert note.body == "Prefers tea, and asks for sources."
@@ -144,7 +150,7 @@ def test_snapshot_chatgpt_stream_cut_short_has_no_listed_set(tmp_path):
 def test_snapshot_chatgpt_summary_with_no_sections_lists_nothing(tmp_path):
     archive = write_archive(tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", [_summary(summary_stream([]))])
 
-    assert ChatGptMemoryImporter().snapshot(archive) == Snapshot([], set())
+    assert ChatGptMemoryImporter().snapshot(archive) == Snapshot([])
 
 
 def test_landing_tree_chatgpt_memory_lands_in_its_own_tree():

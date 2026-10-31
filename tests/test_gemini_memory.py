@@ -69,7 +69,7 @@ def test_snapshot_example_archive_lists_items_oldest_first():
     """Ordered by creation, so an edit changes its own line rather than moving it to the top."""
     snapshot = GeminiMemoryImporter().snapshot(EXAMPLE)
 
-    assert snapshot.listed == {Path("memory/gemini/saved-info.md")}
+    assert snapshot.unread == set()
     assert snapshot.notes == [
         Note(
             RepoPath(Path("memory/gemini/saved-info.md")),
