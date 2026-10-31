@@ -179,6 +179,14 @@ def dump_frontmatter(metadata: dict, body: str) -> str:
     return f"---\n{dumped}---\n\n{body}"
 
 
+def override(metadata: dict, where: object, **ours: object) -> dict:
+    """`metadata` with `ours` leading and winning, warning of each different value it overrides."""
+    for key, value in ours.items():
+        if metadata.get(key, value) != value:
+            logger.warning(f"{key.capitalize()} '{value}' overrides '{metadata[key]}' in '{where}'")
+    return ours | {k: v for k, v in metadata.items() if k not in ours}
+
+
 def sniff_gzipped_jsonl(path: Path) -> dict | None:
     """Peek at the first JSON object in a gzipped JSONL file.
 

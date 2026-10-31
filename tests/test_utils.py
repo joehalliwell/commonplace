@@ -1,3 +1,4 @@
+import logging
 import subprocess
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -10,9 +11,18 @@ from commonplace._utils import (
     dump_frontmatter,
     edit_in_editor,
     load_frontmatter,
+    override,
     slugify,
     truncate,
 )
+
+
+def test_override_vendor_keys_ours_lead_and_win_warning_only_of_differences(caplog):
+    with caplog.at_level(logging.WARNING, logger="commonplace"):
+        result = override({"a": 1, "type": "user", "title": "T"}, "f.md", type="Memory", title="T")
+
+    assert list(result.items()) == [("type", "Memory"), ("title", "T"), ("a", 1)]
+    assert [r.message for r in caplog.records] == ["Type 'Memory' overrides 'user' in 'f.md'"]
 
 
 @pytest.mark.parametrize(
