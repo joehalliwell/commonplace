@@ -172,10 +172,7 @@ def _hash_file(path: Path, buf_size: int = 65536) -> str:
 
 @dataclass
 class Commonplace:
-    """
-    Simplified and opinionated abstraction around a git repo with a
-    configuration and search index.
-    """
+    """A git repository of notes, with configuration and search index in `.commonplace/`; it corresponds to an OKF bundle."""
 
     root: Path
     # Paths written since the last commit: the only ones the next commit may touch.
