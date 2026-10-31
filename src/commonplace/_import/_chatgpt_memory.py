@@ -22,7 +22,7 @@ class ChatGptMemoryImporter(BaseWireImporter):
                 # memory, so a section that is nothing else lands nothing.
                 files: dict[PurePosixPath, tuple[dict[str, Any], str]] = {
                     PurePosixPath(f"{s['id']}.md"): (
-                        {"updated_at": done["generatedAtIso"]},
+                        {"title": s["title"], "updated_at": done["generatedAtIso"]},
                         f"# {s['title']}\n\n{s['description']}",
                     )
                     for s in done["sections"]

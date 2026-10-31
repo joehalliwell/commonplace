@@ -28,4 +28,4 @@ class GeminiMemoryImporter(BaseWireImporter):
         # By creation, so an edit changes its own line rather than moving it to the top.
         items = sorted(body[0], key=lambda item: item[2])
         bullets = "".join(f"- {item[1].replace('\n', '\n  ')}\n" for item in items)
-        return Snapshot({SAVED_INFO: ({}, f"# Saved info\n\n{bullets}")}, {SAVED_INFO})
+        return Snapshot({SAVED_INFO: ({"title": "Saved info"}, f"# Saved info\n\n{bullets}")}, {SAVED_INFO})

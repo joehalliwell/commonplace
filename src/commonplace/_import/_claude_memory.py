@@ -31,6 +31,7 @@ class ClaudeMemoryImporter(BaseWireImporter):
                 metadata, body = load_frontmatter(response["content"])
                 metadata |= {k: response[k] for k in PROVENANCE_KEYS if response.get(k) is not None}
                 # Memory files carry no title of their own; the name the provider displays is one.
+                metadata = {"title": response["display_name"]} | metadata
                 body = f"# {response['display_name']}\n\n{body.lstrip('\n')}"
                 files[_relative(response["path"])] = (metadata, body)
         return Snapshot(files, listed)
