@@ -182,11 +182,12 @@ def test_mirror_example_archive_leads_every_file_with_okf_type_and_title(test_re
         assert metadata["title"]
 
 
-def test_mirror_file_with_its_own_type_and_title_keeps_them(test_repo, tmp_path):
+def test_mirror_file_with_its_own_type_and_title_is_presented_with_ours(test_repo, tmp_path):
+    """The vendor's frontmatter survives verbatim in the wire archive; the markdown is our presentation."""
     _mirror(test_repo, _archive(tmp_path, {"/a.md": "---\ntype: user\ntitle: Mine\n---\n\nBody.\n"}))
 
     metadata, _ = load_frontmatter((test_repo.root / "memory/claude/a.md").read_text())
-    assert (metadata["type"], metadata["title"]) == ("user", "Mine")
+    assert list(metadata.items())[:2] == [("type", "Memory"), ("title", "Title")]
 
 
 def test_mirror_file_landed_without_type_gains_it_on_the_next_mirror(test_repo, tmp_path):
