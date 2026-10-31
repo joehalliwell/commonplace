@@ -1,5 +1,7 @@
 """Tests for vector storage."""
 
+import sqlite3
+
 import numpy as np
 import pytest
 
@@ -255,3 +257,13 @@ def test_add_chunks_empty_batch(test_index):
     # Store should still be empty
     paths = list(test_index.get_indexed_paths())
     assert len(paths) == 0
+
+
+def test_add_chunk_of_uncommitted_note_is_refused(test_index, make_chunk):
+    """The index holds committed versions only, so a chunk must name one."""
+    chunk = make_chunk(path="draft.md", section="S", text="Draft text", offset=0, ref=None)
+
+    with pytest.raises(sqlite3.IntegrityError):
+        test_index.add_chunks([chunk])
+
+    assert list(test_index.get_indexed_paths()) == []

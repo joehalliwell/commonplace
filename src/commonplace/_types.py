@@ -17,16 +17,16 @@ type Pathlike = str | Path
 @dataclass(frozen=True)
 class RepoPath:
     """
-    Immutable reference to a file at a specific git tree state.
+    Immutable reference to a note: its path, which corresponds to an OKF concept ID, at a version.
 
     Invariants:
     - path is always relative to repository root
-    - ref is a git tree SHA (not branch name)
+    - ref is a git SHA (not branch name), or None for a note not yet committed
     - instances are hashable and suitable as dict keys
     """
 
     path: Path  # Relative to repo root
-    ref: str  # Git tree SHA
+    ref: str | None = None
 
     def __post_init__(self):
         if self.path.is_absolute():
@@ -35,7 +35,7 @@ class RepoPath:
         object.__setattr__(self, "path", Path(self.path))
 
     def __str__(self) -> str:
-        return f"{self.path}@{self.ref[:8]}"
+        return f"{self.path}@{self.ref[:8]}" if self.ref else str(self.path)
 
 
 @dataclass
