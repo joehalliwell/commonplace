@@ -92,7 +92,7 @@ class MarkdownChunker:
         Yields:
             One or more chunks, split as needed to fit within size limits
         """
-        section_path = " / ".join(section_stack) if section_stack else note.repo_path.path.stem
+        section_path = " / ".join(section_stack) or note.metadata.get("title") or note.repo_path.path.stem
         chunk_text = "\n".join(text_lines).strip()
 
         # If chunk fits within limit, yield as-is

@@ -107,6 +107,15 @@ def test_offset_calculation(make_note):
     assert note.body[chunks[1].offset :].startswith("## Section")
 
 
+def test_chunk_note_without_headers_is_labelled_with_its_title(make_note):
+    note = make_note(path="memory/claude/tea.md", content="Prefers tea.")
+    note.metadata = {"type": "Memory", "title": "Tea preferences"}
+
+    [chunk] = MarkdownChunker().chunk(note)
+
+    assert chunk.section == "Tea preferences"
+
+
 def test_chunk_note_with_metadata_chunks_the_body_only(make_note):
     """Blob hashes and UUIDs are not something to search for (#95)."""
     note = make_note(path="test.md", content="# Title\n\nFirst.")
