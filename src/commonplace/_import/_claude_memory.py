@@ -4,11 +4,11 @@ Entries are `{"endpoint": "list"|"read", "path": ..., "response": ...}`."""
 
 import json
 from pathlib import Path, PurePosixPath
-from typing import Any
 
 from commonplace._import._base import BaseWireImporter
 from commonplace._import._types import Snapshot
-from commonplace._utils import load_frontmatter, override
+from commonplace._types import Note, RepoPath
+from commonplace._utils import load_frontmatter
 from commonplace._wire import read_entries
 
 #: Fields of a `read` response carried into frontmatter.
@@ -20,7 +20,7 @@ class ClaudeMemoryImporter(BaseWireImporter):
     tree: Path = Path("memory") / "claude"
 
     def snapshot(self, path: Path) -> Snapshot:
-        files: dict[PurePosixPath, tuple[dict[str, Any], str]] = {}
+        notes: dict[PurePosixPath, Note] = {}
         listed: set[PurePosixPath] | None = None
         for entry in read_entries(path):
             response = json.loads(entry["response"])
@@ -30,11 +30,11 @@ class ClaudeMemoryImporter(BaseWireImporter):
                 # `content`, not `parsed`: the latter is the provider's reading of the file.
                 metadata, body = load_frontmatter(response["content"])
                 metadata |= {k: response[k] for k in PROVENANCE_KEYS if response.get(k) is not None}
+                relative = _relative(response["path"])
                 # Memory files carry no title of their own; the name the provider displays is one.
-                metadata = override(metadata, response["path"], title=response["display_name"])
-                body = f"# {response['display_name']}\n\n{body.lstrip('\n')}"
-                files[_relative(response["path"])] = (metadata, body)
-        return Snapshot(files, listed)
+                title = response["display_name"]
+                notes[relative] = Note.compose(RepoPath(self.tree / relative), "Memory", title, body, metadata)
+        return Snapshot(list(notes.values()), listed)
 
 
 def _relative(path: str) -> PurePosixPath:

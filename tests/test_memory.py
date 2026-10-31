@@ -11,7 +11,7 @@ from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
 from commonplace._import._claude_memory import ClaudeMemoryImporter
 from commonplace._import._commands import IMPORTERS, autodetect_importer, import_, landing_tree
 from commonplace._import._types import ChatImporter, MemoryImporter, Snapshot
-from commonplace._types import Note
+from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
 from commonplace._wire import write_archive
 from tests.porcelain import git
@@ -79,10 +79,11 @@ def test_snapshot_example_archive_interprets_without_a_repo():
     snapshot = ClaudeMemoryImporter().snapshot(EXAMPLE)
 
     assert snapshot.listed == {PurePosixPath("topics/example.md")}
-    [(path, (metadata, body))] = snapshot.files.items()
-    assert path == PurePosixPath("topics/example.md")
-    assert body == "# Example\n\n- [stated] Prefers tea. See [[other]]."
-    assert metadata == {
+    [note] = snapshot.notes
+    assert note.repo_path == RepoPath(Path("memory/claude/topics/example.md"))
+    assert note.body == "# Example\n\n- [stated] Prefers tea. See [[other]]."
+    assert note.metadata == {
+        "type": "Memory",
         "title": "Example",
         "name": "example",
         "description": "A synthetic memory",
@@ -95,12 +96,16 @@ def test_snapshot_example_archive_interprets_without_a_repo():
 
 
 def test_snapshot_file_without_frontmatter_is_titled_all_the_same(tmp_path):
-    [(metadata, body)] = (
-        ClaudeMemoryImporter().snapshot(_archive(tmp_path, {"/plain.md": "Just a line.\n"})).files.values()
-    )
+    [note] = ClaudeMemoryImporter().snapshot(_archive(tmp_path, {"/plain.md": "Just a line.\n"})).notes
 
-    assert body == "# Title\n\nJust a line.\n"
-    assert metadata == {"title": "Title", "category_id": "topics", "version": "v1", "updated_at": "2026-09-30"}
+    assert note.body == "# Title\n\nJust a line.\n"
+    assert note.metadata == {
+        "type": "Memory",
+        "title": "Title",
+        "category_id": "topics",
+        "version": "v1",
+        "updated_at": "2026-09-30",
+    }
 
 
 def test_snapshot_archive_without_listing_has_no_listed_set(tmp_path):
@@ -122,10 +127,10 @@ def test_snapshot_chatgpt_example_archive_lands_a_file_per_section_with_a_descri
     snapshot = ChatGptMemoryImporter().snapshot(CHATGPT_EXAMPLE)
 
     assert snapshot.listed == {PurePosixPath("overview.md")}
-    [(path, (metadata, body))] = snapshot.files.items()
-    assert path == PurePosixPath("overview.md")
-    assert body == "# Overview\n\nPrefers tea, and asks for sources."
-    assert metadata == {"title": "Overview", "updated_at": "2026-10-03T22:27:53.035594+00:00"}
+    [note] = snapshot.notes
+    assert note.repo_path == RepoPath(Path("memory/chatgpt/overview.md"))
+    assert note.body == "# Overview\n\nPrefers tea, and asks for sources."
+    assert note.metadata == {"type": "Memory", "title": "Overview", "updated_at": "2026-10-03T22:27:53.035594+00:00"}
 
 
 def test_snapshot_chatgpt_stream_cut_short_has_no_listed_set(tmp_path):
@@ -133,13 +138,13 @@ def test_snapshot_chatgpt_stream_cut_short_has_no_listed_set(tmp_path):
     stream = summary_stream(SECTIONS).split("event: done")[0]
     archive = write_archive(tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", [_summary(stream)])
 
-    assert ChatGptMemoryImporter().snapshot(archive) == Snapshot({}, None)
+    assert ChatGptMemoryImporter().snapshot(archive) == Snapshot([], None)
 
 
 def test_snapshot_chatgpt_summary_with_no_sections_lists_nothing(tmp_path):
     archive = write_archive(tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", [_summary(summary_stream([]))])
 
-    assert ChatGptMemoryImporter().snapshot(archive) == Snapshot({}, set())
+    assert ChatGptMemoryImporter().snapshot(archive) == Snapshot([], set())
 
 
 def test_landing_tree_chatgpt_memory_lands_in_its_own_tree():

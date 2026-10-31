@@ -10,6 +10,7 @@ from pathlib import Path, PurePosixPath
 from commonplace._import._base import BaseWireImporter
 from commonplace._import._gemini import _extract_rpc_body
 from commonplace._import._types import Snapshot
+from commonplace._types import Note, RepoPath
 from commonplace._wire import read_entries
 
 RPC_LIST_SAVED_INFO = "ZKcapf"
@@ -28,4 +29,4 @@ class GeminiMemoryImporter(BaseWireImporter):
         # By creation, so an edit changes its own line rather than moving it to the top.
         items = sorted(body[0], key=lambda item: item[2])
         bullets = "".join(f"- {item[1].replace('\n', '\n  ')}\n" for item in items)
-        return Snapshot({SAVED_INFO: ({"title": "Saved info"}, f"# Saved info\n\n{bullets}")}, {SAVED_INFO})
+        return Snapshot([Note.compose(RepoPath(self.tree / SAVED_INFO), "Memory", "Saved info", bullets)], {SAVED_INFO})

@@ -11,6 +11,7 @@ from commonplace._fetch._commands import fetch
 from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
 from commonplace._import._commands import autodetect_importer, landing_tree
 from commonplace._import._gemini_memory import GeminiMemoryImporter
+from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
 from commonplace._wire import read_entries, read_header, write_archive
 from tests.porcelain import git
@@ -70,20 +71,21 @@ def test_snapshot_example_archive_lists_items_oldest_first():
     snapshot = GeminiMemoryImporter().snapshot(EXAMPLE)
 
     assert snapshot.listed == {SAVED_INFO}
-    assert snapshot.files == {
-        SAVED_INFO: (
-            {"title": "Saved info"},
+    assert snapshot.notes == [
+        Note(
+            RepoPath(Path("memory/gemini/saved-info.md")),
             "# Saved info\n\n- Writes in British English.\n- Prefers tea to coffee.\n",
+            {"type": "Memory", "title": "Saved info"},
         ),
-    }
+    ]
 
 
 def test_snapshot_multiline_item_stays_one_bullet(tmp_path):
     archive = _archive(tmp_path, [_item("First line.\nSecond line.", 1, 1)])
 
-    [(_, body)] = GeminiMemoryImporter().snapshot(archive).files.values()
+    [note] = GeminiMemoryImporter().snapshot(archive).notes
 
-    assert body == "# Saved info\n\n- First line.\n  Second line.\n"
+    assert note.body == "# Saved info\n\n- First line.\n  Second line.\n"
 
 
 def test_snapshot_null_body_raises(tmp_path):
