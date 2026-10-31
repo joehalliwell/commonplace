@@ -25,16 +25,18 @@ class ClaudeMemoryImporter(BaseWireImporter):
         for entry in read_entries(path):
             response = json.loads(entry["response"])
             if entry.get("endpoint") == "list":
-                listed = {self._path(item["path"]) for item in response["data"]}
+                listed = {self._path(item["path"]).path for item in response["data"]}
             elif entry.get("endpoint") == "read":
                 # `content`, not `parsed`: the latter is the provider's reading of the file.
                 metadata, body = load_frontmatter(response["content"])
                 metadata |= {k: response[k] for k in PROVENANCE_KEYS if response.get(k) is not None}
                 # Memory files carry no title of their own; the name the provider displays is one.
-                repo_path = RepoPath(self._path(response["path"]))
-                notes.append(Note.compose(repo_path, "Memory", response["display_name"], body, metadata))
-        return Snapshot(notes, listed)
+                title = response["display_name"]
+                notes.append(Note.compose(self._path(response["path"]), "Memory", title, body, metadata))
+        if listed is None:
+            return Snapshot(notes, None)
+        return Snapshot(notes, frozenset(listed - {note.repo_path.path for note in notes}))
 
-    def _path(self, provider_path: str) -> Path:
+    def _path(self, provider_path: str) -> RepoPath:
         """Provider paths are rooted at `/`; ours sit under the tree."""
-        return self.tree / provider_path.lstrip("/")
+        return RepoPath(self.tree / provider_path.lstrip("/"))
