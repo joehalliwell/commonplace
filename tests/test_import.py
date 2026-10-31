@@ -273,7 +273,8 @@ def test_render_chats_of_a_stored_blob_reproduces_what_import_wrote_without_writ
 
     rendered = render_chats(blob, autodetect_importer(blob), user="Human", source_export=stored)
 
-    assert {path: dump_frontmatter(metadata, body) for path, (metadata, body) in rendered.items()} == written
+    assert {note.repo_path.path: dump_frontmatter(note.metadata, note.body) for note in rendered} == written
+    assert all(note.repo_path.ref is None for note in rendered)
     assert git(test_repo.root, "status", "--porcelain") == ""
 
 
@@ -292,9 +293,9 @@ class _StubImporter:
 
 def test_render_chats_log_metadata_with_its_own_type_is_presented_with_ours(tmp_path, caplog):
     with caplog.at_level(logging.WARNING, logger="commonplace"):
-        [(metadata, _)] = render_chats(tmp_path / "x", _StubImporter(), user="Human", source_export="blob").values()
+        [note] = render_chats(tmp_path / "x", _StubImporter(), user="Human", source_export="blob")
 
-    assert list(metadata.items())[:2] == [("type", "Chat"), ("title", "Ours")]
+    assert list(note.metadata.items())[:2] == [("type", "Chat"), ("title", "Ours")]
     assert any("'Thread'" in r.message for r in caplog.records)
 
 
