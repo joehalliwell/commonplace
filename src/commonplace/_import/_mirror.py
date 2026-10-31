@@ -6,7 +6,7 @@ trajectory. Everything here is the same for every vendor.
 """
 
 from dataclasses import replace
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from commonplace._import._types import MemoryImporter
 from commonplace._logging import logger
@@ -34,9 +34,8 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         # Without the complete listing, absence means nothing.
         logger.warning(f"'{path}' has no listing; nothing pruned")
     else:
-        root = repo.root / tree
-        on_disk = sorted(p.relative_to(root) for p in root.rglob("*") if p.is_file())
-        stale = [tree / p for p in on_disk if PurePosixPath(p.as_posix()) not in snapshot.listed]
+        on_disk = sorted(p.relative_to(repo.root) for p in (repo.root / tree).rglob("*") if p.is_file())
+        stale = [p for p in on_disk if p not in snapshot.listed]
 
     # Decided before the blob is stored, so a capture that changes nothing leaves no trace.
     if not notes and not stale:

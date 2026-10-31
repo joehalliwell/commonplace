@@ -3,7 +3,7 @@
 import json
 import logging
 from datetime import UTC, datetime, timedelta
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 import pytest
 
@@ -78,7 +78,7 @@ def test_autodetect_example_archive_finds_the_memory_importer():
 def test_snapshot_example_archive_interprets_without_a_repo():
     snapshot = ClaudeMemoryImporter().snapshot(EXAMPLE)
 
-    assert snapshot.listed == {PurePosixPath("topics/example.md")}
+    assert snapshot.listed == {Path("memory/claude/topics/example.md")}
     [note] = snapshot.notes
     assert note.repo_path == RepoPath(Path("memory/claude/topics/example.md"))
     assert note.body == "- [stated] Prefers tea. See [[other]]."
@@ -126,7 +126,7 @@ def test_snapshot_chatgpt_example_archive_lands_a_file_per_section_with_a_descri
     """The example's `dive-deeper` section is only follow-up prompts, so it has nothing to land."""
     snapshot = ChatGptMemoryImporter().snapshot(CHATGPT_EXAMPLE)
 
-    assert snapshot.listed == {PurePosixPath("overview.md")}
+    assert snapshot.listed == {Path("memory/chatgpt/overview.md")}
     [note] = snapshot.notes
     assert note.repo_path == RepoPath(Path("memory/chatgpt/overview.md"))
     assert note.body == "Prefers tea, and asks for sources."

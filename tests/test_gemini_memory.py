@@ -2,7 +2,7 @@
 
 import json
 from datetime import UTC, datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 import httpx
 import pytest
@@ -17,7 +17,6 @@ from commonplace._wire import read_entries, read_header, write_archive
 from tests.porcelain import git
 
 EXAMPLE = Path(__file__).parent / "resources" / "wire" / "gemini-memory-v3.jsonl.gz"
-SAVED_INFO = PurePosixPath("saved-info.md")
 
 TEST_COOKIES = {"__Secure-1PSID": "psid", "__Secure-1PSIDTS": "psidts"}
 APP_PAGE = '<html><script>{"SNlM0e":"AT-token-abc","cfb2h":"bl-xyz","FdrFJe":"-123"}</script></html>'
@@ -70,7 +69,7 @@ def test_snapshot_example_archive_lists_items_oldest_first():
     """Ordered by creation, so an edit changes its own line rather than moving it to the top."""
     snapshot = GeminiMemoryImporter().snapshot(EXAMPLE)
 
-    assert snapshot.listed == {SAVED_INFO}
+    assert snapshot.listed == {Path("memory/gemini/saved-info.md")}
     assert snapshot.notes == [
         Note(
             RepoPath(Path("memory/gemini/saved-info.md")),

@@ -2,7 +2,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, auto
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
@@ -71,8 +71,13 @@ class Snapshot:
 
     #: Uncommitted notes, each at its path under the importer's `tree`.
     notes: list[Note]
-    #: The complete upstream listing, relative to `tree`, or `None` if the capture has none — then absence proves nothing.
-    listed: set[PurePosixPath] | None
+    #: The paths of everything upstream has, or `None` if the capture has no listing — then absence proves nothing.
+    listed: set[Path] | None
+
+    @classmethod
+    def complete(cls, notes: list[Note]) -> "Snapshot":
+        """A capture that read everything upstream has."""
+        return cls(notes, {note.repo_path.path for note in notes})
 
 
 @runtime_checkable
