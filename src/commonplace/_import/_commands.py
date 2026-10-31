@@ -24,7 +24,7 @@ from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
 from commonplace._types import Metadata, Note, RepoPath
-from commonplace._utils import slugify
+from commonplace._utils import override, slugify
 
 #: Everything that can claim a file: chat importers accumulate, memory importers mirror live state.
 IMPORTERS: list[ChatImporter | MemoryImporter] = [
@@ -126,9 +126,7 @@ def render_chats(path: Path, importer: ChatImporter, user: str, source_export: s
 
         # OKF keys first; `generated` is the importer's rendition, current as of the last event.
         log.metadata = {
-            "type": "Chat",
-            "title": log.title,
-            **log.metadata,
+            **override(log.metadata, rel_path, type="Chat", title=log.title),
             "generated": {
                 "by": f"commonplace/{__version__}",
                 "at": max((e.created for e in log.events), default=log.created).isoformat(timespec="seconds"),
