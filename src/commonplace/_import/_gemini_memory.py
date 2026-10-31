@@ -28,4 +28,6 @@ class GeminiMemoryImporter(BaseWireImporter):
         # By creation, so an edit changes its own line rather than moving it to the top.
         items = sorted(body[0], key=lambda item: item[2])
         bullets = "".join(f"- {item[1].replace('\n', '\n  ')}\n" for item in items)
-        return Snapshot([Note.compose(RepoPath(self.tree / "saved-info.md"), "Memory", "Saved info", bullets)])
+        title = "Saved info"
+        note = Note.compose(RepoPath(self.tree / "saved-info.md"), "Memory", title, f"# {title}\n\n{bullets}")
+        return Snapshot([note])

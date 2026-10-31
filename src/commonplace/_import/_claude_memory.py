@@ -32,6 +32,7 @@ class ClaudeMemoryImporter(BaseWireImporter):
                 metadata |= {k: response[k] for k in PROVENANCE_KEYS if response.get(k) is not None}
                 # Memory files carry no title of their own; the name the provider displays is one.
                 title = response["display_name"]
+                body = f"# {title}\n\n{body}"
                 notes.append(Note.compose(self._path(response["path"]), "Memory", title, body, metadata))
         if listed is None:
             return Snapshot(notes, None)
