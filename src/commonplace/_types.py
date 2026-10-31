@@ -22,7 +22,7 @@ class RepoPath:
     Immutable reference to a note: its path, which corresponds to an OKF concept ID, at a version.
 
     Invariants:
-    - path is always relative to repository root
+    - path is always relative to repository root, with no `..`
     - ref is a git SHA (not branch name), or None for a note not yet committed
     - instances are hashable and suitable as dict keys
     """
@@ -31,8 +31,8 @@ class RepoPath:
     ref: str | None = None
 
     def __post_init__(self):
-        if self.path.is_absolute():
-            raise ValueError(f"RepoPath must be relative: {self.path}")
+        if self.path.is_absolute() or ".." in self.path.parts:
+            raise ValueError(f"RepoPath must stay inside the repository: {self.path}")
         # Ensure path is a Path object, not string
         object.__setattr__(self, "path", Path(self.path))
 

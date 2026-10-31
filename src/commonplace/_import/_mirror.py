@@ -26,12 +26,8 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         return
 
     snapshot = importer.snapshot(path)
-    notes = [note for note in snapshot.notes if _inside(note.repo_path.path, tree)]
-    for refused in snapshot.notes:
-        if refused not in notes:
-            logger.warning(f"Skipping file with unusable path '{refused.repo_path}'")
     # A re-read is a new blob, so rewriting what is already there would change only its provenance.
-    notes = [note for note in notes if not _landed(repo.root, note)]
+    notes = [note for note in snapshot.notes if not _landed(repo.root, note)]
 
     stale: list[Path] = []
     if snapshot.listed is None:
@@ -68,8 +64,3 @@ def _landed(root: Path, note: Note) -> bool:
         note.metadata,
         note.body,
     )
-
-
-def _inside(path: Path, tree: Path) -> bool:
-    """Whether a provider-supplied path stays strictly inside the tree."""
-    return path.is_relative_to(tree) and path != tree and ".." not in path.parts
