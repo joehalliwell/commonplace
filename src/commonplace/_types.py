@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from commonplace._utils import override
+
 #: A note's metadata, serialised as its frontmatter, which is where OKF's keys live.
 type Metadata = dict[str, Any]
 type Pathlike = str | Path
@@ -45,3 +47,9 @@ class Note:
     repo_path: RepoPath
     body: str
     metadata: Metadata = field(default_factory=dict)
+
+    @classmethod
+    def compose(cls, repo_path: RepoPath, type: str, title: str, body: str, metadata: Metadata | None = None) -> "Note":
+        """A note whose `type` and `title` lead and override `metadata`, its body headed by the title."""
+        lead = override(metadata or {}, repo_path, type=type, title=title)
+        return cls(repo_path, f"# {title}\n\n{body.lstrip('\n')}", lead)
