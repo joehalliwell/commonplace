@@ -128,21 +128,9 @@ class IndexStat:
 class SearchIndex(Protocol):
     """Protocol for storing and searching embeddings."""
 
-    def add_chunk(self, chunk: Chunk) -> None:
-        """
-        Add a chunk of text to the store.
-
-        Args:
-            chunk: The chunk to store
-        """
-        ...
-
     def add_chunks(self, chunks: list[Chunk]) -> None:
         """
         Add multiple chunks to the store in a batch.
-
-        This is more efficient than calling add_chunk repeatedly,
-        as it can embed all chunks in a single batch operation.
 
         Args:
             chunks: List of chunks to store
