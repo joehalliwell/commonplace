@@ -7,6 +7,8 @@ from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
+from commonplace._types import Note
+
 
 class Role(Enum):
     """Enum representing the different roles in a conversation."""
@@ -65,11 +67,11 @@ def models_field(names: Iterable[str | None]) -> dict[str, list[str]]:
 
 @dataclass(frozen=True)
 class Snapshot:
-    """What one capture says about upstream state: the files it read, and every path that existed."""
+    """What one capture says about upstream state: the notes it read, and every path that existed."""
 
-    #: Frontmatter and body, as `load_frontmatter` returns them, by path relative to the importer's `tree`.
-    files: dict[PurePosixPath, tuple[dict[str, Any], str]]
-    #: The complete upstream listing, or `None` if the capture has none — in which case absence proves nothing.
+    #: Uncommitted notes, each at its path under the importer's `tree`.
+    notes: list[Note]
+    #: The complete upstream listing, relative to `tree`, or `None` if the capture has none — then absence proves nothing.
     listed: set[PurePosixPath] | None
 
 

@@ -5,14 +5,14 @@ place, so the tree holds what the latest capture listed and git holds the
 trajectory. Everything here is the same for every vendor.
 """
 
+from dataclasses import replace
 from pathlib import Path, PurePosixPath
-from typing import Any
 
 from commonplace._import._types import MemoryImporter
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._types import Note
-from commonplace._utils import load_frontmatter, override
+from commonplace._utils import load_frontmatter
 from commonplace._wire import read_header
 
 
@@ -26,12 +26,12 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         return
 
     snapshot = importer.snapshot(path)
-    # The wire archive keeps the vendor's own type verbatim; the markdown presents ours.
-    files = {p: (override(m, p, type="Memory"), body) for p, (m, body) in snapshot.files.items() if _inside(p)}
-    for refused in snapshot.files.keys() - files.keys():
-        logger.warning(f"Skipping file with unusable path '{refused}'")
+    notes = [note for note in snapshot.notes if _inside(note.repo_path.path, tree)]
+    for refused in snapshot.notes:
+        if refused not in notes:
+            logger.warning(f"Skipping file with unusable path '{refused.repo_path}'")
     # A re-read is a new blob, so rewriting what is already there would change only its provenance.
-    files = {p: parts for p, parts in files.items() if not _landed(repo.root / tree / p, parts)}
+    notes = [note for note in notes if not _landed(repo.root, note)]
 
     stale: list[Path] = []
     if snapshot.listed is None:
@@ -43,15 +43,14 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         stale = [tree / p for p in on_disk if PurePosixPath(p.as_posix()) not in snapshot.listed]
 
     # Decided before the blob is stored, so a capture that changes nothing leaves no trace.
-    if not files and not stale:
+    if not notes and not stale:
         logger.info(f"'{tree}' already matches '{path}'")
         return
 
     provenance = {"source": importer.source, "source_export": repo.store_blob(path).path.as_posix()}
-    for relative, (metadata, body) in files.items():
-        target = tree / relative
-        repo.save(Note(repo.make_repo_path(target), body, metadata | provenance))
-        logger.info(f"Mirrored '{target}'")
+    for note in notes:
+        repo.save(replace(note, metadata=note.metadata | provenance))
+        logger.info(f"Mirrored '{note.repo_path}'")
     for target in stale:
         repo.remove(target)
         logger.info(f"Pruned '{target}'")
@@ -59,14 +58,18 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
     repo.commit(f"Mirror '{path}' using '{importer.source}' importer", auto_index=auto_index)
 
 
-def _landed(target: Path, parts: tuple[dict[str, Any], str]) -> bool:
-    """Whether `target` already holds this frontmatter and body, whichever capture it was landed from."""
+def _landed(root: Path, note: Note) -> bool:
+    """Whether the working tree already holds this note, whichever capture it was landed from."""
+    target = root / note.repo_path.path
     if not target.is_file():
         return False
     metadata, body = load_frontmatter(target.read_text())
-    return ({k: v for k, v in metadata.items() if k not in ("source", "source_export")}, body) == parts
+    return ({k: v for k, v in metadata.items() if k not in ("source", "source_export")}, body) == (
+        note.metadata,
+        note.body,
+    )
 
 
-def _inside(path: PurePosixPath) -> bool:
-    """Whether a provider-supplied path stays inside the tree it is relative to."""
-    return bool(path.parts) and not path.is_absolute() and ".." not in path.parts
+def _inside(path: Path, tree: Path) -> bool:
+    """Whether a provider-supplied path stays strictly inside the tree."""
+    return path.is_relative_to(tree) and path != tree and ".." not in path.parts

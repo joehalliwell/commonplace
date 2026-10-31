@@ -8,6 +8,7 @@ from typing import Any
 
 from commonplace._import._base import BaseWireImporter
 from commonplace._import._types import Snapshot
+from commonplace._types import Note, RepoPath
 from commonplace._wire import read_entries
 
 
@@ -20,16 +21,14 @@ class ChatGptMemoryImporter(BaseWireImporter):
             if entry.get("endpoint") == "summary" and (done := _done(entry["response"])) is not None:
                 # Each section's id is a stable slug, so it names the file. Follow-ups are prompts, not
                 # memory, so a section that is nothing else lands nothing.
-                files: dict[PurePosixPath, tuple[dict[str, Any], str]] = {
-                    PurePosixPath(f"{s['id']}.md"): (
-                        {"title": s["title"], "updated_at": done["generatedAtIso"]},
-                        f"# {s['title']}\n\n{s['description']}",
-                    )
-                    for s in done["sections"]
-                    if s["description"]
-                }
-                return Snapshot(files, set(files))
-        return Snapshot({}, None)
+                sections = [s for s in done["sections"] if s["description"]]
+                updated = {"updated_at": done["generatedAtIso"]}
+                notes = [
+                    Note.compose(RepoPath(self.tree / f"{s['id']}.md"), "Memory", s["title"], s["description"], updated)
+                    for s in sections
+                ]
+                return Snapshot(notes, {PurePosixPath(f"{s['id']}.md") for s in sections})
+        return Snapshot([], None)
 
 
 def _done(stream: str) -> dict[str, Any] | None:
