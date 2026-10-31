@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import shutil
 from dataclasses import dataclass
@@ -274,6 +275,27 @@ def test_render_chats_of_a_stored_blob_reproduces_what_import_wrote_without_writ
 
     assert {path: dump_frontmatter(metadata, body) for path, (metadata, body) in rendered.items()} == written
     assert git(test_repo.root, "status", "--porcelain") == ""
+
+
+@dataclass
+class _StubImporter:
+    """Yields one log whose importer-side metadata claims OKF keys of its own."""
+
+    name: str = "Stub"
+    source: str = "claude"
+
+    def import_(self, path: Path):
+        created = datetime(2026, 10, 31, tzinfo=UTC)
+        message = Message(sender=Role.USER, content="Hi", created=created)
+        yield EventLog(source="claude", title="Ours", events=[message], created=created, metadata={"type": "Thread"})
+
+
+def test_render_chats_log_metadata_with_its_own_type_is_presented_with_ours(tmp_path, caplog):
+    with caplog.at_level(logging.WARNING, logger="commonplace"):
+        [(metadata, _)] = render_chats(tmp_path / "x", _StubImporter(), user="Human", source_export="blob").values()
+
+    assert list(metadata.items())[:2] == [("type", "Chat"), ("title", "Ours")]
+    assert any("'Thread'" in r.message for r in caplog.records)
 
 
 def test_takeout_importer_declines_another_products_activity_page(tmp_path):
