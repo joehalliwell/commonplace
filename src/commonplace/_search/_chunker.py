@@ -132,16 +132,3 @@ class MarkdownChunker:
 
             # Move forward with overlap
             current_pos = end_pos - self.overlap_chars if end_pos < len(chunk_text) else end_pos
-
-    @staticmethod
-    def _create_chunk(note: Note, section_stack: list[str], text_lines: list[str], start_offset: int) -> Chunk:
-        """Create a chunk from accumulated text."""
-        section_path = " / ".join(section_stack) if section_stack else note.repo_path.path.stem
-        chunk_text = "\n".join(text_lines).strip()
-
-        return Chunk(
-            repo_path=note.repo_path,
-            text=chunk_text,
-            section=section_path,
-            offset=start_offset,
-        )
