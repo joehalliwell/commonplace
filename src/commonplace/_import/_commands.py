@@ -140,17 +140,7 @@ def render_chats(path: Path, importer: ChatImporter, user: str, source_export: s
 
 
 def make_chat_path(source: str, date: datetime, title: str | None) -> Path:
-    """
-    Generate the relative file path for storing an activity log.
-
-    Args:
-        source: The source system (e.g., 'claude', 'gemini')
-        date: The creation date of the log
-        title: Optional title to include in filename
-
-    Returns:
-        Path where the log should be stored
-    """
+    """Where a chat lands: `{tree}/{yyyy}/{mm}/{date}-{slug}.md`, the slug from its title."""
     slug = ""
     if title:
         slug = "-" + slugify(title)

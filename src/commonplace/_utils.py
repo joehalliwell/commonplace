@@ -1,8 +1,4 @@
-"""
-Utility functions for text processing and formatting.
-
-Provides helper functions for truncating text and creating URL-friendly slugs.
-"""
+"""Small helpers: batching, text, frontmatter, the editor."""
 
 import re
 import shlex
@@ -17,16 +13,7 @@ from commonplace._logging import logger
 
 
 def batched[T](iterable: Iterable[T], batch_size: int) -> Iterable[list[T]]:
-    """
-    Batch an iterable into chunks of specified size.
-
-    Args:
-        iterable: The iterable to batch
-        batch_size: Number of items per batch
-
-    Yields:
-        Lists of items, each containing up to batch_size items
-    """
+    """Lists of up to `batch_size` items from `iterable`, in order."""
     batch = []
     for item in iterable:
         batch.append(item)
