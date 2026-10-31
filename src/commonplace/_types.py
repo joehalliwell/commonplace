@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+#: A note's metadata, serialised as its frontmatter, which is where OKF's keys live.
 type Metadata = dict[str, Any]
 type Pathlike = str | Path
 
@@ -39,7 +40,7 @@ class RepoPath:
 
 @dataclass
 class Note:
-    """A note's body and metadata at a specific repository location."""
+    """A markdown file in the commonplace, of the kind its `type` names; it corresponds to an OKF concept document."""
 
     repo_path: RepoPath
     body: str
