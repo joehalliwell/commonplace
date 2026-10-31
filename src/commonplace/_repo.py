@@ -391,11 +391,6 @@ class Commonplace:
             return "/".join(parts[:2])
         return parts[0]
 
-    def notes(self) -> Iterator[Note]:
-        """Get an iterator over all notes at current HEAD."""
-        for repo_path in self.note_paths():
-            yield self.load(repo_path)
-
     def paths(self) -> Iterator[Path]:
         """Every file in the working tree that git would share, relative to the root, skipping dot-directories."""
         out = self._git("ls-files", "--cached", "--others", "--exclude-standard", "-z")

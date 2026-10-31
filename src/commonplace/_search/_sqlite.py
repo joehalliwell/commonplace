@@ -114,22 +114,9 @@ class SQLiteSearchIndex(SearchIndex):
 
         self._conn.commit()
 
-    def add_chunk(self, chunk: Chunk) -> None:
-        """
-        Embed and add a chunk to the store.
-
-        Args:
-            chunk: The chunk to store
-        """
-        embedding = self._embedder.embed_doc(chunk.text)
-        self._add_with_embedding(chunk, embedding)
-
     def add_chunks(self, chunks: list[Chunk]) -> None:
         """
         Embed and add multiple chunks to the store in a batch.
-
-        This is more efficient than calling add_chunk repeatedly,
-        as it embeds all chunks in a single batch operation.
 
         Args:
             chunks: List of chunks to store
