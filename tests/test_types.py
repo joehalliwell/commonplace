@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from commonplace._types import Note, RepoPath
 
 
@@ -8,6 +10,12 @@ def test_repo_path_without_ref_is_uncommitted_and_prints_bare():
 
     assert repo_path.ref is None
     assert str(repo_path) == "notes/idea.md"
+
+
+@pytest.mark.parametrize("path", ["../escape.md", "memory/claude/../../escape.md", "/abs.md"])
+def test_repo_path_that_could_leave_the_repo_is_refused(path):
+    with pytest.raises(ValueError):
+        RepoPath(Path(path))
 
 
 def test_note_compose_leads_metadata_with_type_and_title_and_leaves_body_alone():
