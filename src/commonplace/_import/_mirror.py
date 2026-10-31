@@ -12,7 +12,7 @@ from commonplace._import._types import MemoryImporter
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._types import Note
-from commonplace._utils import load_frontmatter
+from commonplace._utils import load_frontmatter, override
 from commonplace._wire import read_header
 
 
@@ -26,12 +26,8 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         return
 
     snapshot = importer.snapshot(path)
-    # The OKF type leads and overrides a vendor's own, which the wire archive keeps verbatim.
-    okf = {"type": "Memory"}
-    for relative, (metadata, _) in snapshot.files.items():
-        if metadata.get("type", okf["type"]) != okf["type"]:
-            logger.warning(f"Type '{okf['type']}' overrides '{metadata['type']}' in '{relative}'")
-    files = {p: (okf | metadata | okf, body) for p, (metadata, body) in snapshot.files.items() if _inside(p)}
+    # The wire archive keeps the vendor's own type verbatim; the markdown presents ours.
+    files = {p: (override(m, p, type="Memory"), body) for p, (m, body) in snapshot.files.items() if _inside(p)}
     for refused in snapshot.files.keys() - files.keys():
         logger.warning(f"Skipping file with unusable path '{refused}'")
     # A re-read is a new blob, so rewriting what is already there would change only its provenance.
