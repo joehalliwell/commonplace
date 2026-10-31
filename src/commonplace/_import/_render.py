@@ -13,7 +13,7 @@ from commonplace._import._types import ChatImporter
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
-from commonplace._types import Metadata, Note
+from commonplace._types import Note
 from commonplace._utils import dump_frontmatter
 from commonplace._wire import read_header
 
@@ -31,26 +31,29 @@ _UNDATED = datetime.min.replace(tzinfo=UTC)
 def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
     """Re-render chats from the stored archives, leaving hand edits alone; returns actions and warnings."""
     archives = _in_capture_order(repo)
-    final: dict[Path, tuple[Metadata, str]] = {}
+    final: dict[Path, Note] = {}
     winner: dict[Path, Path] = {}
     for blob, importer in track(archives, "Replaying archives"):
-        rendered = render_chats(repo.root / blob, importer, repo.config.user, blob.as_posix())
+        rendered = {
+            note.repo_path.path: note
+            for note in render_chats(repo.root / blob, importer, repo.config.user, blob.as_posix())
+        }
         final.update(rendered)
         winner.update(dict.fromkeys(rendered, blob))
 
     subjects, dirty = repo.last_subjects(_CHATS), repo.uncommitted(_CHATS)
-    writes: dict[Path, tuple[Metadata, str]] = {}
+    writes: list[Note] = []
     hand_edited: list[str] = []
-    for path, (metadata, body) in final.items():
+    for path, note in final.items():
         target = repo.root / path
-        if target.exists() and target.read_text() == dump_frontmatter(metadata, body):
+        if target.exists() and target.read_text() == dump_frontmatter(note.metadata, note.body):
             continue
         if target.exists() and (
             path.as_posix() in dirty or not subjects.get(path.as_posix(), "").startswith(_RENDERING)
         ):
             hand_edited.append(path.as_posix())
             continue
-        writes[path] = (metadata, body)
+        writes.append(note)
 
     superseded = len(archives) - len(set(winner.values()))
     if superseded:
@@ -58,11 +61,11 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
 
     actions: list[str] = []
     if writes:
-        new = sum(not (repo.root / path).exists() for path in writes)
+        new = sum(not (repo.root / note.repo_path.path).exists() for note in writes)
         actions.append(f"{'Would re-render' if check else 'Re-rendered'} {len(writes)} chats ({new} new)")
     if writes and not check:
-        for path, (metadata, body) in writes.items():
-            repo.save(Note(repo_path=repo.make_repo_path(path), body=body, metadata=metadata))
+        for note in writes:
+            repo.save(note)
         repo.commit(RENDER_MESSAGE)
 
     warnings: list[str] = []

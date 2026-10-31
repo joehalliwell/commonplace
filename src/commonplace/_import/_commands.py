@@ -23,8 +23,8 @@ from commonplace._import._types import ChatImporter, MemoryImporter
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
-from commonplace._types import Metadata, Note, RepoPath
-from commonplace._utils import override, slugify
+from commonplace._types import Note, RepoPath
+from commonplace._utils import slugify
 
 #: Everything that can claim a file: chat importers accumulate, memory importers mirror live state.
 IMPORTERS: list[ChatImporter | MemoryImporter] = [
@@ -104,17 +104,17 @@ def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None
     else:
         blob = repo.store_blob(path)
 
-    for rel_path, (metadata, body) in render_chats(path, importer, user, blob.path.as_posix()).items():
-        repo.save(Note(repo_path=repo.make_repo_path(rel_path), body=body, metadata=metadata))
-        logger.info(f"Stored log '{metadata['title']}' at '{rel_path}'")
+    for note in render_chats(path, importer, user, blob.path.as_posix()):
+        repo.save(note)
+        logger.info(f"Stored log '{note.metadata['title']}' at '{note.repo_path}'")
 
     repo.commit(f"Import from '{path}' using '{importer.source}' importer", auto_index=auto_index)
 
 
-def render_chats(path: Path, importer: ChatImporter, user: str, source_export: str) -> dict[Path, tuple[Metadata, str]]:
-    """Each chat note the file at `path` renders to, by path, as frontmatter and body; writes nothing."""
+def render_chats(path: Path, importer: ChatImporter, user: str, source_export: str) -> list[Note]:
+    """Each uncommitted chat note the file at `path` renders to; writes nothing."""
     serializer = MarkdownSerializer(human=user, agent=importer.name)
-    rendered: dict[Path, tuple[Metadata, str]] = {}
+    rendered: list[Note] = []
     used_paths: Counter[Path] = Counter()
 
     for log in importer.import_(path):
@@ -124,9 +124,9 @@ def render_chats(path: Path, importer: ChatImporter, user: str, source_export: s
         if count > 1:
             rel_path = make_chat_path(source=log.source, date=log.created, title=f"{log.title}-{count}")
 
-        # OKF keys first; `generated` is the importer's rendition, current as of the last event.
-        log.metadata = {
-            **override(log.metadata, rel_path, type="Chat", title=log.title),
+        # `generated` is the importer's rendition, current as of the last event.
+        metadata = {
+            **log.metadata,
             "generated": {
                 "by": f"commonplace/{__version__}",
                 "at": max((e.created for e in log.events), default=log.created).isoformat(timespec="seconds"),
@@ -134,8 +134,7 @@ def render_chats(path: Path, importer: ChatImporter, user: str, source_export: s
             "source": log.source,
             "source_export": source_export,
         }
-
-        rendered[rel_path] = (log.metadata, serializer.serialize(log))
+        rendered.append(Note.compose(RepoPath(rel_path), "Chat", log.title, serializer.serialize(log), metadata))
 
     return rendered
 
