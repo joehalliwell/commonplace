@@ -293,6 +293,59 @@ def untag(spec: NodeSpec, *tags: str, repo: Repo) -> None:
         raise SystemExit(1) from e
 
 
+@app.command(group=ANNOTATING_SECTION)
+def link(
+    source: Annotated[str, Parameter(help="The note the link is about, named as a wikilink would")],
+    target: Annotated[
+        str, Parameter(help="Where it points: a note, or a span in one ('note#Heading', 'note#\"phrase\"')")
+    ],
+    *why: str,
+    repo: Repo,
+) -> None:
+    """Link one note to another, in the first note's marginalia; the rest of the line says why."""
+    from commonplace._marginalia import link as add_link
+
+    try:
+        add_link(repo, source, target, " ".join(why))
+    except ValueError as e:
+        logger.error(str(e))
+        raise SystemExit(1) from e
+
+
+@app.command(group=ANNOTATING_SECTION)
+def links(
+    spec: NodeSpec,
+    *,
+    incoming: Annotated[bool, Parameter(name="--in", negative="", help="Only links into the note")] = False,
+    outgoing: Annotated[bool, Parameter(name="--out", negative="", help="Only links out of the note")] = False,
+    include_hidden: Annotated[bool, Parameter(help="Include links to and from notes tagged hidden")] = False,
+    repo: Repo,
+) -> None:
+    """List a note's links, out (→) then in (←): from marginalia, and from notes' own text."""
+    from commonplace._marginalia import links as find_links
+
+    both = not incoming and not outgoing
+    try:
+        found = find_links(repo, spec, include_hidden, incoming=incoming or both, outgoing=outgoing or both)
+    except ValueError as e:
+        logger.error(str(e))
+        raise SystemExit(1) from e
+    for neighbour in found:
+        print(f"{'→' if neighbour.direction == 'out' else '←'} {neighbour.other}  {neighbour.context}")
+
+
+@app.command(group=ANNOTATING_SECTION)
+def unlink(source: NodeSpec, target: NodeSpec, *, repo: Repo) -> None:
+    """Remove a note's links to a target from its marginalia."""
+    from commonplace._marginalia import unlink as remove_link
+
+    try:
+        remove_link(repo, source, target)
+    except ValueError as e:
+        logger.error(str(e))
+        raise SystemExit(1) from e
+
+
 ################################################################################
 # System commands
 ################################################################################
@@ -373,6 +426,9 @@ def doctor(
     *,
     scaffold: Annotated[bool, Parameter(help="Restore missing scaffolding and report template drift.")] = True,
     links: Annotated[bool, Parameter(help="Report broken links.")] = True,
+    marginalia: Annotated[
+        bool, Parameter(help="Re-attach marginalia to moved notes; report orphaned sidecars and dead marginalia links.")
+    ] = True,
     render: Annotated[
         bool, Parameter(help="Re-render chats from the stored archives, newest capture winning; takes minutes.")
     ] = False,
@@ -382,7 +438,7 @@ def doctor(
     """Check and fix the repository, one operation at a time: each flag selects one."""
     from commonplace._doctor import doctor
 
-    doctor(repo, check=check, scaffold=scaffold, links=links, render=render)
+    doctor(repo, check=check, scaffold=scaffold, links=links, marginalia=marginalia, render=render)
 
 
 @app.command(group=SYSTEM_SECTION)

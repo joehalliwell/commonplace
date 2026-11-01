@@ -253,6 +253,28 @@ repository but is left out of `search` and `ls` (and so out of what skills
 gather), unless you pass `--include-hidden`. `ls --field tags` shows marginalia
 tags after a note's own.
 
+### Link notes
+
+```bash
+# Link one note to another; the rest of the line says why
+commonplace link /chats/gemini/2026/05/2026-05-03-tea "ideas#Tea house" filed as the tea house idea
+
+# The target can be a heading, or a phrase quoted from the note
+commonplace link ideas '2026-11-02#"by the river"'
+
+# A note's links, out (→) then in (←): marginalia, and links in notes' own text
+commonplace links ideas
+commonplace links ideas --in
+
+# Remove a note's links to a target
+commonplace unlink ideas 2026-11-02
+```
+
+A link is a dated line in the first note's marginalia, with the target written
+from the root (`- 2026-11-02 [[/notes/ideas#Tea house]] filed as …`), so a later
+note of the same name can't make it ambiguous. Any wikilink you write in a
+sidecar by hand counts as a link too.
+
 ### Sync your commonplace
 
 If you have a git remote configured, sync your changes:
@@ -302,6 +324,12 @@ the templates `init` currently writes. Run it after upgrading commonplace to
 see what an older repo is missing. It only reports — applying the diff is up to
 you. The root `index.md` and the config file are yours once seeded, so they are
 never diffed.
+
+The marginalia operation looks after tags and links whose note has moved. After
+a plain `git mv`, the sidecar is left at the old path; doctor follows git's
+rename detection and moves it to the note's new path. A sidecar whose note was
+deleted is kept, as the record of what you made of it, and listed. Links in
+marginalia whose note, heading or phrase has gone are reported.
 
 It also checks that links land somewhere. Every reference your own markdown
 makes into the repository is followed: inline and reference-style links,

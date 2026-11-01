@@ -1,6 +1,7 @@
 """Tests for marginalia: what's been said about a note since, kept in a shadow tree beside it."""
 
 import shutil
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -9,9 +10,12 @@ from commonplace._links import UnresolvedNote
 from commonplace._marginalia import (
     MARGINALIA_VERSION,
     Sidecar,
+    link,
+    links,
     read_sidecar,
     sidecar_path,
     tag,
+    unlink,
     untag,
     write_sidecar,
 )
@@ -130,6 +134,129 @@ def test_tag_cli_shows_a_notes_tags_when_given_none(notes, as_joe, test_app, cap
     assert test_app(["tag", "ideas"]) == 0
 
     assert capsys.readouterr().out.split() == ["hidden", "tea"]
+
+
+def test_every_wikilink_in_a_sidecar_body_is_an_edge_from_its_note(any_marginalia_version):
+    """Free prose links count too: 'filed as [[/notes/todo]]' says something about this note."""
+    assert read_sidecar(any_marginalia_version, NODE).edges == ["/notes/todo"]
+
+
+def test_link_to_an_ambiguous_name_fails_and_writes_nothing(notes, as_joe):
+    with pytest.raises(UnresolvedNote):  # Two notes are called log
+        link(notes, "ideas", "log", "")
+
+    assert read_sidecar(notes.root, NODE) == Sidecar(node=NODE)
+
+
+def test_link_records_the_edge_and_commits_as_the_person(notes, as_joe):
+    link(notes, "ideas", '2026/10/log#"Some text."', "the same thought, scheduled", on=date(2026, 11, 2))
+
+    sidecar = read_sidecar(notes.root, NODE)
+    assert sidecar.body.splitlines() == [
+        '- 2026-11-02 [[/chats/claude-tasks/2026/10/log#"Some text."]] the same thought, scheduled'
+    ]
+    assert sidecar.edges == ['/chats/claude-tasks/2026/10/log#"Some text."']
+    assert git(notes.root, "log", "-1", "--format=%an") == "Joe\n"
+
+
+def test_link_keeps_the_tags_and_appends_after_whats_there(notes, as_joe):
+    tag(notes, "ideas", ["tea"])
+    link(notes, "ideas", "2026/10/log", "", on=date(2026, 11, 2))
+    link(notes, "ideas", "2026/11/log", "and again", on=date(2026, 11, 3))
+
+    sidecar = read_sidecar(notes.root, NODE)
+    assert sidecar.tags == ["tea"]
+    assert sidecar.edges == ["/chats/claude-tasks/2026/10/log", "/chats/claude-tasks/2026/11/log"]
+
+
+def test_link_from_a_span_is_refused(notes, as_joe):
+    """A sidecar speaks for a whole note; the span belongs at the other end."""
+    with pytest.raises(UnresolvedNote, match="whole notes"):
+        link(notes, "ideas#Something", "2026/10/log", "")
+
+
+def test_unlink_removes_only_the_edges_to_that_target(notes, as_joe):
+    link(notes, "ideas", "2026/10/log", "", on=date(2026, 11, 2))
+    link(notes, "ideas", "2026/11/log", "", on=date(2026, 11, 2))
+
+    assert unlink(notes, "ideas", "2026/10/log") == 1
+
+    assert read_sidecar(notes.root, NODE).edges == ["/chats/claude-tasks/2026/11/log"]
+
+
+def test_unlink_an_edge_that_isnt_there_fails(notes, as_joe):
+    with pytest.raises(ValueError, match="no link"):
+        unlink(notes, "ideas", "2026/10/log")
+
+
+def test_unlink_a_link_whose_target_is_gone_by_writing_it_as_the_sidecar_does(notes, as_joe):
+    """doctor reports dead links; they must stay removable once their note can no longer be named."""
+    link(notes, "ideas", "2026/10/log", "", on=date(2026, 11, 2))
+    notes.remove(Path("chats/claude-tasks/2026/10/log.md"))
+    notes.commit("Delete", auto_index=False)
+
+    with pytest.raises(UnresolvedNote, match="/chats/claude-tasks/2026/10/log"):  # The hint shows how
+        unlink(notes, "ideas", "2026/10/log")
+    assert unlink(notes, "ideas", "[[/chats/claude-tasks/2026/10/log]]") == 1
+
+    assert read_sidecar(notes.root, NODE).edges == []
+
+
+def test_link_cli_takes_the_rest_of_the_line_as_why(notes, as_joe, test_app):
+    assert test_app(["link", "ideas", "2026/10/log", "filed", "as", "an", "idea"]) == 0
+
+    [line] = read_sidecar(notes.root, NODE).body.splitlines()
+    assert line.endswith("[[/chats/claude-tasks/2026/10/log]] filed as an idea")
+
+
+def _found(neighbours) -> set[tuple[str, str, str]]:
+    return {(n.direction, n.other, n.context) for n in neighbours}
+
+
+def test_links_incoming_gathers_marginalia_edges_and_links_in_notes(notes, as_joe, make_note):
+    notes.save(make_note(path="journal/2026-11-02.md", content="# Day\n\nAdded to [[ideas]].\n"))
+    notes.commit("Journal", auto_index=False)
+    link(notes, "2026/10/log", 'ideas#"Some text."', "the same thought", on=date(2026, 11, 2))
+
+    assert _found(links(notes, "ideas", outgoing=False)) == {
+        ("in", "/chats/claude-tasks/2026/10/log", '- 2026-11-02 [[/notes/ideas#"Some text."]] the same thought'),
+        ("in", "/journal/2026-11-02", "line 3"),
+    }
+
+
+def test_links_outgoing_gathers_marginalia_edges_and_links_in_the_notes_own_text(notes, as_joe, make_note):
+    """For a foreign note, marginalia are its only outgoing links; for your own, both count."""
+    notes.save(make_note(path="notes/ideas.md", content="# Ideas\n\nSee [[2026/11/log]].\n"))
+    notes.commit("Edit", auto_index=False)
+    link(notes, "ideas", "2026/10/log", "scheduled", on=date(2026, 11, 2))
+
+    assert _found(links(notes, "ideas", incoming=False)) == {
+        ("out", "/chats/claude-tasks/2026/10/log", "- 2026-11-02 [[/chats/claude-tasks/2026/10/log]] scheduled"),
+        ("out", "/chats/claude-tasks/2026/11/log", "line 3"),
+    }
+
+
+def test_links_leave_out_hidden_notes_at_the_other_end_unless_asked(notes, as_joe):
+    link(notes, "2026/10/log", "ideas", "", on=date(2026, 11, 2))
+    link(notes, "ideas", "2026/11/log", "", on=date(2026, 11, 2))
+    tag(notes, "/chats/claude-tasks/**", ["hidden"])
+
+    assert links(notes, "ideas") == []
+    assert len(links(notes, "ideas", include_hidden=True)) == 2
+
+
+def test_links_cli_marks_direction_and_narrows_with_in_and_out(notes, as_joe, test_app, capsys):
+    link(notes, "2026/10/log", "ideas", "filed", on=date(2026, 11, 2))
+    link(notes, "ideas", "2026/11/log", "and on", on=date(2026, 11, 2))
+    capsys.readouterr()
+
+    assert test_app(["links", "ideas"]) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "→ /chats/claude-tasks/2026/11/log  - 2026-11-02 [[/chats/claude-tasks/2026/11/log]] and on",
+        "← /chats/claude-tasks/2026/10/log  - 2026-11-02 [[/notes/ideas]] filed",
+    ]
+    assert test_app(["links", "ideas", "--in"]) == 0
+    assert capsys.readouterr().out.startswith("←")
 
 
 def test_a_sidecar_newer_than_this_release_is_refused(tmp_path):
