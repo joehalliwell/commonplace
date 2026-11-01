@@ -94,16 +94,16 @@ def _create_missing(root: Path, config: ConfigFile) -> bool:
     return True
 
 
-def _run_git(root: Path, *args: str, input: str | None = None) -> str:
-    """Run git in `root` as the bot, waiting out another process's lock; returns stdout."""
-    env = os.environ | {
-        "LC_ALL": "C",
-        "GIT_LITERAL_PATHSPECS": "1",
-        "GIT_AUTHOR_NAME": _BOT_USERNAME,
-        "GIT_AUTHOR_EMAIL": _BOT_EMAIL,
-        "GIT_COMMITTER_NAME": _BOT_USERNAME,
-        "GIT_COMMITTER_EMAIL": _BOT_EMAIL,
-    }
+def _run_git(root: Path, *args: str, input: str | None = None, as_user: bool = False) -> str:
+    """Run git in `root` as the bot, or as the user's own git identity, waiting out another process's lock."""
+    env = os.environ | {"LC_ALL": "C", "GIT_LITERAL_PATHSPECS": "1"}
+    if not as_user:
+        env |= {
+            "GIT_AUTHOR_NAME": _BOT_USERNAME,
+            "GIT_AUTHOR_EMAIL": _BOT_EMAIL,
+            "GIT_COMMITTER_NAME": _BOT_USERNAME,
+            "GIT_COMMITTER_EMAIL": _BOT_EMAIL,
+        }
     cmd = ["git", "-C", str(root), "-c", "commit.gpgsign=false", *args]
 
     def run() -> str:
@@ -136,7 +136,7 @@ def _stage(root: Path, paths: set[str]) -> None:
         _run_git(root, "rm", "--cached", "-q", "--ignore-unmatch", *_PATHSPEC_STDIN, input="\0".join(paths - present))
 
 
-def _commit(root: Path, paths: set[str], message: str) -> bool:
+def _commit(root: Path, paths: set[str], message: str, as_user: bool = False) -> bool:
     """Commit exactly `paths`, re-staging once if a hook reformats them; False if there was nothing to commit."""
     try:
         _stage(root, paths)
@@ -144,7 +144,7 @@ def _commit(root: Path, paths: set[str], message: str) -> bool:
         if not changed:
             return False
         try:
-            _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input="\0".join(changed))
+            _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input="\0".join(changed), as_user=as_user)
         except subprocess.CalledProcessError:
             reformatted = _changed(root, changed)
             if not reformatted:
@@ -155,7 +155,7 @@ def _commit(root: Path, paths: set[str], message: str) -> bool:
             changed = _changed(root, changed, "--cached")
             if not changed:
                 return False
-            _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input="\0".join(changed))
+            _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input="\0".join(changed), as_user=as_user)
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Commit failed:\n{e.stdout}{e.stderr}".strip()) from e
     return True
@@ -427,14 +427,15 @@ class Commonplace:
         (self.root / path).unlink()
         self._pending.add(path.as_posix())
 
-    def commit(self, message: str, auto_index: bool | None = None) -> None:
+    def commit(self, message: str, auto_index: bool | None = None, *, as_user: bool = False) -> None:
         """Commit what this repo has saved, removed or stored since the last commit, and nothing else.
 
         Args:
             message: Commit message
             auto_index: Whether to index after committing (default: from config)
+            as_user: Commit as the user's own git identity rather than the bot, for something they did themselves
         """
-        committed = _commit(self.root, self._pending, message)
+        committed = _commit(self.root, self._pending, message, as_user=as_user)
         self._pending.clear()
         if not committed:
             logger.info("No changes to commit")

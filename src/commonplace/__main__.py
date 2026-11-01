@@ -248,6 +248,48 @@ def ls(
 
 
 ################################################################################
+# Annotating commands
+################################################################################
+
+ANNOTATING_SECTION = "Annotating"
+
+NodeSpec: TypeAlias = Annotated[  # noqa: UP040
+    str, Parameter(help="A note, named as a wikilink would: 'ideas' or '/notes/ideas'; a * makes it a glob")
+]
+
+
+@app.command(group=ANNOTATING_SECTION)
+def tag(spec: NodeSpec, *tags: str, repo: Repo) -> None:
+    """Tag notes, in their marginalia; with no tags, show a note's tags."""
+    from commonplace._marginalia import notes_named, read_sidecar
+    from commonplace._marginalia import tag as add_tags
+
+    try:
+        if tags:
+            add_tags(repo, spec, list(tags))
+            return
+        nodes = notes_named(repo, spec)
+    except ValueError as e:  # An unresolved spec, or a sidecar newer than this release
+        logger.error(str(e))
+        raise SystemExit(1) from e
+    for node in nodes:
+        found = read_sidecar(repo.root, node).tags
+        print("\n".join(found) if len(nodes) == 1 else f"{node}: {' '.join(found)}")
+
+
+@app.command(group=ANNOTATING_SECTION)
+def untag(spec: NodeSpec, *tags: str, repo: Repo) -> None:
+    """Remove tags from notes' marginalia."""
+    from commonplace._marginalia import untag as remove_tags
+
+    try:
+        remove_tags(repo, spec, list(tags))
+    except ValueError as e:
+        logger.error(str(e))
+        raise SystemExit(1) from e
+
+
+################################################################################
 # System commands
 ################################################################################
 
