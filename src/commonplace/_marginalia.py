@@ -12,7 +12,7 @@ from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 
-from commonplace._links import Target, UnresolvedNote, is_named, links_to, resolve, resolve_target
+from commonplace._links import Target, UnresolvedNote, is_named, links_from, links_to, resolve, resolve_target
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
@@ -151,27 +151,46 @@ def _retag(repo: Commonplace, spec: str, change: Callable[[Sidecar], Sidecar], m
 
 
 @dataclass(frozen=True)
-class Backlink:
-    """A note that links to another, and where: its marginalia line, or the line of its own text."""
+class Neighbour:
+    """A link to or from a note: the note at the other end, rooted, and where the link is written."""
 
-    source: Path
-    context: str
+    direction: str  # "out" from the note, or "in" to it
+    other: str
+    context: str  # The marginalia line, or "line N" of a note's own text
 
 
-def backlinks(repo: Commonplace, spec: str, include_hidden: bool = False) -> list[Backlink]:
-    """What links to the note `spec` names: edges in other notes' marginalia, then links in notes' own text."""
+def links(
+    repo: Commonplace, spec: str, include_hidden: bool = False, incoming: bool = True, outgoing: bool = True
+) -> list[Neighbour]:
+    """A note's links, out then in, from marginalia and from notes' own text; hidden notes at the other end left out."""
     [note] = notes_named(repo, spec)
-    found = []
-    shadow = repo.root / MARGINALIA_ROOT
-    for path in sorted(shadow.rglob("*.md")):
-        source = path.relative_to(shadow)
-        for line in read_sidecar(repo.root, source).body.splitlines():
-            names = (target.split("#")[0] for target in _WIKILINK_TARGET.findall(line))
-            if any(is_named(note, name) for name in names):
-                found.append(Backlink(source, line))
-    found += [Backlink(link.source, f"line {link.line}") for link in links_to(note, repo.root, list(repo.paths()))]
+    files = list(repo.paths())
+    found: list[tuple[Neighbour, Path | None]] = []  # With the other end's note, to check it isn't hidden
+    if outgoing:
+        for line in read_sidecar(repo.root, note).body.splitlines():
+            for target in _WIKILINK_TARGET.findall(line):
+                found.append((Neighbour("out", target, line), _note_named(target, files)))
+        for written, lands in links_from(note, repo.root, files):
+            found.append((Neighbour("out", str(Target(lands)), f"line {written.line}"), lands))
+    if incoming:
+        for source in _sidecar_nodes(repo.root):
+            for line in read_sidecar(repo.root, source).body.splitlines():
+                names = (target.split("#")[0] for target in _WIKILINK_TARGET.findall(line))
+                if any(is_named(note, name) for name in names):
+                    found.append((Neighbour("in", str(Target(source)), line), source))
+        for written in links_to(note, repo.root, files):
+            found.append((Neighbour("in", str(Target(written.source)), f"line {written.line}"), written.source))
     hidden = set() if include_hidden else tagged(repo.root, "hidden")
-    return [backlink for backlink in found if backlink.source not in hidden]
+    return [neighbour for neighbour, other in found if other not in hidden]
+
+
+def _note_named(target: str, files: list[Path]) -> Path | None:
+    """The one note a link target names, or None if it names none or several."""
+    try:
+        [note] = resolve(target.split("#")[0], files)
+    except ValueError:  # Unresolved, or a glob naming several
+        return None
+    return note
 
 
 def check_marginalia(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:

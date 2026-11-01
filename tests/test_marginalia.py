@@ -10,8 +10,8 @@ from commonplace._links import UnresolvedNote
 from commonplace._marginalia import (
     MARGINALIA_VERSION,
     Sidecar,
-    backlinks,
     link,
+    links,
     read_sidecar,
     sidecar_path,
     tag,
@@ -209,34 +209,54 @@ def test_link_cli_takes_the_rest_of_the_line_as_why(notes, as_joe, test_app):
     assert line.endswith("[[/chats/claude-tasks/2026/10/log]] filed as an idea")
 
 
-def test_backlinks_gather_marginalia_edges_and_links_in_notes(notes, as_joe, make_note):
+def _found(neighbours) -> set[tuple[str, str, str]]:
+    return {(n.direction, n.other, n.context) for n in neighbours}
+
+
+def test_links_incoming_gathers_marginalia_edges_and_links_in_notes(notes, as_joe, make_note):
     notes.save(make_note(path="journal/2026-11-02.md", content="# Day\n\nAdded to [[ideas]].\n"))
     notes.commit("Journal", auto_index=False)
     link(notes, "2026/10/log", 'ideas#"Some text."', "the same thought", on=date(2026, 11, 2))
 
-    found = {(str(b.source), b.context) for b in backlinks(notes, "ideas")}
-
-    assert found == {
-        ("chats/claude-tasks/2026/10/log.md", '- 2026-11-02 [[/notes/ideas#"Some text."]] the same thought'),
-        ("journal/2026-11-02.md", "line 3"),
+    assert _found(links(notes, "ideas", outgoing=False)) == {
+        ("in", "/chats/claude-tasks/2026/10/log", '- 2026-11-02 [[/notes/ideas#"Some text."]] the same thought'),
+        ("in", "/journal/2026-11-02", "line 3"),
     }
 
 
-def test_backlinks_leave_out_hidden_sources_unless_asked(notes, as_joe):
+def test_links_outgoing_gathers_marginalia_edges_and_links_in_the_notes_own_text(notes, as_joe, make_note):
+    """For a foreign note, marginalia are its only outgoing links; for your own, both count."""
+    notes.save(make_note(path="notes/ideas.md", content="# Ideas\n\nSee [[2026/11/log]].\n"))
+    notes.commit("Edit", auto_index=False)
+    link(notes, "ideas", "2026/10/log", "scheduled", on=date(2026, 11, 2))
+
+    assert _found(links(notes, "ideas", incoming=False)) == {
+        ("out", "/chats/claude-tasks/2026/10/log", "- 2026-11-02 [[/chats/claude-tasks/2026/10/log]] scheduled"),
+        ("out", "/chats/claude-tasks/2026/11/log", "line 3"),
+    }
+
+
+def test_links_leave_out_hidden_notes_at_the_other_end_unless_asked(notes, as_joe):
     link(notes, "2026/10/log", "ideas", "", on=date(2026, 11, 2))
-    tag(notes, "2026/10/log", ["hidden"])
+    link(notes, "ideas", "2026/11/log", "", on=date(2026, 11, 2))
+    tag(notes, "/chats/claude-tasks/**", ["hidden"])
 
-    assert backlinks(notes, "ideas") == []
-    assert len(backlinks(notes, "ideas", include_hidden=True)) == 1
+    assert links(notes, "ideas") == []
+    assert len(links(notes, "ideas", include_hidden=True)) == 2
 
 
-def test_backlinks_cli_prints_each_source_rooted(notes, as_joe, test_app, capsys):
+def test_links_cli_marks_direction_and_narrows_with_in_and_out(notes, as_joe, test_app, capsys):
     link(notes, "2026/10/log", "ideas", "filed", on=date(2026, 11, 2))
+    link(notes, "ideas", "2026/11/log", "and on", on=date(2026, 11, 2))
     capsys.readouterr()
 
-    assert test_app(["backlinks", "ideas"]) == 0
-
-    assert capsys.readouterr().out == "/chats/claude-tasks/2026/10/log  - 2026-11-02 [[/notes/ideas]] filed\n"
+    assert test_app(["links", "ideas"]) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "→ /chats/claude-tasks/2026/11/log  - 2026-11-02 [[/chats/claude-tasks/2026/11/log]] and on",
+        "← /chats/claude-tasks/2026/10/log  - 2026-11-02 [[/notes/ideas]] filed",
+    ]
+    assert test_app(["links", "ideas", "--in"]) == 0
+    assert capsys.readouterr().out.startswith("←")
 
 
 def test_a_sidecar_newer_than_this_release_is_refused(tmp_path):
