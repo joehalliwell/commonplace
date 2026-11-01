@@ -116,16 +116,16 @@ class BaseFetcher:
         fetcher that never assembles its own headers."""
         return {"User-Agent": self._ua, **self.extra_headers, "Accept-Language": ACCEPT_LANGUAGE}
 
-    def _read_cookies(self) -> dict[str, str]:
+    def _read_cookies(self) -> httpx.Cookies:
         if self._injected_cookies is not None:
-            return self._injected_cookies
+            return httpx.Cookies(self._injected_cookies)
         return read_chrome_cookies(self.cookie_domain)
 
     def _report_no_session(self) -> None:
         """Tell the user the browser holds no session cookie for this provider."""
         logger.error(f"No {self.service_name} session cookie found. Log in at {self.login_url} in Chrome first.")
 
-    def _has_session(self, cookies: dict[str, str]) -> bool:
+    def _has_session(self, cookies: httpx.Cookies) -> bool:
         """Whether `cookies` hold a usable session, having said what's missing if not."""
         if not cookies.get(self.session_cookie):
             self._report_no_session()
@@ -147,7 +147,7 @@ class BaseFetcher:
             yield client
 
     @contextmanager
-    def _session(self, cookies: dict[str, str]) -> Iterator[httpx.Client]:
+    def _session(self, cookies: httpx.Cookies) -> Iterator[httpx.Client]:
         """Open the client and start a fresh wire log.
 
         The log resets here rather than in `__init__` so that a fetcher reused

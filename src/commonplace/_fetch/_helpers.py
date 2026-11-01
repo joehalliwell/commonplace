@@ -23,13 +23,18 @@ MAX_RETRIES = 5
 BACKOFF_BASE = 1.5
 
 
-def read_chrome_cookies(domain: str) -> dict[str, str]:
-    """Read cookies for a domain from the logged-in Chrome browser. Handles
-    the Flatpak Chrome path automatically."""
+def read_chrome_cookies(domain: str) -> httpx.Cookies:
+    """Read cookies for a domain and its subdomains from the logged-in Chrome browser, each kept to its own host.
+
+    Subdomains reuse names (Google's OSID is per service), so flattening to a dict sends one service's copy to all.
+    """
     if FLATPAK_CHROME_CONFIG.exists():
         os.environ["XDG_CONFIG_HOME"] = str(FLATPAK_CHROME_CONFIG)
-    jar = browser_cookie3.chrome(domain_name=domain)
-    return {c.name: c.value for c in jar if c.value}
+    cookies = httpx.Cookies()
+    for c in browser_cookie3.chrome(domain_name=domain):
+        if c.value:
+            cookies.jar.set_cookie(c)
+    return cookies
 
 
 def request_with_retry(
