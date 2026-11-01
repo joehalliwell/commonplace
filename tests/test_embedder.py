@@ -43,12 +43,10 @@ def test_fastembed_query_carries_the_models_retrieval_instruction(model_name):
     assert fake.seen == ["Represent this sentence for searching relevant passages: tea"]
 
 
-def test_fastembed_query_for_a_model_without_an_instruction_is_bare():
-    embedder, fake = _fastembed("jinaai/jina-embeddings-v2-small-en")
-
-    embedder.embed_query("tea")
-
-    assert fake.seen == ["tea"]
+def test_fastembed_refuses_a_model_whose_instruction_nobody_has_checked():
+    """Embedding queries bare would degrade search silently, as E5's prefix on bge once did."""
+    with pytest.raises(ValueError, match="jinaai/jina-embeddings-v2-small-en"):
+        FastEmbedEmbedder("jinaai/jina-embeddings-v2-small-en")
 
 
 @pytest.fixture
