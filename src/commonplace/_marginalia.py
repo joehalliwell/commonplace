@@ -55,6 +55,13 @@ def read_sidecar(root: Path, node: Path) -> Sidecar:
     return Sidecar(node=node, ref=metadata.get("ref"), tags=list(metadata.get("tags") or []), body=body)
 
 
+def tagged(root: Path, tag: str) -> set[Path]:
+    """Every note whose marginalia carry `tag`."""
+    shadow = root / MARGINALIA_ROOT
+    nodes = (path.relative_to(shadow) for path in shadow.rglob("*.md"))
+    return {node for node in nodes if tag in read_sidecar(root, node).tags}
+
+
 def tag(repo: Commonplace, spec: str, tags: list[str]) -> list[Path]:
     """Tag the notes `spec` names, committing as the user; returns the notes."""
     return _retag(repo, spec, lambda sidecar: sidecar.tagged(*tags), f"Tag {spec}: {', '.join(tags)}")
