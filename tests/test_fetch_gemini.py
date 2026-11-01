@@ -133,6 +133,20 @@ def test_fetch_raises_on_403(tmp_path):
         _make_fetcher(handler=handler).fetch(tmp_path, since=None)
 
 
+def test_fetch_app_redirected_off_gemini_raises_session_blocked(tmp_path):
+    """As seen 2026-11-01: a failed cookie refresh bounces /app to a Google help page, served 200."""
+
+    def handler(request):
+        if request.url.path.endswith("/app"):
+            return httpx.Response(302, headers={"location": "https://accounts.google.com/CookieMismatch"})
+        if request.url.host == "accounts.google.com":
+            return httpx.Response(302, headers={"location": "https://support.google.com/accounts/answer/32050"})
+        return httpx.Response(200, text="<html><title>Clear cache &amp; cookies</title></html>")
+
+    with pytest.raises(FetchBlocked, match="rejected the session"):
+        _make_fetcher(handler=handler).fetch(tmp_path, since=None)
+
+
 def test_fetch_app_page_without_tokens_raises(tmp_path):
     def handler(request):
         if request.url.path.endswith("/app"):

@@ -17,6 +17,7 @@ from typing import ClassVar
 import httpx
 
 from commonplace._fetch._base import BaseFetcher
+from commonplace._fetch._helpers import session_rejected
 from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso_dt
 
 INIT_URL = "https://gemini.google.com/app"
@@ -49,6 +50,9 @@ class GeminiSessionFetcher(BaseFetcher):
         """Scrape SNlM0e (access token), cfb2h (build label), and FdrFJe
         (session id) from the /app page HTML."""
         r = self._get(INIT_URL)
+        # A session Google won't refresh bounces through accounts.google.com to a help page, served 200.
+        if r.url.host != httpx.URL(INIT_URL).host:
+            raise session_rejected(self.service_name, self.login_url, f": /app redirected to {r.url.host}{r.url.path}")
         self._access_token = _require_match(r.text, r'"SNlM0e":"([^"]+)"', "access token (SNlM0e)")
         self._build_label = _require_match(r.text, r'"cfb2h":"([^"]+)"', "build label (cfb2h)")
         self._session_id = _require_match(r.text, r'"FdrFJe":"(-?\d+)"', "session id (FdrFJe)")
