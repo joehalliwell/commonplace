@@ -12,6 +12,9 @@ from commonplace._logging import logger
 from commonplace._search._types import Chunk, Embedder, IndexStat, SearchHit, SearchIndex, SearchMethod
 from commonplace._types import RepoPath
 
+#: The schema this store writes. Version 1 predates the stamp: a database with chunks and no `user_version`.
+INDEX_VERSION = 1
+
 
 class SQLiteSearchIndex(SearchIndex):
     """

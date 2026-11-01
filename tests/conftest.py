@@ -1,6 +1,7 @@
 import gzip
 import json
 import os
+import shutil
 import tempfile
 from collections import Counter
 from contextlib import closing
@@ -12,6 +13,7 @@ import pytest
 from rich.console import Console
 
 from commonplace._repo import Commonplace
+from commonplace._search._sqlite import INDEX_VERSION
 from commonplace._search._types import Chunk
 from commonplace._types import Note, RepoPath
 from commonplace._wire import LEGACY_VERSION, WIRE_VERSION
@@ -122,6 +124,28 @@ class StubEmbedder:
     """
 
     model_id = "stub:another-model"
+
+
+INDEX_EXAMPLES = Path(__file__).parent / "resources" / "index"
+
+
+class IndexExample(NamedTuple):
+    """A scratch copy of a committed example index, and the schema version it demonstrates."""
+
+    version: int
+    path: Path
+
+
+@pytest.fixture(params=range(1, INDEX_VERSION + 1), ids=lambda v: f"index-v{v}")
+def any_index_version(request, tmp_path) -> IndexExample:
+    """One example index per schema version, copied, since opening one may migrate it in place."""
+    version = request.param
+    source = INDEX_EXAMPLES / f"index-v{version}.db"
+    if not source.exists():
+        pytest.fail(f"index v{version} has no example at {source} — add one with the version bump")
+    copy = tmp_path / source.name
+    shutil.copyfile(source, copy)
+    return IndexExample(version, copy)
 
 
 @pytest.fixture

@@ -31,3 +31,7 @@ update-snapshots:
 # Regenerate the example wire archives (one per wire version)
 wire-examples:
     uv run python tests/resources/wire/make_examples.py
+
+# Regenerate the example search indexes (one per index schema version)
+index-examples:
+    uv run python tests/resources/index/make_examples.py
