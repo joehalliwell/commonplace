@@ -311,9 +311,35 @@ TASK_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
 }
 
 
+# Real bodies, redacted, so a fix for a new upstream shape is checked against what Google actually sent.
+# The entry shape is unchanged since v1; only the header differs. One read, of the first listed chat.
+GEMINI_SAMPLES = OUT.parent / "gemini-samples"
+GEMINI_ENTRIES = [
+    {
+        "rpc": "MaZiqc",
+        "payload": [100, None, [1, None, 1]],
+        "response": (GEMINI_SAMPLES / "list_chats.txt").read_text(),
+    },
+    {
+        "rpc": "hNvQHb",
+        "payload": ["c_60772b6269b693f9", 1000, None, 1, [1], [4], None, 1],
+        "response": (GEMINI_SAMPLES / "read_chat.txt").read_text(),
+    },
+]
+GEMINI_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
+    1: (None, GEMINI_ENTRIES),
+    2: ({"wire": "gemini", "version": 2}, GEMINI_ENTRIES),
+    3: (
+        {"wire": "gemini", "version": 3, "fetched_at": "2026-08-09T12:00:00+00:00", "fetched_by": "commonplace/0.0.5"},
+        GEMINI_ENTRIES,
+    ),
+}
+
+
 def main() -> None:
     for source, archives in (
         ("claude", ARCHIVES),
+        ("gemini", GEMINI_ARCHIVES),
         ("claude-memory", MEMORY_ARCHIVES),
         ("claude-tasks", TASK_ARCHIVES),
         ("chatgpt-memory", CHATGPT_MEMORY_ARCHIVES),

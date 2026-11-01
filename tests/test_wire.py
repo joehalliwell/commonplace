@@ -155,6 +155,21 @@ def test_provenance_is_absent_before_v3_and_present_from_v3(any_wire_version):
         assert header.fetched_by == "commonplace/0.0.5"
 
 
+def test_every_gemini_wire_version_imports_to_the_same_conversation(any_gemini_wire_version):
+    """Bodies are Google's as fetched, redacted, so a fix for a new upstream shape must still read these."""
+    assert GeminiImporter().can_import(any_gemini_wire_version.path)
+    [log] = GeminiImporter().import_(any_gemini_wire_version.path)
+    assert (log.metadata["uuid"], log.title, log.metadata["is_pinned"]) == ("c_60772b6269b693f9", "CHAT_TITLE_0", True)
+    assert [e.content for e in log.events] == [
+        "USER_TEXT_2",
+        "MODEL_TEXT_2_0",
+        "USER_TEXT_1",
+        "MODEL_TEXT_1_0",
+        "USER_TEXT_0",
+        "MODEL_TEXT_0_0",
+    ]
+
+
 def test_importers_do_not_claim_each_others_archives(tmp_path):
     """The header makes provider identity declared rather than inferred from
     entry keys, which several providers would otherwise share."""

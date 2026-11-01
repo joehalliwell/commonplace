@@ -213,8 +213,17 @@ def any_wire_version(request) -> WireExample:
     going untested. Every example holds the same conversation, which is what
     lets a test assert that all of them still import to the same thing.
     """
-    version = request.param
-    path = WIRE_EXAMPLES / f"claude-v{version}.jsonl.gz"
+    return _wire_example("claude", request.param)
+
+
+@pytest.fixture(params=range(LEGACY_VERSION, WIRE_VERSION + 1), ids=lambda v: f"gemini-wire-v{v}")
+def any_gemini_wire_version(request) -> WireExample:
+    """One Gemini example archive per wire version, each wrapping the same real (redacted) bodies."""
+    return _wire_example("gemini", request.param)
+
+
+def _wire_example(source: str, version: int) -> WireExample:
+    path = WIRE_EXAMPLES / f"{source}-v{version}.jsonl.gz"
     if not path.exists():
         pytest.fail(f"wire v{version} has no example archive at {path} — add one with the version bump")
     return WireExample(version, path)
