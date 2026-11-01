@@ -3,7 +3,13 @@
 from datetime import datetime
 from pathlib import Path
 
+import httpx
+
+from commonplace._fetch._base import CONNECT_TIMEOUT
 from commonplace._fetch._chatgpt import ChatGptSessionFetcher
+
+#: The summary regenerates on request, and can go quiet while it does: 56 s end to end on 2026-11-01.
+SUMMARY_READ_TIMEOUT = 180.0
 
 
 class ChatGptMemoryFetcher(ChatGptSessionFetcher):
@@ -15,6 +21,12 @@ class ChatGptMemoryFetcher(ChatGptSessionFetcher):
         # Neither endpoint can be asked for changes only, so `since` has nothing to narrow.
         with self._signed_in():
             self._api("GET", "memories", endpoint="memories")
-            self._api("POST", "memories/about_you/summary/stream", endpoint="summary", json={})
+            self._api(
+                "POST",
+                "memories/about_you/summary/stream",
+                endpoint="summary",
+                json={},
+                timeout=httpx.Timeout(SUMMARY_READ_TIMEOUT, connect=CONNECT_TIMEOUT),
+            )
 
         return self._write_archive(destination)

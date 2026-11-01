@@ -65,6 +65,15 @@ def no_request_pacing(monkeypatch):
     monkeypatch.setattr(ChatGptFetcher, "request_interval", 0)
 
 
+def test_summary_waits_longer_than_it_was_seen_to_take(tmp_path):
+    """The summary regenerates on request: 56 s on 2026-11-01, against a 30 s default read timeout."""
+    memory = FakeMemory()
+    memory.fetcher().fetch(tmp_path, since=None)
+
+    [summary] = [r for r in memory.requests if r.url.path.endswith("/summary/stream")]
+    assert summary.extensions["timeout"]["read"] > 56
+
+
 def test_fetch_without_session_cookie_is_blocked(tmp_path):
     with pytest.raises(FetchBlocked):
         FakeMemory().fetcher(cookies={"cf_clearance": "cf"}).fetch(tmp_path, since=None)
