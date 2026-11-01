@@ -137,6 +137,10 @@ class SearchIndex(Protocol):
         """
         ...
 
+    def remove_other_models(self) -> int:
+        """Remove every note indexed under a model other than this store's; return how many."""
+        ...
+
     def record_indexed(self, versions: Iterable[RepoPath]) -> None:
         """Record these versions as indexed, including any that yielded no chunks."""
         ...

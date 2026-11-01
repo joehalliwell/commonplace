@@ -59,5 +59,7 @@ def index(
     # After adding, so the versions being replaced can lend their unchanged chunks' embeddings.
     if prune:
         repo.index.remove(indexed - live)
+        # After the default model changes, the old one's notes are no one's to search.
+        repo.index.remove_other_models()
 
     logger.info("Indexing complete")

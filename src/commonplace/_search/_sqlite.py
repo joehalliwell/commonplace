@@ -186,6 +186,14 @@ class SQLiteSearchIndex(SearchIndex):
         )
         return self._conn.execute("SELECT id FROM notes WHERE model_id = ? AND path = ? AND ref = ?", key).fetchone()[0]
 
+    def remove_other_models(self) -> int:
+        """Remove every note indexed under a model other than this store's, and its chunks by cascade."""
+        removed = self._conn.execute("DELETE FROM notes WHERE model_id != ?", (self._embedder.model_id,)).rowcount
+        self._conn.commit()
+        if removed:
+            logger.info(f"Removed {removed} notes indexed under another embedding model")
+        return removed
+
     def record_indexed(self, versions: Iterable[RepoPath]) -> None:
         """Record these versions as indexed, so one that yielded no chunks is not visited again."""
         for repo_path in versions:
