@@ -6,7 +6,7 @@ Its path through a real fetcher and importer is covered beside each provider's f
 import pytest
 
 from commonplace._fetch._commands import fetch
-from commonplace._fetch._helpers import FetchBlocked
+from commonplace._fetch._helpers import FetchBlocked, NoSession
 
 
 def test_a_blocked_source_does_not_stop_the_others(test_repo):
@@ -27,6 +27,26 @@ def test_a_blocked_source_does_not_stop_the_others(test_repo):
 
     with pytest.raises(FetchBlocked, match="blocked"):
         fetch(test_repo, fetchers=[Blocked(), Stub()], auto_index=False)
+    assert called == ["stub"]
+
+
+def test_a_source_with_no_session_is_skipped_without_failing_the_run(test_repo):
+    """No cookie at all means a service the user doesn't use, which isn't a failure."""
+    called: list[str] = []
+
+    class Unused:
+        source = "unused"
+
+        def fetch(self, destination, since):
+            raise NoSession("Unused rejected the session: Chrome holds no session cookie.")
+
+    class Stub:
+        source = "stub"
+
+        def fetch(self, destination, since):
+            called.append("stub")
+
+    fetch(test_repo, fetchers=[Unused(), Stub()], auto_index=False)
     assert called == ["stub"]
 
 

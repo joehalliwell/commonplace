@@ -37,6 +37,7 @@ import httpx
 from commonplace._config import DEFAULT_UA
 from commonplace._fetch._helpers import (
     FetchBlocked,
+    NoSession,
     Pacer,
     raise_on_session_error,
     raise_unreachable,
@@ -123,14 +124,15 @@ class BaseFetcher:
             return httpx.Cookies(self._injected_cookies)
         return read_chrome_cookies(self.cookie_domain)
 
-    def _no_session(self, cookie: str) -> FetchBlocked:
-        """The error for a browser that holds no `cookie` for this provider."""
-        return session_rejected(self.service_name, self.login_url, f": Chrome holds no {cookie} cookie")
+    def _no_session(self) -> FetchBlocked:
+        """The error for a browser that holds no session cookie for this provider."""
+        detail = f": Chrome holds no {self.session_cookie} cookie"
+        return session_rejected(self.service_name, self.login_url, detail, kind=NoSession)
 
     def _check_session(self, cookies: httpx.Cookies) -> None:
         """Raise `FetchBlocked` unless `cookies` hold a usable session."""
         if not cookies.get(self.session_cookie):
-            raise self._no_session(self.session_cookie)
+            raise self._no_session()
 
     def _authorise(self, client: httpx.Client) -> None:
         """Whatever the API needs between opening the client and its first real call; nothing by default."""

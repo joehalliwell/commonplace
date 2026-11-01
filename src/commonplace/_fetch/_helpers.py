@@ -109,6 +109,10 @@ class FetchBlocked(RuntimeError):
     without a traceback. Raise this only when the text says what to do."""
 
 
+class NoSession(FetchBlocked):
+    """The browser holds no session cookie at all, which most often means a service the user doesn't use."""
+
+
 def raise_on_session_error(response: httpx.Response, service_name: str, login_url: str) -> None:
     """Raise `FetchBlocked` with remediation on 401/403, otherwise
     `raise_for_status` on any other non-success. Every fetcher should call this
@@ -128,9 +132,11 @@ def raise_on_session_error(response: httpx.Response, service_name: str, login_ur
     response.raise_for_status()
 
 
-def session_rejected(service_name: str, login_url: str, detail: str = "") -> FetchBlocked:
+def session_rejected(
+    service_name: str, login_url: str, detail: str = "", kind: type[FetchBlocked] = FetchBlocked
+) -> FetchBlocked:
     """The error for a session the provider won't accept, with `detail` saying how we know."""
-    return FetchBlocked(
+    return kind(
         f"{service_name} rejected the session{detail}.\n"
         f"  1. Log in at {login_url} in Chrome.\n"
         "  2. Re-run the same command."

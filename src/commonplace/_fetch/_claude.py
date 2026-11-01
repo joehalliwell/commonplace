@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 import httpx
 
 from commonplace._fetch._base import BaseFetcher
+from commonplace._fetch._helpers import session_rejected
 
 #: The Code sessions API rejects a request without it, cookie or not.
 ANTHROPIC_VERSION = "2023-06-01"
@@ -44,7 +45,7 @@ class ClaudeSessionFetcher(BaseFetcher):
         super()._check_session(cookies)
         org_uuid = cookies.get("lastActiveOrg")
         if not org_uuid:
-            raise self._no_session("lastActiveOrg")
+            raise session_rejected(self.service_name, self.login_url, ": Chrome holds no lastActiveOrg cookie")
         self._org_uuid = org_uuid
 
     def _api(

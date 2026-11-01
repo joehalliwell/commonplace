@@ -19,7 +19,7 @@ from commonplace._fetch._claude_tasks import ClaudeTasksFetcher
 from commonplace._fetch._commands import default_fetchers
 from commonplace._fetch._gemini import GeminiFetcher
 from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
-from commonplace._fetch._helpers import FetchBlocked
+from commonplace._fetch._helpers import FetchBlocked, NoSession
 from commonplace._fetch._types import Fetcher
 from commonplace._wire import read_header
 
@@ -67,8 +67,8 @@ def test_default_fetchers_cover_every_provider(test_repo):
 
 
 @pytest.mark.parametrize("fetcher_class", FETCHERS, ids=lambda c: c.source)
-def test_fetch_without_session_cookie_is_blocked_saying_where_to_log_in(fetcher_class, tmp_path):
-    with pytest.raises(FetchBlocked) as excinfo:
+def test_fetch_without_session_cookie_raises_no_session_saying_where_to_log_in(fetcher_class, tmp_path):
+    with pytest.raises(NoSession) as excinfo:
         fetcher_class(cookies={}).fetch(tmp_path, since=None)
 
     assert fetcher_class.service_name in str(excinfo.value)
