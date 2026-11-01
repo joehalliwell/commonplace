@@ -293,6 +293,37 @@ def untag(spec: NodeSpec, *tags: str, repo: Repo) -> None:
         raise SystemExit(1) from e
 
 
+@app.command(group=ANNOTATING_SECTION)
+def link(
+    source: Annotated[str, Parameter(help="The note the link is about, named as a wikilink would")],
+    target: Annotated[
+        str, Parameter(help="Where it points: a note, or a span in one ('note#Heading', 'note#\"phrase\"')")
+    ],
+    *why: str,
+    repo: Repo,
+) -> None:
+    """Link one note to another, in the first note's marginalia; the rest of the line says why."""
+    from commonplace._marginalia import link as add_link
+
+    try:
+        add_link(repo, source, target, " ".join(why))
+    except ValueError as e:
+        logger.error(str(e))
+        raise SystemExit(1) from e
+
+
+@app.command(group=ANNOTATING_SECTION)
+def unlink(source: NodeSpec, target: NodeSpec, *, repo: Repo) -> None:
+    """Remove a note's links to a target from its marginalia."""
+    from commonplace._marginalia import unlink as remove_link
+
+    try:
+        remove_link(repo, source, target)
+    except ValueError as e:
+        logger.error(str(e))
+        raise SystemExit(1) from e
+
+
 ################################################################################
 # System commands
 ################################################################################

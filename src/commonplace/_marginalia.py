@@ -1,15 +1,18 @@
 """Marginalia: what's been said about a note since, kept in a shadow tree beside it rather than in it.
 
 A note's sidecar sits at its path under `.commonplace/marginalia/`. Notes owned by another system of record
-are rewritten on every fetch, and primitives are immutable, so this is the one place to tag any note.
-Frontmatter holds current state (`tags`); the body is a log, appended to and never rewritten by tag changes.
+are rewritten on every fetch, and primitives are immutable, so this is the one place to say anything about any note.
+Frontmatter holds current state (`tags`); the body is a log of dated lines, appended to and never rewritten by tag
+changes. Every wikilink in the body is an edge from the note.
 """
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
+from datetime import date
 from pathlib import Path
 
-from commonplace._links import UnresolvedNote, resolve
+from commonplace._links import Target, UnresolvedNote, resolve, resolve_target
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
@@ -36,6 +39,27 @@ class Sidecar:
     def untagged(self, *tags: str) -> "Sidecar":
         """This sidecar without `tags`."""
         return replace(self, tags=[tag for tag in self.tags if tag not in tags])
+
+    @property
+    def edges(self) -> list[str]:
+        """Every wikilink target in the body, in order: each is an edge from this note, prose or not."""
+        return _WIKILINK_TARGET.findall(self.body)
+
+    def linked(self, target: Target, why: str, on: date) -> "Sidecar":
+        """This sidecar with an edge to `target` appended as a dated line."""
+        line = f"- {on.isoformat()} [[{target}]]" + (f" {why}" if why else "")
+        body = self.body if not self.body or self.body.endswith("\n") else self.body + "\n"
+        return replace(self, body=f"{body}{line}\n")
+
+    def unlinked(self, target: Target) -> tuple["Sidecar", int]:
+        """This sidecar without the body lines that link to exactly `target`, and how many went."""
+        marker = f"[[{target}]]"
+        kept = [line for line in self.body.splitlines(keepends=True) if marker not in line]
+        removed = len(self.body.splitlines(keepends=True)) - len(kept)
+        return replace(self, body="".join(kept)), removed
+
+
+_WIKILINK_TARGET = re.compile(r"\[\[([^[\]\n]+)]]")
 
 
 def sidecar_path(node: Path) -> Path:
@@ -73,10 +97,37 @@ def untag(repo: Commonplace, spec: str, tags: list[str]) -> list[Path]:
 
 
 def notes_named(repo: Commonplace, spec: str) -> list[Path]:
-    """The whole notes `spec` names; a span is refused, since tags describe whole notes."""
+    """The whole notes `spec` names; a span is refused, since a sidecar speaks for a whole note."""
     if "#" in spec:
-        raise UnresolvedNote(f"'{spec}' names a span; tags apply to whole notes")
+        raise UnresolvedNote(f"'{spec}' names a span; marginalia belong to whole notes")
     return resolve(spec, list(repo.paths()))
+
+
+def link(repo: Commonplace, from_spec: str, to_spec: str, why: str, on: date | None = None) -> Target:
+    """Add an edge from a whole note to a note or a span in one, committing as the user; returns the target."""
+    files = list(repo.paths())
+    if "#" in from_spec:
+        raise UnresolvedNote(f"'{from_spec}' names a span; marginalia belong to whole notes")
+    source = resolve_target(from_spec, repo.root, files).note
+    target = resolve_target(to_spec, repo.root, files)
+    today = date.today()  # noqa: DTZ011 - the user's local day, as the journal's
+    sidecar = read_sidecar(repo.root, source).linked(target, why, on or today)
+    write_sidecar(repo, replace(sidecar, ref=repo.make_repo_path(source).ref))
+    repo.commit(f"Link {from_spec} to {target}", auto_index=False, as_user=True)
+    return target
+
+
+def unlink(repo: Commonplace, from_spec: str, to_spec: str) -> int:
+    """Remove a note's edges to exactly `to_spec`'s target, committing as the user; returns how many went."""
+    files = list(repo.paths())
+    source = resolve_target(from_spec, repo.root, files).note
+    target = resolve_target(to_spec, repo.root, files)
+    sidecar, removed = read_sidecar(repo.root, source).unlinked(target)
+    if not removed:
+        raise ValueError(f"'{from_spec}' has no link to {target}")
+    write_sidecar(repo, sidecar)
+    repo.commit(f"Unlink {from_spec} from {target}", auto_index=False, as_user=True)
+    return removed
 
 
 def _retag(repo: Commonplace, spec: str, change: Callable[[Sidecar], Sidecar], message: str) -> list[Path]:
