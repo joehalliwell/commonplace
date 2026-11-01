@@ -170,6 +170,26 @@ def test_index_gives_a_once_empty_note_its_chunks_when_it_gains_text(test_repo, 
     assert versions == {test_repo.make_repo_path("journal/day.md")}
 
 
+def test_index_drops_another_models_notes(test_repo, other_model_index, make_chunk):
+    """After the default model changes, the old one's chunks would otherwise sit in the index for good."""
+    chunk = make_chunk(path="old.md", section="S", text="The old model's view", offset=0)
+    other_model_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+
+    _commands.index(test_repo)
+
+    assert set(other_model_index.get_indexed_paths()) == set()
+
+
+def test_index_without_pruning_keeps_another_models_notes(test_repo, other_model_index, make_chunk):
+    """Comparing two models in one index, in development, stays possible."""
+    chunk = make_chunk(path="old.md", section="S", text="The old model's view", offset=0)
+    other_model_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+
+    _commands.index(test_repo, prune=False)
+
+    assert set(other_model_index.get_indexed_paths()) == {chunk.repo_path}
+
+
 def test_search_hides_deleted_notes(test_repo, make_note):
     """A note deleted since the last index run is gone from results, index not yet pruned."""
     test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nOzymandias king of kings.\n"))

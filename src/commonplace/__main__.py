@@ -289,7 +289,9 @@ def init(root: Path) -> None:
 def index(
     *,
     rebuild: Annotated[bool, Parameter(help="Rebuild the index from scratch")] = False,
-    prune: Annotated[bool, Parameter(help="Drop chunks for deleted or edited notes")] = True,
+    prune: Annotated[
+        bool, Parameter(help="Drop chunks for deleted or edited notes, and any from another embedding model")
+    ] = True,
     repo: Repo,
 ) -> None:
     """Build or rebuild the search index for semantic search."""

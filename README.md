@@ -168,8 +168,10 @@ merely *edited* keeps matching on its old text until the next index run — it i
 still there to open, so a slightly stale quote beats losing the note from
 search in the meantime.
 
-Embeddings are computed locally (fastembed, `BAAI/bge-small-en-v1.5`) — the
-model downloads on first use and nothing leaves your machine. The index lives
+Embeddings are computed locally (fastembed, `snowflake/snowflake-arctic-embed-xs`)
+— the model downloads on first use and nothing leaves your machine. When the
+model changes, the next index run re-embeds everything and drops the old
+model's entries. The index lives
 at `.commonplace/cache/index.db` and is not tracked by git. Every `.md` file is
 indexed except those git ignores or that sit under a dot-directory
 (`.commonplace/`, `.claude/`, …), which hold tool state, not notes. Only a

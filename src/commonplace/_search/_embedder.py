@@ -9,9 +9,8 @@ from commonplace._logging import logger
 from commonplace._search._types import Embedder
 
 _ALIASES = {
-    "default": "fastembed:BAAI/bge-small-en-v1.5"
-    # "default": "sentence-transformers:all-MiniLM-L6-v2",
-    # "default": "fastembed:sentence-transformers/all-MiniLM-L6-v2"
+    # Six layers to bge-small-en-v1.5's twelve, so about twice as fast, at much the same retrieval quality.
+    "default": "fastembed:snowflake/snowflake-arctic-embed-xs",
 }
 
 
