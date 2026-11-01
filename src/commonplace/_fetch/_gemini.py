@@ -50,9 +50,11 @@ class GeminiSessionFetcher(BaseFetcher):
         """Scrape SNlM0e (access token), cfb2h (build label), and FdrFJe
         (session id) from the /app page HTML."""
         r = self._get(INIT_URL)
-        # A session Google won't refresh bounces through accounts.google.com to a help page, served 200.
+        # A session Google won't accept bounces through accounts.google.com to a help page, served 200.
         if r.url.host != httpx.URL(INIT_URL).host:
-            raise session_rejected(self.service_name, self.login_url, f": /app redirected to {r.url.host}{r.url.path}")
+            landed = f"{r.url.host}{r.url.path}"
+            detail = f": /app redirected to {landed}. If Chrome is signed in, the cookies sent don't match its session"
+            raise session_rejected(self.service_name, self.login_url, detail)
         self._access_token = _require_match(r.text, r'"SNlM0e":"([^"]+)"', "access token (SNlM0e)")
         self._build_label = _require_match(r.text, r'"cfb2h":"([^"]+)"', "build label (cfb2h)")
         self._session_id = _require_match(r.text, r'"FdrFJe":"(-?\d+)"', "session id (FdrFJe)")
