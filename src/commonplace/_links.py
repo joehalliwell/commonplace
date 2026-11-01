@@ -1,5 +1,6 @@
 """Find the links in a repository's markdown, and check that they land somewhere."""
 
+import fnmatch
 import os
 import re
 from collections.abc import Callable, Collection, Iterator
@@ -205,6 +206,31 @@ def _is_named(path: Path, name: str) -> bool:
         f"/{written}" == name or written == name or written.endswith(f"/{name}")
         for written in (path.as_posix(), path.with_suffix("").as_posix())
     )
+
+
+class UnresolvedNote(ValueError):
+    """A spec that names no note, or more than one where one was meant."""
+
+
+def resolve(spec: str, files: Collection[Path]) -> list[Path]:
+    """The notes a wikilink-style spec names: exactly one, or every match of a glob, or `UnresolvedNote`.
+
+    Stricter than a link check, which accepts any note of the name: a command that writes must know which.
+    """
+    name = spec.removeprefix("[[").removesuffix("]]").split("#")[0].strip()
+    notes = sorted(path for path in files if path.suffix == ".md")
+    if "*" in name:
+        matched = [path for path in notes if fnmatch.fnmatchcase(path.as_posix(), name.lstrip("/"))]
+        if not matched:
+            raise UnresolvedNote(f"'{spec}' matches no note")
+        return matched
+    found = [path for path in notes if _is_named(path, name)]
+    if not found:
+        raise UnresolvedNote(f"'{spec}' names no note")
+    if len(found) > 1:
+        candidates = "\n".join(f"  /{path.with_suffix('').as_posix()}" for path in found)
+        raise UnresolvedNote(f"'{spec}' names {len(found)} notes; say which:\n{candidates}")
+    return found
 
 
 def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]], present: set[Path]) -> str:

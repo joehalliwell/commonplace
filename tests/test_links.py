@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from commonplace._links import BrokenLink, LinkKind, check_links, extract_links
+from commonplace._links import BrokenLink, LinkKind, UnresolvedNote, check_links, extract_links, resolve
 
 SOURCE = Path("notes/note.md")
 
@@ -454,3 +454,61 @@ def test_check_links_ambiguous_basename_yields_no_suggestion(tmp_path):
     broken = check(tmp_path)
     assert len(broken) == 1
     assert broken[0].suggestion is None
+
+
+# ---------------------------------------------------------------------------
+# Resolving a wikilink-style spec to the notes it names, for commands that write.
+# ---------------------------------------------------------------------------
+
+NOTES = [
+    Path("notes/ideas.md"),
+    Path("notes/todo.md"),
+    Path("notes/ideas/band-names.md"),
+    Path("journal/2026/11/2026-11-01.md"),
+    Path("chats/claude/2026/06/tea.md"),
+    Path("chats/gemini/2026/05/tea.md"),
+    Path("chats/claude-tasks/2026/10/log.md"),
+    Path("chats/claude-tasks/2026/11/log.md"),
+]
+
+
+@pytest.mark.parametrize(
+    "spec",
+    ["ideas", "notes/ideas", "/notes/ideas", "/notes/ideas.md", "ideas.md", "[[ideas]]", "[[/notes/ideas]]"],
+)
+def test_resolve_names_a_note_the_ways_a_wikilink_can(spec):
+    assert resolve(spec, NOTES) == [Path("notes/ideas.md")]
+
+
+def test_resolve_an_ambiguous_name_fails_listing_rooted_candidates():
+    """A command that writes must know which note; doctor's checks may accept any match."""
+    with pytest.raises(UnresolvedNote) as excinfo:
+        resolve("tea", NOTES)
+
+    assert "/chats/claude/2026/06/tea" in str(excinfo.value)
+    assert "/chats/gemini/2026/05/tea" in str(excinfo.value)
+
+
+def test_resolve_a_longer_tail_disambiguates():
+    assert resolve("gemini/2026/05/tea", NOTES) == [Path("chats/gemini/2026/05/tea.md")]
+
+
+def test_resolve_a_name_nothing_has_fails():
+    with pytest.raises(UnresolvedNote, match="nothing"):
+        resolve("nothing", NOTES)
+
+
+def test_resolve_a_glob_expands_over_rooted_paths():
+    assert resolve("/chats/claude-tasks/**", NOTES) == [
+        Path("chats/claude-tasks/2026/10/log.md"),
+        Path("chats/claude-tasks/2026/11/log.md"),
+    ]
+
+
+def test_resolve_a_glob_matching_nothing_fails():
+    with pytest.raises(UnresolvedNote):
+        resolve("/chats/chatgpt/**", NOTES)
+
+
+def test_resolve_ignores_a_fragment_leaving_it_to_the_caller():
+    assert resolve("ideas#Tea house", NOTES) == [Path("notes/ideas.md")]
