@@ -313,6 +313,25 @@ def link(
 
 
 @app.command(group=ANNOTATING_SECTION)
+def backlinks(
+    spec: NodeSpec,
+    *,
+    include_hidden: Annotated[bool, Parameter(help="Include links from notes tagged hidden")] = False,
+    repo: Repo,
+) -> None:
+    """List what links to a note: edges in marginalia, and links in notes' own text."""
+    from commonplace._marginalia import backlinks as find_backlinks
+
+    try:
+        found = find_backlinks(repo, spec, include_hidden)
+    except ValueError as e:
+        logger.error(str(e))
+        raise SystemExit(1) from e
+    for backlink in found:
+        print(f"/{backlink.source.with_suffix('').as_posix()}  {backlink.context}")
+
+
+@app.command(group=ANNOTATING_SECTION)
 def unlink(source: NodeSpec, target: NodeSpec, *, repo: Repo) -> None:
     """Remove a note's links to a target from its marginalia."""
     from commonplace._marginalia import unlink as remove_link
