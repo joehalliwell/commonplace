@@ -170,8 +170,8 @@ search in the meantime.
 
 Embeddings are computed locally (fastembed, `snowflake/snowflake-arctic-embed-xs`)
 — the model downloads on first use and nothing leaves your machine. When the
-model changes, the next index run re-embeds everything and drops the old
-model's entries. The index lives
+model changes, run `commonplace index --rebuild`: it drops the old model's
+entries and re-embeds everything. The index lives
 at `.commonplace/cache/index.db` and is not tracked by git. Every `.md` file is
 indexed except those git ignores or that sit under a dot-directory
 (`.commonplace/`, `.claude/`, …), which hold tool state, not notes. Only a

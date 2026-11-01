@@ -7,6 +7,7 @@ import numpy as np
 from commonplace._search import _commands
 from commonplace._search._types import Chunk
 from commonplace._types import RepoPath
+from tests.conftest import StubEmbedder
 
 
 def _delete(repo, path: str) -> None:
@@ -170,24 +171,25 @@ def test_index_gives_a_once_empty_note_its_chunks_when_it_gains_text(test_repo, 
     assert versions == {test_repo.make_repo_path("journal/day.md")}
 
 
-def test_index_drops_another_models_notes(test_repo, other_model_index, make_chunk):
-    """After the default model changes, the old one's chunks would otherwise sit in the index for good."""
+def test_index_keeps_another_models_notes_but_warns(test_repo, other_model_index, make_chunk, caplog):
+    """Dropping a model's index costs a full re-embed to undo, so `index` only says it's there."""
     chunk = make_chunk(path="old.md", section="S", text="The old model's view", offset=0)
     other_model_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
 
     _commands.index(test_repo)
 
-    assert set(other_model_index.get_indexed_paths()) == set()
+    assert set(other_model_index.get_indexed_paths()) == {chunk.repo_path}
+    assert [r for r in caplog.records if r.levelname == "WARNING" and StubEmbedder.model_id in r.getMessage()]
 
 
-def test_index_without_pruning_keeps_another_models_notes(test_repo, other_model_index, make_chunk):
-    """Comparing two models in one index, in development, stays possible."""
+def test_index_rebuild_drops_another_models_notes(test_repo, other_model_index, make_chunk):
+    """The way to switch models: clearing first lets the new rows reuse the old ones' space."""
     chunk = make_chunk(path="old.md", section="S", text="The old model's view", offset=0)
     other_model_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
 
-    _commands.index(test_repo, prune=False)
+    _commands.index(test_repo, rebuild=True)
 
-    assert set(other_model_index.get_indexed_paths()) == {chunk.repo_path}
+    assert set(other_model_index.get_indexed_paths()) == set()
 
 
 def test_search_hides_deleted_notes(test_repo, make_note):
