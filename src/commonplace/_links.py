@@ -233,6 +233,38 @@ def resolve(spec: str, files: Collection[Path]) -> list[Path]:
     return found
 
 
+@dataclass(frozen=True)
+class Target:
+    """One note, and optionally a span in it: a heading's text, or a quoted phrase."""
+
+    note: Path  # Relative to the root
+    fragment: str = ""
+
+    def __str__(self) -> str:
+        """Rooted and without `.md`, so a later note of the same name can't make it ambiguous."""
+        rooted = "/" + self.note.with_suffix("").as_posix()
+        return f"{rooted}#{self.fragment}" if self.fragment else rooted
+
+
+def resolve_target(spec: str, root: Path, files: Collection[Path]) -> Target:
+    """The one note `spec` names, with its span checked against the note: `#Heading` or `#"exact phrase"`."""
+    if "*" in spec:
+        raise UnresolvedNote(f"'{spec}' is a glob; a link joins one note to one note")
+    [note] = resolve(spec, files)
+    _, _, fragment = spec.removeprefix("[[").removesuffix("]]").partition("#")
+    if fragment and not _has_span(root / note, fragment):
+        raise UnresolvedNote(f"'{spec}': no such heading or phrase in /{note.with_suffix('').as_posix()}")
+    return Target(note, fragment)
+
+
+def _has_span(path: Path, fragment: str) -> bool:
+    """Whether the note has a heading reading `fragment` exactly, or for `"phrase"`, contains the phrase."""
+    text = path.read_text(errors="replace")
+    if len(fragment) > 1 and fragment.startswith('"') and fragment.endswith('"'):
+        return fragment[1:-1] in text
+    return any(line.lstrip("#").strip() == fragment for line in text.splitlines() if line.startswith("#"))
+
+
 def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]], present: set[Path]) -> str:
     """Why `link` lands nowhere — empty if it lands somewhere."""
     if link.kind is LinkKind.WIKILINK:

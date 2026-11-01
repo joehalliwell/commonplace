@@ -4,7 +4,15 @@ from pathlib import Path
 
 import pytest
 
-from commonplace._links import BrokenLink, LinkKind, UnresolvedNote, check_links, extract_links, resolve
+from commonplace._links import (
+    BrokenLink,
+    LinkKind,
+    UnresolvedNote,
+    check_links,
+    extract_links,
+    resolve,
+    resolve_target,
+)
 
 SOURCE = Path("notes/note.md")
 
@@ -512,3 +520,47 @@ def test_resolve_a_glob_matching_nothing_fails():
 
 def test_resolve_ignores_a_fragment_leaving_it_to_the_caller():
     assert resolve("ideas#Tea house", NOTES) == [Path("notes/ideas.md")]
+
+
+# ---------------------------------------------------------------------------
+# A link target: one note, and optionally a span inside it.
+# ---------------------------------------------------------------------------
+
+IDEAS = "# Ideas\n\n## Tea house\n\nA tea house by the river, open late.\n\n## Joe [created:: 2026-11-01]\n\nMore.\n"
+
+
+@pytest.fixture
+def ideas_root(tmp_path) -> Path:
+    (tmp_path / "notes").mkdir()
+    (tmp_path / "notes/ideas.md").write_text(IDEAS)
+    return tmp_path
+
+
+@pytest.mark.parametrize(
+    ("spec", "rooted"),
+    [
+        ("ideas", "/notes/ideas"),
+        ("[[notes/ideas.md]]", "/notes/ideas"),
+        ("ideas#Tea house", "/notes/ideas#Tea house"),
+        ("ideas#Joe [created:: 2026-11-01]", "/notes/ideas#Joe [created:: 2026-11-01]"),
+        ('ideas#"by the river, open"', '/notes/ideas#"by the river, open"'),
+    ],
+)
+def test_resolve_target_renders_rooted_whatever_was_typed(ideas_root, spec, rooted):
+    """Rooted, so a later note of the same name can't make an old edge ambiguous."""
+    target = resolve_target(spec, ideas_root, [Path("notes/ideas.md")])
+
+    assert str(target) == rooted
+    assert target.note == Path("notes/ideas.md")
+
+
+@pytest.mark.parametrize("spec", ["ideas#No such heading", 'ideas#"not in the note"', "ideas#Tea"])
+def test_resolve_target_refuses_a_span_the_note_lacks(ideas_root, spec):
+    with pytest.raises(UnresolvedNote, match="ideas"):
+        resolve_target(spec, ideas_root, [Path("notes/ideas.md")])
+
+
+def test_resolve_target_refuses_a_glob(ideas_root):
+    """An edge joins two notes; tagging is what takes globs."""
+    with pytest.raises(UnresolvedNote, match="one note"):
+        resolve_target("/notes/*", ideas_root, [Path("notes/ideas.md")])
