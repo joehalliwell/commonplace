@@ -10,6 +10,7 @@ from commonplace._links import UnresolvedNote
 from commonplace._marginalia import (
     MARGINALIA_VERSION,
     Sidecar,
+    backlinks,
     link,
     read_sidecar,
     sidecar_path,
@@ -193,6 +194,36 @@ def test_link_cli_takes_the_rest_of_the_line_as_why(notes, as_joe, test_app):
 
     [line] = read_sidecar(notes.root, NODE).body.splitlines()
     assert line.endswith("[[/chats/claude-tasks/2026/10/log]] filed as an idea")
+
+
+def test_backlinks_gather_marginalia_edges_and_links_in_notes(notes, as_joe, make_note):
+    notes.save(make_note(path="journal/2026-11-02.md", content="# Day\n\nAdded to [[ideas]].\n"))
+    notes.commit("Journal", auto_index=False)
+    link(notes, "2026/10/log", 'ideas#"Some text."', "the same thought", on=date(2026, 11, 2))
+
+    found = {(str(b.source), b.context) for b in backlinks(notes, "ideas")}
+
+    assert found == {
+        ("chats/claude-tasks/2026/10/log.md", '- 2026-11-02 [[/notes/ideas#"Some text."]] the same thought'),
+        ("journal/2026-11-02.md", "line 3"),
+    }
+
+
+def test_backlinks_leave_out_hidden_sources_unless_asked(notes, as_joe):
+    link(notes, "2026/10/log", "ideas", "", on=date(2026, 11, 2))
+    tag(notes, "2026/10/log", ["hidden"])
+
+    assert backlinks(notes, "ideas") == []
+    assert len(backlinks(notes, "ideas", include_hidden=True)) == 1
+
+
+def test_backlinks_cli_prints_each_source_rooted(notes, as_joe, test_app, capsys):
+    link(notes, "2026/10/log", "ideas", "filed", on=date(2026, 11, 2))
+    capsys.readouterr()
+
+    assert test_app(["backlinks", "ideas"]) == 0
+
+    assert capsys.readouterr().out == "/chats/claude-tasks/2026/10/log  - 2026-11-02 [[/notes/ideas]] filed\n"
 
 
 def test_a_sidecar_newer_than_this_release_is_refused(tmp_path):

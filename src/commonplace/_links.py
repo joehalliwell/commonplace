@@ -200,7 +200,7 @@ def _unique(index: dict[str, list[Path]], name: str) -> Path | None:
     return found[0] if len(found) == 1 else None
 
 
-def _is_named(path: Path, name: str) -> bool:
+def is_named(path: Path, name: str) -> bool:
     """True if `name` is how a wikilink would write `path`: its tail, or from `/` its whole path, either extension."""
     return any(
         f"/{written}" == name or written == name or written.endswith(f"/{name}")
@@ -224,7 +224,7 @@ def resolve(spec: str, files: Collection[Path]) -> list[Path]:
         if not matched:
             raise UnresolvedNote(f"'{spec}' matches no note")
         return matched
-    found = [path for path in notes if _is_named(path, name)]
+    found = [path for path in notes if is_named(path, name)]
     if not found:
         raise UnresolvedNote(f"'{spec}' names no note")
     if len(found) > 1:
@@ -269,23 +269,41 @@ def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]], present
     """Why `link` lands nowhere — empty if it lands somewhere."""
     if link.kind is LinkKind.WIKILINK:
         # A wikilink names a note, not a location: any note with that name will do.
-        found = any(_is_named(path, link.target) for path in index.get(Path(link.target).name, []))
+        found = any(is_named(path, link.target) for path in index.get(Path(link.target).name, []))
         return "" if found else "no note with that name"
 
-    target = unquote(link.target.split("#")[0].split("?")[0])
-    if not target:
+    if not unquote(link.target.split("#")[0].split("?")[0]):
         return "empty target"
-
-    # Citations are written from the repository root, wherever they appear.
-    root_relative = link.kind is LinkKind.CITATION or target.startswith("/")
-    base = root if root_relative else root / link.source.parent
-    candidate = Path(os.path.normpath(base / target.lstrip("/")))
-
+    candidate = _landing(link, root)
     if not candidate.is_relative_to(root):
         return "outside the repository"
     if candidate.relative_to(root) in present:
         return ""
     return "on disk but not in the repository" if candidate.exists() else "no such file"
+
+
+def _landing(link: Link, root: Path) -> Path:
+    """The absolute path a path link or citation points at; citations are written from the root, wherever they are."""
+    target = unquote(link.target.split("#")[0].split("?")[0])
+    root_relative = link.kind is LinkKind.CITATION or target.startswith("/")
+    base = root if root_relative else root / link.source.parent
+    return Path(os.path.normpath(base / target.lstrip("/")))
+
+
+def links_to(note: Path, root: Path, files: Collection[Path], *, skip: Collection[str] = SKIPPED_ROOTS) -> list[Link]:
+    """Every link in the markdown among `files` that lands on `note`, in file order; chats quote, so are skipped."""
+    found = []
+    for path in sorted(files):
+        if path.suffix != ".md" or path.parts[0] in tuple(skip) or path == note:
+            continue
+        for link in extract_links((root / path).read_text(errors="replace"), source=path):
+            if link.kind is LinkKind.WIKILINK:
+                lands = is_named(note, link.target)
+            else:
+                lands = unquote(link.target.split("#")[0]) != "" and _landing(link, root) == root / note
+            if lands:
+                found.append(link)
+    return found
 
 
 def check_links(

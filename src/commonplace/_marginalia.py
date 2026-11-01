@@ -12,7 +12,7 @@ from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 
-from commonplace._links import Target, UnresolvedNote, resolve, resolve_target
+from commonplace._links import Target, UnresolvedNote, is_named, links_to, resolve, resolve_target
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
@@ -137,6 +137,30 @@ def _retag(repo: Commonplace, spec: str, change: Callable[[Sidecar], Sidecar], m
         write_sidecar(repo, replace(sidecar, ref=repo.make_repo_path(node).ref))
     repo.commit(message, auto_index=False, as_user=True)
     return nodes
+
+
+@dataclass(frozen=True)
+class Backlink:
+    """A note that links to another, and where: its marginalia line, or the line of its own text."""
+
+    source: Path
+    context: str
+
+
+def backlinks(repo: Commonplace, spec: str, include_hidden: bool = False) -> list[Backlink]:
+    """What links to the note `spec` names: edges in other notes' marginalia, then links in notes' own text."""
+    [note] = notes_named(repo, spec)
+    found = []
+    shadow = repo.root / MARGINALIA_ROOT
+    for path in sorted(shadow.rglob("*.md")):
+        source = path.relative_to(shadow)
+        for line in read_sidecar(repo.root, source).body.splitlines():
+            names = (target.split("#")[0] for target in _WIKILINK_TARGET.findall(line))
+            if any(is_named(note, name) for name in names):
+                found.append(Backlink(source, line))
+    found += [Backlink(link.source, f"line {link.line}") for link in links_to(note, repo.root, list(repo.paths()))]
+    hidden = set() if include_hidden else tagged(repo.root, "hidden")
+    return [backlink for backlink in found if backlink.source not in hidden]
 
 
 def write_sidecar(repo: Commonplace, sidecar: Sidecar) -> None:
