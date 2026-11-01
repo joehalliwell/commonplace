@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from commonplace._import._render import render as replay
 from commonplace._links import check_links, summarize
 from commonplace._logging import logger
+from commonplace._marginalia import check_marginalia
 from commonplace._repo import Commonplace
 
 _CLAUDE_SETTINGS = ".claude/settings.json"
@@ -27,10 +28,15 @@ type Step = Callable[[Commonplace, bool], DoctorReport]
 
 
 def doctor(
-    repo: Commonplace, check: bool = False, scaffold: bool = True, links: bool = True, render: bool = False
+    repo: Commonplace,
+    check: bool = False,
+    scaffold: bool = True,
+    links: bool = True,
+    marginalia: bool = True,
+    render: bool = False,
 ) -> DoctorReport:
     """Run the selected operations in order, logging each as it goes; `render` is off as it takes minutes."""
-    steps = ((_scaffold, scaffold), (_links, links), (_render, render))  # In run order
+    steps = ((_scaffold, scaffold), (_links, links), (_marginalia, marginalia), (_render, render))  # In run order
     reports = []
     for n, (step, selected) in enumerate(steps, 1):
         reports.append(_run(step, selected, repo, check, f"{n}/{len(steps)}"))
@@ -76,6 +82,12 @@ def _restored(path: str) -> str:
 def _links(repo: Commonplace, check: bool) -> DoctorReport:
     """Find broken links; there is nothing to write."""
     return DoctorReport(actions=[], warnings=summarize(check_links(repo.root, list(repo.paths()))))
+
+
+def _marginalia(repo: Commonplace, check: bool) -> DoctorReport:
+    """Re-attach sidecars whose note moved; report those whose note is gone, and links that no longer resolve."""
+    actions, warnings = check_marginalia(repo, check)
+    return DoctorReport(actions=actions, warnings=warnings)
 
 
 def _render(repo: Commonplace, check: bool) -> DoctorReport:

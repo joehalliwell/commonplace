@@ -163,6 +163,46 @@ def backlinks(repo: Commonplace, spec: str, include_hidden: bool = False) -> lis
     return [backlink for backlink in found if backlink.source not in hidden]
 
 
+def check_marginalia(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
+    """Re-attach sidecars whose note moved, committing as the bot; report those whose note is gone, and dead edges."""
+    files = list(repo.paths())
+    present = set(files)
+    actions, gone = [], []
+    for node in _sidecar_nodes(repo.root):
+        if node in present:
+            continue
+        sidecar = read_sidecar(repo.root, node)
+        moved = repo.renamed_since(sidecar.ref).get(node) if sidecar.ref else None
+        if moved is None or moved not in present or (repo.root / sidecar_path(moved)).exists():
+            gone.append(f"  {node}")
+            continue
+        if check:
+            actions.append(f"Would move the marginalia for {node} to {moved}")
+            continue
+        repo.remove(sidecar_path(node))
+        write_sidecar(repo, replace(sidecar, node=moved, ref=repo.make_repo_path(moved).ref))
+        actions.append(f"Moved the marginalia for {node} to {moved}")
+    if actions and not check:
+        repo.commit("Re-attach marginalia to moved notes", auto_index=False)
+
+    warnings = []
+    if gone:
+        warnings.append(f"{len(gone)} sidecars outlive their notes, kept as the record of them:\n" + "\n".join(gone))
+    for node in _sidecar_nodes(repo.root):
+        for edge in read_sidecar(repo.root, node).edges:
+            try:
+                resolve_target(edge, repo.root, files)
+            except UnresolvedNote as e:
+                warnings.append(f"{sidecar_path(node)}: [[{edge}]] no longer resolves ({e})")
+    return actions, warnings
+
+
+def _sidecar_nodes(root: Path) -> list[Path]:
+    """The note path of every sidecar, in order."""
+    shadow = root / MARGINALIA_ROOT
+    return sorted(path.relative_to(shadow) for path in shadow.rglob("*.md"))
+
+
 def write_sidecar(repo: Commonplace, sidecar: Sidecar) -> None:
     """Save the sidecar for the repo's next commit."""
     metadata: dict = {"marginalia": MARGINALIA_VERSION}
