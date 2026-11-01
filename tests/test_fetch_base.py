@@ -67,11 +67,12 @@ def test_default_fetchers_cover_every_provider(test_repo):
 
 
 @pytest.mark.parametrize("fetcher_class", FETCHERS, ids=lambda c: c.source)
-def test_fetch_without_session_cookie_says_where_to_log_in(fetcher_class, tmp_path, caplog):
-    assert fetcher_class(cookies={}).fetch(tmp_path, since=None) is None
+def test_fetch_without_session_cookie_is_blocked_saying_where_to_log_in(fetcher_class, tmp_path):
+    with pytest.raises(FetchBlocked) as excinfo:
+        fetcher_class(cookies={}).fetch(tmp_path, since=None)
 
-    assert fetcher_class.service_name in caplog.text
-    assert fetcher_class.login_url in caplog.text
+    assert fetcher_class.service_name in str(excinfo.value)
+    assert fetcher_class.login_url in str(excinfo.value)
 
 
 class _StubFetcher(BaseFetcher):
@@ -99,15 +100,13 @@ class _AuthorisingStub(_StubFetcher):
         self.authorised.append(client)
 
 
-def test_signed_in_without_session_cookie_yields_none_unauthorised(caplog):
+def test_signed_in_without_session_cookie_is_blocked_unauthorised():
     fetcher = _AuthorisingStub(cookies={"other": "x"})
 
-    with fetcher._signed_in() as client:
-        assert client is None
+    with pytest.raises(FetchBlocked), fetcher._signed_in():
+        pass
 
     assert fetcher.authorised == []
-    assert "Stub" in caplog.text
-    assert "https://example.com" in caplog.text
 
 
 def test_signed_in_with_session_cookie_yields_the_client_it_authorised():

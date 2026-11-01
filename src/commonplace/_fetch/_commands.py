@@ -11,6 +11,7 @@ from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
 from commonplace._fetch._claude_tasks import ClaudeTasksFetcher
 from commonplace._fetch._gemini import GeminiFetcher
 from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
+from commonplace._fetch._helpers import FetchBlocked
 from commonplace._fetch._types import Fetcher
 from commonplace._import._commands import import_, landing_tree
 from commonplace._logging import logger
@@ -52,16 +53,32 @@ def fetch(
             logger.error(f"No fetchers match sources: {sources}")
             return
 
+    blocked: list[str] = []
     for fetcher in active:
         logger.info(f"Fetching from {fetcher.source}")
-        # `diff_filter="AM"` excludes rename-source / pure-deletion commits so
-        # a `git mv chats/{source}/ elsewhere` doesn't poison the cursor — nor,
-        # for a mirrored tree, does a commit that only pruned.
-        tree = landing_tree(fetcher.source).as_posix()
-        since = None if all_ else repo.last_commit_time(f"{tree}/", diff_filter="AM")
-        with tempfile.TemporaryDirectory() as tmp:
-            artifact = fetcher.fetch(Path(tmp), since)
-            if artifact is None:
-                logger.info(f"Nothing new from {fetcher.source}")
-                continue
-            import_(artifact, repo, user=repo.config.user, auto_index=auto_index)
+        # Each source signs in on its own, so one turned away leaves the rest worth fetching.
+        try:
+            _fetch_one(repo, fetcher, auto_index, all_)
+        except FetchBlocked as e:
+            logger.error(str(e))
+            blocked.append(fetcher.source)
+    if blocked:
+        raise FetchBlocked(
+            f"Blocked: {', '.join(blocked)}; see above. Nothing from those was imported, "
+            "so re-running costs only the time to fetch again."
+        )
+
+
+def _fetch_one(repo: Commonplace, fetcher: Fetcher, auto_index: bool | None, all_: bool) -> None:
+    """Fetch what is new from one source and import it."""
+    # `diff_filter="AM"` excludes rename-source / pure-deletion commits so
+    # a `git mv chats/{source}/ elsewhere` doesn't poison the cursor — nor,
+    # for a mirrored tree, does a commit that only pruned.
+    tree = landing_tree(fetcher.source).as_posix()
+    since = None if all_ else repo.last_commit_time(f"{tree}/", diff_filter="AM")
+    with tempfile.TemporaryDirectory() as tmp:
+        artifact = fetcher.fetch(Path(tmp), since)
+        if artifact is None:
+            logger.info(f"Nothing new from {fetcher.source}")
+            return
+        import_(artifact, repo, user=repo.config.user, auto_index=auto_index)

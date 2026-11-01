@@ -13,9 +13,7 @@ class ChatGptMemoryFetcher(ChatGptSessionFetcher):
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
         # Neither endpoint can be asked for changes only, so `since` has nothing to narrow.
-        with self._signed_in() as client:
-            if client is None:
-                return None
+        with self._signed_in():
             self._api("GET", "memories", endpoint="memories")
             self._api("POST", "memories/about_you/summary/stream", endpoint="summary", json={})
 

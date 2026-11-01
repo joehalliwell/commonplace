@@ -37,12 +37,10 @@ class ChatGptSessionFetcher(BaseFetcher):
     # have not needed pacing.
     request_interval = 0.25
 
-    def _has_session(self, cookies: httpx.Cookies) -> bool:
+    def _check_session(self, cookies: httpx.Cookies) -> None:
         """Matched by prefix, since NextAuth may have chunked the cookie."""
         if not any(name.startswith(self.session_cookie) for name in cookies):
-            self._report_no_session()
-            return False
-        return True
+            raise self._no_session(self.session_cookie)
 
     def _authorise(self, client: httpx.Client) -> None:
         """Trade the session cookie for the bearer token `backend-api` wants.
@@ -73,9 +71,7 @@ class ChatGptFetcher(ChatGptSessionFetcher):
     source = "chatgpt"
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        with self._signed_in() as client:
-            if client is None:
-                return None
+        with self._signed_in():
             fresh = list(self._list_fresh(since))
             self._read_fresh(fresh, since, self._read)
 

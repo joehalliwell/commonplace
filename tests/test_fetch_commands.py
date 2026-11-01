@@ -3,7 +3,31 @@
 Its path through a real fetcher and importer is covered beside each provider's fake.
 """
 
+import pytest
+
 from commonplace._fetch._commands import fetch
+from commonplace._fetch._helpers import FetchBlocked
+
+
+def test_a_blocked_source_does_not_stop_the_others(test_repo):
+    """Each source signs in on its own, so one dead session leaves the rest worth fetching."""
+    called: list[str] = []
+
+    class Blocked:
+        source = "blocked"
+
+        def fetch(self, destination, since):
+            raise FetchBlocked("Blocked rejected the session.")
+
+    class Stub:
+        source = "stub"
+
+        def fetch(self, destination, since):
+            called.append("stub")
+
+    with pytest.raises(FetchBlocked, match="blocked"):
+        fetch(test_repo, fetchers=[Blocked(), Stub()], auto_index=False)
+    assert called == ["stub"]
 
 
 def test_fetch_command_filters_by_source(test_repo):

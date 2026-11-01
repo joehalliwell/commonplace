@@ -199,8 +199,9 @@ def _make_fetcher(handler=_handler, cookies=SESSION_COOKIES) -> ChatGptFetcher:
     return ChatGptFetcher(cookies=cookies, transport=httpx.MockTransport(handler))
 
 
-def test_fetch_returns_none_without_session_cookie(tmp_path):
-    assert ChatGptFetcher(cookies={"cf_clearance": "cf"}).fetch(tmp_path, since=None) is None
+def test_fetch_without_session_cookie_is_blocked(tmp_path):
+    with pytest.raises(FetchBlocked):
+        ChatGptFetcher(cookies={"cf_clearance": "cf"}).fetch(tmp_path, since=None)
 
 
 def test_fetch_accepts_chunked_session_cookie(tmp_path):

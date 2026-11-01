@@ -124,8 +124,9 @@ def test_fetch_with_cursor_after_every_update_still_archives(tmp_path):
     assert archive is not None
 
 
-def test_fetch_without_session_cookie_returns_none(tmp_path):
-    assert FakeGemini().fetcher(cookies={}).fetch(tmp_path, since=None) is None
+def test_fetch_without_session_cookie_is_blocked(tmp_path):
+    with pytest.raises(FetchBlocked):
+        FakeGemini().fetcher(cookies={}).fetch(tmp_path, since=None)
 
 
 def test_fetch_null_body_raises(tmp_path):

@@ -101,9 +101,7 @@ class GeminiFetcher(GeminiSessionFetcher):
     source = "gemini"
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        with self._signed_in() as client:
-            if client is None:
-                return None
+        with self._signed_in():
             # Walk list_chats pages to find fresh cids. Full parse of each chat
             # happens in the importer against the same wire we're logging here.
             fresh = list(self._list_fresh(since))
