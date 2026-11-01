@@ -227,6 +227,32 @@ commonplace ls topics --field queries
 `ls` builds the listing from frontmatter each time it runs, so nothing in the
 repository needs regenerating when a note changes.
 
+### Tag notes
+
+```bash
+# Tag a note, named as a wikilink would: its name, or its path from the root
+commonplace tag ideas revisit
+commonplace tag /chats/gemini/2026/05/2026-05-03-tea hidden
+
+# A glob tags many
+commonplace tag '/chats/claude-tasks/**' scheduled
+
+# Show a note's tags; remove some
+commonplace tag ideas
+commonplace untag ideas revisit
+```
+
+Tags live in the note's marginalia, a sidecar at the same path under
+`.commonplace/marginalia/`, not in the note itself. So any note can be tagged,
+including chats and memory that the next fetch rewrites. A name that matches
+more than one note is refused with the candidates listed. Tagging commits as
+you, not as the bot.
+
+`hidden` is the one tag commonplace acts on: a hidden note stays in the
+repository but is left out of `search` and `ls` (and so out of what skills
+gather), unless you pass `--include-hidden`. `ls --field tags` shows marginalia
+tags after a note's own.
+
 ### Sync your commonplace
 
 If you have a git remote configured, sync your changes:

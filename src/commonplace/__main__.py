@@ -238,13 +238,14 @@ def ls(
         list[str],
         Parameter(name=["--field", "-f"], help="Also show this frontmatter key", negative="", show_default=False),
     ] = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
+    include_hidden: Annotated[bool, Parameter(help="Include notes tagged hidden")] = False,
     repo: Repo,
 ) -> None:
     """List a folder's notes with their titles and descriptions, as an OKF index."""
     from commonplace._listing import listing
 
     try:
-        print(listing(repo, folder, fields), end="")
+        print(listing(repo, folder, fields, include_hidden), end="")
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
