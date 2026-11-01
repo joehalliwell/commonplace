@@ -155,6 +155,14 @@ def upstream_changed(service_name: str, login_url: str, what: str) -> FetchBlock
 def raise_unreachable(exc: httpx.TransportError, service_name: str, login_url: str) -> NoReturn:
     """Turn a transport failure into `FetchBlocked`. Never retried —
     `create_connection` has already tried every address."""
+    if isinstance(exc, httpx.ReadTimeout):
+        # Connected and sent, so the network path is fine: the server is slow.
+        read = exc.request.extensions["timeout"]["read"]
+        raise FetchBlocked(
+            f"{service_name} went quiet for {read:.0f}s mid-response (ReadTimeout): reachable, but slow.\n"
+            "  1. Re-run; a slow answer is often a one-off.\n"
+            "  2. If it persists, the endpoint now takes longer than that: raise the fetcher's read timeout."
+        ) from exc
     raise FetchBlocked(
         f"Couldn't reach {service_name} ({type(exc).__name__}).\n"
         "  1. Check your network connection.\n"

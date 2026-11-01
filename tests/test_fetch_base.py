@@ -211,6 +211,21 @@ def test_unreachable_provider_is_reported_once_not_raised(no_retry_sleep):
     assert attempts["n"] == 1
 
 
+def test_a_read_timeout_is_reported_as_slow_not_unreachable(no_retry_sleep):
+    """The connection succeeded, so network-path advice (as given 2026-11-01) sends the user the wrong way."""
+
+    def slow(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("timed out", request=request)
+
+    fetcher = _stub(slow)
+
+    with fetcher._session({"session": "x"}), pytest.raises(FetchBlocked) as excinfo:
+        fetcher._get("https://example.com/api")
+
+    assert "IPv6" not in str(excinfo.value)
+    assert str(int(fetcher.timeout)) in str(excinfo.value)
+
+
 def test_a_429_widens_pacing_for_every_fetcher(no_retry_sleep):
     """Claude and Gemini start at a zero interval — free until the server
     objects — but must still react when it does."""
