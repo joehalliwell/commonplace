@@ -14,8 +14,21 @@ from commonplace._types import RepoPath
 
 #: The schema this store writes, stamped as `user_version`. Version 1 predates the stamp: a database
 #: whose every chunk named its own model, path and ref. Version 2 names a note once, in `notes`, which
-#: also records a note that yields no chunks, so it is visited once rather than on every run.
-INDEX_VERSION = 2
+#: also records a note that yields no chunks, so it is visited once rather than on every run. Version 3
+#: stores embeddings at half precision, halving the bulk of the file; cosine ranking never needed more.
+INDEX_VERSION = 3
+
+#: How an embedding is stored: two bytes a dimension.
+_STORED = np.float16
+
+
+def _to_blob(embedding: NDArray[np.float32]) -> bytes:
+    return np.asarray(embedding).astype(_STORED).tobytes()
+
+
+def _from_blob(blob: bytes) -> NDArray[np.float32]:
+    return np.frombuffer(blob, dtype=_STORED).astype(np.float32)
+
 
 _NOTES_DDL = """
 CREATE TABLE notes (
@@ -78,9 +91,25 @@ INSERT INTO chunks (id, note_id, section, text, offset, embedding)
     FROM chunks_v1 c JOIN notes n ON (n.model_id, n.path, n.ref) = (c.model_id, c.path, c.ref);
 DROP TABLE chunks_v1;
 {_TRIGGERS_DDL}
-PRAGMA user_version = {INDEX_VERSION};
+PRAGMA user_version = 2;
 COMMIT;
 """
+
+# The same rebuild as v1's, and for the same reasons; `half` is registered on the connection.
+_MIGRATE_V2 = f"""
+BEGIN;
+ALTER TABLE chunks RENAME TO chunks_v2;
+{_CHUNKS_DDL}
+INSERT INTO chunks (id, note_id, section, text, offset, embedding)
+    SELECT id, note_id, section, text, offset, half(embedding) FROM chunks_v2;
+DROP TABLE chunks_v2;
+{_TRIGGERS_DDL}
+PRAGMA user_version = 3;
+COMMIT;
+"""
+
+#: version -> the script that takes an index from it to the next.
+_MIGRATIONS = {1: _MIGRATE_V1, 2: _MIGRATE_V2}
 
 
 class SQLiteSearchIndex(SearchIndex):
@@ -138,9 +167,14 @@ class SQLiteSearchIndex(SearchIndex):
         if not self._conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'chunks'").fetchone():
             self._conn.executescript(_FRESH)
             return
-        logger.info(f"Migrating the search index to schema v{INDEX_VERSION}")
-        self._conn.executescript(_MIGRATE_V1)
-        # The migration frees v1's per-chunk identity columns; only a vacuum gives the space back.
+        logger.info(f"Migrating the search index from schema v{max(version, 1)} to v{INDEX_VERSION}")
+        self._conn.create_function(
+            "half", 1, lambda blob: _to_blob(np.frombuffer(blob, np.float32)), deterministic=True
+        )
+        # Version 1 predates the stamp, so reads as 0.
+        for step in range(max(version, 1), INDEX_VERSION):
+            self._conn.executescript(_MIGRATIONS[step])
+        # Each migration rebuilds `chunks` smaller; only a vacuum gives the space back.
         self._conn.execute("VACUUM")
 
     def _note_id(self, repo_path: RepoPath) -> int:
@@ -185,7 +219,7 @@ class SQLiteSearchIndex(SearchIndex):
             f" WHERE n.model_id = ? AND n.path IN ({', '.join('?' * len(paths))})",
             (self._embedder.model_id, *paths),
         )
-        return {text: np.frombuffer(blob, dtype=np.float32) for text, blob in rows}
+        return {text: _from_blob(blob) for text, blob in rows}
 
     def _add_with_embedding(self, chunk: Chunk, embedding: NDArray[np.float32]) -> None:
         """
@@ -197,7 +231,7 @@ class SQLiteSearchIndex(SearchIndex):
         """
         self._conn.execute(
             "INSERT OR REPLACE INTO chunks (note_id, section, text, offset, embedding) VALUES (?, ?, ?, ?, ?)",
-            (self._note_id(chunk.repo_path), chunk.section, chunk.text, chunk.offset, embedding.tobytes()),
+            (self._note_id(chunk.repo_path), chunk.section, chunk.text, chunk.offset, _to_blob(embedding)),
         )
         self._conn.commit()
 
@@ -289,7 +323,7 @@ class SQLiteSearchIndex(SearchIndex):
         chunk_ids = []
         for row in rows:
             chunk_id, path, ref_str, section, text, offset, embedding_bytes = row
-            embedding = np.frombuffer(embedding_bytes, dtype=np.float32)
+            embedding = _from_blob(embedding_bytes)
             embeddings.append(embedding)
 
             repo_path = RepoPath(path=Path(path), ref=ref_str)
