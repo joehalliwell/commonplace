@@ -7,7 +7,6 @@ from typing import Any, ClassVar
 import httpx
 
 from commonplace._fetch._base import BaseFetcher
-from commonplace._logging import logger
 
 #: The Code sessions API rejects a request without it, cookie or not.
 ANTHROPIC_VERSION = "2023-06-01"
@@ -40,16 +39,13 @@ class ClaudeSessionFetcher(BaseFetcher):
 
     _org_uuid: str
 
-    def _has_session(self, cookies: httpx.Cookies) -> bool:
+    def _check_session(self, cookies: httpx.Cookies) -> None:
         """Also records `_org_uuid`: every API path is scoped to the organisation."""
-        if not super()._has_session(cookies):
-            return False
+        super()._check_session(cookies)
         org_uuid = cookies.get("lastActiveOrg")
         if not org_uuid:
-            logger.error(f"No lastActiveOrg cookie. Visit {self.login_url} in Chrome to set it.")
-            return False
+            raise self._no_session("lastActiveOrg")
         self._org_uuid = org_uuid
-        return True
 
     def _api(
         self, method: str, path: str, *, endpoint: str, key: dict[str, str] | None = None, **kwargs: Any
@@ -84,9 +80,7 @@ class ClaudeFetcher(ClaudeSessionFetcher):
     source = "claude"
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        with self._signed_in() as client:
-            if client is None:
-                return None
+        with self._signed_in():
             fresh = self._list_fresh(since)
             self._read_fresh(fresh, since, self._read)
 

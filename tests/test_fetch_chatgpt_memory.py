@@ -9,6 +9,7 @@ import pytest
 from commonplace._fetch._chatgpt import ChatGptFetcher
 from commonplace._fetch._chatgpt_memory import ChatGptMemoryFetcher
 from commonplace._fetch._commands import fetch
+from commonplace._fetch._helpers import FetchBlocked
 from commonplace._wire import read_entries, read_header
 from tests.porcelain import git
 
@@ -64,8 +65,9 @@ def no_request_pacing(monkeypatch):
     monkeypatch.setattr(ChatGptFetcher, "request_interval", 0)
 
 
-def test_fetch_without_session_cookie_returns_none(tmp_path):
-    assert FakeMemory().fetcher(cookies={"cf_clearance": "cf"}).fetch(tmp_path, since=None) is None
+def test_fetch_without_session_cookie_is_blocked(tmp_path):
+    with pytest.raises(FetchBlocked):
+        FakeMemory().fetcher(cookies={"cf_clearance": "cf"}).fetch(tmp_path, since=None)
 
 
 def test_fetch_records_saved_memories_then_the_summary(tmp_path):

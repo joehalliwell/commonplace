@@ -121,8 +121,7 @@ def raise_on_session_error(response: httpx.Response, service_name: str, login_ur
             f"  1. Check the User-Agent matches your real browser. Ours is {DEFAULT_UA!r}; compare it with\n"
             "     `navigator.userAgent` in the browser console and set COMMONPLACE_UA if they differ.\n"
             f"  2. Open {login_url} in the browser to refresh its Cloudflare cookies, then re-run.\n"
-            "  3. If it persists, the bot check likely wants a header we don't send — see BaseFetcher._headers().\n"
-            "Nothing was imported, so re-running costs only the time to fetch again."
+            "  3. If it persists, the bot check likely wants a header we don't send — see BaseFetcher._headers()."
         )
     if response.status_code in (401, 403):
         raise session_rejected(service_name, login_url)
@@ -134,8 +133,7 @@ def session_rejected(service_name: str, login_url: str, detail: str = "") -> Fet
     return FetchBlocked(
         f"{service_name} rejected the session{detail}.\n"
         f"  1. Log in at {login_url} in Chrome.\n"
-        "  2. Re-run the same command.\n"
-        "Nothing was imported, so re-running costs only the time to fetch again."
+        "  2. Re-run the same command."
     )
 
 
@@ -144,8 +142,7 @@ def upstream_changed(service_name: str, login_url: str, what: str) -> FetchBlock
     return FetchBlocked(
         f"{service_name} sent something we can't read: {what}.\n"
         f"  1. Open {login_url} in Chrome. If it isn't signed in, sign in and re-run.\n"
-        f"  2. If it is, {service_name} has likely changed what it sends: report this message as a bug.\n"
-        "Nothing was imported, so re-running costs only the time to fetch again."
+        f"  2. If it is, {service_name} has likely changed what it sends: report this message as a bug."
     )
 
 
@@ -156,8 +153,7 @@ def raise_unreachable(exc: httpx.TransportError, service_name: str, login_url: s
         f"Couldn't reach {service_name} ({type(exc).__name__}).\n"
         "  1. Check your network connection.\n"
         f"  2. Confirm {login_url} loads in the browser.\n"
-        "  3. If the browser works but this doesn't, suspect a broken IPv6 path.\n"
-        "Nothing was imported, so re-running costs only the time to fetch again."
+        "  3. If the browser works but this doesn't, suspect a broken IPv6 path."
     ) from exc
 
 

@@ -4,9 +4,11 @@ import json
 from datetime import UTC, datetime
 
 import httpx
+import pytest
 
 from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
 from commonplace._fetch._commands import fetch
+from commonplace._fetch._helpers import FetchBlocked
 from commonplace._wire import read_entries, read_header
 from tests.porcelain import git
 
@@ -41,8 +43,9 @@ class FakeMemory:
         return ClaudeMemoryFetcher(cookies=cookies, transport=httpx.MockTransport(self))
 
 
-def test_fetch_without_org_returns_none(tmp_path):
-    assert FakeMemory().fetcher(cookies={"sessionKey": "sk"}).fetch(tmp_path, since=None) is None
+def test_fetch_without_org_is_blocked(tmp_path):
+    with pytest.raises(FetchBlocked, match="lastActiveOrg"):
+        FakeMemory().fetcher(cookies={"sessionKey": "sk"}).fetch(tmp_path, since=None)
 
 
 def test_fetch_everything_records_one_list_and_a_read_per_path(tmp_path):

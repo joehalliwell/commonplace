@@ -13,9 +13,7 @@ class ClaudeMemoryFetcher(ClaudeSessionFetcher):
     source = "claude-memory"
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        with self._signed_in() as client:
-            if client is None:
-                return None
+        with self._signed_in():
             fresh = self._list_fresh(since)
             self._read_fresh(fresh, since, self._read)
 

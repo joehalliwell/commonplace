@@ -30,5 +30,8 @@ class Fetcher(Protocol):
             Path to an importable file, or None if there is nothing worth
             importing. A mirrored source returns its listing even when nothing
             is new, since that is how a deletion is seen.
+
+        Raises:
+            FetchBlocked: The provider turned us away; the run skips to the next source.
         """
         ...

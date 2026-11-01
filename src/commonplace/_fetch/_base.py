@@ -36,11 +36,13 @@ import httpx
 
 from commonplace._config import DEFAULT_UA
 from commonplace._fetch._helpers import (
+    FetchBlocked,
     Pacer,
     raise_on_session_error,
     raise_unreachable,
     read_chrome_cookies,
     request_with_retry,
+    session_rejected,
 )
 from commonplace._logging import logger
 from commonplace._progress import track
@@ -121,27 +123,23 @@ class BaseFetcher:
             return httpx.Cookies(self._injected_cookies)
         return read_chrome_cookies(self.cookie_domain)
 
-    def _report_no_session(self) -> None:
-        """Tell the user the browser holds no session cookie for this provider."""
-        logger.error(f"No {self.service_name} session cookie found. Log in at {self.login_url} in Chrome first.")
+    def _no_session(self, cookie: str) -> FetchBlocked:
+        """The error for a browser that holds no `cookie` for this provider."""
+        return session_rejected(self.service_name, self.login_url, f": Chrome holds no {cookie} cookie")
 
-    def _has_session(self, cookies: httpx.Cookies) -> bool:
-        """Whether `cookies` hold a usable session, having said what's missing if not."""
+    def _check_session(self, cookies: httpx.Cookies) -> None:
+        """Raise `FetchBlocked` unless `cookies` hold a usable session."""
         if not cookies.get(self.session_cookie):
-            self._report_no_session()
-            return False
-        return True
+            raise self._no_session(self.session_cookie)
 
     def _authorise(self, client: httpx.Client) -> None:
         """Whatever the API needs between opening the client and its first real call; nothing by default."""
 
     @contextmanager
-    def _signed_in(self) -> Iterator[httpx.Client | None]:
-        """An authorised client, or None, reported, when the browser holds no session."""
+    def _signed_in(self) -> Iterator[httpx.Client]:
+        """An authorised client; `FetchBlocked` when the browser holds no session."""
         cookies = self._read_cookies()
-        if not self._has_session(cookies):
-            yield None
-            return
+        self._check_session(cookies)
         with self._session(cookies) as client:
             self._authorise(client)
             yield client

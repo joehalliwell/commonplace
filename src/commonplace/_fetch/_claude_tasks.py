@@ -13,9 +13,7 @@ class ClaudeTasksFetcher(ClaudeSessionFetcher):
     source = "claude-tasks"
 
     def fetch(self, destination: Path, since: datetime | None) -> Path | None:
-        with self._signed_in() as client:
-            if client is None:
-                return None
+        with self._signed_in():
             # The server returns no runs at all without `exclude_tags`.
             runs = self._code_pages(
                 "sessions", endpoint="sessions", only_trigger_sessions="true", limit="200", exclude_tags="-"
