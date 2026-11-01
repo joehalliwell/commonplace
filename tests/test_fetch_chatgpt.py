@@ -288,6 +288,16 @@ def test_fetch_raises_on_401(tmp_path):
         _make_fetcher(handler=handler).fetch(tmp_path, since=None)
 
 
+def test_fetch_reports_an_empty_session_as_rejected(tmp_path):
+    """NextAuth answers a logged-out session with `{}`, still 200; seen 2026-11-01."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={})
+
+    with pytest.raises(FetchBlocked, match="rejected the session"):
+        _make_fetcher(handler=handler).fetch(tmp_path, since=None)
+
+
 def test_fetch_raises_when_session_has_no_access_token(tmp_path):
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"user": {}})

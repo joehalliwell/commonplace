@@ -8,6 +8,7 @@ from typing import Any, ClassVar
 import httpx
 
 from commonplace._fetch._base import BaseFetcher
+from commonplace._fetch._helpers import session_rejected
 
 SESSION_URL = "https://chatgpt.com/api/auth/session"
 
@@ -48,7 +49,11 @@ class ChatGptSessionFetcher(BaseFetcher):
 
         Not recorded to the wire log: it is a credential, and it is not
         conversation material."""
-        token = self._get(SESSION_URL).json().get("accessToken")
+        session = self._get(SESSION_URL).json()
+        # NextAuth answers a logged-out session with `{}`, not a 401.
+        if not session:
+            raise session_rejected(self.service_name, self.login_url, ": the session response is empty")
+        token = session.get("accessToken")
         if not token:
             raise RuntimeError("No access token in the ChatGPT session response — the auth flow may have changed.")
         client.headers["Authorization"] = f"Bearer {token}"
