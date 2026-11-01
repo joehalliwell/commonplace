@@ -5,11 +5,38 @@ from pathlib import Path
 
 import pytest
 
-from commonplace._marginalia import MARGINALIA_VERSION, Sidecar, read_sidecar, sidecar_path, write_sidecar
+from commonplace._links import UnresolvedNote
+from commonplace._marginalia import (
+    MARGINALIA_VERSION,
+    Sidecar,
+    read_sidecar,
+    sidecar_path,
+    tag,
+    untag,
+    write_sidecar,
+)
 from commonplace._utils import load_frontmatter
+from tests.porcelain import git
 
 EXAMPLES = Path(__file__).parent / "resources" / "marginalia"
 NODE = Path("notes/ideas.md")
+
+
+@pytest.fixture
+def notes(test_repo, make_note):
+    """A repo with a few committed notes."""
+    for path in ("notes/ideas.md", "chats/claude-tasks/2026/10/log.md", "chats/claude-tasks/2026/11/log.md"):
+        test_repo.save(make_note(path=path, content=f"# {path}\n\nSome text.\n"))
+    test_repo.commit("Add notes", auto_index=False)
+    return test_repo
+
+
+@pytest.fixture
+def as_joe(monkeypatch):
+    """Joe's identity, as git would find it in his config."""
+    for role in ("AUTHOR", "COMMITTER"):
+        monkeypatch.setenv(f"GIT_{role}_NAME", "Joe")
+        monkeypatch.setenv(f"GIT_{role}_EMAIL", "joe@example.com")
 
 
 @pytest.fixture(params=range(1, MARGINALIA_VERSION + 1), ids=lambda v: f"marginalia-v{v}")
@@ -58,6 +85,51 @@ def test_untagging_leaves_the_body_alone():
     sidecar = Sidecar(node=NODE, tags=["tea", "hidden"], body="- 2026-11-01 filed as [[/notes/todo]]\n")
 
     assert sidecar.untagged("hidden") == Sidecar(node=NODE, tags=["tea"], body=sidecar.body)
+
+
+def test_tag_records_the_tags_and_the_notes_ref(notes, as_joe):
+    tag(notes, "ideas", ["hidden", "tea"])
+
+    sidecar = read_sidecar(notes.root, NODE)
+    assert sidecar.tags == ["hidden", "tea"]
+    assert sidecar.ref == notes.make_repo_path(NODE).ref
+
+
+def test_tag_commits_as_the_person_not_the_bot(notes, as_joe):
+    """Tools tell a person's tags from their own by the commit's author, so they never remove them."""
+    tag(notes, "ideas", ["hidden"])
+
+    assert git(notes.root, "log", "-1", "--format=%an") == "Joe\n"
+
+
+def test_tag_a_glob_tags_every_match(notes, as_joe):
+    tag(notes, "/chats/claude-tasks/**", ["scheduled"])
+
+    for month in ("10", "11"):
+        assert read_sidecar(notes.root, Path(f"chats/claude-tasks/2026/{month}/log.md")).tags == ["scheduled"]
+
+
+def test_untag_removes_only_the_tags_named(notes, as_joe):
+    tag(notes, "ideas", ["hidden", "tea"])
+
+    untag(notes, "ideas", ["hidden"])
+
+    assert read_sidecar(notes.root, NODE).tags == ["tea"]
+
+
+def test_tag_a_span_is_refused(notes, as_joe):
+    """Tags describe whole notes; only edges reach inside one."""
+    with pytest.raises(UnresolvedNote, match="whole notes"):
+        tag(notes, "ideas#Tea house", ["hidden"])
+
+
+def test_tag_cli_shows_a_notes_tags_when_given_none(notes, as_joe, test_app, capsys):
+    assert test_app(["tag", "ideas", "hidden", "tea"]) == 0
+    capsys.readouterr()
+
+    assert test_app(["tag", "ideas"]) == 0
+
+    assert capsys.readouterr().out.split() == ["hidden", "tea"]
 
 
 def test_a_sidecar_newer_than_this_release_is_refused(tmp_path):

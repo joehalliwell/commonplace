@@ -5,9 +5,11 @@ are rewritten on every fetch, and primitives are immutable, so this is the one p
 Frontmatter holds current state (`tags`); the body is a log, appended to and never rewritten by tag changes.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+from commonplace._links import UnresolvedNote, resolve
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
@@ -51,6 +53,32 @@ def read_sidecar(root: Path, node: Path) -> Sidecar:
     if version > MARGINALIA_VERSION:
         raise ValueError(f"'{path}' is marginalia v{version}, newer than this release's v{MARGINALIA_VERSION}")
     return Sidecar(node=node, ref=metadata.get("ref"), tags=list(metadata.get("tags") or []), body=body)
+
+
+def tag(repo: Commonplace, spec: str, tags: list[str]) -> list[Path]:
+    """Tag the notes `spec` names, committing as the user; returns the notes."""
+    return _retag(repo, spec, lambda sidecar: sidecar.tagged(*tags), f"Tag {spec}: {', '.join(tags)}")
+
+
+def untag(repo: Commonplace, spec: str, tags: list[str]) -> list[Path]:
+    """Remove tags from the notes `spec` names, committing as the user; returns the notes."""
+    return _retag(repo, spec, lambda sidecar: sidecar.untagged(*tags), f"Untag {spec}: {', '.join(tags)}")
+
+
+def notes_named(repo: Commonplace, spec: str) -> list[Path]:
+    """The whole notes `spec` names; a span is refused, since tags describe whole notes."""
+    if "#" in spec:
+        raise UnresolvedNote(f"'{spec}' names a span; tags apply to whole notes")
+    return resolve(spec, list(repo.paths()))
+
+
+def _retag(repo: Commonplace, spec: str, change: Callable[[Sidecar], Sidecar], message: str) -> list[Path]:
+    nodes = notes_named(repo, spec)
+    for node in nodes:
+        sidecar = change(read_sidecar(repo.root, node))
+        write_sidecar(repo, replace(sidecar, ref=repo.make_repo_path(node).ref))
+    repo.commit(message, auto_index=False, as_user=True)
+    return nodes
 
 
 def write_sidecar(repo: Commonplace, sidecar: Sidecar) -> None:
