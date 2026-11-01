@@ -33,6 +33,7 @@ class ExampleEmbedder:
     """A deterministic four-dimensional embedder: enough to rank, nothing to download."""
 
     model_id = "example:shape-4"
+    dims = 4
 
     def embed_doc(self, text: str) -> NDArray[np.float32]:
         return np.array(
@@ -138,8 +139,21 @@ def _write_v2(conn: sqlite3.Connection) -> None:
     )
 
 
+def _write_v3(conn: sqlite3.Connection) -> None:
+    """v2's schema, with embeddings stored at half precision."""
+    _write_v2(conn)
+    conn.execute("PRAGMA user_version = 3")
+    conn.executemany(
+        "UPDATE chunks SET embedding = ? WHERE id = ?",
+        [
+            (np.frombuffer(blob, np.float32).astype(np.float16).tobytes(), id_)
+            for id_, blob in conn.execute("SELECT id, embedding FROM chunks").fetchall()
+        ],
+    )
+
+
 #: version -> writer
-EXAMPLES = {1: _write_v1, 2: _write_v2}
+EXAMPLES = {1: _write_v1, 2: _write_v2, 3: _write_v3}
 
 
 def main() -> None:

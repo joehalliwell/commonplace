@@ -73,6 +73,26 @@ def test_every_index_version_opens_with_the_schema_of_a_fresh_index(any_index_ve
     assert _user_version(any_index_version.path) == _user_version(tmp_path / "fresh.db") == INDEX_VERSION
 
 
+def _embedding_bytes(db: Path) -> set[int]:
+    with closing(sqlite3.connect(db)) as conn:
+        return {length for (length,) in conn.execute("SELECT DISTINCT length(embedding) FROM chunks")}
+
+
+def test_every_index_version_opens_with_half_precision_embeddings(any_index_version):
+    """Two bytes a dimension: half of float32, and ranking by cosine never needed more."""
+    with _open(any_index_version):
+        pass
+
+    assert _embedding_bytes(any_index_version.path) == {ExampleEmbedder.dims * 2}
+
+
+def test_a_chunk_added_now_is_stored_at_half_precision(any_index_version, make_chunk):
+    with _open(any_index_version) as index:
+        index.add_chunks([make_chunk(path="notes/new.md", section="New", text="Rain all day.", offset=0)])
+
+    assert _embedding_bytes(any_index_version.path) == {ExampleEmbedder.dims * 2}
+
+
 def test_an_index_newer_than_this_release_is_refused(tmp_path):
     """Its schema is unknown here, so reading or writing it could only do harm."""
     db = tmp_path / "index.db"
