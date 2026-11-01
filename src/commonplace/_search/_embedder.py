@@ -49,6 +49,8 @@ def get_embedder(model: str = "default") -> Embedder:
 
 #: What each model was trained to see before a short retrieval query; documents go bare. fastembed's
 #: `query_embed` adds nothing for these, so it falls to us. A model missing here embeds queries bare.
+#: Sources: arctic declares it as `prompts.query` in each repo's `config_sentence_transformers.json`, which
+#: fastembed's ONNX copies leave out; bge v1.5 gives it in the BAAI model card, as optional but recommended.
 _QUERY_INSTRUCTIONS = dict.fromkeys(
     [
         "BAAI/bge-small-en-v1.5",
