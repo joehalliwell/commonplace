@@ -120,13 +120,18 @@ def raise_on_session_error(response: httpx.Response, service_name: str, login_ur
             "Nothing was imported, so re-running costs only the time to fetch again."
         )
     if response.status_code in (401, 403):
-        raise FetchBlocked(
-            f"{service_name} rejected the session.\n"
-            f"  1. Log in at {login_url} in Chrome.\n"
-            "  2. Re-run the same command.\n"
-            "Nothing was imported, so re-running costs only the time to fetch again."
-        )
+        raise session_rejected(service_name, login_url)
     response.raise_for_status()
+
+
+def session_rejected(service_name: str, login_url: str, detail: str = "") -> FetchBlocked:
+    """The error for a session the provider won't accept, with `detail` saying how we know."""
+    return FetchBlocked(
+        f"{service_name} rejected the session{detail}.\n"
+        f"  1. Log in at {login_url} in Chrome.\n"
+        "  2. Re-run the same command.\n"
+        "Nothing was imported, so re-running costs only the time to fetch again."
+    )
 
 
 def raise_unreachable(exc: httpx.TransportError, service_name: str, login_url: str) -> NoReturn:
