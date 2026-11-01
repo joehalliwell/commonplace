@@ -3,7 +3,52 @@
 import numpy as np
 import pytest
 
-from commonplace._search._embedder import get_embedder
+from commonplace._search._embedder import FastEmbedEmbedder, get_embedder
+
+
+class FakeTextEmbedding:
+    """Stands in for fastembed's model, recording exactly the text it is asked to embed."""
+
+    def __init__(self):
+        self.seen: list[str] = []
+
+    def embed(self, texts):
+        texts = [texts] if isinstance(texts, str) else list(texts)
+        self.seen.extend(texts)
+        for text in texts:
+            yield np.array([len(text), 1.0], dtype=np.float32)
+
+
+def _fastembed(model_name: str) -> tuple[FastEmbedEmbedder, FakeTextEmbedding]:
+    embedder = FastEmbedEmbedder(model_name)
+    embedder.__dict__["model"] = fake = FakeTextEmbedding()
+    return embedder, fake
+
+
+def test_fastembed_embeds_one_document_as_it_does_a_batch():
+    """`index` embeds in batches; a document embedded alone must land in the same place."""
+    embedder, fake = _fastembed("snowflake/snowflake-arctic-embed-xs")
+
+    assert np.array_equal(embedder.embed_doc("Prefers tea."), embedder.embed_docs(["Prefers tea."])[0])
+    assert fake.seen == ["Prefers tea.", "Prefers tea."]
+
+
+@pytest.mark.parametrize("model_name", ["BAAI/bge-small-en-v1.5", "snowflake/snowflake-arctic-embed-xs"])
+def test_fastembed_query_carries_the_models_retrieval_instruction(model_name):
+    """Both were trained with it on short queries; E5's `query: ` is another family's convention."""
+    embedder, fake = _fastembed(model_name)
+
+    embedder.embed_query("tea")
+
+    assert fake.seen == ["Represent this sentence for searching relevant passages: tea"]
+
+
+def test_fastembed_query_for_a_model_without_an_instruction_is_bare():
+    embedder, fake = _fastembed("jinaai/jina-embeddings-v2-small-en")
+
+    embedder.embed_query("tea")
+
+    assert fake.seen == ["tea"]
 
 
 @pytest.fixture

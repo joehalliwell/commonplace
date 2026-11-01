@@ -48,6 +48,22 @@ def get_embedder(model: str = "default") -> Embedder:
         raise RuntimeError(f"Could not initialize embedder '{model}' : {e}") from e
 
 
+#: What each model was trained to see before a short retrieval query; documents go bare. fastembed's
+#: `query_embed` adds nothing for these, so it falls to us. A model missing here embeds queries bare.
+_QUERY_INSTRUCTIONS = dict.fromkeys(
+    [
+        "BAAI/bge-small-en-v1.5",
+        "BAAI/bge-base-en-v1.5",
+        "BAAI/bge-large-en-v1.5",
+        "snowflake/snowflake-arctic-embed-xs",
+        "snowflake/snowflake-arctic-embed-s",
+        "snowflake/snowflake-arctic-embed-m",
+        "snowflake/snowflake-arctic-embed-l",
+    ],
+    "Represent this sentence for searching relevant passages: ",
+)
+
+
 class FastEmbedEmbedder:
     """Embedder using fastembed"""
 
@@ -69,13 +85,11 @@ class FastEmbedEmbedder:
 
     def embed_doc(self, text: str) -> NDArray[np.float32]:
         """Generate an embedding for a document chunk."""
-        embedding = next(iter(self.model.embed("passage: " + text)))
-        return embedding
+        return self.embed_docs([text])[0]
 
     def embed_query(self, text: str) -> NDArray[np.float32]:
         """Generate an embedding for a search query."""
-        embedding = next(iter(self.model.embed("query: " + text)))
-        return embedding
+        return next(iter(self.model.embed(_QUERY_INSTRUCTIONS.get(self._model_name, "") + text)))
 
     def embed_docs(self, texts: list[str]) -> NDArray[np.float32]:
         """Generate embeddings for multiple document chunks."""
