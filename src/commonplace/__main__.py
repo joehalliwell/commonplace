@@ -423,6 +423,9 @@ def doctor(
     *,
     scaffold: Annotated[bool, Parameter(help="Restore missing scaffolding and report template drift.")] = True,
     links: Annotated[bool, Parameter(help="Report broken links.")] = True,
+    marginalia: Annotated[
+        bool, Parameter(help="Re-attach marginalia to moved notes; report orphaned sidecars and dead marginalia links.")
+    ] = True,
     render: Annotated[
         bool, Parameter(help="Re-render chats from the stored archives, newest capture winning; takes minutes.")
     ] = False,
@@ -432,7 +435,7 @@ def doctor(
     """Check and fix the repository, one operation at a time: each flag selects one."""
     from commonplace._doctor import doctor
 
-    doctor(repo, check=check, scaffold=scaffold, links=links, render=render)
+    doctor(repo, check=check, scaffold=scaffold, links=links, marginalia=marginalia, render=render)
 
 
 @app.command(group=SYSTEM_SECTION)

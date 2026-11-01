@@ -392,6 +392,12 @@ class Commonplace:
             if not any(part.startswith(".") for part in path.parts[:-1]) and (self.root / path).exists():
                 yield path
 
+    def renamed_since(self, ref: str) -> dict[Path, Path]:
+        """Where each file `ref` had has moved to by HEAD, as git's rename detection sees it."""
+        fields = self._git("diff", "-M", "--name-status", "-z", "--diff-filter=R", ref, "HEAD").split("\0")
+        # -z gives status, old path, new path for each rename.
+        return {Path(fields[i + 1]): Path(fields[i + 2]) for i in range(0, len(fields) - 2, 3)}
+
     def note_paths(self) -> Iterator[RepoPath]:
         """Get an iterator over all note paths at current HEAD, skipping dot-directories."""
         head, dirty = self._status()
