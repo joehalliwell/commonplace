@@ -161,6 +161,19 @@ def test_fetch_command_unchanged_upstream_leaves_no_trace(test_repo):
     assert _blobs(test_repo) == blobs
 
 
+def test_fetch_command_unchanged_upstream_rewrapped_by_a_hook_leaves_no_trace(test_repo):
+    """As seen 2026-11-01: an mdformat hook wraps long items at commit, which must not read as an upstream change."""
+    fetch(test_repo, fetchers=[FakeGemini().fetcher()], auto_index=False)
+    note = test_repo.root / "memory/gemini/saved-info.md"
+    note.write_text(note.read_text().replace("- Prefers tea to coffee.", "- Prefers tea\n  to coffee."))
+    git(test_repo.root, "commit", "-qam", "Rewrap, as a formatting hook would")
+    head = git(test_repo.root, "rev-parse", "HEAD")
+
+    fetch(test_repo, fetchers=[FakeGemini().fetcher()], auto_index=False)
+
+    assert git(test_repo.root, "rev-parse", "HEAD") == head
+
+
 def test_fetch_command_upstream_deletion_rewrites_the_file(test_repo):
     fetch(test_repo, fetchers=[FakeGemini([_item("Kept.", 1, 1), _item("Dropped.", 2, 2)]).fetcher()], auto_index=False)
 

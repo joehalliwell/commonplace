@@ -64,7 +64,8 @@ def _landed(root: Path, note: Note) -> bool:
     if not target.is_file():
         return False
     metadata, body = load_frontmatter(target.read_text())
-    return ({k: v for k, v in metadata.items() if k not in ("source", "source_export")}, body) == (
+    # Whitespace aside, since a formatting hook may rewrap what was landed.
+    return ({k: v for k, v in metadata.items() if k not in ("source", "source_export")}, body.split()) == (
         note.metadata,
-        note.body,
+        note.body.split(),
     )
