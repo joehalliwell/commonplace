@@ -189,6 +189,19 @@ def test_unlink_an_edge_that_isnt_there_fails(notes, as_joe):
         unlink(notes, "ideas", "2026/10/log")
 
 
+def test_unlink_a_link_whose_target_is_gone_by_writing_it_as_the_sidecar_does(notes, as_joe):
+    """doctor reports dead links; they must stay removable once their note can no longer be named."""
+    link(notes, "ideas", "2026/10/log", "", on=date(2026, 11, 2))
+    notes.remove(Path("chats/claude-tasks/2026/10/log.md"))
+    notes.commit("Delete", auto_index=False)
+
+    with pytest.raises(UnresolvedNote, match="/chats/claude-tasks/2026/10/log"):  # The hint shows how
+        unlink(notes, "ideas", "2026/10/log")
+    assert unlink(notes, "ideas", "[[/chats/claude-tasks/2026/10/log]]") == 1
+
+    assert read_sidecar(notes.root, NODE).edges == []
+
+
 def test_link_cli_takes_the_rest_of_the_line_as_why(notes, as_joe, test_app):
     assert test_app(["link", "ideas", "2026/10/log", "filed", "as", "an", "idea"]) == 0
 
