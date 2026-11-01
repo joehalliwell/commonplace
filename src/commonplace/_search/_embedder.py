@@ -47,28 +47,26 @@ def get_embedder(model: str = "default") -> Embedder:
         raise RuntimeError(f"Could not initialize embedder '{model}' : {e}") from e
 
 
-#: What each model was trained to see before a short retrieval query; documents go bare. fastembed's
-#: `query_embed` adds nothing for these, so it falls to us. A model missing here embeds queries bare.
-#: Sources: arctic declares it as `prompts.query` in each repo's `config_sentence_transformers.json`, which
-#: fastembed's ONNX copies leave out; bge v1.5 gives it in the BAAI model card, as optional but recommended.
-_QUERY_INSTRUCTIONS = dict.fromkeys(
-    [
-        "BAAI/bge-small-en-v1.5",
-        "BAAI/bge-base-en-v1.5",
-        "BAAI/bge-large-en-v1.5",
-        "snowflake/snowflake-arctic-embed-xs",
-        "snowflake/snowflake-arctic-embed-s",
-        "snowflake/snowflake-arctic-embed-m",
-        "snowflake/snowflake-arctic-embed-l",
-    ],
-    "Represent this sentence for searching relevant passages: ",
-)
+#: What each model we've used was trained to see before a short retrieval query; documents go bare.
+#: fastembed's `query_embed` adds nothing for these, so it falls to us, and a model not listed is refused
+#: rather than guessed at. Sources: arctic declares it as `prompts.query` in its
+#: `config_sentence_transformers.json`, which fastembed's ONNX copy leaves out; bge v1.5 gives it in the
+#: BAAI model card, as optional but recommended.
+_QUERY_INSTRUCTIONS = {
+    "BAAI/bge-small-en-v1.5": "Represent this sentence for searching relevant passages: ",
+    "snowflake/snowflake-arctic-embed-xs": "Represent this sentence for searching relevant passages: ",
+}
 
 
 class FastEmbedEmbedder:
     """Embedder using fastembed"""
 
-    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+    def __init__(self, model_name: str):
+        if model_name not in _QUERY_INSTRUCTIONS:
+            raise ValueError(
+                f"No query instruction recorded for '{model_name}': add its prompts from the model card"
+                " to _QUERY_INSTRUCTIONS"
+            )
         self._model_name = model_name
 
     @cached_property
@@ -90,7 +88,7 @@ class FastEmbedEmbedder:
 
     def embed_query(self, text: str) -> NDArray[np.float32]:
         """Generate an embedding for a search query."""
-        return next(iter(self.model.embed(_QUERY_INSTRUCTIONS.get(self._model_name, "") + text)))
+        return next(iter(self.model.embed(_QUERY_INSTRUCTIONS[self._model_name] + text)))
 
     def embed_docs(self, texts: list[str]) -> NDArray[np.float32]:
         """Generate embeddings for multiple document chunks."""
