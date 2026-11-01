@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+from commonplace._marginalia import Sidecar, write_sidecar
+
 
 def write(root: Path, path: str, content: str = "") -> None:
     target = root / path
@@ -69,3 +71,21 @@ def test_ls_unknown_folder_fails(test_app, caplog):
         test_app(["ls", "nowhere"])
 
     assert "nowhere" in caplog.text
+
+
+def test_ls_field_tags_adds_marginalia_tags_after_the_notes_own(test_app, test_repo, capsys):
+    """A note's own tags say what it is; marginalia say what's been said about it since. A listing shows both."""
+    write(test_repo.root, "topics/tea.md", "---\ntitle: Tea\ntags: [drink, tea]\n---\n")
+    write_sidecar(test_repo, Sidecar(node=Path("topics/tea.md")).tagged("tea", "revisit"))
+
+    assert '  - tags: ["drink", "tea", "revisit"]\n' in listing(test_app, capsys, "topics", "--field", "tags")
+
+
+def test_ls_leaves_out_hidden_notes_unless_asked(test_app, test_repo, capsys):
+    """Skills gather through ls, and hidden is honoured wherever a note is offered."""
+    write(test_repo.root, "notes/kept.md")
+    write(test_repo.root, "notes/mood.md")
+    write_sidecar(test_repo, Sidecar(node=Path("notes/mood.md")).tagged("hidden"))
+
+    assert "mood.md" not in listing(test_app, capsys, "notes")
+    assert "mood.md" in listing(test_app, capsys, "notes", "--include-hidden")
