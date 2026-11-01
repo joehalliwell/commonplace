@@ -51,7 +51,7 @@ class Sidecar:
         body = self.body if not self.body or self.body.endswith("\n") else self.body + "\n"
         return replace(self, body=f"{body}{line}\n")
 
-    def unlinked(self, target: Target) -> tuple["Sidecar", int]:
+    def unlinked(self, target: Target | str) -> tuple["Sidecar", int]:
         """This sidecar without the body lines that link to exactly `target`, and how many went."""
         marker = f"[[{target}]]"
         kept = [line for line in self.body.splitlines(keepends=True) if marker not in line]
@@ -121,8 +121,19 @@ def unlink(repo: Commonplace, from_spec: str, to_spec: str) -> int:
     """Remove a note's edges to exactly `to_spec`'s target, committing as the user; returns how many went."""
     files = list(repo.paths())
     source = resolve_target(from_spec, repo.root, files).note
-    target = resolve_target(to_spec, repo.root, files)
-    sidecar, removed = read_sidecar(repo.root, source).unlinked(target)
+    sidecar = read_sidecar(repo.root, source)
+    target: Target | str
+    try:
+        target = resolve_target(to_spec, repo.root, files)
+    except UnresolvedNote as e:
+        # A link whose note is gone can't be named any more, so take it as the sidecar writes it.
+        written = to_spec.removeprefix("[[").removesuffix("]]")
+        if written not in sidecar.edges:
+            dead = [edge for edge in sidecar.edges if not _resolves(edge, repo.root, files)]
+            hint = f"; a link whose note is gone is removed as written: {', '.join(dead)}" if dead else ""
+            raise UnresolvedNote(f"{e}{hint}") from e
+        target = written
+    sidecar, removed = sidecar.unlinked(target)
     if not removed:
         raise ValueError(f"'{from_spec}' has no link to {target}")
     write_sidecar(repo, sidecar)
@@ -195,6 +206,14 @@ def check_marginalia(repo: Commonplace, check: bool) -> tuple[list[str], list[st
             except UnresolvedNote as e:
                 warnings.append(f"{sidecar_path(node)}: [[{edge}]] no longer resolves ({e})")
     return actions, warnings
+
+
+def _resolves(edge: str, root: Path, files: list[Path]) -> bool:
+    try:
+        resolve_target(edge, root, files)
+    except UnresolvedNote:
+        return False
+    return True
 
 
 def _sidecar_nodes(root: Path) -> list[Path]:
