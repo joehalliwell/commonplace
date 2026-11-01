@@ -8,7 +8,7 @@ from typing import Any, ClassVar
 import httpx
 
 from commonplace._fetch._base import BaseFetcher
-from commonplace._fetch._helpers import session_rejected
+from commonplace._fetch._helpers import session_rejected, upstream_changed
 
 SESSION_URL = "https://chatgpt.com/api/auth/session"
 
@@ -55,7 +55,7 @@ class ChatGptSessionFetcher(BaseFetcher):
             raise session_rejected(self.service_name, self.login_url, ": the session response is empty")
         token = session.get("accessToken")
         if not token:
-            raise RuntimeError("No access token in the ChatGPT session response — the auth flow may have changed.")
+            raise upstream_changed(self.service_name, self.login_url, "no access token in the session response")
         client.headers["Authorization"] = f"Bearer {token}"
 
     def _api(
