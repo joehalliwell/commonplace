@@ -53,6 +53,8 @@ def index(
     # Process chunks in batches
     for chunk_batch in batched(chunk_stream(), batch_size):
         repo.index.add_chunks(chunk_batch)
+    # Notes with chunks are recorded already; this catches those with none.
+    repo.index.record_indexed(to_index)
 
     # After adding, so the versions being replaced can lend their unchanged chunks' embeddings.
     if prune:
