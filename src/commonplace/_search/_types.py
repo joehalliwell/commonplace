@@ -137,6 +137,10 @@ class SearchIndex(Protocol):
         """
         ...
 
+    def record_indexed(self, versions: Iterable[RepoPath]) -> None:
+        """Record these versions as indexed, including any that yielded no chunks."""
+        ...
+
     def get_indexed_paths(self) -> Iterable[RepoPath]:
         """
         Paths that have been indexed.

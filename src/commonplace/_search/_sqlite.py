@@ -152,6 +152,12 @@ class SQLiteSearchIndex(SearchIndex):
         )
         return self._conn.execute("SELECT id FROM notes WHERE model_id = ? AND path = ? AND ref = ?", key).fetchone()[0]
 
+    def record_indexed(self, versions: Iterable[RepoPath]) -> None:
+        """Record these versions as indexed, so one that yielded no chunks is not visited again."""
+        for repo_path in versions:
+            self._note_id(repo_path)
+        self._conn.commit()
+
     def add_chunks(self, chunks: list[Chunk]) -> None:
         """
         Embed and add multiple chunks to the store in a batch.

@@ -6,6 +6,7 @@ import numpy as np
 
 from commonplace._search import _commands
 from commonplace._search._types import Chunk
+from commonplace._types import RepoPath
 
 
 def _delete(repo, path: str) -> None:
@@ -137,6 +138,36 @@ More content.
     # Index again without changes - should not add duplicates
     _commands.index(test_repo)
     assert set(test_repo.index.get_indexed_paths()) == indexed_paths
+
+
+def test_index_visits_a_note_with_no_chunks_once(test_repo, make_note, monkeypatch):
+    """As seen 2026-11-01: 28 empty journal days and text-less chats were reloaded by every index run."""
+    test_repo.save(make_note(path="journal/empty.md", content="# 2021-05-11\n"))
+    test_repo.commit("Add an empty day")
+    _commands.index(test_repo)
+
+    loaded: list[RepoPath] = []
+    load = test_repo.load
+    monkeypatch.setattr(test_repo, "load", lambda path: loaded.append(path) or load(path))
+    _commands.index(test_repo)
+
+    assert test_repo.make_repo_path("journal/empty.md") in set(test_repo.index.get_indexed_paths())
+    assert loaded == []
+
+
+def test_index_gives_a_once_empty_note_its_chunks_when_it_gains_text(test_repo, make_note):
+    test_repo.save(make_note(path="journal/day.md", content="# 2021-05-11\n"))
+    test_repo.commit("Add an empty day")
+    _commands.index(test_repo)
+
+    test_repo.save(make_note(path="journal/day.md", content="# 2021-05-11\n\nWalked along the river.\n"))
+    test_repo.commit("Write the day up")
+    _commands.index(test_repo)
+
+    [hit] = test_repo.index.search_keyword("river")
+    assert hit.chunk.repo_path == test_repo.make_repo_path("journal/day.md")
+    versions = {p for p in test_repo.index.get_indexed_paths() if p.path == Path("journal/day.md")}
+    assert versions == {test_repo.make_repo_path("journal/day.md")}
 
 
 def test_search_hides_deleted_notes(test_repo, make_note):
