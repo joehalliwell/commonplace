@@ -137,8 +137,8 @@ class SearchIndex(Protocol):
         """
         ...
 
-    def remove_other_models(self) -> int:
-        """Remove every note indexed under a model other than this store's; return how many."""
+    def other_models(self) -> dict[str, int]:
+        """How many notes are indexed under each model other than this store's."""
         ...
 
     def record_indexed(self, versions: Iterable[RepoPath]) -> None:

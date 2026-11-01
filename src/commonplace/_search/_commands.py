@@ -59,7 +59,12 @@ def index(
     # After adding, so the versions being replaced can lend their unchanged chunks' embeddings.
     if prune:
         repo.index.remove(indexed - live)
-        # After the default model changes, the old one's notes are no one's to search.
-        repo.index.remove_other_models()
+
+    # Dropping them would cost a full re-embed to undo, so this only says they're there.
+    for model_id, count in repo.index.other_models().items():
+        logger.warning(
+            f"{count} notes are indexed under {model_id}, which search no longer uses;"
+            " `commonplace index --rebuild` drops them and reclaims the space"
+        )
 
     logger.info("Indexing complete")
