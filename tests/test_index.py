@@ -4,8 +4,9 @@ from pathlib import Path
 
 import numpy as np
 
+from commonplace._marginalia import Sidecar, write_sidecar
 from commonplace._search import _commands
-from commonplace._search._types import Chunk
+from commonplace._search._types import Chunk, SearchMethod
 from commonplace._types import RepoPath
 from tests.conftest import StubEmbedder
 
@@ -190,6 +191,22 @@ def test_index_rebuild_drops_another_models_notes(test_repo, other_model_index, 
     _commands.index(test_repo, rebuild=True)
 
     assert set(other_model_index.get_indexed_paths()) == set()
+
+
+def test_search_leaves_out_a_note_tagged_hidden(test_repo, make_note):
+    """What makes capturing everything safe: a hidden note stays captured but isn't offered."""
+    test_repo.save(make_note(path="kept.md", content="# Kept\n\nOzymandias king of kings.\n"))
+    test_repo.save(make_note(path="mood.md", content="# Mood\n\nOzymandias, and a bad day.\n"))
+    test_repo.commit("Add notes", auto_index=False)
+    _commands.index(test_repo)
+
+    write_sidecar(test_repo, Sidecar(node=Path("mood.md")).tagged("hidden"))
+
+    for method in SearchMethod:
+        found = {hit.chunk.repo_path.path.name for hit in test_repo.index.search("Ozymandias", method=method)}
+        assert "mood.md" not in found, method
+    shown = test_repo.index.search_keyword("Ozymandias", include_hidden=True)
+    assert {hit.chunk.repo_path.path.name for hit in shown} == {"kept.md", "mood.md"}
 
 
 def test_search_hides_deleted_notes(test_repo, make_note):

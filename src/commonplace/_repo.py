@@ -255,10 +255,13 @@ class Commonplace:
     @cached_property
     def index(self):
         """Get the search index."""
+        from commonplace._marginalia import tagged
         from commonplace._search._sqlite import SQLiteSearchIndex
 
         index_path = self.cache / "index.db"
-        return SQLiteSearchIndex(index_path, note_exists=self.note_exists)
+        return SQLiteSearchIndex(
+            index_path, note_exists=self.note_exists, hidden_notes=lambda: tagged(self.root, "hidden")
+        )
 
     def note_exists(self, repo_path: RepoPath) -> bool:
         """

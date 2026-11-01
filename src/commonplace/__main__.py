@@ -209,11 +209,14 @@ def search(
     limit: Annotated[int, Parameter(name=["--limit", "-n"], help="Maximum number of results")] = 10,
     method: Annotated[SearchMethod, Parameter(help="Search method")] = SearchMethod.HYBRID,
     include_deleted: Annotated[bool, Parameter(help="Include notes that have been deleted since indexing")] = False,
+    include_hidden: Annotated[bool, Parameter(help="Include notes tagged hidden")] = False,
     repo: Repo,
 ) -> None:
     """Search for semantically similar content in your commonplace."""
 
-    results = repo.index.search(" ".join(query), limit=limit, method=method, include_deleted=include_deleted)
+    results = repo.index.search(
+        " ".join(query), limit=limit, method=method, include_deleted=include_deleted, include_hidden=include_hidden
+    )
 
     if not results:
         logger.info("No results found")

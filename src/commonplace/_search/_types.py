@@ -157,6 +157,7 @@ class SearchIndex(Protocol):
         limit: int = 10,
         method: SearchMethod = SearchMethod.HYBRID,
         include_deleted: bool = False,
+        include_hidden: bool = False,
     ) -> list[SearchHit]:
         """
         Search for similar chunks.
@@ -172,6 +173,7 @@ class SearchIndex(Protocol):
                 and all — they are one click away from the reader, so a slightly
                 out-of-date quote beats dropping the note from results until the
                 index catches up.
+            include_hidden: Include hits whose note is tagged `hidden` in its marginalia.
 
         Returns:
             List of search hits, ordered by descending similarity
