@@ -302,7 +302,7 @@ def test_fetch_raises_when_session_has_no_access_token(tmp_path):
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"user": {}})
 
-    with pytest.raises(RuntimeError, match="access token"):
+    with pytest.raises(FetchBlocked, match="access token"):
         _make_fetcher(handler=handler).fetch(tmp_path, since=None)
 
 

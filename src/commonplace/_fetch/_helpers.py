@@ -139,6 +139,16 @@ def session_rejected(service_name: str, login_url: str, detail: str = "") -> Fet
     )
 
 
+def upstream_changed(service_name: str, login_url: str, what: str) -> FetchBlocked:
+    """The error for a response we can't read, which a dead session explains more often than a vendor change."""
+    return FetchBlocked(
+        f"{service_name} sent something we can't read: {what}.\n"
+        f"  1. Open {login_url} in Chrome. If it isn't signed in, sign in and re-run.\n"
+        f"  2. If it is, {service_name} has likely changed what it sends: report this message as a bug.\n"
+        "Nothing was imported, so re-running costs only the time to fetch again."
+    )
+
+
 def raise_unreachable(exc: httpx.TransportError, service_name: str, login_url: str) -> NoReturn:
     """Turn a transport failure into `FetchBlocked`. Never retried —
     `create_connection` has already tried every address."""

@@ -9,6 +9,7 @@ import pytest
 
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
+from commonplace._fetch._helpers import FetchBlocked
 from commonplace._import._commands import autodetect_importer, landing_tree
 from commonplace._import._gemini_memory import GeminiMemoryImporter
 from commonplace._types import Note, RepoPath
@@ -131,7 +132,7 @@ def test_fetch_null_body_raises(tmp_path):
     gemini = FakeGemini()
     gemini.response = _response(None)
 
-    with pytest.raises(RuntimeError, match="ZKcapf"):
+    with pytest.raises(FetchBlocked, match="ZKcapf"):
         gemini.fetcher().fetch(tmp_path, since=None)
 
 

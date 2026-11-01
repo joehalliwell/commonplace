@@ -153,7 +153,7 @@ def test_fetch_app_page_without_tokens_raises(tmp_path):
             return httpx.Response(200, text="<html>no tokens here</html>")
         return httpx.Response(200, text=")]}'\n\n0\n[]")
 
-    with pytest.raises(RuntimeError, match="access token"):
+    with pytest.raises(FetchBlocked, match="access token"):
         _make_fetcher(handler=handler).fetch(tmp_path, since=None)
 
 

@@ -17,7 +17,7 @@ from typing import ClassVar
 import httpx
 
 from commonplace._fetch._base import BaseFetcher
-from commonplace._fetch._helpers import session_rejected
+from commonplace._fetch._helpers import session_rejected, upstream_changed
 from commonplace._import._gemini import _extract_rpc_body, _ts_to_iso_dt
 
 INIT_URL = "https://gemini.google.com/app"
@@ -55,9 +55,21 @@ class GeminiSessionFetcher(BaseFetcher):
             landed = f"{r.url.host}{r.url.path}"
             detail = f": /app redirected to {landed}. If Chrome is signed in, the cookies sent don't match its session"
             raise session_rejected(self.service_name, self.login_url, detail)
-        self._access_token = _require_match(r.text, r'"SNlM0e":"([^"]+)"', "access token (SNlM0e)")
-        self._build_label = _require_match(r.text, r'"cfb2h":"([^"]+)"', "build label (cfb2h)")
-        self._session_id = _require_match(r.text, r'"FdrFJe":"(-?\d+)"', "session id (FdrFJe)")
+        self._access_token = self._scrape(r.text, r'"SNlM0e":"([^"]+)"', "access token (SNlM0e)")
+        self._build_label = self._scrape(r.text, r'"cfb2h":"([^"]+)"', "build label (cfb2h)")
+        self._session_id = self._scrape(r.text, r'"FdrFJe":"(-?\d+)"', "session id (FdrFJe)")
+
+    def _scrape(self, text: str, pattern: str, name: str) -> str:
+        if m := re.search(pattern, text):
+            return m.group(1)
+        raise upstream_changed(self.service_name, self.login_url, f"no {name} on the /app page")
+
+    def _rpc_body(self, rpcid: str, payload: list, source_path: str = "/app") -> list:
+        """`_call_rpc` for a call whose null body means a protocol change, not a per-item glitch."""
+        body = self._call_rpc(rpcid, payload, source_path)
+        if body is None:
+            raise upstream_changed(self.service_name, self.login_url, f"{rpcid} returned a null wrb.fr body")
+        return body
 
     def _call_rpc(self, rpcid: str, payload: list, source_path: str = "/app") -> list | None:
         """Wrap payload in the batchexecute envelope, POST, parse, return the
@@ -106,11 +118,7 @@ class GeminiFetcher(GeminiSessionFetcher):
         for pinned in (1, 0):
             cursor: str | None = None
             while True:
-                body = self._call_rpc(RPC_LIST_CHATS, [100, cursor, [pinned, None, 1]])
-                # A null body from list_chats would be a real protocol issue
-                # (unlike read_chat, where it signals a per-item glitch).
-                if body is None:
-                    raise RuntimeError("list_chats returned a null wrb.fr body — protocol may have changed.")
+                body = self._rpc_body(RPC_LIST_CHATS, [100, cursor, [pinned, None, 1]])
                 cursor = body[1]
                 rows = body[2]
                 for row in rows:
@@ -123,10 +131,3 @@ class GeminiFetcher(GeminiSessionFetcher):
 
     def _read(self, cid: str) -> None:
         self._call_rpc(RPC_READ_CHAT, [cid, 1000, None, 1, [1], [4], None, 1])
-
-
-def _require_match(text: str, pattern: str, name: str) -> str:
-    m = re.search(pattern, text)
-    if not m:
-        raise RuntimeError(f"Could not extract {name} from Gemini /app page — HTML shape may have changed.")
-    return m.group(1)
