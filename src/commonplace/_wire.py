@@ -29,6 +29,13 @@ Version 3 adds `fetched_at` and `fetched_by`: when the capture was made and
 what made it (`tool/version`), so a blob detached from its commit still dates
 and attributes itself. Both read back `None` on v1 and v2 archives.
 
+A vendor changing what it sends is not a version bump: bodies are verbatim, so
+the format holds and only the content moves. Bump when a fetcher changes what
+it records around the body. The importer then reads both shapes, telling them
+apart by the body itself, never by `fetched_at`, which v1 and v2 lack. Commit
+an example of the old shape before changing the importer, so the fix is shown
+not to drop it.
+
 `tests/resources/wire/` holds one example archive per version, per kind of
 source (chat, memory) — the evidence of what each actually looked like. Add
 one of each with the next version bump.
