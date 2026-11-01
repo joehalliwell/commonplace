@@ -262,8 +262,9 @@ commonplace link /chats/gemini/2026/05/2026-05-03-tea "ideas#Tea house" filed as
 # The target can be a heading, or a phrase quoted from the note
 commonplace link ideas '2026-11-02#"by the river"'
 
-# What links to a note: marginalia, and links in notes' own text
-commonplace backlinks ideas
+# A note's links, out (→) then in (←): marginalia, and links in notes' own text
+commonplace links ideas
+commonplace links ideas --in
 
 # Remove a note's links to a target
 commonplace unlink ideas 2026-11-02

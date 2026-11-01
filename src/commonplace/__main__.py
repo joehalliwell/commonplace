@@ -313,22 +313,25 @@ def link(
 
 
 @app.command(group=ANNOTATING_SECTION)
-def backlinks(
+def links(
     spec: NodeSpec,
     *,
-    include_hidden: Annotated[bool, Parameter(help="Include links from notes tagged hidden")] = False,
+    incoming: Annotated[bool, Parameter(name="--in", negative="", help="Only links into the note")] = False,
+    outgoing: Annotated[bool, Parameter(name="--out", negative="", help="Only links out of the note")] = False,
+    include_hidden: Annotated[bool, Parameter(help="Include links to and from notes tagged hidden")] = False,
     repo: Repo,
 ) -> None:
-    """List what links to a note: edges in marginalia, and links in notes' own text."""
-    from commonplace._marginalia import backlinks as find_backlinks
+    """List a note's links, out (→) then in (←): from marginalia, and from notes' own text."""
+    from commonplace._marginalia import links as find_links
 
+    both = not incoming and not outgoing
     try:
-        found = find_backlinks(repo, spec, include_hidden)
+        found = find_links(repo, spec, include_hidden, incoming=incoming or both, outgoing=outgoing or both)
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
-    for backlink in found:
-        print(f"/{backlink.source.with_suffix('').as_posix()}  {backlink.context}")
+    for neighbour in found:
+        print(f"{'→' if neighbour.direction == 'out' else '←'} {neighbour.other}  {neighbour.context}")
 
 
 @app.command(group=ANNOTATING_SECTION)

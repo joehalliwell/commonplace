@@ -290,6 +290,24 @@ def _landing(link: Link, root: Path) -> Path:
     return Path(os.path.normpath(base / target.lstrip("/")))
 
 
+def links_from(note: Path, root: Path, files: Collection[Path]) -> list[tuple[Link, Path]]:
+    """Each link in `note`'s own text that lands on exactly one note among `files`, with where it lands."""
+    notes = [path for path in files if path.suffix == ".md"]
+    present = set(files)
+    found = []
+    for link in extract_links((root / note).read_text(errors="replace"), source=note):
+        if link.kind is LinkKind.WIKILINK:
+            named = [path for path in notes if is_named(path, link.target)]
+            lands = named[0] if len(named) == 1 else None
+        else:
+            candidate = _landing(link, root)
+            inside = candidate.is_relative_to(root) and candidate.relative_to(root) in present
+            lands = candidate.relative_to(root) if inside else None
+        if lands is not None:
+            found.append((link, lands))
+    return found
+
+
 def links_to(note: Path, root: Path, files: Collection[Path], *, skip: Collection[str] = SKIPPED_ROOTS) -> list[Link]:
     """Every link in the markdown among `files` that lands on `note`, in file order; chats quote, so are skipped."""
     found = []
