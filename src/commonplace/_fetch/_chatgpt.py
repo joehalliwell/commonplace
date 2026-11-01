@@ -40,7 +40,7 @@ class ChatGptSessionFetcher(BaseFetcher):
     def _check_session(self, cookies: httpx.Cookies) -> None:
         """Matched by prefix, since NextAuth may have chunked the cookie."""
         if not any(name.startswith(self.session_cookie) for name in cookies):
-            raise self._no_session(self.session_cookie)
+            raise self._no_session()
 
     def _authorise(self, client: httpx.Client) -> None:
         """Trade the session cookie for the bearer token `backend-api` wants.

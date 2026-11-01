@@ -9,7 +9,7 @@ import pytest
 
 from commonplace._fetch._claude import ClaudeFetcher
 from commonplace._fetch._commands import fetch
-from commonplace._fetch._helpers import FetchBlocked
+from commonplace._fetch._helpers import FetchBlocked, NoSession
 from commonplace._import._claude import ClaudeImporter
 from commonplace._wire import read_entries
 
@@ -75,8 +75,10 @@ def _read_wire(archive: Path) -> list[dict]:
 
 
 def test_fetch_without_org_is_blocked(tmp_path):
-    with pytest.raises(FetchBlocked, match="lastActiveOrg"):
+    """Signed in but not set up: Claude is in use, so this fails the run rather than skipping it."""
+    with pytest.raises(FetchBlocked, match="lastActiveOrg") as excinfo:
         ClaudeFetcher(cookies={"sessionKey": "sk"}).fetch(tmp_path, since=None)
+    assert not isinstance(excinfo.value, NoSession)
 
 
 def test_fetch_writes_raw_wire_only(tmp_path):
