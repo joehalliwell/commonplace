@@ -12,8 +12,75 @@ from commonplace._logging import logger
 from commonplace._search._types import Chunk, Embedder, IndexStat, SearchHit, SearchIndex, SearchMethod
 from commonplace._types import RepoPath
 
-#: The schema this store writes. Version 1 predates the stamp: a database with chunks and no `user_version`.
-INDEX_VERSION = 1
+#: The schema this store writes, stamped as `user_version`. Version 1 predates the stamp: a database
+#: whose every chunk named its own model, path and ref. Version 2 names a note once, in `notes`, which
+#: also records a note that yields no chunks, so it is visited once rather than on every run.
+INDEX_VERSION = 2
+
+_NOTES_DDL = """
+CREATE TABLE notes (
+    id INTEGER PRIMARY KEY,
+    model_id TEXT NOT NULL,
+    path TEXT NOT NULL,
+    ref TEXT NOT NULL,
+    UNIQUE(model_id, path, ref)
+);
+"""
+
+_CHUNKS_DDL = """
+CREATE TABLE chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    section TEXT NOT NULL,
+    text TEXT NOT NULL,
+    offset INTEGER NOT NULL,
+    embedding BLOB NOT NULL,
+    UNIQUE(note_id, offset)
+);
+"""
+
+#: What keeps full-text search in step with `chunks`.
+_TRIGGERS_DDL = """
+CREATE TRIGGER chunks_ai AFTER INSERT ON chunks BEGIN
+    INSERT INTO chunks_fts(rowid, text, section) VALUES (new.id, new.text, new.section);
+END;
+CREATE TRIGGER chunks_ad AFTER DELETE ON chunks BEGIN
+    INSERT INTO chunks_fts(chunks_fts, rowid, text, section) VALUES('delete', old.id, old.text, old.section);
+END;
+CREATE TRIGGER chunks_au AFTER UPDATE ON chunks BEGIN
+    INSERT INTO chunks_fts(chunks_fts, rowid, text, section) VALUES('delete', old.id, old.text, old.section);
+    INSERT INTO chunks_fts(rowid, text, section) VALUES (new.id, new.text, new.section);
+END;
+"""
+
+_FRESH = f"""
+BEGIN;
+{_NOTES_DDL}
+{_CHUNKS_DDL}
+CREATE VIRTUAL TABLE chunks_fts USING fts5(text, section, content=chunks, content_rowid=id);
+{_TRIGGERS_DDL}
+PRAGMA user_version = {INDEX_VERSION};
+COMMIT;
+"""
+
+# Chunk ids are kept, so the external-content full-text index still points at the right rows, and no
+# embedding is recomputed. The copy runs before the new triggers exist, or it would re-add every row to
+# the full-text index; dropping v1's table takes its own indexes and triggers with it.
+_MIGRATE_V1 = f"""
+BEGIN;
+{_NOTES_DDL}
+INSERT INTO notes (model_id, path, ref)
+    SELECT model_id, path, ref FROM chunks GROUP BY model_id, path, ref ORDER BY MIN(id);
+ALTER TABLE chunks RENAME TO chunks_v1;
+{_CHUNKS_DDL}
+INSERT INTO chunks (id, note_id, section, text, offset, embedding)
+    SELECT c.id, n.id, c.section, c.text, c.offset, c.embedding
+    FROM chunks_v1 c JOIN notes n ON (n.model_id, n.path, n.ref) = (c.model_id, c.path, c.ref);
+DROP TABLE chunks_v1;
+{_TRIGGERS_DDL}
+PRAGMA user_version = {INDEX_VERSION};
+COMMIT;
+"""
 
 
 class SQLiteSearchIndex(SearchIndex):
@@ -46,7 +113,9 @@ class SQLiteSearchIndex(SearchIndex):
         try:
             db_path.parent.mkdir(parents=True, exist_ok=True)
             self._conn = sqlite3.connect(str(db_path))
-            self._create_tables()
+            self._open_schema()
+            # Per connection, and off by default: without it, removing a note would orphan its chunks.
+            self._conn.execute("PRAGMA foreign_keys = ON")
         except Exception as e:
             raise RuntimeError(f"Failed to initialize index at '{db_path}': {e}") from e
 
@@ -57,65 +126,31 @@ class SQLiteSearchIndex(SearchIndex):
 
         self._embedder = embedder
 
-    def _create_tables(self) -> None:
-        """Create the necessary database tables if they don't exist."""
-        self._conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS chunks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                model_id TEXT NOT NULL,
-                path TEXT NOT NULL,
-                ref TEXT NOT NULL,
-                section TEXT NOT NULL,
-                text TEXT NOT NULL,
-                offset INTEGER NOT NULL,
-                embedding BLOB NOT NULL,
-                UNIQUE(model_id, path, ref, offset)
+    def _open_schema(self) -> None:
+        """Create a fresh index, migrate an older one in place, or refuse one newer than this release."""
+        version = self._conn.execute("PRAGMA user_version").fetchone()[0]
+        if version == INDEX_VERSION:
+            return
+        if version > INDEX_VERSION:
+            raise RuntimeError(
+                f"schema v{version} is newer than this release's v{INDEX_VERSION}: upgrade, or delete it"
             )
-            """
-        )
-        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_path_ref ON chunks(path, ref)")
-        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_model ON chunks(model_id)")
+        if not self._conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'chunks'").fetchone():
+            self._conn.executescript(_FRESH)
+            return
+        logger.info(f"Migrating the search index to schema v{INDEX_VERSION}")
+        self._conn.executescript(_MIGRATE_V1)
+        # The migration frees v1's per-chunk identity columns; only a vacuum gives the space back.
+        self._conn.execute("VACUUM")
 
-        # Create FTS5 virtual table for full-text search
+    def _note_id(self, repo_path: RepoPath) -> int:
+        """The `notes` row for this version of a note under this store's model, created if need be."""
+        key = (self._embedder.model_id, str(repo_path.path), repo_path.ref)
+        # Not OR IGNORE, which would also swallow the NOT NULL that refuses an uncommitted note.
         self._conn.execute(
-            """
-            CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
-                text,
-                section,
-                content=chunks,
-                content_rowid=id
-            )
-            """
+            "INSERT INTO notes (model_id, path, ref) VALUES (?, ?, ?) ON CONFLICT (model_id, path, ref) DO NOTHING", key
         )
-
-        # Create triggers to keep FTS in sync
-        self._conn.execute(
-            """
-            CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
-                INSERT INTO chunks_fts(rowid, text, section) VALUES (new.id, new.text, new.section);
-            END
-            """
-        )
-        self._conn.execute(
-            """
-            CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
-                INSERT INTO chunks_fts(chunks_fts, rowid, text, section)
-                VALUES('delete', old.id, old.text, old.section);
-            END
-            """
-        )
-        self._conn.execute(
-            """
-            CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
-                INSERT INTO chunks_fts(chunks_fts, rowid, text, section)
-                VALUES('delete', old.id, old.text, old.section);
-                INSERT INTO chunks_fts(rowid, text, section) VALUES (new.id, new.text, new.section);
-            END
-            """
-        )
-
-        self._conn.commit()
+        return self._conn.execute("SELECT id FROM notes WHERE model_id = ? AND path = ? AND ref = ?", key).fetchone()[0]
 
     def add_chunks(self, chunks: list[Chunk]) -> None:
         """
@@ -140,7 +175,8 @@ class SQLiteSearchIndex(SearchIndex):
     def _embeddings_by_text(self, paths: set[str]) -> dict[str, NDArray[np.float32]]:
         """This model's stored embeddings for any version of the notes at `paths`, by chunk text."""
         rows = self._conn.execute(
-            f"SELECT text, embedding FROM chunks WHERE model_id = ? AND path IN ({', '.join('?' * len(paths))})",
+            "SELECT c.text, c.embedding FROM chunks c JOIN notes n ON n.id = c.note_id"
+            f" WHERE n.model_id = ? AND n.path IN ({', '.join('?' * len(paths))})",
             (self._embedder.model_id, *paths),
         )
         return {text: np.frombuffer(blob, dtype=np.float32) for text, blob in rows}
@@ -153,21 +189,9 @@ class SQLiteSearchIndex(SearchIndex):
             chunk: The chunk to store
             embedding: The chunk's embedding vector
         """
-        embedding_bytes = embedding.tobytes()
         self._conn.execute(
-            """
-            INSERT OR REPLACE INTO chunks (path, ref, section, text, offset, embedding, model_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                str(chunk.repo_path.path),
-                chunk.repo_path.ref,
-                chunk.section,
-                chunk.text,
-                chunk.offset,
-                embedding_bytes,
-                self._embedder.model_id,
-            ),
+            "INSERT OR REPLACE INTO chunks (note_id, section, text, offset, embedding) VALUES (?, ?, ?, ?, ?)",
+            (self._note_id(chunk.repo_path), chunk.section, chunk.text, chunk.offset, embedding.tobytes()),
         )
         self._conn.commit()
 
@@ -244,7 +268,8 @@ class SQLiteSearchIndex(SearchIndex):
             List of search hits, ordered by descending similarity
         """
         cursor = self._conn.execute(
-            "SELECT id, path, ref, section, text, offset, embedding FROM chunks WHERE model_id = ?",
+            "SELECT c.id, n.path, n.ref, c.section, c.text, c.offset, c.embedding"
+            " FROM chunks c JOIN notes n ON n.id = c.note_id WHERE n.model_id = ?",
             (self._embedder.model_id,),
         )
         rows = cursor.fetchall()
@@ -296,9 +321,10 @@ class SQLiteSearchIndex(SearchIndex):
         # limit is filled, which leaves room to skip hits that are no longer live.
         cursor = self._conn.execute(
             """
-            SELECT c.id, c.path, c.ref, c.section, c.text, c.offset, rank
+            SELECT c.id, n.path, n.ref, c.section, c.text, c.offset, rank
             FROM chunks_fts
             JOIN chunks c ON chunks_fts.rowid = c.id
+            JOIN notes n ON n.id = c.note_id
             WHERE chunks_fts MATCH ?
             ORDER BY rank
             """,
@@ -369,9 +395,7 @@ class SQLiteSearchIndex(SearchIndex):
         Returns:
             Dict mapping path -> set of refs
         """
-        cursor = self._conn.execute(
-            "SELECT DISTINCT path, ref FROM chunks WHERE model_id = ?", (self._embedder.model_id,)
-        )
+        cursor = self._conn.execute("SELECT path, ref FROM notes WHERE model_id = ?", (self._embedder.model_id,))
         for path, ref in cursor.fetchall():
             yield (RepoPath(Path(path), ref))
 
@@ -395,16 +419,23 @@ class SQLiteSearchIndex(SearchIndex):
         if not keys:
             return 0
 
-        cursor = self._conn.executemany("DELETE FROM chunks WHERE path = ? AND ref = ? AND model_id = ?", keys)
+        # A note's chunks go with it, by cascade; count them first, since rowcount sees only the notes.
+        removed = 0
+        for key in keys:
+            removed += self._conn.execute(
+                "SELECT COUNT(*) FROM chunks c JOIN notes n ON n.id = c.note_id"
+                " WHERE n.path = ? AND n.ref = ? AND n.model_id = ?",
+                key,
+            ).fetchone()[0]
+        self._conn.executemany("DELETE FROM notes WHERE path = ? AND ref = ? AND model_id = ?", keys)
         self._conn.commit()
 
-        removed = cursor.rowcount
         logger.info(f"Removed {removed} chunks from {len(keys)} deleted or superseded notes")
         return removed
 
     def clear(self) -> None:
-        """Remove all chunks from the store."""
-        self._conn.execute("DELETE FROM chunks")
+        """Remove every note, and so every chunk, from the store."""
+        self._conn.execute("DELETE FROM notes")
         self._conn.commit()
 
     def close(self) -> None:
@@ -437,5 +468,8 @@ class SQLiteSearchIndex(SearchIndex):
     def stats(self) -> Iterator[IndexStat]:
         """Get statistics about the vector store."""
 
-        for row in self._conn.execute("SELECT model_id, path, ref, COUNT(*) FROM chunks GROUP BY model_id, path, ref"):
+        for row in self._conn.execute(
+            "SELECT n.model_id, n.path, n.ref, COUNT(c.id) FROM notes n LEFT JOIN chunks c ON c.note_id = n.id"
+            " GROUP BY n.id"
+        ):
             yield IndexStat(row[0], RepoPath(Path(row[1]), row[2]), num_chunks=row[3])
