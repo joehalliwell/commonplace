@@ -88,8 +88,58 @@ def _write_v1(conn: sqlite3.Connection) -> None:
     )
 
 
+V2_DDL = """
+CREATE TABLE notes (
+    id INTEGER PRIMARY KEY,
+    model_id TEXT NOT NULL,
+    path TEXT NOT NULL,
+    ref TEXT NOT NULL,
+    UNIQUE(model_id, path, ref)
+);
+CREATE TABLE chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+    section TEXT NOT NULL,
+    text TEXT NOT NULL,
+    offset INTEGER NOT NULL,
+    embedding BLOB NOT NULL,
+    UNIQUE(note_id, offset)
+);
+CREATE VIRTUAL TABLE chunks_fts USING fts5(text, section, content=chunks, content_rowid=id);
+CREATE TRIGGER chunks_ai AFTER INSERT ON chunks BEGIN
+    INSERT INTO chunks_fts(rowid, text, section) VALUES (new.id, new.text, new.section);
+END;
+CREATE TRIGGER chunks_ad AFTER DELETE ON chunks BEGIN
+    INSERT INTO chunks_fts(chunks_fts, rowid, text, section) VALUES('delete', old.id, old.text, old.section);
+END;
+CREATE TRIGGER chunks_au AFTER UPDATE ON chunks BEGIN
+    INSERT INTO chunks_fts(chunks_fts, rowid, text, section) VALUES('delete', old.id, old.text, old.section);
+    INSERT INTO chunks_fts(rowid, text, section) VALUES (new.id, new.text, new.section);
+END;
+PRAGMA user_version = 2;
+"""
+
+
+def _write_v2(conn: sqlite3.Connection) -> None:
+    """A note named once, in `notes`; its chunks refer to it."""
+    conn.executescript(V2_DDL)
+    embedder = ExampleEmbedder()
+    notes = list(dict.fromkeys((path, ref) for path, ref, *_ in CHUNKS))
+    conn.executemany(
+        "INSERT INTO notes (id, model_id, path, ref) VALUES (?, ?, ?, ?)",
+        [(i, embedder.model_id, path, ref) for i, (path, ref) in enumerate(notes, 1)],
+    )
+    conn.executemany(
+        "INSERT INTO chunks (note_id, section, text, offset, embedding) VALUES (?, ?, ?, ?, ?)",
+        [
+            (notes.index((path, ref)) + 1, section, text, offset, embedder.embed_doc(text).tobytes())
+            for path, ref, section, text, offset in CHUNKS
+        ],
+    )
+
+
 #: version -> writer
-EXAMPLES = {1: _write_v1}
+EXAMPLES = {1: _write_v1, 2: _write_v2}
 
 
 def main() -> None:
