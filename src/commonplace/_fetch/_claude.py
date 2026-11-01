@@ -40,7 +40,7 @@ class ClaudeSessionFetcher(BaseFetcher):
 
     _org_uuid: str
 
-    def _has_session(self, cookies: dict[str, str]) -> bool:
+    def _has_session(self, cookies: httpx.Cookies) -> bool:
         """Also records `_org_uuid`: every API path is scoped to the organisation."""
         if not super()._has_session(cookies):
             return False

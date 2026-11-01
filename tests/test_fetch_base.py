@@ -5,6 +5,8 @@ invariants that hold across all of them, so a fourth provider inherits them
 rather than rediscovering them.
 """
 
+import http.cookiejar
+
 import httpx
 import pytest
 
@@ -114,6 +116,32 @@ def test_signed_in_with_session_cookie_yields_the_client_it_authorised():
     with fetcher._signed_in() as client:
         assert client is not None
         assert fetcher.authorised == [client]
+
+
+def _chrome_cookie(name: str, domain: str) -> http.cookiejar.Cookie:
+    return http.cookiejar.Cookie(
+        0, name, "v", None, False, domain, True, domain.startswith("."), "/", False, True, None, False, None, None, {}
+    )
+
+
+def test_browser_cookies_reach_only_the_hosts_they_belong_to(monkeypatch):
+    """As seen 2026-11-01: Photos' OSID, sent to Gemini, bounced sign-in to CookieMismatch."""
+    jar = http.cookiejar.CookieJar()
+    jar.set_cookie(_chrome_cookie("session", ".example.com"))
+    jar.set_cookie(_chrome_cookie("OSID", "photos.example.com"))
+    monkeypatch.setattr("commonplace._fetch._helpers.browser_cookie3.chrome", lambda domain_name: jar)
+    sent: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request.headers.get("cookie", ""))
+        return httpx.Response(200)
+
+    fetcher = _AuthorisingStub(transport=httpx.MockTransport(handler))
+    with fetcher._signed_in() as client:
+        assert client is not None
+        client.get("https://gemini.example.com/app")
+
+    assert sent == ["session=v"]
 
 
 def test_archive_is_named_for_the_source(tmp_path):

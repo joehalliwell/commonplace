@@ -36,7 +36,7 @@ class ChatGptSessionFetcher(BaseFetcher):
     # have not needed pacing.
     request_interval = 0.25
 
-    def _has_session(self, cookies: dict[str, str]) -> bool:
+    def _has_session(self, cookies: httpx.Cookies) -> bool:
         """Matched by prefix, since NextAuth may have chunked the cookie."""
         if not any(name.startswith(self.session_cookie) for name in cookies):
             self._report_no_session()
