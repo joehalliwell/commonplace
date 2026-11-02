@@ -1,0 +1,36 @@
+# Each merged PR becomes a version: its merge commit is tagged with the latest version bumped by its semver label.
+# versioningit reads the tag, so every build from that commit reports it. Publishing to PyPI stays manual
+# (`just publish`); a tag pushed with this workflow's token wouldn't trigger another workflow anyway.
+name: Tag on merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+# Two merges in quick succession must not both bump from the same latest tag.
+concurrency:
+  group: tag-on-merge
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tag the merge with the next version
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          latest=$(git tag --list '[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)
+          next=$(bash .github/scripts/next-version.sh "$latest" "$LABELS")
+          git tag "$next" "$MERGE_SHA"
+          git push origin "$next"
+          echo "::notice::Tagged $MERGE_SHA as $next (was $latest)"

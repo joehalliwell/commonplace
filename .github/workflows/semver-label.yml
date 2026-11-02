@@ -1,0 +1,24 @@
+# Every PR says what its merge does to the version: exactly one of semver:major, semver:minor, semver:patch.
+name: Semver label
+
+on:
+  pull_request:
+    types: [opened, reopened, labeled, unlabeled, synchronize]
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require exactly one semver label
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        # The tag-on-merge workflow's own computation, run against a placeholder version.
+        run: |
+          if ! bash .github/scripts/next-version.sh 0.0.0 "$LABELS" > /dev/null; then
+            echo "::error::Label this PR with exactly one of semver:major (breaking), semver:minor (new feature) or semver:patch (fix)."
+            exit 1
+          fi
