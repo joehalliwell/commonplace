@@ -80,8 +80,10 @@ def _fetch_one(repo: Commonplace, fetcher: Fetcher, auto_index: bool | None, all
     # for a mirrored tree, does a commit that only pruned.
     tree = landing_tree(fetcher.source).as_posix()
     since = None if all_ else repo.last_commit_time(f"{tree}/", diff_filter="AM")
+    # What this source has landed, for a fetcher that asks only for what changed since; --full asks for it all.
+    previous = [] if all_ else [repo.root / p for p in repo.stored_archives(f"{fetcher.source}-wire.jsonl.gz")]
     with tempfile.TemporaryDirectory() as tmp:
-        artifact = fetcher.fetch(Path(tmp), since)
+        artifact = fetcher.fetch(Path(tmp), since, previous=previous)
         if artifact is None:
             logger.info(f"Nothing new from {fetcher.source}")
             return

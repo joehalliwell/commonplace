@@ -1,5 +1,6 @@
 """Fetch ChatGPT's memory of the user from chatgpt.com using the browser session cookie."""
 
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
@@ -17,7 +18,7 @@ class ChatGptMemoryFetcher(ChatGptSessionFetcher):
 
     source = "chatgpt-memory"
 
-    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
         # Neither endpoint can be asked for changes only, so `since` has nothing to narrow.
         with self._signed_in():
             self._api("GET", "memories", endpoint="memories")

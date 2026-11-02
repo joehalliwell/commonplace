@@ -9,7 +9,7 @@ surfaces immediately rather than as silent data loss.
 import json
 import random
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import ClassVar
@@ -100,7 +100,7 @@ class GeminiFetcher(GeminiSessionFetcher):
 
     source = "gemini"
 
-    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
         with self._signed_in():
             # Walk list_chats pages to find fresh cids. Full parse of each chat
             # happens in the importer against the same wire we're logging here.

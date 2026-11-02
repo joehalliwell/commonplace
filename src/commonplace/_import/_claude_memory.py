@@ -3,6 +3,7 @@
 Entries are `{"endpoint": "list"|"read", "path": ..., "response": ...}`."""
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 from commonplace._import._base import BaseWireImporter
@@ -19,7 +20,7 @@ class ClaudeMemoryImporter(BaseWireImporter):
     source: str = "claude-memory"
     tree: Path = Path("memory") / "claude"
 
-    def snapshot(self, path: Path) -> Snapshot:
+    def snapshot(self, path: Path, earlier: Sequence[Path] = ()) -> Snapshot:
         notes: list[Note] = []
         listed: set[Path] | None = None
         for entry in read_entries(path):

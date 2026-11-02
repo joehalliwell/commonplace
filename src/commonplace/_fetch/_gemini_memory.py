@@ -1,5 +1,6 @@
 """Fetch Gemini's saved info (gemini.google.com/saved-info) over the same `batchexecute` RPC as chats."""
 
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
@@ -12,7 +13,7 @@ class GeminiMemoryFetcher(GeminiSessionFetcher):
 
     source = "gemini-memory"
 
-    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
         # `since` goes unused: the listing is the whole state, and it is how a deletion is seen.
         with self._signed_in():
             self._rpc_body(RPC_LIST_SAVED_INFO, [], source_path="/saved-info")

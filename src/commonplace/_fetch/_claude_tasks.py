@@ -1,5 +1,6 @@
 """Fetch the runs of claude.ai scheduled tasks, which are Code sessions rather than chats."""
 
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -12,7 +13,7 @@ class ClaudeTasksFetcher(ClaudeSessionFetcher):
 
     source = "claude-tasks"
 
-    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
         with self._signed_in():
             # The server returns no runs at all without `exclude_tags`.
             runs = self._code_pages(

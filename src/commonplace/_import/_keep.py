@@ -1,6 +1,9 @@
-"""Importer for the `keep-wire.jsonl.gz` archive produced by [[KeepFetcher]].
+"""Importer for the `keep-wire.jsonl.gz` archives produced by [[KeepFetcher]].
 
-The archive holds every page of one full sync of Keep's `notes/v1/changes`. Notes and lists are root nodes
+An archive holds every page of one sync of Keep's `notes/v1/changes`: a full sync if its first request named
+no version, otherwise a change set since the version it named. Keep's state is the last full sync with every
+change set since replayed on it, node by node; a note trashed or deleted arrives as a change like any other.
+Notes and lists are root nodes
 (`parentId` "root"); their text lives in `LIST_ITEM` children pointing back by `parentId`: one for a note,
 one per item for a list. A node not in the trash has the epoch as its `trashed` time. Label names live in
 `userInfo.labels`, keyed by `mainId`. Fields are read without defaults where Keep always sends them, so
@@ -9,6 +12,7 @@ drift fails loudly.
 
 import json
 from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -34,10 +38,14 @@ class KeepImporter(BaseWireImporter):
     #: not where it lives, so its marginalia stay attached.
     keeps_first_path: bool = True
 
-    def snapshot(self, path: Path) -> Snapshot:
+    def snapshot(self, path: Path, earlier: Sequence[Path] = ()) -> Snapshot:
+        """Keep's whole state as of `path`: the last full sync up to it, with every change set since replayed."""
+        chain = since_last_full([*earlier, path])
+        if not is_full_sync(chain[0]):
+            raise ValueError(f"'{path}' is a change set, and no full sync before it was given to replay it on")
         nodes: dict[str, dict[str, Any]] = {}
         labels: dict[str, str] = {}
-        for entry in read_entries(path):
+        for entry in (entry for archive in chain for entry in read_entries(archive)):
             page = json.loads(entry["response"])
             nodes |= {node["id"]: node for node in page.get("nodes", [])}
             labels |= {label["mainId"]: label["name"] for label in page.get("userInfo", {}).get("labels", [])}
@@ -91,6 +99,24 @@ class KeepImporter(BaseWireImporter):
             "archived": root["isArchived"],
         }
         return Note.compose(RepoPath(path), "Note", title or first_line, body, metadata)
+
+
+def is_full_sync(archive: Path) -> bool:
+    """Whether the archive's first request named no version, so it holds the whole state, not a change set."""
+    first = next(read_entries(archive))
+    return first["targetVersion"] is None
+
+
+def since_last_full(archives: Sequence[Path]) -> list[Path]:
+    """The archives from the last full sync on, which are all a replay needs; all of them if none is full."""
+    starts = [i for i, archive in enumerate(archives) if is_full_sync(archive)]
+    return list(archives[starts[-1] :] if starts else archives)
+
+
+def last_version(archive: Path) -> str:
+    """The version Keep's state had reached when the archive's last page was written: the next sync starts there."""
+    *_, entry = read_entries(archive)
+    return json.loads(entry["response"])["toVersion"]
 
 
 def _gone(node: dict[str, Any]) -> bool:

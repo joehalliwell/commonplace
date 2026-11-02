@@ -5,6 +5,7 @@ The archive holds one `ZKcapf` entry whose body is `[items, token]`, each item
 Slots are indexed without defaults, so drift fails loudly.
 """
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from commonplace._import._base import BaseWireImporter
@@ -20,7 +21,7 @@ class GeminiMemoryImporter(BaseWireImporter):
     source: str = "gemini-memory"
     tree: Path = Path("memory") / "gemini"
 
-    def snapshot(self, path: Path) -> Snapshot:
+    def snapshot(self, path: Path, earlier: Sequence[Path] = ()) -> Snapshot:
         [entry] = read_entries(path)
         body = _extract_rpc_body(entry["response"], RPC_LIST_SAVED_INFO)
         if body is None:

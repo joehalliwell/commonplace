@@ -1,5 +1,6 @@
 """Fetch conversations directly from claude.ai using the browser session cookie."""
 
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
@@ -80,7 +81,7 @@ class ClaudeFetcher(ClaudeSessionFetcher):
 
     source = "claude"
 
-    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
         with self._signed_in():
             fresh = self._list_fresh(since)
             self._read_fresh(fresh, since, self._read)
