@@ -270,14 +270,17 @@ def show(
         list[str],
         Parameter(help="Show just this section: tags, links, commentary, history or index", negative=""),
     ] = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
-    as_json: Annotated[bool, Parameter(name="--json", negative="", help="The whole record as JSON")] = False,
+    with_body: Annotated[
+        bool, Parameter(name="--body", negative="", help="Add the note's text, making a markdown note about the note")
+    ] = False,
+    as_json: Annotated[bool, Parameter(name="--json", negative="", help="The record as JSON rather than YAML")] = False,
     include_hidden: Annotated[bool, Parameter(help="Include links to and from notes tagged hidden")] = False,
     repo: Repo,
 ) -> None:
-    """Everything known about a note: tags, links both ways (→ out, ← in), commentary, history, index."""
+    """Everything known about a note, as YAML: tags, links both ways, commentary, history, index."""
     import json
 
-    from commonplace._show import SECTIONS, render
+    from commonplace._show import SECTIONS, body, render, select
     from commonplace._show import show as gather
 
     unknown = set(only) - set(SECTIONS)
@@ -285,12 +288,14 @@ def show(
         if unknown:
             raise ValueError(f"No section {', '.join(sorted(unknown))}; there are {', '.join(SECTIONS)}")
         shown = gather(repo, spec, include_hidden)
+        text = body(repo, spec) if with_body else None
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
-    print(
-        json.dumps(shown, ensure_ascii=False, indent=2) if as_json else render(shown, only), end="\n" if as_json else ""
-    )
+    if as_json:
+        print(json.dumps(select(shown, only) | ({"body": text} if text is not None else {}), ensure_ascii=False))
+    else:
+        print(render(shown, only, text), end="")
 
 
 @app.command(group=ANNOTATING_SECTION)

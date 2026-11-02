@@ -274,20 +274,25 @@ sidecar by hand counts as a link too.
 ### Show a note
 
 ```bash
-# Everything known about a note
+# Everything known about a note, as YAML
 commonplace show ideas
 
 # Just some of it
 commonplace show ideas --only links --only tags
 
-# The whole record as JSON, for scripts and skills
+# With the note's text: a markdown note about the note
+commonplace show ideas --body
+
+# The same record as JSON, for scripts
 commonplace show ideas --json
 ```
 
 `show` gathers what other commands record about a note: its title and type,
-its own tags and its marginalia tags, its links both ways (→ out, ← in: from
-marginalia and from notes' own text), the commentary in its marginalia, its git
-history, and whether its current version is in the search index.
+its own tags and its marginalia tags, its links both ways (from marginalia and
+from notes' own text), the commentary in its marginalia, its git history, and
+whether its current version is in the search index. With `--body`, the record
+becomes the frontmatter and the note's text follows, so the output is itself a
+note.
 
 ### Sync your commonplace
 

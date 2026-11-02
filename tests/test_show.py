@@ -5,10 +5,12 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+import yaml
 
 from commonplace._marginalia import Sidecar, link, read_sidecar, tag, write_sidecar
 from commonplace._search import _commands
 from commonplace._show import render, show
+from commonplace._utils import load_frontmatter
 from tests.porcelain import git
 
 IDEAS = "---\ntitle: Ideas\ntype: Note\ntags: [drink]\n---\n\n# Ideas\n\nA tea house by the river.\n"
@@ -79,25 +81,49 @@ def test_show_a_hidden_note_when_asked_by_name_and_says_so(notes, as_joe):
     assert show(notes, "ideas")["hidden"] is True
 
 
-def test_render_only_shows_the_header_and_the_sections_asked_for(notes, as_joe):
+def test_render_is_the_record_as_yaml_keeping_the_header_and_the_sections_asked_for(notes, as_joe):
     tag(notes, "ideas", ["revisit"])
+    shown = show(notes, "ideas")
 
-    text = render(show(notes, "ideas"), only=["tags"])
+    rendered = yaml.safe_load(render(shown, only=["tags"]))
 
-    assert text.splitlines()[0] == "/notes/ideas  ·  Ideas  ·  Note"
-    assert "revisit" in text
-    assert "links" not in text and "history" not in text
+    assert rendered["note"] == "/notes/ideas"
+    assert rendered["tags"] == {"own": ["drink"], "marginalia": ["revisit"]}
+    assert "links" not in rendered and "history" not in rendered
+    assert yaml.safe_load(render(shown)) == shown
 
 
-def test_show_cli_marks_link_direction(notes, as_joe, test_app, capsys):
+def test_render_with_the_body_is_a_markdown_note_about_the_note(notes):
+    """The record as frontmatter, the note's body below: a note about the note, in the repo's own format."""
+    shown = show(notes, "ideas")
+
+    metadata, body = load_frontmatter(render(shown, body="# Ideas\n\nA tea house by the river.\n"))
+
+    assert metadata == shown
+    assert body == "# Ideas\n\nA tea house by the river.\n"
+
+
+def test_show_cli_lists_each_link_with_its_direction(notes, as_joe, test_app, capsys):
     link(notes, "ideas", "2026-11-01", "and on", on=date(2026, 11, 2))
     capsys.readouterr()
 
     assert test_app(["show", "ideas", "--only", "links"]) == 0
 
-    lines = capsys.readouterr().out.splitlines()
-    assert "  → /journal/2026-11-01  - 2026-11-02 [[/journal/2026-11-01]] and on" in lines
-    assert "  ← /journal/2026-11-02  line 3" in lines
+    found = yaml.safe_load(capsys.readouterr().out)["links"]
+    assert {
+        "direction": "out",
+        "other": "/journal/2026-11-01",
+        "context": "- 2026-11-02 [[/journal/2026-11-01]] and on",
+    } in found
+    assert {"direction": "in", "other": "/journal/2026-11-02", "context": "line 3"} in found
+
+
+def test_show_cli_body_appends_the_notes_own_text(notes, test_app, capsys):
+    assert test_app(["show", "ideas", "--body"]) == 0
+
+    metadata, body = load_frontmatter(capsys.readouterr().out)
+    assert metadata["note"] == "/notes/ideas"
+    assert body == "# Ideas\n\nA tea house by the river.\n"
 
 
 def test_show_cli_json_is_the_whole_record_for_skills(notes, test_app, capsys):
