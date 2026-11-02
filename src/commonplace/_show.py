@@ -1,7 +1,7 @@
 """`show`: everything known about one note, gathered from what already records it.
 
 Each section is a view another command owns: frontmatter (as `ls` reads it), marginalia tags, links both ways,
-the sidecar's commentary, git history, and the search index. Something new to know about a note becomes a
+the commentary in its marginalia, git history, and the search index. Something new to know about a note becomes a
 section here rather than a command of its own. One record, two serializations: YAML to read, JSON for scripts;
 either gives skills the whole record in one call. The record is a third thing, neither the note nor its
 marginalia, so it never takes a note's form; the note itself is read at its path, which `resolve` gives.
@@ -14,7 +14,7 @@ from typing import Any
 import yaml
 
 from commonplace._links import Target
-from commonplace._marginalia import links, notes_named, read_sidecar
+from commonplace._marginalia import links, notes_named, read_marginalia
 from commonplace._repo import Commonplace
 from commonplace._utils import load_frontmatter
 
@@ -24,28 +24,28 @@ SECTIONS = ("tags", "links", "commentary", "history", "index")
 
 def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str, Any]:
     """The record of the note `spec` names; a hidden note is shown when asked for by name, and says so."""
-    [node] = notes_named(repo, spec)
-    metadata, _ = load_frontmatter((repo.root / node).read_text(errors="replace"))
-    sidecar = read_sidecar(repo.root, node)
+    [note] = notes_named(repo, spec)
+    metadata, _ = load_frontmatter((repo.root / note).read_text(errors="replace"))
+    marginalia = read_marginalia(repo.root, note)
     # A field the note lacks is left out rather than shown as null.
     header = {field: metadata[field] for field in ("title", "type", "description") if metadata.get(field)}
     return {
-        "note": str(Target(node)),
+        "note": str(Target(note)),
         **header,
-        "hidden": "hidden" in sidecar.tags,
-        "tags": {"own": list(metadata.get("tags") or []), "marginalia": sidecar.tags},
+        "hidden": "hidden" in marginalia.tags,
+        "tags": {"own": list(metadata.get("tags") or []), "marginalia": marginalia.tags},
         "links": [asdict(neighbour) for neighbour in links(repo, spec, include_hidden)],
-        "commentary": sidecar.commentary,
-        "history": [{"date": day, "subject": subject} for day, subject in repo.history(node)],
-        "index": _index_state(repo, node),
+        "commentary": marginalia.commentary,
+        "history": [{"date": day, "subject": subject} for day, subject in repo.history(note)],
+        "index": _index_state(repo, note),
     }
 
 
-def _index_state(repo: Commonplace, node: Path) -> dict[str, Any]:
+def _index_state(repo: Commonplace, note: Path) -> dict[str, Any]:
     """How many chunks the current version has in the index, and whether it's current, stale or not indexed."""
-    current = repo.make_repo_path(node)
+    current = repo.make_repo_path(note)
     index = repo.index
-    versions = [path for path in index.get_indexed_paths() if path.path == node]
+    versions = [path for path in index.get_indexed_paths() if path.path == note]
     if current in versions:
         chunks = sum(stat.num_chunks for stat in index.stats() if stat.repo_path == current)
         return {"state": "current", "chunks": chunks}

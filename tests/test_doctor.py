@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 from commonplace._doctor import doctor
-from commonplace._marginalia import Sidecar, read_sidecar, sidecar_path, write_sidecar
+from commonplace._marginalia import Marginalia, marginalia_path, read_marginalia, write_marginalia
 from tests.porcelain import git
 
 
@@ -297,16 +297,16 @@ def test_doctor_cli_no_links_skips_the_link_check(test_app, test_repo, caplog):
 
 
 # ---------------------------------------------------------------------------
-# Marginalia: sidecars that lost their note, and edges that lost their target.
+# Marginalia that lost their note, and links in marginalia that lost their target.
 # ---------------------------------------------------------------------------
 
 
 def _annotated(repo, make_note, path: str, body: str = "") -> None:
-    """A committed note with a committed sidecar, tagged and recording the note's ref."""
+    """A committed note with committed marginalia, tagged and recording the note's ref."""
     repo.save(make_note(path=path, content="# Note\n\n## Heading\n\nSome text.\n"))
     repo.commit(f"Add {path}", auto_index=False)
-    sidecar = Sidecar(node=Path(path), ref=repo.make_repo_path(Path(path)).ref, body=body).tagged("tea")
-    write_sidecar(repo, sidecar)
+    marginalia = Marginalia(note=Path(path), ref=repo.make_repo_path(Path(path)).ref, body=body).tagged("tea")
+    write_marginalia(repo, marginalia)
     repo.commit(f"Annotate {path}", auto_index=False)
 
 
@@ -314,40 +314,40 @@ def _marginalia_only(repo, check: bool = False):
     return doctor(repo, check=check, scaffold=False, links=False)
 
 
-def test_doctor_reattaches_a_sidecar_after_its_note_is_moved(test_repo, make_note):
-    """A plain `git mv` leaves the sidecar behind; git's rename detection says where the note went."""
+def test_doctor_reattaches_marginalia_after_their_note_is_moved(test_repo, make_note):
+    """A plain `git mv` leaves the marginalia behind; git's rename detection says where the note went."""
     _annotated(test_repo, make_note, "notes/ideas.md")
     git(test_repo.root, "mv", "notes/ideas.md", "notes/old-ideas.md")
     git(test_repo.root, "commit", "-qm", "Move")
 
     report = _marginalia_only(test_repo)
 
-    assert read_sidecar(test_repo.root, Path("notes/old-ideas.md")).tags == ["tea"]
-    assert not (test_repo.root / sidecar_path(Path("notes/ideas.md"))).exists()
+    assert read_marginalia(test_repo.root, Path("notes/old-ideas.md")).tags == ["tea"]
+    assert not (test_repo.root / marginalia_path(Path("notes/ideas.md"))).exists()
     assert any("notes/old-ideas.md" in action for action in report.actions)
     assert git(test_repo.root, "status", "--porcelain") == ""
 
 
-def test_doctor_check_only_says_where_a_sidecar_would_go(test_repo, make_note):
+def test_doctor_check_only_says_where_marginalia_would_go(test_repo, make_note):
     _annotated(test_repo, make_note, "notes/ideas.md")
     git(test_repo.root, "mv", "notes/ideas.md", "notes/old-ideas.md")
     git(test_repo.root, "commit", "-qm", "Move")
 
     report = _marginalia_only(test_repo, check=True)
 
-    assert (test_repo.root / sidecar_path(Path("notes/ideas.md"))).exists()
+    assert (test_repo.root / marginalia_path(Path("notes/ideas.md"))).exists()
     assert any(action.startswith("Would move") for action in report.actions)
 
 
-def test_doctor_keeps_a_sidecar_whose_note_is_gone_and_says_so(test_repo, make_note):
-    """Mirrors delete notes upstream; the sidecar is the record of what was made of them."""
+def test_doctor_keeps_marginalia_whose_note_is_gone_and_says_so(test_repo, make_note):
+    """Mirrors delete notes upstream; the marginalia are the record of what was made of them."""
     _annotated(test_repo, make_note, "notes/ideas.md")
     test_repo.remove(Path("notes/ideas.md"))
     test_repo.commit("Delete", auto_index=False)
 
     report = _marginalia_only(test_repo)
 
-    assert (test_repo.root / sidecar_path(Path("notes/ideas.md"))).exists()
+    assert (test_repo.root / marginalia_path(Path("notes/ideas.md"))).exists()
     assert any("notes/ideas.md" in warning for warning in report.warnings)
 
 

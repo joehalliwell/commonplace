@@ -257,14 +257,14 @@ def ls(
 
 ANNOTATING_SECTION = "Annotating"
 
-NodeSpec: TypeAlias = Annotated[  # noqa: UP040
+NoteSpec: TypeAlias = Annotated[  # noqa: UP040
     str, Parameter(help="A note, named as a wikilink would: 'ideas' or '/notes/ideas'; a * makes it a glob")
 ]
 
 
 @app.command(group=ANALYZING_SECTION)
 def show(
-    spec: NodeSpec,
+    spec: NoteSpec,
     *,
     only: Annotated[
         list[str],
@@ -295,7 +295,7 @@ def show(
 
 
 @app.command(group=ANALYZING_SECTION)
-def resolve(spec: NodeSpec, *, repo: Repo) -> None:
+def resolve(spec: NoteSpec, *, repo: Repo) -> None:
     """Print the path of the note a name refers to, one per line for a glob: $EDITOR $(commonplace resolve ideas)."""
     from commonplace._links import resolve as resolve_spec
 
@@ -309,26 +309,26 @@ def resolve(spec: NodeSpec, *, repo: Repo) -> None:
 
 
 @app.command(group=ANNOTATING_SECTION)
-def tag(spec: NodeSpec, *tags: str, repo: Repo) -> None:
+def tag(spec: NoteSpec, *tags: str, repo: Repo) -> None:
     """Tag notes, in their marginalia; with no tags, show a note's tags."""
-    from commonplace._marginalia import notes_named, read_sidecar
+    from commonplace._marginalia import notes_named, read_marginalia
     from commonplace._marginalia import tag as add_tags
 
     try:
         if tags:
             add_tags(repo, spec, list(tags))
             return
-        nodes = notes_named(repo, spec)
-    except ValueError as e:  # An unresolved spec, or a sidecar newer than this release
+        notes = notes_named(repo, spec)
+    except ValueError as e:  # An unresolved spec, or marginalia newer than this release
         logger.error(str(e))
         raise SystemExit(1) from e
-    for node in nodes:
-        found = read_sidecar(repo.root, node).tags
-        print("\n".join(found) if len(nodes) == 1 else f"{node}: {' '.join(found)}")
+    for note in notes:
+        found = read_marginalia(repo.root, note).tags
+        print("\n".join(found) if len(notes) == 1 else f"{note}: {' '.join(found)}")
 
 
 @app.command(group=ANNOTATING_SECTION)
-def untag(spec: NodeSpec, *tags: str, repo: Repo) -> None:
+def untag(spec: NoteSpec, *tags: str, repo: Repo) -> None:
     """Remove tags from notes' marginalia."""
     from commonplace._marginalia import untag as remove_tags
 
@@ -359,7 +359,7 @@ def link(
 
 
 @app.command(group=ANNOTATING_SECTION)
-def unlink(source: NodeSpec, target: NodeSpec, *, repo: Repo) -> None:
+def unlink(source: NoteSpec, target: NoteSpec, *, repo: Repo) -> None:
     """Remove a note's links to a target from its marginalia."""
     from commonplace._marginalia import unlink as remove_link
 
@@ -451,7 +451,10 @@ def doctor(
     scaffold: Annotated[bool, Parameter(help="Restore missing scaffolding and report template drift.")] = True,
     links: Annotated[bool, Parameter(help="Report broken links.")] = True,
     marginalia: Annotated[
-        bool, Parameter(help="Re-attach marginalia to moved notes; report orphaned sidecars and dead marginalia links.")
+        bool,
+        Parameter(
+            help="Re-attach marginalia to moved notes; report marginalia whose note is gone, and dead links in marginalia."
+        ),
     ] = True,
     render: Annotated[
         bool, Parameter(help="Re-render chats from the stored archives, newest capture winning; takes minutes.")
