@@ -87,6 +87,9 @@ class MemoryImporter(Protocol):
     source: str
     #: Where the files land, and so the fetch cursor's pathspec.
     tree: Path
+    #: Whether a note, found by its frontmatter `id`, keeps the path it first landed at rather than the one
+    #: proposed now. For sources that name files after something that changes, like a note's title.
+    keeps_first_path: bool
 
     def can_import(self, path: Path) -> bool: ...
 
