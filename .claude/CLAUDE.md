@@ -62,7 +62,7 @@ Pre-commit hooks run ruff and mdformat. If mdformat reformats a file, re-stage a
 
 Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it records provenance, not credit. Commit each logical change separately in multi-step plans.
 
-Versions: semver, from git tags (versioningit). Every PR carries exactly one label: `semver:major` (an existing user or repo must adapt: a removed command or flag, a persisted format older releases can't read), `semver:minor` (new, backward-compatible functionality) or `semver:patch` (fixes, docs, CI). Merging tags the merge commit with the bumped version; publishing to PyPI stays manual (`just publish`). The plugin's own version is separate (below).
+Versions: semver, from git tags (versioningit). Every PR carries exactly one label: `semver:major` (an existing user or repo must adapt: a removed command or flag, a persisted format older releases can't read), `semver:minor` (new, backward-compatible functionality) or `semver:patch` (fixes, docs, CI). Merging tags the merge commit with the bumped version; publishing to PyPI stays manual (`just publish`). Until 1.0, label a breaking change `semver:minor`: `semver:major` is reserved for the PR that declares 1.0. The plugin's own version is separate (below).
 
 ## Plugins
 
