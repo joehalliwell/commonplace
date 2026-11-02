@@ -2,8 +2,9 @@
 
 Each section is a view another command owns: frontmatter (as `ls` reads it), marginalia tags, links both ways,
 the sidecar's commentary, git history, and the search index. Something new to know about a note becomes a
-section here rather than a command of its own. One record, two serializations: YAML to read (with the body, a
-markdown note about the note), JSON for scripts; either gives skills the whole record in one call.
+section here rather than a command of its own. One record, two serializations: YAML to read, JSON for scripts;
+either gives skills the whole record in one call. The record is a third thing, neither the note nor its
+marginalia, so it never takes a note's form; the note itself is read at its path, which `resolve` gives.
 """
 
 from dataclasses import asdict
@@ -51,21 +52,14 @@ def _index_state(repo: Commonplace, node: Path) -> dict[str, Any]:
     return {"state": "stale" if versions else "not indexed", "chunks": 0}
 
 
-def body(repo: Commonplace, spec: str) -> str:
-    """The note's own text, without its frontmatter, whose fields the record already carries."""
-    [node] = notes_named(repo, spec)
-    return load_frontmatter((repo.root / node).read_text(errors="replace"))[1]
-
-
 def select(shown: dict[str, Any], only: list[str] | None = None) -> dict[str, Any]:
     """The record with just the sections asked for (all by default), and always the note it's about."""
     return {key: value for key, value in shown.items() if key not in SECTIONS or not only or key in only}
 
 
-def render(shown: dict[str, Any], only: list[str] | None = None, body: str | None = None) -> str:
-    """The record as YAML; with a body, a markdown note about the note: the record as frontmatter, the body below."""
+def render(shown: dict[str, Any], only: list[str] | None = None) -> str:
+    """The record as YAML. Not a note: it is about one, so it never borrows a note's form."""
     # Flow style for collections of plain values keeps each link and commit to a line.
-    dumped = yaml.safe_dump(
+    return yaml.safe_dump(
         select(shown, only), sort_keys=False, allow_unicode=True, default_flow_style=None, width=float("inf")
     )
-    return dumped if body is None else f"---\n{dumped}---\n\n{body}"

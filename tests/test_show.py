@@ -10,7 +10,6 @@ import yaml
 from commonplace._marginalia import Sidecar, link, read_sidecar, tag, write_sidecar
 from commonplace._search import _commands
 from commonplace._show import render, show
-from commonplace._utils import load_frontmatter
 from tests.porcelain import git
 
 IDEAS = "---\ntitle: Ideas\ntype: Note\ntags: [drink]\n---\n\n# Ideas\n\nA tea house by the river.\n"
@@ -93,16 +92,6 @@ def test_render_is_the_record_as_yaml_keeping_the_header_and_the_sections_asked_
     assert yaml.safe_load(render(shown)) == shown
 
 
-def test_render_with_the_body_is_a_markdown_note_about_the_note(notes):
-    """The record as frontmatter, the note's body below: a note about the note, in the repo's own format."""
-    shown = show(notes, "ideas")
-
-    metadata, body = load_frontmatter(render(shown, body="# Ideas\n\nA tea house by the river.\n"))
-
-    assert metadata == shown
-    assert body == "# Ideas\n\nA tea house by the river.\n"
-
-
 def test_show_cli_lists_each_link_with_its_direction(notes, as_joe, test_app, capsys):
     link(notes, "ideas", "2026-11-01", "and on", on=date(2026, 11, 2))
     capsys.readouterr()
@@ -118,12 +107,31 @@ def test_show_cli_lists_each_link_with_its_direction(notes, as_joe, test_app, ca
     assert {"direction": "in", "other": "/journal/2026-11-02", "context": "line 3"} in found
 
 
-def test_show_cli_body_appends_the_notes_own_text(notes, test_app, capsys):
-    assert test_app(["show", "ideas", "--body"]) == 0
+def test_resolve_cli_prints_the_notes_absolute_path(notes, test_app, capsys):
+    """So it composes: $EDITOR $(commonplace resolve ideas)."""
+    assert test_app(["resolve", "ideas"]) == 0
 
-    metadata, body = load_frontmatter(capsys.readouterr().out)
-    assert metadata["note"] == "/notes/ideas"
-    assert body == "# Ideas\n\nA tea house by the river.\n"
+    assert capsys.readouterr().out == f"{notes.root / 'notes/ideas.md'}\n"
+
+
+def test_resolve_cli_prints_a_line_per_match_of_a_glob(notes, test_app, capsys):
+    assert test_app(["resolve", "/journal/*"]) == 0
+
+    assert capsys.readouterr().out.splitlines() == [
+        str(notes.root / "journal/2026-11-01.md"),
+        str(notes.root / "journal/2026-11-02.md"),
+    ]
+
+
+def test_resolve_cli_an_ambiguous_name_fails_listing_candidates(notes, make_note, test_app, caplog):
+    notes.save(make_note(path="notes/2026-11-01.md", content="# Also a day\n"))
+    notes.commit("Add", auto_index=False)
+
+    with pytest.raises(SystemExit):
+        test_app(["resolve", "2026-11-01"])
+
+    assert "/journal/2026-11-01" in caplog.text
+    assert "/notes/2026-11-01" in caplog.text
 
 
 def test_show_cli_json_is_the_whole_record_for_skills(notes, test_app, capsys):
