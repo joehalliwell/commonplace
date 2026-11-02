@@ -2,12 +2,15 @@
 
 Each section is a view another command owns: frontmatter (as `ls` reads it), marginalia tags, links both ways,
 the sidecar's commentary, git history, and the search index. Something new to know about a note becomes a
-section here rather than a command of its own. `--json` gives skills the whole record in one call.
+section here rather than a command of its own. One record, two serializations: YAML to read (with the body, a
+markdown note about the note), JSON for scripts; either gives skills the whole record in one call.
 """
 
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 from commonplace._links import Target
 from commonplace._marginalia import links, notes_named, read_sidecar
@@ -23,11 +26,11 @@ def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str
     [node] = notes_named(repo, spec)
     metadata, _ = load_frontmatter((repo.root / node).read_text(errors="replace"))
     sidecar = read_sidecar(repo.root, node)
+    # A field the note lacks is left out rather than shown as null.
+    header = {field: metadata[field] for field in ("title", "type", "description") if metadata.get(field)}
     return {
         "note": str(Target(node)),
-        "title": metadata.get("title"),
-        "type": metadata.get("type"),
-        "description": metadata.get("description"),
+        **header,
         "hidden": "hidden" in sidecar.tags,
         "tags": {"own": list(metadata.get("tags") or []), "marginalia": sidecar.tags},
         "links": [asdict(neighbour) for neighbour in links(repo, spec, include_hidden)],
@@ -48,50 +51,21 @@ def _index_state(repo: Commonplace, node: Path) -> dict[str, Any]:
     return {"state": "stale" if versions else "not indexed", "chunks": 0}
 
 
-def render(shown: dict[str, Any], only: list[str] | None = None) -> str:
-    """The record as text: a header, then each section asked for (all by default)."""
-    header = "  ·  ".join(part for part in (shown["note"], shown["title"], shown["type"]) if part)
-    lines = [header]
-    if shown["description"]:
-        lines.append(shown["description"])
-    if shown["hidden"]:
-        lines.append("hidden: left out of search and listings")
-    for section in only or SECTIONS:
-        lines += _SECTION[section](shown)
-    return "\n".join(lines) + "\n"
+def body(repo: Commonplace, spec: str) -> str:
+    """The note's own text, without its frontmatter, whose fields the record already carries."""
+    [node] = notes_named(repo, spec)
+    return load_frontmatter((repo.root / node).read_text(errors="replace"))[1]
 
 
-def _tags(shown: dict[str, Any]) -> list[str]:
-    own, marginal = shown["tags"]["own"], shown["tags"]["marginalia"]
-    return [f"tags      own: {', '.join(own) or '—'}  ·  marginalia: {', '.join(marginal) or '—'}"]
+def select(shown: dict[str, Any], only: list[str] | None = None) -> dict[str, Any]:
+    """The record with just the sections asked for (all by default), and always the note it's about."""
+    return {key: value for key, value in shown.items() if key not in SECTIONS or not only or key in only}
 
 
-def _links(shown: dict[str, Any]) -> list[str]:
-    found = shown["links"]
-    outgoing = sum(1 for neighbour in found if neighbour["direction"] == "out")
-    lines = [f"links     → {outgoing}  ← {len(found) - outgoing}"]
-    for neighbour in found:
-        arrow = "→" if neighbour["direction"] == "out" else "←"
-        lines.append(f"  {arrow} {neighbour['other']}  {neighbour['context']}")
-    return lines
-
-
-def _commentary(shown: dict[str, Any]) -> list[str]:
-    return ["commentary", *(f"  {line}" for line in shown["commentary"])] if shown["commentary"] else []
-
-
-def _history(shown: dict[str, Any]) -> list[str]:
-    history = shown["history"]
-    if not history:
-        return ["history   not committed"]
-    last = history[0]
-    return [f"history   {len(history)} commits, last {last['date']} {last['subject']}"]
-
-
-def _index(shown: dict[str, Any]) -> list[str]:
-    index = shown["index"]
-    chunks = f"{index['chunks']} chunks, " if index["state"] == "current" else ""
-    return [f"index     {chunks}{index['state']}"]
-
-
-_SECTION = {"tags": _tags, "links": _links, "commentary": _commentary, "history": _history, "index": _index}
+def render(shown: dict[str, Any], only: list[str] | None = None, body: str | None = None) -> str:
+    """The record as YAML; with a body, a markdown note about the note: the record as frontmatter, the body below."""
+    # Flow style for collections of plain values keeps each link and commit to a line.
+    dumped = yaml.safe_dump(
+        select(shown, only), sort_keys=False, allow_unicode=True, default_flow_style=None, width=float("inf")
+    )
+    return dumped if body is None else f"---\n{dumped}---\n\n{body}"
