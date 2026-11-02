@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from commonplace._marginalia import read_sidecar, tagged
+from commonplace._marginalia import read_marginalia, tagged
 from commonplace._repo import Commonplace
 from commonplace._utils import load_frontmatter
 
@@ -34,7 +34,7 @@ def listing(repo: Commonplace, folder: Path, fields: list[str], include_hidden: 
     lines = [f"# {folder.as_posix()}", ""]
     for path in notes:
         metadata, _ = load_frontmatter((repo.root / path).read_text())
-        if "tags" in fields and (marginal := read_sidecar(repo.root, path).tags):
+        if "tags" in fields and (marginal := read_marginalia(repo.root, path).tags):
             metadata["tags"] = list(dict.fromkeys([*(metadata.get("tags") or []), *marginal]))
         entry = f"- [{_one_line(metadata.get('title')) or path.stem}]({path.name})"
         if description := _one_line(metadata.get("description")):

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from commonplace._marginalia import Sidecar, write_sidecar
+from commonplace._marginalia import Marginalia, write_marginalia
 from commonplace._search import _commands
 from commonplace._search._types import Chunk, SearchMethod
 from commonplace._types import RepoPath
@@ -200,7 +200,7 @@ def test_search_leaves_out_a_note_tagged_hidden(test_repo, make_note):
     test_repo.commit("Add notes", auto_index=False)
     _commands.index(test_repo)
 
-    write_sidecar(test_repo, Sidecar(node=Path("mood.md")).tagged("hidden"))
+    write_marginalia(test_repo, Marginalia(note=Path("mood.md")).tagged("hidden"))
 
     for method in SearchMethod:
         found = {hit.chunk.repo_path.path.name for hit in test_repo.index.search("Ozymandias", method=method)}

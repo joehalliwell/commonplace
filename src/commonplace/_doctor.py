@@ -85,7 +85,7 @@ def _links(repo: Commonplace, check: bool) -> DoctorReport:
 
 
 def _marginalia(repo: Commonplace, check: bool) -> DoctorReport:
-    """Re-attach sidecars whose note moved; report those whose note is gone, and links that no longer resolve."""
+    """Re-attach marginalia whose note moved; report those whose note is gone, and links that no longer resolve."""
     actions, warnings = check_marginalia(repo, check)
     return DoctorReport(actions=actions, warnings=warnings)
 

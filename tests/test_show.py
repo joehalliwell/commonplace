@@ -1,13 +1,14 @@
 """Tests for `show`: everything known about one note, gathered from what already records it."""
 
 import json
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
 import pytest
 import yaml
 
-from commonplace._marginalia import Sidecar, link, read_sidecar, tag, write_sidecar
+from commonplace._marginalia import link, read_marginalia, tag, write_marginalia
 from commonplace._search import _commands
 from commonplace._show import render, show
 from tests.porcelain import git
@@ -36,8 +37,8 @@ def as_joe(monkeypatch):
 def test_show_gathers_what_frontmatter_and_marginalia_say(notes, as_joe):
     tag(notes, "ideas", ["revisit"])
     link(notes, "ideas", "2026-11-01", "where it started", on=date(2026, 11, 2))
-    sidecar = read_sidecar(notes.root, Path("notes/ideas.md"))
-    write_sidecar(notes, Sidecar(sidecar.node, sidecar.ref, sidecar.tags, sidecar.body + "- 2026-11-02 half wrong\n"))
+    marginalia = read_marginalia(notes.root, Path("notes/ideas.md"))
+    write_marginalia(notes, replace(marginalia, body=marginalia.body + "- 2026-11-02 half wrong\n"))
 
     shown = show(notes, "ideas")
 

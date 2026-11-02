@@ -242,7 +242,7 @@ commonplace tag ideas
 commonplace untag ideas revisit
 ```
 
-Tags live in the note's marginalia, a sidecar at the same path under
+Tags live in the note's marginalia, a file at the note's own path under
 `.commonplace/marginalia/`, not in the note itself. So any note can be tagged,
 including chats and memory that the next fetch rewrites. A name that matches
 more than one note is refused with the candidates listed. Tagging commits as
@@ -268,8 +268,8 @@ commonplace unlink ideas 2026-11-02
 
 A link is a dated line in the first note's marginalia, with the target written
 from the root (`- 2026-11-02 [[/notes/ideas#Tea house]] filed as …`), so a later
-note of the same name can't make it ambiguous. Any wikilink you write in a
-sidecar by hand counts as a link too.
+note of the same name can't make it ambiguous. Any wikilink you write in
+marginalia by hand counts as a link too.
 
 ### Show a note
 
@@ -345,9 +345,9 @@ you. The root `index.md` and the config file are yours once seeded, so they are
 never diffed.
 
 The marginalia operation looks after tags and links whose note has moved. After
-a plain `git mv`, the sidecar is left at the old path; doctor follows git's
-rename detection and moves it to the note's new path. A sidecar whose note was
-deleted is kept, as the record of what you made of it, and listed. Links in
+a plain `git mv`, the marginalia are left at the old path; doctor follows git's
+rename detection and moves them to the note's new path. Marginalia whose note
+was deleted are kept, as the record of what you made of it, and listed. Links in
 marginalia whose note, heading or phrase has gone are reported.
 
 It also checks that links land somewhere. Every reference your own markdown
