@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Protocol, runtime_checkable
@@ -17,7 +18,7 @@ class Fetcher(Protocol):
 
     source: str
 
-    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
         """Fetch new content.
 
         Args:
@@ -25,6 +26,8 @@ class Fetcher(Protocol):
             since: UTC cursor — only fetch what was updated after this
                 instant. `None` means fetch everything. Compare parsed
                 datetimes, not ISO strings, which mis-sort across offsets.
+            previous: The archives this source has landed, oldest first, for a fetcher that asks its
+                vendor for only what changed since the last; most ignore it.
 
         Returns:
             Path to an importable file, or None if there is nothing worth

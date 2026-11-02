@@ -16,13 +16,13 @@ def test_a_blocked_source_does_not_stop_the_others(test_repo):
     class Blocked:
         source = "blocked"
 
-        def fetch(self, destination, since):
+        def fetch(self, destination, since, previous=()):
             raise FetchBlocked("Blocked rejected the session.")
 
     class Stub:
         source = "stub"
 
-        def fetch(self, destination, since):
+        def fetch(self, destination, since, previous=()):
             called.append("stub")
 
     with pytest.raises(FetchBlocked, match="blocked"):
@@ -37,13 +37,13 @@ def test_a_source_with_no_session_is_skipped_without_failing_the_run(test_repo):
     class Unused:
         source = "unused"
 
-        def fetch(self, destination, since):
+        def fetch(self, destination, since, previous=()):
             raise NoSession("Unused rejected the session: Chrome holds no session cookie.")
 
     class Stub:
         source = "stub"
 
-        def fetch(self, destination, since):
+        def fetch(self, destination, since, previous=()):
             called.append("stub")
 
     fetch(test_repo, fetchers=[Unused(), Stub()], auto_index=False)
@@ -56,7 +56,7 @@ def test_fetch_command_filters_by_source(test_repo):
     class Stub:
         source = "stub"
 
-        def fetch(self, destination, since):
+        def fetch(self, destination, since, previous=()):
             called.append("stub")
 
     fetch(test_repo, sources=["nonexistent"], fetchers=[Stub()], auto_index=False)
@@ -74,7 +74,7 @@ def test_fetch_command_all_flag_bypasses_cursor(test_repo, make_note):
     class RecordingStub:
         source = "recording"
 
-        def fetch(self, destination, since):
+        def fetch(self, destination, since, previous=()):
             calls.append(since)
 
     # Seed the repo with a chats/recording/ commit so last_commit_time would

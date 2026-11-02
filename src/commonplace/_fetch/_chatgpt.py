@@ -1,6 +1,6 @@
 """Fetch conversations directly from chatgpt.com using the browser session cookie."""
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
@@ -70,7 +70,7 @@ class ChatGptFetcher(ChatGptSessionFetcher):
 
     source = "chatgpt"
 
-    def fetch(self, destination: Path, since: datetime | None) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
         with self._signed_in():
             fresh = list(self._list_fresh(since))
             self._read_fresh(fresh, since, self._read)

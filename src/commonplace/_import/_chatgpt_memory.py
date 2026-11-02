@@ -3,6 +3,7 @@
 Entries are `{"endpoint": "memories"|"summary", "response": ...}`; the summary is a server-sent event stream."""
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +17,7 @@ class ChatGptMemoryImporter(BaseWireImporter):
     source: str = "chatgpt-memory"
     tree: Path = Path("memory") / "chatgpt"
 
-    def snapshot(self, path: Path) -> Snapshot:
+    def snapshot(self, path: Path, earlier: Sequence[Path] = ()) -> Snapshot:
         for entry in read_entries(path):
             if entry.get("endpoint") == "summary" and (done := _done(entry["response"])) is not None:
                 # Each section's id is a stable slug, so it names the file. Follow-ups are prompts, not

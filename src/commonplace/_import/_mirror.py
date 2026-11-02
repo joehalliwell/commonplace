@@ -27,7 +27,9 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         logger.error(f"Not mirroring '{path}': captured {fetched_at}, but '{tree}' was last changed {landed_at}")
         return
 
-    snapshot = importer.snapshot(path)
+    # Captures of this source already landed, for an importer whose captures are changes on earlier ones.
+    earlier = [repo.root / stored for stored in repo.stored_archives(path.name)]
+    snapshot = importer.snapshot(path, earlier=earlier)
     if importer.keeps_first_path:
         snapshot = replace(snapshot, notes=_at_first_paths(repo.root, tree, snapshot.notes))
     # Paths come from upstream, and a mirror owns its tree and nothing else.

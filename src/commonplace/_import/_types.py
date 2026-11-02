@@ -93,7 +93,10 @@ class MemoryImporter(Protocol):
 
     def can_import(self, path: Path) -> bool: ...
 
-    def snapshot(self, path: Path) -> Snapshot: ...
+    def snapshot(self, path: Path, earlier: Sequence[Path] = ()) -> Snapshot:
+        """Upstream state as the capture at `path` shows it; `earlier` are the captures of this source already
+        landed, oldest first, for an importer whose captures are changes on earlier ones; most ignore them."""
+        ...
 
 
 @runtime_checkable
