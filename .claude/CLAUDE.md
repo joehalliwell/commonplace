@@ -62,6 +62,8 @@ Pre-commit hooks run ruff and mdformat. If mdformat reformats a file, re-stage a
 
 Commits: imperative mood, concise. Keep the `Co-Authored-By` trailer — it records provenance, not credit. Commit each logical change separately in multi-step plans.
 
+Versions: semver, from git tags (versioningit). Every PR carries exactly one label: `semver:major` (an existing user or repo must adapt: a removed command or flag, a persisted format older releases can't read), `semver:minor` (new, backward-compatible functionality) or `semver:patch` (fixes, docs, CI). Merging tags the merge commit with the bumped version; publishing to PyPI stays manual (`just publish`). The plugin's own version is separate (below).
+
 ## Plugins
 
 `plugins/commonplace-skills/` contains Claude Code skills and agents (version in `.claude-plugin/plugin.json`). These are **end-user tools** — they run inside a user's *commonplace repository* (their knowledge base), not in this Python codebase. Do not use them here.
