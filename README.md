@@ -262,10 +262,6 @@ commonplace link /chats/gemini/2026/05/2026-05-03-tea "ideas#Tea house" filed as
 # The target can be a heading, or a phrase quoted from the note
 commonplace link ideas '2026-11-02#"by the river"'
 
-# A note's links, out (→) then in (←): marginalia, and links in notes' own text
-commonplace links ideas
-commonplace links ideas --in
-
 # Remove a note's links to a target
 commonplace unlink ideas 2026-11-02
 ```
@@ -274,6 +270,24 @@ A link is a dated line in the first note's marginalia, with the target written
 from the root (`- 2026-11-02 [[/notes/ideas#Tea house]] filed as …`), so a later
 note of the same name can't make it ambiguous. Any wikilink you write in a
 sidecar by hand counts as a link too.
+
+### Show a note
+
+```bash
+# Everything known about a note
+commonplace show ideas
+
+# Just some of it
+commonplace show ideas --only links --only tags
+
+# The whole record as JSON, for scripts and skills
+commonplace show ideas --json
+```
+
+`show` gathers what other commands record about a note: its title and type,
+its own tags and its marginalia tags, its links both ways (→ out, ← in: from
+marginalia and from notes' own text), the commentary in its marginalia, its git
+history, and whether its current version is in the search index.
 
 ### Sync your commonplace
 

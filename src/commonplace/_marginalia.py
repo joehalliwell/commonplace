@@ -41,6 +41,11 @@ class Sidecar:
         return replace(self, tags=[tag for tag in self.tags if tag not in tags])
 
     @property
+    def commentary(self) -> list[str]:
+        """The body's lines that link nowhere: what's been said about the note, rather than what it's linked to."""
+        return [line for line in self.body.splitlines() if line.strip() and not _WIKILINK_TARGET.search(line)]
+
+    @property
     def edges(self) -> list[str]:
         """Every wikilink target in the body, in order: each is an edge from this note, prose or not."""
         return _WIKILINK_TARGET.findall(self.body)

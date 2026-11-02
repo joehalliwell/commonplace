@@ -262,6 +262,37 @@ NodeSpec: TypeAlias = Annotated[  # noqa: UP040
 ]
 
 
+@app.command(group=ANALYZING_SECTION)
+def show(
+    spec: NodeSpec,
+    *,
+    only: Annotated[
+        list[str],
+        Parameter(help="Show just this section: tags, links, commentary, history or index", negative=""),
+    ] = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
+    as_json: Annotated[bool, Parameter(name="--json", negative="", help="The whole record as JSON")] = False,
+    include_hidden: Annotated[bool, Parameter(help="Include links to and from notes tagged hidden")] = False,
+    repo: Repo,
+) -> None:
+    """Everything known about a note: tags, links both ways (→ out, ← in), commentary, history, index."""
+    import json
+
+    from commonplace._show import SECTIONS, render
+    from commonplace._show import show as gather
+
+    unknown = set(only) - set(SECTIONS)
+    try:
+        if unknown:
+            raise ValueError(f"No section {', '.join(sorted(unknown))}; there are {', '.join(SECTIONS)}")
+        shown = gather(repo, spec, include_hidden)
+    except ValueError as e:
+        logger.error(str(e))
+        raise SystemExit(1) from e
+    print(
+        json.dumps(shown, ensure_ascii=False, indent=2) if as_json else render(shown, only), end="\n" if as_json else ""
+    )
+
+
 @app.command(group=ANNOTATING_SECTION)
 def tag(spec: NodeSpec, *tags: str, repo: Repo) -> None:
     """Tag notes, in their marginalia; with no tags, show a note's tags."""
@@ -310,28 +341,6 @@ def link(
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
-
-
-@app.command(group=ANNOTATING_SECTION)
-def links(
-    spec: NodeSpec,
-    *,
-    incoming: Annotated[bool, Parameter(name="--in", negative="", help="Only links into the note")] = False,
-    outgoing: Annotated[bool, Parameter(name="--out", negative="", help="Only links out of the note")] = False,
-    include_hidden: Annotated[bool, Parameter(help="Include links to and from notes tagged hidden")] = False,
-    repo: Repo,
-) -> None:
-    """List a note's links, out (→) then in (←): from marginalia, and from notes' own text."""
-    from commonplace._marginalia import links as find_links
-
-    both = not incoming and not outgoing
-    try:
-        found = find_links(repo, spec, include_hidden, incoming=incoming or both, outgoing=outgoing or both)
-    except ValueError as e:
-        logger.error(str(e))
-        raise SystemExit(1) from e
-    for neighbour in found:
-        print(f"{'→' if neighbour.direction == 'out' else '←'} {neighbour.other}  {neighbour.context}")
 
 
 @app.command(group=ANNOTATING_SECTION)

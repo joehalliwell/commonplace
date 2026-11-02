@@ -1,0 +1,107 @@
+"""Tests for `show`: everything known about one note, gathered from what already records it."""
+
+import json
+from datetime import date
+from pathlib import Path
+
+import pytest
+
+from commonplace._marginalia import Sidecar, link, read_sidecar, tag, write_sidecar
+from commonplace._search import _commands
+from commonplace._show import render, show
+from tests.porcelain import git
+
+IDEAS = "---\ntitle: Ideas\ntype: Note\ntags: [drink]\n---\n\n# Ideas\n\nA tea house by the river.\n"
+
+
+@pytest.fixture
+def notes(test_repo, make_note):
+    """A note with a title, type and tags of its own, and two others to link with."""
+    test_repo.save(make_note(path="notes/ideas.md", content="# placeholder\n"))
+    (test_repo.root / "notes/ideas.md").write_text(IDEAS)
+    for path in ("journal/2026-11-01.md", "journal/2026-11-02.md"):
+        test_repo.save(make_note(path=path, content="# Day\n\nThought about [[ideas]].\n"))
+    test_repo.commit("Add notes", auto_index=False)
+    return test_repo
+
+
+@pytest.fixture
+def as_joe(monkeypatch):
+    for role in ("AUTHOR", "COMMITTER"):
+        monkeypatch.setenv(f"GIT_{role}_NAME", "Joe")
+        monkeypatch.setenv(f"GIT_{role}_EMAIL", "joe@example.com")
+
+
+def test_show_gathers_what_frontmatter_and_marginalia_say(notes, as_joe):
+    tag(notes, "ideas", ["revisit"])
+    link(notes, "ideas", "2026-11-01", "where it started", on=date(2026, 11, 2))
+    sidecar = read_sidecar(notes.root, Path("notes/ideas.md"))
+    write_sidecar(notes, Sidecar(sidecar.node, sidecar.ref, sidecar.tags, sidecar.body + "- 2026-11-02 half wrong\n"))
+
+    shown = show(notes, "ideas")
+
+    assert (shown["note"], shown["title"], shown["type"]) == ("/notes/ideas", "Ideas", "Note")
+    assert shown["tags"] == {"own": ["drink"], "marginalia": ["revisit"]}
+    assert {(n["direction"], n["other"]) for n in shown["links"]} == {
+        ("out", "/journal/2026-11-01"),
+        ("in", "/journal/2026-11-01"),
+        ("in", "/journal/2026-11-02"),
+    }
+    # Lines that link are in links already; commentary is the rest of the log.
+    assert shown["commentary"] == ["- 2026-11-02 half wrong"]
+    assert shown["hidden"] is False
+
+
+def test_show_history_lists_the_notes_commits_newest_first(notes):
+    (notes.root / "notes/ideas.md").write_text(IDEAS + "\nMore.\n")
+    git(notes.root, "commit", "-qam", "Add more")
+
+    assert [entry["subject"] for entry in show(notes, "ideas")["history"]] == ["Add more", "Add notes"]
+
+
+def test_show_index_says_whether_the_current_version_is_indexed(notes):
+    assert show(notes, "ideas")["index"]["state"] == "not indexed"
+
+    _commands.index(notes)
+    indexed = show(notes, "ideas")["index"]
+    assert indexed["state"] == "current"
+    assert indexed["chunks"] > 0
+
+    (notes.root / "notes/ideas.md").write_text(IDEAS + "\nMore.\n")
+    git(notes.root, "commit", "-qam", "Edit")
+    assert show(notes, "ideas")["index"]["state"] == "stale"
+
+
+def test_show_a_hidden_note_when_asked_by_name_and_says_so(notes, as_joe):
+    """Asking for it by name is asking for it; hidden only keeps it out of what's offered."""
+    tag(notes, "ideas", ["hidden"])
+
+    assert show(notes, "ideas")["hidden"] is True
+
+
+def test_render_only_shows_the_header_and_the_sections_asked_for(notes, as_joe):
+    tag(notes, "ideas", ["revisit"])
+
+    text = render(show(notes, "ideas"), only=["tags"])
+
+    assert text.splitlines()[0] == "/notes/ideas  ·  Ideas  ·  Note"
+    assert "revisit" in text
+    assert "links" not in text and "history" not in text
+
+
+def test_show_cli_marks_link_direction(notes, as_joe, test_app, capsys):
+    link(notes, "ideas", "2026-11-01", "and on", on=date(2026, 11, 2))
+    capsys.readouterr()
+
+    assert test_app(["show", "ideas", "--only", "links"]) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert "  → /journal/2026-11-01  - 2026-11-02 [[/journal/2026-11-01]] and on" in lines
+    assert "  ← /journal/2026-11-02  line 3" in lines
+
+
+def test_show_cli_json_is_the_whole_record_for_skills(notes, test_app, capsys):
+    assert test_app(["show", "ideas", "--json"]) == 0
+
+    shown = json.loads(capsys.readouterr().out)
+    assert set(shown) >= {"note", "title", "tags", "links", "commentary", "history", "index", "hidden"}

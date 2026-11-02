@@ -245,20 +245,6 @@ def test_links_leave_out_hidden_notes_at_the_other_end_unless_asked(notes, as_jo
     assert len(links(notes, "ideas", include_hidden=True)) == 2
 
 
-def test_links_cli_marks_direction_and_narrows_with_in_and_out(notes, as_joe, test_app, capsys):
-    link(notes, "2026/10/log", "ideas", "filed", on=date(2026, 11, 2))
-    link(notes, "ideas", "2026/11/log", "and on", on=date(2026, 11, 2))
-    capsys.readouterr()
-
-    assert test_app(["links", "ideas"]) == 0
-    assert capsys.readouterr().out.splitlines() == [
-        "→ /chats/claude-tasks/2026/11/log  - 2026-11-02 [[/chats/claude-tasks/2026/11/log]] and on",
-        "← /chats/claude-tasks/2026/10/log  - 2026-11-02 [[/notes/ideas]] filed",
-    ]
-    assert test_app(["links", "ideas", "--in"]) == 0
-    assert capsys.readouterr().out.startswith("←")
-
-
 def test_a_sidecar_newer_than_this_release_is_refused(tmp_path):
     """Its fields are unknown here, so rewriting it could lose them."""
     target = tmp_path / sidecar_path(NODE)
