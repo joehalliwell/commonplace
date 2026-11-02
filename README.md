@@ -280,19 +280,19 @@ commonplace show ideas
 # Just some of it
 commonplace show ideas --only links --only tags
 
-# With the note's text: a markdown note about the note
-commonplace show ideas --body
-
 # The same record as JSON, for scripts
 commonplace show ideas --json
+
+# The note's path, for other tools
+$EDITOR "$(commonplace resolve ideas)"
 ```
 
 `show` gathers what other commands record about a note: its title and type,
 its own tags and its marginalia tags, its links both ways (from marginalia and
 from notes' own text), the commentary in its marginalia, its git history, and
-whether its current version is in the search index. With `--body`, the record
-becomes the frontmatter and the note's text follows, so the output is itself a
-note.
+whether its current version is in the search index. The record is about the
+note, not the note itself; `resolve` gives the note's path, by the same names
+the other commands take.
 
 ### Sync your commonplace
 
