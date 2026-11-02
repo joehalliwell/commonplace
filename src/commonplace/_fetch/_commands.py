@@ -12,6 +12,7 @@ from commonplace._fetch._claude_tasks import ClaudeTasksFetcher
 from commonplace._fetch._gemini import GeminiFetcher
 from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
 from commonplace._fetch._helpers import FetchBlocked, NoSession
+from commonplace._fetch._keep import KeepFetcher
 from commonplace._fetch._types import Fetcher
 from commonplace._import._commands import import_, landing_tree
 from commonplace._logging import logger
@@ -28,6 +29,7 @@ def default_fetchers(config: Config) -> list[Fetcher]:
         ClaudeTasksFetcher(ua=config.ua),
         GeminiFetcher(ua=config.ua),
         GeminiMemoryFetcher(ua=config.ua),
+        KeepFetcher(ua=config.ua),
         ChatGptFetcher(ua=config.ua),
         ChatGptMemoryFetcher(ua=config.ua),
     ]

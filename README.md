@@ -126,6 +126,14 @@ mirrored file's frontmatter leads with `type: Memory` and its `title`. Memory is
 materially more personal than chat logs — think before syncing it to a remote,
 or leave it out with `--source`.
 
+`keep` mirrors Google Keep into `notes/keep/yyyy/mm/`, one file per note dated
+by its creation: a title becomes the heading, an untitled note is named after
+its first words, and a checklist becomes `- [ ]` items. A note keeps the path it
+was first captured at even if you retitle it in Keep, so its marginalia stay
+attached; notes in Keep's trash are left out, and attachments aren't captured
+yet. Like memory, the tree is a mirror, rewritten on each fetch, so say things
+about a note in its marginalia rather than editing it there.
+
 These are the vendors' internal endpoints — unofficial, and they change
 without notice. If a fetcher breaks, fall back to
 [manual exports](#importing-exports-and-local-logs); if a vendor starts
