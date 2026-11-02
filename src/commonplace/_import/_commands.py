@@ -17,6 +17,7 @@ from commonplace._import._claude_tasks import ClaudeTasksImporter
 from commonplace._import._gemini import GeminiImporter
 from commonplace._import._gemini_memory import GeminiMemoryImporter
 from commonplace._import._gemini_takeout import GeminiTakeoutImporter
+from commonplace._import._keep import KeepImporter
 from commonplace._import._mirror import mirror_one
 from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import ChatImporter, MemoryImporter
@@ -38,6 +39,7 @@ IMPORTERS: list[ChatImporter | MemoryImporter] = [
     ClaudeCodeImporter(),
     ChatGptWireImporter(),
     ChatGptMemoryImporter(),
+    KeepImporter(),
     ChatGptImporter(),
 ]
 

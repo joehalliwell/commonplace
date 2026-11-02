@@ -336,6 +336,104 @@ GEMINI_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
 }
 
 
+# Synthetic, shaped like Keep's notes/v1/changes as first fetched on 2026-11-03: notes and lists are root
+# nodes, and their text lives in LIST_ITEM children pointing back by parentId. A note not in the trash has
+# the epoch as its `trashed` time. Label names live in userInfo, keyed by mainId.
+KEEP_EPOCH = "1970-01-01T00:00:00.000Z"
+
+
+def _keep_root(node_id: str, kind: str, title: str, created: str, **extra) -> dict:
+    return {
+        "kind": "notes#node",
+        "id": node_id,
+        "serverId": f"server-{node_id}",
+        "parentId": "root",
+        "type": kind,
+        "title": title,
+        "sortValue": "1",
+        "color": "DEFAULT",
+        # Keep leaves out isPinned when false; isArchived is always there.
+        "isArchived": False,
+        "lastModifierEmail": "someone@example.com",
+        "timestamps": {
+            "kind": "notes#timestamps",
+            "created": created,
+            "updated": created,
+            "userEdited": created,
+            "trashed": KEEP_EPOCH,
+        },
+        **extra,
+    }
+
+
+def _keep_item(node_id: str, parent: str, text: str, sort: str | None = None, checked: bool | None = None) -> dict:
+    """A checklist item has checked and sortValue; a note's lone text item has neither."""
+    item = {
+        "kind": "notes#node",
+        "id": node_id,
+        "serverId": f"server-{node_id}",
+        "parentId": parent,
+        "parentServerId": f"server-{parent}",
+        "type": "LIST_ITEM",
+        "text": text,
+        "timestamps": {"kind": "notes#timestamps", "created": KEEP_EPOCH, "updated": KEEP_EPOCH},
+    }
+    if sort is not None:
+        item |= {"checked": bool(checked), "sortValue": sort}
+    return item
+
+
+KEEP_PAGE_ONE = {
+    "kind": "notes#downSync",
+    "toVersion": "v1",
+    "truncated": True,
+    "userInfo": {"labels": [{"mainId": "label-words", "name": "words"}]},
+    "nodes": [
+        _keep_root(
+            "note-tea",
+            "NOTE",
+            "Tea house",
+            "2026-05-03T09:00:00.000Z",
+            isPinned=True,
+            labelIds=[{"labelId": "label-words", "deleted": KEEP_EPOCH}],
+        ),
+        _keep_item("item-tea", "note-tea", "A tea house by the river."),
+        _keep_root("note-word", "NOTE", "", "2026-05-03T10:00:00.000Z"),
+        _keep_item("item-word", "note-word", "Sesquipedalian: given to long words.\nAnd a second line."),
+    ],
+}
+KEEP_PAGE_TWO = {
+    "kind": "notes#downSync",
+    "toVersion": "v2",
+    "truncated": False,
+    "nodes": [
+        _keep_root("list-shop", "LIST", "Shopping", "2026-06-01T08:00:00.000Z"),
+        _keep_item("item-eggs", "list-shop", "Eggs", sort="100", checked=True),
+        _keep_item("item-milk", "list-shop", "Milk", sort="200", checked=False),
+        _keep_root("note-link", "NOTE", "", "2026-06-02T08:00:00.000Z"),
+        _keep_item("item-link", "note-link", "https://example.com/a/rather/long/path/to/an/article/about/tea-houses"),
+        _keep_root("note-tea-2", "NOTE", "Tea house", "2026-05-03T18:00:00.000Z", isArchived=True),
+        _keep_item("item-tea-2", "note-tea-2", "Another tea house, closer."),
+        {
+            **_keep_root("note-bin", "NOTE", "Binned", "2026-07-01T08:00:00.000Z"),
+            "timestamps": {"created": "2026-07-01T08:00:00.000Z", "trashed": "2026-07-02T08:00:00.000Z"},
+        },
+        _keep_item("item-bin", "note-bin", "Gone."),
+    ],
+}
+
+#: The Keep wire first appeared at v3, so it has no earlier examples.
+KEEP_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
+    3: (
+        {"wire": "keep", "version": 3, "fetched_at": "2026-11-03T12:00:00+00:00", "fetched_by": "commonplace/0.1.0"},
+        [
+            {"endpoint": "changes", "targetVersion": None, "response": json.dumps(KEEP_PAGE_ONE)},
+            {"endpoint": "changes", "targetVersion": "v1", "response": json.dumps(KEEP_PAGE_TWO)},
+        ],
+    ),
+}
+
+
 def main() -> None:
     for source, archives in (
         ("claude", ARCHIVES),
@@ -344,6 +442,7 @@ def main() -> None:
         ("claude-tasks", TASK_ARCHIVES),
         ("chatgpt-memory", CHATGPT_MEMORY_ARCHIVES),
         ("gemini-memory", GEMINI_MEMORY_ARCHIVES),
+        ("keep", KEEP_ARCHIVES),
     ):
         for version, (header, entries) in archives.items():
             lines = [] if header is None else [json.dumps(header)]

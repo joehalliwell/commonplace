@@ -20,6 +20,7 @@ from commonplace._fetch._commands import default_fetchers
 from commonplace._fetch._gemini import GeminiFetcher
 from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
 from commonplace._fetch._helpers import FetchBlocked, NoSession
+from commonplace._fetch._keep import KeepFetcher
 from commonplace._fetch._types import Fetcher
 from commonplace._wire import read_header
 
@@ -31,6 +32,7 @@ FETCHERS = [
     ClaudeTasksFetcher,
     GeminiFetcher,
     GeminiMemoryFetcher,
+    KeepFetcher,
 ]
 
 
