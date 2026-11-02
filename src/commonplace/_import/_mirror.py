@@ -5,6 +5,7 @@ place, so the tree holds what the latest capture listed and git holds the
 trajectory. Everything here is the same for every vendor.
 """
 
+import hashlib
 from dataclasses import replace
 from pathlib import Path
 
@@ -26,6 +27,8 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         return
 
     snapshot = importer.snapshot(path)
+    if importer.keeps_first_path:
+        snapshot = replace(snapshot, notes=_at_first_paths(repo.root, tree, snapshot.notes))
     # Paths come from upstream, and a mirror owns its tree and nothing else.
     for note in snapshot.notes:
         if not note.repo_path.path.is_relative_to(tree) or note.repo_path.path == tree:
@@ -56,6 +59,35 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         logger.info(f"Pruned '{target}'")
 
     repo.commit(f"Mirror '{path}' using '{importer.source}' importer", auto_index=auto_index)
+
+
+def distinct_path(path: Path, note_id: str) -> Path:
+    """`path` made distinct by a short, stable suffix from the note's id."""
+    return path.with_name(f"{path.stem}-{hashlib.sha1(note_id.encode()).hexdigest()[:4]}{path.suffix}")
+
+
+def _at_first_paths(root: Path, tree: Path, notes: list[Note]) -> list[Note]:
+    """Each note at the path it first landed at, found by its `id`; a new note clear of every path already held.
+
+    A path stays held after its note is gone, so a new note never inherits another's marginalia.
+    """
+    first: dict[str, Path] = {}
+    for file in sorted((root / tree).rglob("*.md")):
+        metadata, _ = load_frontmatter(file.read_text())
+        if note_id := metadata.get("id"):
+            first[note_id] = file.relative_to(root)
+    held = set(first.values())
+    placed = []
+    for note in notes:
+        note_id = note.metadata["id"]
+        path = first.get(note_id)
+        if path is None:
+            path = note.repo_path.path
+            if path in held:
+                path = distinct_path(path, note_id)
+            held.add(path)
+        placed.append(replace(note, repo_path=replace(note.repo_path, path=path)))
+    return placed
 
 
 def _landed(root: Path, note: Note) -> bool:
