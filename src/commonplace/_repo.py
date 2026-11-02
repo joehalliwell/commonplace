@@ -392,6 +392,11 @@ class Commonplace:
             if not any(part.startswith(".") for part in path.parts[:-1]) and (self.root / path).exists():
                 yield path
 
+    def history(self, path: Path) -> list[tuple[str, str]]:
+        """The commits that changed `path`, newest first, following renames, as (date, subject)."""
+        out = self._git("log", "--follow", "--format=%as%x00%s", "--", path.as_posix())
+        return [tuple(line.split("\0", 1)) for line in out.splitlines() if "\0" in line]  # type: ignore[misc]
+
     def renamed_since(self, ref: str) -> dict[Path, Path]:
         """Where each file `ref` had has moved to by HEAD, as git's rename detection sees it."""
         fields = self._git("diff", "-M", "--name-status", "-z", "--diff-filter=R", ref, "HEAD").split("\0")
