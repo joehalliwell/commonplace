@@ -127,15 +127,6 @@ def test_tag_a_span_is_refused(notes, as_joe):
         tag(notes, "ideas#Tea house", ["hidden"])
 
 
-def test_tag_cli_shows_a_notes_tags_when_given_none(notes, as_joe, test_app, capsys):
-    assert test_app(["tag", "ideas", "hidden", "tea"]) == 0
-    capsys.readouterr()
-
-    assert test_app(["tag", "ideas"]) == 0
-
-    assert capsys.readouterr().out.split() == ["hidden", "tea"]
-
-
 def test_every_wikilink_in_marginalia_is_a_link_from_its_note(any_marginalia_version):
     """Free prose links count too: 'filed as [[/notes/todo]]' says something about this note."""
     assert read_marginalia(any_marginalia_version, NOTE).links == ["/notes/todo"]

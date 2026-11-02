@@ -52,8 +52,7 @@ def _launch(
         bool,
         Parameter(
             name=["-v", "--verbose"],
-            help="Provide more detailed logging.",
-            negative=[],
+            help="Provide more detailed logging; --no-verbose overrides the environment.",
             env_var=f"{ENV_PREFIX}_VERBOSE",
         ),
     ] = False,
@@ -122,14 +121,7 @@ def import_(
 @app.command(alias="f", group=CREATING_SECTION)
 def fetch(
     *,
-    all_: Annotated[
-        bool,
-        Parameter(
-            name=["--all"],
-            help="Ignore the git-derived cursor and fetch everything the remote has.",
-            negative="",
-        ),
-    ] = False,
+    full: Annotated[bool, Parameter(help="Ignore the git-derived cursor and fetch everything the remote has.")] = False,
     index: Index = None,
     sources: Sources = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
     repo: Repo,
@@ -138,12 +130,12 @@ def fetch(
 
     from commonplace._fetch._commands import fetch
 
-    fetch(repo, sources=sources if sources else None, auto_index=index, all_=all_)
+    fetch(repo, sources=sources if sources else None, auto_index=index, all_=full)
 
 
 @app.command(alias="j", group=CREATING_SECTION)
 def journal(
-    date_str: Annotated[str | None, Parameter(help="Date for the journal entry (YYYY-MM-DD)")] = None,
+    date: Annotated[str | None, Parameter(help="Date for the journal entry (YYYY-MM-DD)")] = None,
     *,
     index: Index = None,
     repo: Repo,
@@ -153,17 +145,17 @@ def journal(
     # Journals are keyed by the user's local calendar day, not by instant, so
     # both of these are deliberately naive. Using UTC here would file an entry
     # written just after midnight under the previous day.
-    if date_str is None:
-        date = dt.datetime.now()  # noqa: DTZ005
+    if date is None:
+        day = dt.datetime.now()  # noqa: DTZ005
     else:
         try:
-            date = dt.datetime.strptime(date_str, "%Y-%m-%d")  # noqa: DTZ007
+            day = dt.datetime.strptime(date, "%Y-%m-%d")  # noqa: DTZ007
         except ValueError as e:
-            logger.error(f"Invalid date format '{date_str}'. Use YYYY-MM-DD (e.g., 2025-10-11)")
+            logger.error(f"Invalid date format '{date}'. Use YYYY-MM-DD (e.g., 2025-10-11)")
             raise SystemExit(1) from e
 
-    journal_path = repo.root / "journal" / date.strftime("%Y/%m/%Y-%m-%d.md")
-    default_content = f"# {date.strftime('%A, %B %d, %Y')}\n\n## Tasks\n\n## Notes\n\n"
+    journal_path = repo.root / "journal" / day.strftime("%Y/%m/%Y-%m-%d.md")
+    default_content = f"# {day.strftime('%A, %B %d, %Y')}\n\n## Tasks\n\n## Notes\n\n"
 
     # Ensure parent directory exists
     journal_path.parent.mkdir(parents=True, exist_ok=True)
@@ -194,7 +186,7 @@ def journal(
     logger.info(f"Saved journal entry to {journal_path.relative_to(repo.root)}")
 
     # Commit the journal entry
-    repo.commit(f"Update journal entry for {date.strftime('%Y-%m-%d')}", auto_index=index)
+    repo.commit(f"Update journal entry for {day.strftime('%Y-%m-%d')}", auto_index=index)
 
 
 ################################################################################
@@ -208,14 +200,14 @@ def search(
     *query: str,
     limit: Annotated[int, Parameter(name=["--limit", "-n"], help="Maximum number of results")] = 10,
     method: Annotated[SearchMethod, Parameter(help="Search method")] = SearchMethod.HYBRID,
-    include_deleted: Annotated[bool, Parameter(help="Include notes that have been deleted since indexing")] = False,
-    include_hidden: Annotated[bool, Parameter(help="Include notes tagged hidden")] = False,
+    deleted: Annotated[bool, Parameter(help="Include notes that have been deleted since indexing")] = False,
+    hidden: Annotated[bool, Parameter(help="Include notes tagged hidden")] = False,
     repo: Repo,
 ) -> None:
     """Search for semantically similar content in your commonplace."""
 
     results = repo.index.search(
-        " ".join(query), limit=limit, method=method, include_deleted=include_deleted, include_hidden=include_hidden
+        " ".join(query), limit=limit, method=method, include_deleted=deleted, include_hidden=hidden
     )
 
     if not results:
@@ -238,14 +230,14 @@ def ls(
         list[str],
         Parameter(name=["--field", "-f"], help="Also show this frontmatter key", negative="", show_default=False),
     ] = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
-    include_hidden: Annotated[bool, Parameter(help="Include notes tagged hidden")] = False,
+    hidden: Annotated[bool, Parameter(help="Include notes tagged hidden")] = False,
     repo: Repo,
 ) -> None:
     """List a folder's notes with their titles and descriptions, as an OKF index."""
     from commonplace._listing import listing
 
     try:
-        print(listing(repo, folder, fields, include_hidden), end="")
+        print(listing(repo, folder, fields, hidden), end="")
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
@@ -270,8 +262,8 @@ def show(
         list[str],
         Parameter(help="Show just this section: tags, links, commentary, history or index", negative=""),
     ] = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
-    as_json: Annotated[bool, Parameter(name="--json", negative="", help="The record as JSON rather than YAML")] = False,
-    include_hidden: Annotated[bool, Parameter(help="Include links to and from notes tagged hidden")] = False,
+    as_json: Annotated[bool, Parameter(name="--json", help="The record as JSON rather than YAML")] = False,
+    hidden: Annotated[bool, Parameter(help="Include links to and from notes tagged hidden")] = False,
     repo: Repo,
 ) -> None:
     """Everything known about a note, as YAML: tags, links both ways, commentary, history, index."""
@@ -284,7 +276,7 @@ def show(
     try:
         if unknown:
             raise ValueError(f"No section {', '.join(sorted(unknown))}; there are {', '.join(SECTIONS)}")
-        shown = gather(repo, spec, include_hidden)
+        shown = gather(repo, spec, hidden)
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
@@ -310,21 +302,16 @@ def resolve(spec: NoteSpec, *, repo: Repo) -> None:
 
 @app.command(group=ANNOTATING_SECTION)
 def tag(spec: NoteSpec, *tags: str, repo: Repo) -> None:
-    """Tag notes, in their marginalia; with no tags, show a note's tags."""
-    from commonplace._marginalia import notes_named, read_marginalia
+    """Tag notes, in their marginalia; `show <note> --only tags` shows a note's tags."""
     from commonplace._marginalia import tag as add_tags
 
     try:
-        if tags:
-            add_tags(repo, spec, list(tags))
-            return
-        notes = notes_named(repo, spec)
-    except ValueError as e:  # An unresolved spec, or marginalia newer than this release
+        if not tags:
+            raise ValueError("Name a tag to add; `commonplace show <note> --only tags` shows a note's tags")
+        add_tags(repo, spec, list(tags))
+    except ValueError as e:  # No tag, an unresolved spec, or marginalia newer than this release
         logger.error(str(e))
         raise SystemExit(1) from e
-    for note in notes:
-        found = read_marginalia(repo.root, note).tags
-        print("\n".join(found) if len(notes) == 1 else f"{note}: {' '.join(found)}")
 
 
 @app.command(group=ANNOTATING_SECTION)
@@ -341,7 +328,7 @@ def untag(spec: NoteSpec, *tags: str, repo: Repo) -> None:
 
 @app.command(group=ANNOTATING_SECTION)
 def link(
-    source: Annotated[str, Parameter(help="The note the link is about, named as a wikilink would")],
+    note: Annotated[str, Parameter(help="The note the link is about, named as a wikilink would")],
     target: Annotated[
         str, Parameter(help="Where it points: a note, or a span in one ('note#Heading', 'note#\"phrase\"')")
     ],
@@ -352,19 +339,19 @@ def link(
     from commonplace._marginalia import link as add_link
 
     try:
-        add_link(repo, source, target, " ".join(why))
+        add_link(repo, note, target, " ".join(why))
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
 
 
 @app.command(group=ANNOTATING_SECTION)
-def unlink(source: NoteSpec, target: NoteSpec, *, repo: Repo) -> None:
+def unlink(note: NoteSpec, target: NoteSpec, *, repo: Repo) -> None:
     """Remove a note's links to a target from its marginalia."""
     from commonplace._marginalia import unlink as remove_link
 
     try:
-        remove_link(repo, source, target)
+        remove_link(repo, note, target)
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
@@ -459,7 +446,7 @@ def doctor(
     render: Annotated[
         bool, Parameter(help="Re-render chats from the stored archives, newest capture winning; takes minutes.")
     ] = False,
-    check: Annotated[bool, Parameter(help="Report what would change without writing.", negative="")] = False,
+    check: Annotated[bool, Parameter(help="Report what would change without writing.")] = False,
     repo: Repo,
 ) -> None:
     """Check and fix the repository, one operation at a time: each flag selects one."""
@@ -491,12 +478,8 @@ def config(
 
 @app.command(group=SYSTEM_SECTION)
 def stats(
-    *,
-    all_time: Annotated[
-        bool,
-        Parameter(name=["--all"], help="Show full history (default: last 52 weeks)", negative=""),
-    ] = False,
-    sources: Sources = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
+    *folders: Annotated[str, Parameter(help="Only these folders, relative to the root (e.g. chats/claude journal)")],
+    all_time: Annotated[bool, Parameter(name=["--all"], help="Show full history (default: last 52 weeks)")] = False,
     repo: Repo,
 ) -> None:
     """Show statistics about your commonplace and search index."""
@@ -506,7 +489,7 @@ def stats(
     try:
         heatmap_output, table_output = generate_stats(
             repo,
-            sources=sources if sources else None,
+            sources=list(folders) or None,
             all_time=all_time,
         )
 

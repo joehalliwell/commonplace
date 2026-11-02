@@ -88,4 +88,4 @@ def test_ls_leaves_out_hidden_notes_unless_asked(test_app, test_repo, capsys):
     write_marginalia(test_repo, Marginalia(note=Path("notes/mood.md")).tagged("hidden"))
 
     assert "mood.md" not in listing(test_app, capsys, "notes")
-    assert "mood.md" in listing(test_app, capsys, "notes", "--include-hidden")
+    assert "mood.md" in listing(test_app, capsys, "notes", "--hidden")
