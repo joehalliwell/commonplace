@@ -86,7 +86,7 @@ commonplace fetch --source claude
 commonplace fetch -s gemini -s chatgpt
 
 # Ignore the cursor and pull everything the vendor has
-commonplace fetch --all
+commonplace fetch --full
 
 # Skip indexing this run (see `commonplace index`)
 commonplace fetch --no-index
@@ -158,12 +158,12 @@ commonplace search "explain neural networks" --method keyword
 commonplace search "machine learning" --limit 5
 
 # Include notes deleted since they were indexed
-commonplace search "machine learning" --include-deleted
+commonplace search "machine learning" --deleted
 ```
 
 Results only ever point at notes the repository still holds: one deleted since
 the last index run is hidden rather than quoted back at you, and
-`--include-deleted` reaches it while it is still in the index. A note you have
+`--deleted` reaches it while it is still in the index. A note you have
 merely *edited* keeps matching on its old text until the next index run — it is
 still there to open, so a slightly stale quote beats losing the note from
 search in the meantime.
@@ -214,8 +214,8 @@ commonplace stats
 # Full history
 commonplace stats --all
 
-# One source (these are repo paths: chats/claude, chats/gemini, journal, notes)
-commonplace stats --source chats/claude
+# Only some folders, relative to the root
+commonplace stats chats/claude journal
 
 # A folder's notes with their titles and descriptions, as an OKF index
 commonplace ls topics
@@ -237,8 +237,7 @@ commonplace tag /chats/gemini/2026/05/2026-05-03-tea hidden
 # A glob tags many
 commonplace tag '/chats/claude-tasks/**' scheduled
 
-# Show a note's tags; remove some
-commonplace tag ideas
+# Remove some; `commonplace show ideas --only tags` shows a note's tags
 commonplace untag ideas revisit
 ```
 
@@ -250,7 +249,7 @@ you, not as the bot.
 
 `hidden` is the one tag commonplace acts on: a hidden note stays in the
 repository but is left out of `search` and `ls` (and so out of what skills
-gather), unless you pass `--include-hidden`. `ls --field tags` shows marginalia
+gather), unless you pass `--hidden`. `ls --field tags` shows marginalia
 tags after a note's own.
 
 ### Link notes
