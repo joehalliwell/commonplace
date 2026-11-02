@@ -95,7 +95,7 @@ def write_marginalia(repo: Commonplace, marginalia: Marginalia) -> None:
 
 def tagged(root: Path, tag: str) -> set[Path]:
     """Every note whose marginalia carry `tag`."""
-    return {note for note in _annotated_notes(root) if tag in read_marginalia(root, note).tags}
+    return {note for note in annotated_notes(root) if tag in read_marginalia(root, note).tags}
 
 
 def tag(repo: Commonplace, spec: str, tags: list[str]) -> list[Path]:
@@ -185,7 +185,7 @@ def links(
         for written, lands in links_from(note, repo.root, files):
             found.append((Neighbour("out", str(Target(lands)), f"line {written.line}"), lands))
     if incoming:
-        for source in _annotated_notes(repo.root):
+        for source in annotated_notes(repo.root):
             for line in read_marginalia(repo.root, source).body.splitlines():
                 names = (target.split("#")[0] for target in _WIKILINK_TARGET.findall(line))
                 if any(is_named(note, name) for name in names):
@@ -210,7 +210,7 @@ def check_marginalia(repo: Commonplace, check: bool) -> tuple[list[str], list[st
     files = list(repo.paths())
     present = set(files)
     actions, gone = [], []
-    for note in _annotated_notes(repo.root):
+    for note in annotated_notes(repo.root):
         if note in present:
             continue
         marginalia = read_marginalia(repo.root, note)
@@ -230,7 +230,7 @@ def check_marginalia(repo: Commonplace, check: bool) -> tuple[list[str], list[st
     warnings = []
     if gone:
         warnings.append(f"Marginalia for {len(gone)} notes outlive them, kept as the record:\n" + "\n".join(gone))
-    for note in _annotated_notes(repo.root):
+    for note in annotated_notes(repo.root):
         for target in read_marginalia(repo.root, note).links:
             try:
                 resolve_target(target, repo.root, files)
@@ -247,7 +247,7 @@ def _resolves(target: str, root: Path, files: list[Path]) -> bool:
     return True
 
 
-def _annotated_notes(root: Path) -> list[Path]:
+def annotated_notes(root: Path) -> list[Path]:
     """The path of every note that has marginalia, in order, whether or not the note is still there."""
     shadow = root / MARGINALIA_ROOT
     return sorted(path.relative_to(shadow) for path in shadow.rglob("*.md"))

@@ -12,6 +12,7 @@ from commonplace._fetch._helpers import FetchBlocked, NoSession
 from commonplace._fetch._keep import KeepFetcher
 from commonplace._import._commands import autodetect_importer
 from commonplace._import._keep import KeepImporter
+from commonplace._marginalia import Marginalia, write_marginalia
 from commonplace._utils import load_frontmatter
 from commonplace._wire import read_entries
 
@@ -169,6 +170,32 @@ def test_a_retitled_note_keeps_the_path_it_was_first_captured_at(test_repo):
     _, body = load_frontmatter((test_repo.root / TEA).read_text())
     assert body.startswith("# Tea pavilion\n")
     assert not list((test_repo.root / "notes/keep").rglob("*tea-pavilion*"))
+
+
+def test_a_new_note_never_takes_the_path_of_a_gone_note_that_still_has_marginalia(test_repo):
+    """Marginalia outlive their note; a later note at the same path would silently inherit them."""
+    fetch(test_repo, fetchers=[FakeKeep().fetcher()], auto_index=False)
+    write_marginalia(test_repo, Marginalia(note=TEA).tagged("revisit"))
+    test_repo.commit("Tag", auto_index=False)
+    binned = copy.deepcopy(PAGES)
+    binned[None]["nodes"][0]["timestamps"]["trashed"] = "2026-11-02T08:00:00.000Z"
+    fetch(test_repo, fetchers=[FakeKeep(binned).fetcher()], auto_index=False)
+
+    # A new note, same day and title, and earlier than the other "Tea house", so it's proposed TEA's path.
+    newer = copy.deepcopy(binned)
+    newer[None]["nodes"] += [
+        {**PAGES[None]["nodes"][0], "id": "note-tea-3", "isPinned": False, "labelIds": []},
+        {**PAGES[None]["nodes"][1], "id": "item-tea-3", "parentId": "note-tea-3", "text": "A third."},
+    ]
+    newer[None]["nodes"][-2]["timestamps"] = {
+        **PAGES[None]["nodes"][0]["timestamps"],
+        "created": "2026-05-03T12:00:00.000Z",
+    }
+    fetch(test_repo, fetchers=[FakeKeep(newer).fetcher()], auto_index=False)
+
+    assert not (test_repo.root / TEA).exists()
+    third = [p for p in (test_repo.root / "notes/keep").rglob("*.md") if "A third." in p.read_text()]
+    assert len(third) == 1 and third[0].relative_to(test_repo.root) != TEA
 
 
 def test_a_note_trashed_in_keep_leaves_the_mirror(test_repo):
