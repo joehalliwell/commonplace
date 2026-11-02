@@ -11,6 +11,7 @@ from pathlib import Path
 
 from commonplace._import._types import MemoryImporter
 from commonplace._logging import logger
+from commonplace._marginalia import annotated_notes
 from commonplace._repo import Commonplace
 from commonplace._types import Note
 from commonplace._utils import load_frontmatter
@@ -69,14 +70,15 @@ def distinct_path(path: Path, note_id: str) -> Path:
 def _at_first_paths(root: Path, tree: Path, notes: list[Note]) -> list[Note]:
     """Each note at the path it first landed at, found by its `id`; a new note clear of every path already held.
 
-    A path stays held after its note is gone, so a new note never inherits another's marginalia.
+    A path is held by a file, and also by marginalia, which outlive their note: a new note at a gone note's
+    path would otherwise silently inherit its tags and links.
     """
     first: dict[str, Path] = {}
     for file in sorted((root / tree).rglob("*.md")):
         metadata, _ = load_frontmatter(file.read_text())
         if note_id := metadata.get("id"):
             first[note_id] = file.relative_to(root)
-    held = set(first.values())
+    held = set(first.values()) | {note for note in annotated_notes(root) if note.is_relative_to(tree)}
     placed = []
     for note in notes:
         note_id = note.metadata["id"]
