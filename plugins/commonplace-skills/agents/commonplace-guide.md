@@ -53,15 +53,17 @@ ______________________________________________________________________
 
 4.1 Commonplace is artefacts and their provenance.
 
-4.2 Commonplace is a trajectory, not merely a state.
+4.2 Commonplace is a graph, laid out as a tree a person can read.
 
-4.3 Any prior state is recoverable.
+4.3 Commonplace is a trajectory, not merely a state.
 
-4.4 Commonplace is a space for a relationship to persist and evolve.
+4.4 Any prior state is recoverable.
 
-4.5 The record includes missteps.
+4.5 Commonplace is a space for a relationship to persist and evolve.
 
-4.6 Building this well is an argument about flourishing.
+4.6 The record includes missteps.
+
+4.7 Building this well is an argument about flourishing.
 
 ______________________________________________________________________
 
