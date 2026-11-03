@@ -13,11 +13,12 @@ drift fails loudly.
 import json
 from collections import defaultdict
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from commonplace._import._base import BaseWireImporter
-from commonplace._import._mirror import distinct_path
+from commonplace._import._placement import Placement
 from commonplace._import._types import Snapshot
 from commonplace._types import Note, RepoPath
 from commonplace._utils import slugify
@@ -36,7 +37,7 @@ class KeepImporter(BaseWireImporter):
     tree: Path = Path("notes") / "keep"
     #: A note keeps the path it was first captured at, found by its `id`: retitling in Keep changes its text,
     #: not where it lives, so its marginalia stay attached.
-    keeps_first_path: bool = True
+    id_key: str | None = "id"
 
     def snapshot(self, path: Path, earlier: Sequence[Path] = ()) -> Snapshot:
         """Keep's whole state as of `path`: the last full sync up to it, with every change set since replayed."""
@@ -56,18 +57,17 @@ class KeepImporter(BaseWireImporter):
                 items[node["parentId"]].append(node)
         roots = [node for node in nodes.values() if node["parentId"] == "root" and not _gone(node)]
 
-        taken: set[Path] = set()
-        notes = []
         # Oldest first, so of two notes with the same day and title, the later is the one suffixed.
-        for root in sorted(roots, key=lambda node: (node["timestamps"]["created"], node["id"])):
-            note = self._note(root, items[root["id"]], labels, taken)
-            taken.add(note.repo_path.path)
-            notes.append(note)
+        roots.sort(key=lambda node: (node["timestamps"]["created"], node["id"]))
+        placement = Placement()
+        notes = []
+        for root in roots:
+            note = self._note(root, items[root["id"]], labels)
+            path = placement.place(note.repo_path.path, root["id"])
+            notes.append(replace(note, repo_path=RepoPath(path)))
         return Snapshot(notes, unread=frozenset())
 
-    def _note(
-        self, root: dict[str, Any], items: list[dict[str, Any]], labels: dict[str, str], taken: set[Path]
-    ) -> Note:
+    def _note(self, root: dict[str, Any], items: list[dict[str, Any]], labels: dict[str, str]) -> Note:
         # Keep shows the highest sortValue first; a note's lone item may have none, where order means nothing.
         items = sorted(items, key=lambda item: int(item.get("sortValue", 0)), reverse=True)
         if root["type"] == "LIST":
@@ -87,8 +87,6 @@ class KeepImporter(BaseWireImporter):
         slug = slug.strip("-") or "note"
         stem = f"{created[:10]}-{slug}"
         path = self.tree / created[:4] / created[5:7] / f"{stem}.md"
-        if path in taken:
-            path = distinct_path(path, root["id"])
 
         # Keep's labels are what the note is, so frontmatter, under OKF's `tags`, the word marginalia use too.
         tags = [labels[ref["labelId"]] for ref in root.get("labelIds", []) if not _gone(ref)]
