@@ -128,7 +128,8 @@ or leave it out with `--source`.
 
 `keep` mirrors Google Keep into `notes/keep/yyyy/mm/`, one file per note dated
 by its creation: a title becomes the heading, an untitled note is named after
-its first words, and a checklist becomes `- [ ]` items. A note keeps the path it
+its first words, a checklist becomes `- [ ]` items, and Keep's labels become the
+note's `tags` (so `ls --field tags` shows them beside marginalia tags). A note keeps the path it
 was first captured at even if you retitle it in Keep, so its marginalia stay
 attached; notes in Keep's trash are left out, and attachments aren't captured
 yet. Like memory, the tree is a mirror, rewritten on each fetch, so say things
