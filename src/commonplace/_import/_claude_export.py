@@ -24,6 +24,7 @@ class ClaudeExportImporter:
     source: str = "claude"
     name: str = "Claude"
     member: str | None = "conversations.json"
+    id_key: str | None = "uuid"
 
     def can_import(self, path: Path) -> bool:
         # A stored blob is a bare conversations.json: the ZIP was only packaging,

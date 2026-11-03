@@ -8,7 +8,8 @@ themselves in the order they were stored: never hash order, which is chance.
 from datetime import UTC, datetime
 from pathlib import Path
 
-from commonplace._import._commands import autodetect_importer, render_chats
+from commonplace._import._commands import autodetect_importer, landing_tree, render_chats
+from commonplace._import._placement import Placement
 from commonplace._import._types import ChatImporter
 from commonplace._logging import logger
 from commonplace._progress import track
@@ -33,10 +34,16 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
     archives = _in_capture_order(repo)
     final: dict[Path, Note] = {}
     winner: dict[Path, Path] = {}
+    # One per tree, shared across archives, so a chat lands where the tree or an earlier archive put it.
+    placements: dict[str, Placement] = {}
     for blob, importer in track(archives, "Replaying archives"):
+        if importer.source not in placements:
+            tree = landing_tree(importer.source)
+            placements[importer.source] = Placement.of(repo.root, tree, importer.id_key)
+        placement = placements[importer.source]
         rendered = {
             note.repo_path.path: note
-            for note in render_chats(repo.root / blob, importer, repo.config.user, blob.as_posix())
+            for note in render_chats(repo.root / blob, importer, repo.config.user, blob.as_posix(), placement)
         }
         final.update(rendered)
         winner.update(dict.fromkeys(rendered, blob))

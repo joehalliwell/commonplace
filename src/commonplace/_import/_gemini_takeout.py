@@ -36,6 +36,7 @@ class GeminiTakeoutImporter:
     source: str = "gemini-takeout"
     name: str = "Gemini"
     member: str | None = _HTML_PATH
+    id_key: str | None = None  # A day's exchanges, with nothing to name them by
 
     def can_import(self, path: Path) -> bool:
         """Claim a Takeout ZIP holding Gemini's activity page, or that page stored bare."""
