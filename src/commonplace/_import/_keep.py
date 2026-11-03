@@ -90,11 +90,13 @@ class KeepImporter(BaseWireImporter):
         if path in taken:
             path = distinct_path(path, root["id"])
 
+        # Keep's labels are what the note is, so frontmatter, under OKF's `tags`, the word marginalia use too.
+        tags = [labels[ref["labelId"]] for ref in root.get("labelIds", []) if not _gone(ref)]
         metadata = {
             "id": root["id"],
             "created": created,
             "updated": root["timestamps"].get("userEdited", root["timestamps"]["updated"]),
-            "labels": [labels[ref["labelId"]] for ref in root.get("labelIds", []) if not _gone(ref)],
+            **({"tags": tags} if tags else {}),
             "pinned": root.get("isPinned", False),  # Left out when false
             "archived": root["isArchived"],
         }

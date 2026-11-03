@@ -67,7 +67,16 @@ def test_snapshot_lands_each_note_by_its_creation_month_and_title():
     assert metadata["title"] == "Tea house"
     assert metadata["id"] == "note-tea"
     assert metadata["created"] == "2026-05-03T09:00:00.000Z"
-    assert (metadata["labels"], metadata["pinned"], metadata["archived"]) == (["words"], True, False)
+    assert (metadata["tags"], metadata["pinned"], metadata["archived"]) == (["words"], True, False)
+
+
+def test_snapshot_writes_keeps_labels_as_tags_and_no_field_when_there_are_none():
+    """OKF's word, as marginalia use: a Keep label is what the note is, so frontmatter, but one vocabulary."""
+    tagged, _ = _notes()[TEA]
+    untagged, _ = _notes()[WORD]
+
+    assert "labels" not in tagged and tagged["tags"] == ["words"]
+    assert "tags" not in untagged
 
 
 def test_snapshot_names_an_untitled_note_by_its_first_words_and_gives_it_no_heading():
