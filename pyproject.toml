@@ -60,3 +60,9 @@ line-length = 120
 
 [tool.hatch.version]
 source = "versioningit"
+
+# versioningit computes the version from git at build time, so uv must rebuild the project when the commit
+# or tags change, not only when pyproject.toml does: otherwise `uv run` keeps an old build's version, and
+# wire archives record the wrong `fetched_by`.
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true } }]
