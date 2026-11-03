@@ -102,14 +102,6 @@ def test_snapshot_renders_a_list_as_checkboxes_in_keeps_order():
     assert body == "# Shopping\n\n- [ ] Milk\n- [x] Eggs\n"
 
 
-def test_snapshot_suffixes_the_later_of_two_notes_with_the_same_day_and_title():
-    later = [path for path, (metadata, _) in _notes().items() if metadata["id"] == "note-tea-2"]
-
-    assert len(later) == 1
-    assert later[0] != TEA and later[0].name.startswith("2026-05-03-tea-house-")
-    assert _notes()[later[0]][0]["archived"] is True
-
-
 def test_snapshot_leaves_trashed_notes_out():
     assert "note-bin" not in {metadata["id"] for metadata, _ in _notes().values()}
 
@@ -171,6 +163,14 @@ def test_fetch_command_mirrors_keep_into_notes_keep(test_repo):
 
     for path in (TEA, WORD, SHOPPING):
         assert (test_repo.root / path).exists(), path
+
+
+def test_fetch_lands_the_later_of_two_notes_with_the_same_day_and_title_at_the_next_free_path(test_repo):
+    fetch(test_repo, fetchers=[FakeKeep().fetcher()], auto_index=False)
+
+    later = load_frontmatter((test_repo.root / TEA.with_stem(f"{TEA.stem}-2")).read_text())[0]
+    assert (load_frontmatter((test_repo.root / TEA).read_text())[0]["id"], later["id"]) == ("note-tea", "note-tea-2")
+    assert later["archived"] is True
 
 
 def test_a_retitled_note_keeps_the_path_it_was_first_captured_at(test_repo):

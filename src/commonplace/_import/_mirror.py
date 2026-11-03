@@ -5,13 +5,12 @@ place, so the tree holds what the latest capture listed and git holds the
 trajectory. Everything here is the same for every vendor.
 """
 
-import hashlib
 from dataclasses import replace
 from pathlib import Path
 
+from commonplace._import._placement import Placement
 from commonplace._import._types import MemoryImporter
 from commonplace._logging import logger
-from commonplace._marginalia import annotated_notes
 from commonplace._repo import Commonplace
 from commonplace._types import Note
 from commonplace._utils import load_frontmatter
@@ -30,8 +29,8 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
     # Captures of this source already landed, for an importer whose captures are changes on earlier ones.
     earlier = [repo.root / stored for stored in repo.stored_archives(path.name)]
     snapshot = importer.snapshot(path, earlier=earlier)
-    if importer.keeps_first_path:
-        snapshot = replace(snapshot, notes=_at_first_paths(repo.root, tree, snapshot.notes))
+    if importer.id_key is not None:
+        snapshot = replace(snapshot, notes=_placed(repo.root, tree, importer.id_key, snapshot.notes))
     # Paths come from upstream, and a mirror owns its tree and nothing else.
     for note in snapshot.notes:
         if not note.repo_path.path.is_relative_to(tree) or note.repo_path.path == tree:
@@ -64,34 +63,15 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
     repo.commit(f"Mirror '{path}' using '{importer.source}' importer", auto_index=auto_index)
 
 
-def distinct_path(path: Path, note_id: str) -> Path:
-    """`path` made distinct by a short, stable suffix from the note's id."""
-    return path.with_name(f"{path.stem}-{hashlib.sha1(note_id.encode()).hexdigest()[:4]}{path.suffix}")
-
-
-def _at_first_paths(root: Path, tree: Path, notes: list[Note]) -> list[Note]:
-    """Each note at the path it first landed at, found by its `id`; a new note clear of every path already held.
-
-    A path is held by a file, and also by marginalia, which outlive their note: a new note at a gone note's
-    path would otherwise silently inherit its tags and links.
-    """
-    first: dict[str, Path] = {}
-    for file in sorted((root / tree).rglob("*.md")):
-        metadata, _ = load_frontmatter(file.read_text())
-        if note_id := metadata.get("id"):
-            first[note_id] = file.relative_to(root)
-    held = set(first.values()) | {note for note in annotated_notes(root) if note.is_relative_to(tree)}
-    placed = []
-    for note in notes:
-        note_id = note.metadata["id"]
-        path = first.get(note_id)
-        if path is None:
-            path = note.repo_path.path
-            if path in held:
-                path = distinct_path(path, note_id)
-            held.add(path)
-        placed.append(replace(note, repo_path=replace(note.repo_path, path=path)))
-    return placed
+def _placed(root: Path, tree: Path, id_key: str, notes: list[Note]) -> list[Note]:
+    """Each note at the path it first landed at, found by its id; a new note, in order, clear of every path held."""
+    placement = Placement.of(root, tree, id_key)
+    return [
+        replace(
+            note, repo_path=replace(note.repo_path, path=placement.place(note.repo_path.path, note.metadata[id_key]))
+        )
+        for note in notes
+    ]
 
 
 def _landed(root: Path, note: Note) -> bool:

@@ -24,8 +24,9 @@ class BaseWireImporter:
     source: str
     #: A wire archive is gzipped JSONL, not a ZIP, so it is stored whole.
     member: str | None = None
-    #: For a mirror: whether a note keeps its first path. Upstream's own paths are authoritative by default.
-    keeps_first_path: bool = False
+    #: The metadata key holding the vendor's id, which keeps a note at the path it first landed at.
+    #: None by default: a mirror's upstream paths are authoritative.
+    id_key: str | None = None
 
     def can_import(self, path: Path) -> bool:
         source = read_header(path).source
