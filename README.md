@@ -38,6 +38,12 @@ antiquity.
   ├── index.md                  # what each top-level folder is for (seeded by init)
   └── .commonplace/             # config, attachments, and the search index
   ```
+  Paths are meant to be read: underneath, a commonplace is a graph of
+  conversations, notes, links and provenance, laid out as a tree you can
+  browse like an outline. So a file is named for its date and title, never an
+  id. Two same-day chats with the same title become `…-title.md` and
+  `…-title-2.md`, and a chat keeps the path it first landed at even if it's
+  retitled later, so links and marginalia to it keep working
 - ✨ **Rich markdown format** with frontmatter, timestamps, and proper formatting
 - 🔄 **Git integration** for change tracking and automatic commits when importing conversations. Those commits
   include only the files the command wrote, and run your git hooks: if a hook reformats them, the reformatted

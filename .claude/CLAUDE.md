@@ -38,6 +38,8 @@ uv run commonplace search "query text"
 
 **Import** (`_import/`): Per-agent importers (Claude/Claude Code/Gemini/ChatGPT) → `ActivityLog` → `MarkdownSerializer` → markdown files in `chats/{agent}/{year}/{month}/{date}-{title}.md`. All interpretation happens here. Those are `ChatImporter`s. Live upstream state (agent memory) pairs its Fetcher with a `MemoryImporter` instead: same registry, but it yields a `Snapshot` that `_mirror.py` applies to `memory/{agent}/`, pruning what the listing no longer names.
 
+**Paths are for people** (MANIFESTO §4.2): a commonplace is a graph projected onto a tree a person browses like an org-mode outline, so readability is the point of a path. Name files by date and title, never by an id. An id may only *find* the path a note already holds, and a clash takes the next free `-2`, `-3`. A note keeps its first path through retitles, since marginalia and links are keyed by path. `_import/_placement.py` is the one place this happens, for chats and mirrors alike.
+
 **Search** (`_search/`): Protocol-based pipeline with `Chunker` (splits by sections) → `Embedder` (SentenceTransformers) → `VectorStore` (SQLite + FTS5). Supports semantic, full-text, and hybrid search. Index: `.commonplace/cache/index.db`
 
 **Config** (`_config.py`): Pydantic-settings; `Config.load(root)` overlays `COMMONPLACE_*` env over `.commonplace/config.toml` over the global `config.toml`.
