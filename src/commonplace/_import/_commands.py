@@ -1,7 +1,6 @@
 """Import entrypoint: find what claims a file, then import or mirror it."""
 
 import tempfile
-from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from zipfile import ZipFile, is_zipfile
@@ -19,6 +18,7 @@ from commonplace._import._gemini_memory import GeminiMemoryImporter
 from commonplace._import._gemini_takeout import GeminiTakeoutImporter
 from commonplace._import._keep import KeepImporter
 from commonplace._import._mirror import mirror_one
+from commonplace._import._placement import Placement
 from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import ChatImporter, MemoryImporter
 from commonplace._logging import logger
@@ -106,25 +106,25 @@ def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None
     else:
         blob = repo.store_blob(path)
 
-    for note in render_chats(path, importer, user, blob.path.as_posix()):
+    placement = Placement.of(repo.root, landing_tree(importer.source), importer.id_key)
+    for note in render_chats(path, importer, user, blob.path.as_posix(), placement):
         repo.save(note)
         logger.info(f"Stored log '{note.metadata['title']}' at '{note.repo_path}'")
 
     repo.commit(f"Import from '{path}' using '{importer.source}' importer", auto_index=auto_index)
 
 
-def render_chats(path: Path, importer: ChatImporter, user: str, source_export: str) -> list[Note]:
-    """Each uncommitted chat note the file at `path` renders to; writes nothing."""
+def render_chats(
+    path: Path, importer: ChatImporter, user: str, source_export: str, placement: Placement | None = None
+) -> list[Note]:
+    """Each uncommitted chat note the file at `path` renders to, placed among what `placement` holds; writes nothing."""
     serializer = MarkdownSerializer(human=user, agent=importer.name)
     rendered: list[Note] = []
-    used_paths: Counter[Path] = Counter()
+    placement = placement or Placement()
 
     for log in importer.import_(path):
-        rel_path = make_chat_path(source=log.source, date=log.created, title=log.title)
-        used_paths.update([rel_path])
-        count = used_paths[rel_path]
-        if count > 1:
-            rel_path = make_chat_path(source=log.source, date=log.created, title=f"{log.title}-{count}")
+        proposed = make_chat_path(source=log.source, date=log.created, title=log.title)
+        rel_path = placement.place(proposed, log.metadata.get(importer.id_key) if importer.id_key else None)
 
         # `generated` is the importer's rendition, current as of the last event.
         metadata = {

@@ -23,6 +23,7 @@ HEADLINE = re.compile(r"^\[[^\]\n]+\] \S[^\n]*", re.MULTILINE)
 class ClaudeTasksImporter(BaseWireImporter):
     source: str = "claude-tasks"
     name: str = "Claude"
+    id_key: str | None = "session_id"
 
     def import_(self, path: Path) -> list[EventLog]:
         runs: dict[str, dict[str, Any]] = {}

@@ -115,6 +115,9 @@ class ChatImporter(Protocol):
     name: str
     #: The one ZIP member `import_` reads, stored in place of the archive; `None` stores the file whole.
     member: str | None
+    #: The metadata key holding the vendor's id for a conversation, which finds the path it already holds;
+    #: `None` for logs with no id, which land where their date and title say.
+    id_key: str | None
 
     def can_import(self, path: Path) -> bool: ...
 

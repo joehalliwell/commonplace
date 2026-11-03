@@ -34,6 +34,7 @@ class GeminiImporter(BaseWireImporter):
 
     source: str = "gemini"
     name: str = "Gemini"
+    id_key: str | None = "uuid"
 
     def _claims_legacy(self, path: Path) -> bool:
         entry = sniff_gzipped_jsonl(path)

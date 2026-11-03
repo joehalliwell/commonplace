@@ -31,6 +31,7 @@ class ChatGptWireImporter(BaseWireImporter):
 
     source: str = SOURCE
     name: str = NAME
+    id_key: str | None = "id"
 
     def import_(self, path: Path) -> list[EventLog]:
         return [
@@ -46,6 +47,7 @@ class ChatGptImporter:
     source: str = SOURCE
     name: str = NAME
     member: str | None = "conversations.json"
+    id_key: str | None = "id"
 
     def can_import(self, path: Path) -> bool:
         """Check if the importer can handle the given file path."""

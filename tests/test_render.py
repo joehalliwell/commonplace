@@ -15,11 +15,11 @@ NOTE = Path("chats/claude/2026/07/2026-07-15-hello.md")
 
 @pytest.fixture
 def store(test_repo, tmp_path, write_jsonl_gz):
-    """Store, and commit, a Claude wire archive whose one conversation ends with `reply`."""
+    """Store, and commit, a Claude wire archive whose one conversation, "Hello", ends with `reply`."""
 
-    def _store(reply: str, fetched_at: str | None = None) -> str:
+    def _store(reply: str, fetched_at: str | None = None, uuid: str = "c1") -> str:
         thread = {
-            "uuid": "c1",
+            "uuid": uuid,
             "name": "Hello",
             "created_at": "2026-07-15T00:00:00Z",
             "chat_messages": [
@@ -35,7 +35,7 @@ def store(test_repo, tmp_path, write_jsonl_gz):
         )
         entries = [
             {"endpoint": "conversations", "response": "[]"},
-            {"endpoint": "conversation", "cid": "c1", "response": json.dumps(thread)},
+            {"endpoint": "conversation", "cid": uuid, "response": json.dumps(thread)},
         ]
         archive = tmp_path / reply
         archive.mkdir()
@@ -94,6 +94,30 @@ def test_render_orders_undated_archives_by_when_they_were_stored(test_repo, stor
     _render(test_repo)
 
     assert second in _note(test_repo)[1]
+
+
+def _uuid(repo, path: Path) -> str:
+    return load_frontmatter((repo.root / path).read_text())[0]["uuid"]
+
+
+def test_render_gives_two_same_day_same_title_chats_a_path_each(test_repo, store):
+    store("first", fetched_at="2026-08-01T00:00:00+00:00", uuid="c1")
+    store("second", fetched_at="2026-08-02T00:00:00+00:00", uuid="c2")
+
+    _render(test_repo)
+
+    assert (_uuid(test_repo, NOTE), _uuid(test_repo, NOTE.with_stem(f"{NOTE.stem}-2"))) == ("c1", "c2")
+
+
+def test_render_lands_a_chat_the_tree_lost_beside_the_one_that_took_its_path(test_repo, store):
+    """As when a later capture overwrote a same-titled chat: the one in the tree keeps its path."""
+    store("second", fetched_at="2026-08-02T00:00:00+00:00", uuid="c2")
+    _render(test_repo)
+    store("first", fetched_at="2026-08-01T00:00:00+00:00", uuid="c1")
+
+    _render(test_repo)
+
+    assert (_uuid(test_repo, NOTE), _uuid(test_repo, NOTE.with_stem(f"{NOTE.stem}-2"))) == ("c2", "c1")
 
 
 def test_render_points_source_export_at_the_archive_that_won(test_repo, store):

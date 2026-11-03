@@ -19,6 +19,7 @@ class ClaudeCodeImporter:
     source: str = "claude-code"
     name: str = "Claude Code"
     member: str | None = None  # Not an archive
+    id_key: str | None = "sessionId"
 
     def can_import(self, path: Path) -> bool:
         """Check if this is a Claude Code JSONL file."""

@@ -284,6 +284,7 @@ class _StubImporter:
 
     name: str = "Stub"
     source: str = "claude"
+    id_key: str | None = None
 
     def import_(self, path: Path):
         created = datetime(2026, 10, 31, tzinfo=UTC)
@@ -528,6 +529,59 @@ def test_import_refuses_the_repos_own_blob_store(test_repo, target):
         import_(path, test_repo, user="Human")
 
     assert not list((test_repo.root / "chats").glob("**/*.md"))
+
+
+HELLO = Path("chats/claude/2026/07/2026-07-15-hello.md")
+
+
+def _capture(tmp_path: Path, uuid: str, title: str = "Hello", reply: str = "hi") -> Path:
+    """A Claude wire archive, as one fetch writes it, holding one conversation from 2026-07-15."""
+    thread = {
+        "uuid": uuid,
+        "name": title,
+        "created_at": "2026-07-15T00:00:00Z",
+        "chat_messages": [{"sender": "human", "text": reply, "created_at": "2026-07-15T00:00:00Z"}],
+    }
+    entries = [{"endpoint": "conversation", "cid": uuid, "response": json.dumps(thread)}]
+    capture = tmp_path / f"{uuid}-{title}-{reply}"
+    capture.mkdir()
+    return write_archive(capture / "claude-wire.jsonl.gz", "claude", entries)
+
+
+def _uuids(repo) -> dict[Path, str]:
+    """Which conversation each chat file holds."""
+    return {
+        path.relative_to(repo.root): load_frontmatter(path.read_text())[0]["uuid"]
+        for path in (repo.root / "chats").glob("**/*.md")
+    }
+
+
+def test_import_a_later_capture_of_another_same_day_same_title_chat_takes_the_next_free_path(test_repo, tmp_path):
+    import_(_capture(tmp_path, "c1"), test_repo, user="Human", auto_index=False)
+    import_(_capture(tmp_path, "c2"), test_repo, user="Human", auto_index=False)
+
+    assert _uuids(test_repo) == {HELLO: "c1", HELLO.with_stem(f"{HELLO.stem}-2"): "c2"}
+
+
+def test_import_a_recapture_of_a_suffixed_chat_keeps_it_at_its_own_path(test_repo, tmp_path):
+    """Only the id says which chat a capture holds; the path its title proposes is the first chat's."""
+    import_(_capture(tmp_path, "c1"), test_repo, user="Human", auto_index=False)
+    import_(_capture(tmp_path, "c2"), test_repo, user="Human", auto_index=False)
+
+    import_(_capture(tmp_path, "c2", reply="more"), test_repo, user="Human", auto_index=False)
+
+    assert _uuids(test_repo) == {HELLO: "c1", HELLO.with_stem(f"{HELLO.stem}-2"): "c2"}
+    assert "more" in (test_repo.root / HELLO.with_stem(f"{HELLO.stem}-2")).read_text()
+
+
+def test_import_a_retitled_chat_stays_at_its_first_path(test_repo, tmp_path):
+    """Marginalia and links are keyed by path, so a new title changes the note, not where it lives."""
+    import_(_capture(tmp_path, "c1"), test_repo, user="Human", auto_index=False)
+
+    import_(_capture(tmp_path, "c1", title="Goodbye"), test_repo, user="Human", auto_index=False)
+
+    assert _uuids(test_repo) == {HELLO: "c1"}
+    assert load_frontmatter((test_repo.root / HELLO).read_text())[0]["title"] == "Goodbye"
 
 
 ARTIFACT_CODE = """Here is the code:
