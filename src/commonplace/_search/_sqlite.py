@@ -220,8 +220,7 @@ class SQLiteSearchIndex(SearchIndex):
         if missing:
             known.update(zip(missing, self._embedder.embed_docs(missing)))
 
-        for chunk in chunks:
-            self._add_with_embedding(chunk, known[chunk.text])
+        self._add_with_embeddings((chunk, known[chunk.text]) for chunk in chunks)
 
     def _embeddings_by_text(self, paths: set[str]) -> dict[str, NDArray[np.float32]]:
         """This model's stored embeddings for any version of the notes at `paths`, by chunk text."""
@@ -232,19 +231,14 @@ class SQLiteSearchIndex(SearchIndex):
         )
         return {text: _from_blob(blob) for text, blob in rows}
 
-    def _add_with_embedding(self, chunk: Chunk, embedding: NDArray[np.float32]) -> None:
-        """
-        Internal method to add a chunk with a pre-computed embedding.
-
-        Args:
-            chunk: The chunk to store
-            embedding: The chunk's embedding vector
-        """
-        self._conn.execute(
-            "INSERT OR REPLACE INTO chunks (note_id, section, text, offset, embedding) VALUES (?, ?, ?, ?, ?)",
-            (self._note_id(chunk.repo_path), chunk.section, chunk.text, chunk.offset, _to_blob(embedding)),
-        )
-        self._conn.commit()
+    def _add_with_embeddings(self, chunks: Iterable[tuple[Chunk, NDArray[np.float32]]]) -> None:
+        """Store each chunk with its embedding in one transaction, so a refusal leaves none of them behind."""
+        with self._conn:
+            for chunk, embedding in chunks:
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO chunks (note_id, section, text, offset, embedding) VALUES (?, ?, ?, ?, ?)",
+                    (self._note_id(chunk.repo_path), chunk.section, chunk.text, chunk.offset, _to_blob(embedding)),
+                )
 
     def search(
         self,

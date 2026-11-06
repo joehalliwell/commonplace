@@ -119,7 +119,7 @@ def test_index(test_repo):
 class StubEmbedder:
     """Just enough embedder to stamp a different model_id on stored chunks.
 
-    `_add_with_embedding` reads nothing else off the embedder, which is all it
+    `_add_with_embeddings` reads nothing else off the embedder, which is all it
     takes to get a second model's rows into one index.
     """
 

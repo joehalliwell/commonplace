@@ -175,7 +175,7 @@ def test_index_gives_a_once_empty_note_its_chunks_when_it_gains_text(test_repo, 
 def test_index_keeps_another_models_notes_but_warns(test_repo, other_model_index, make_chunk, caplog):
     """Dropping a model's index costs a full re-embed to undo, so `index` only says it's there."""
     chunk = make_chunk(path="old.md", section="S", text="The old model's view", offset=0)
-    other_model_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    other_model_index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
 
     _commands.index(test_repo)
 
@@ -186,7 +186,7 @@ def test_index_keeps_another_models_notes_but_warns(test_repo, other_model_index
 def test_index_rebuild_drops_another_models_notes(test_repo, other_model_index, make_chunk):
     """The way to switch models: clearing first lets the new rows reuse the old ones' space."""
     chunk = make_chunk(path="old.md", section="S", text="The old model's view", offset=0)
-    other_model_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    other_model_index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
 
     _commands.index(test_repo, rebuild=True)
 
@@ -301,7 +301,7 @@ def test_index_commonplace_dir_pruned(test_repo, make_note):
     test_repo.commit("Add chaff", auto_index=False)
     stale = test_repo.make_repo_path(".commonplace/skills/rake/chaff.md")
     chunk = Chunk(repo_path=stale, section="Chaff", text="Dropped in triage.", offset=0)
-    test_repo.index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    test_repo.index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
 
     _commands.index(test_repo)
 

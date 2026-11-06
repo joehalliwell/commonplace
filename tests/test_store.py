@@ -36,9 +36,7 @@ def test_add_and_search(test_index, make_chunk):
     emb3 = np.array([0.9, 0.1, 0.0], dtype=np.float32)
 
     # Add chunks
-    test_index._add_with_embedding(chunk1, emb1)
-    test_index._add_with_embedding(chunk2, emb2)
-    test_index._add_with_embedding(chunk3, emb3)
+    test_index._add_with_embeddings([(chunk1, emb1), (chunk2, emb2), (chunk3, emb3)])
 
     # Search for something similar to chunk1
     query = np.array([1.0, 0.0, 0.0], dtype=np.float32)
@@ -71,7 +69,7 @@ def test_clear(test_index, make_chunk):
     )
     emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
 
-    test_index._add_with_embedding(chunk, emb)
+    test_index._add_with_embeddings([(chunk, emb)])
 
     # Verify it was added
     query = np.array([1.0, 0.0, 0.0], dtype=np.float32)
@@ -95,7 +93,7 @@ def test_limit_results(test_index, make_chunk):
             offset=i * 10,
         )
         emb = np.random.rand(3).astype(np.float32)
-        test_index._add_with_embedding(chunk, emb)
+        test_index._add_with_embeddings([(chunk, emb)])
 
     # Search with limit=3
     query = np.random.rand(3).astype(np.float32)
@@ -136,9 +134,7 @@ def test_get_indexed_paths(test_index, make_chunk):
     chunk3 = make_chunk(path="note2.md", section="Section", text="Text 3", offset=0)
 
     emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-    test_index._add_with_embedding(chunk1, emb)
-    test_index._add_with_embedding(chunk2, emb)
-    test_index._add_with_embedding(chunk3, emb)
+    test_index._add_with_embeddings([(chunk1, emb), (chunk2, emb), (chunk3, emb)])
 
     # Should return unique paths
     paths = set(test_index.get_indexed_paths())
@@ -155,8 +151,8 @@ def test_remove_leaves_another_models_chunks_alone(test_index, other_model_index
     """
     chunk = make_chunk(path="doomed.md", section="Section", text="Long gone", offset=0)
     emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-    test_index._add_with_embedding(chunk, emb)
-    other_model_index._add_with_embedding(chunk, emb)
+    test_index._add_with_embeddings([(chunk, emb)])
+    other_model_index._add_with_embeddings([(chunk, emb)])
 
     assert test_index.remove([chunk.repo_path]) == 1
 
@@ -172,7 +168,7 @@ def test_remove_drops_chunks_for_the_given_versions(test_index, make_chunk):
 
     emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
     for chunk in (live, deleted, superseded):
-        test_index._add_with_embedding(chunk, emb)
+        test_index._add_with_embeddings([(chunk, emb)])
 
     removed = test_index.remove([deleted.repo_path, superseded.repo_path])
 
@@ -183,7 +179,7 @@ def test_remove_drops_chunks_for_the_given_versions(test_index, make_chunk):
 def test_remove_keeps_the_full_text_index_in_step(test_index, make_chunk):
     """A removed chunk has to leave FTS too, or keyword search resurrects it."""
     chunk = make_chunk(path="deleted.md", section="Section", text="Ozymandias king of kings", offset=0)
-    test_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    test_index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
     assert test_index.search_keyword("Ozymandias", limit=10)
 
     test_index.remove([chunk.repo_path])
@@ -199,7 +195,7 @@ def test_search_keyword_fts5_syntax_in_query_matches_literally(test_index, make_
     """Punctuation and FTS5 keywords in a query are words to match, not syntax to parse."""
     text = 'I\'ll write foo: bar.baz, then see src/notes and say "hi" near or far'
     chunk = make_chunk(path="note.md", section="Section", text=text, offset=0)
-    test_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    test_index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
 
     hits = test_index.search_keyword(query, limit=10)
 
@@ -209,7 +205,7 @@ def test_search_keyword_fts5_syntax_in_query_matches_literally(test_index, make_
 def test_remove_nothing_leaves_the_index_alone(test_index, make_chunk):
     """An empty removal set removes nothing — the failure mode of getting this backwards."""
     chunk = make_chunk(path="live.md", section="Section", text="Still here", offset=0)
-    test_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    test_index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
 
     assert test_index.remove([]) == 0
     assert set(test_index.get_indexed_paths()) == {chunk.repo_path}
@@ -218,7 +214,7 @@ def test_remove_nothing_leaves_the_index_alone(test_index, make_chunk):
 def test_remove_unknown_version_is_a_no_op(test_index, make_chunk):
     """Naming a version the index never held is harmless."""
     chunk = make_chunk(path="live.md", section="Section", text="Still here", offset=0)
-    test_index._add_with_embedding(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    test_index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
 
     stranger = make_chunk(path="live.md", section="Section", text="Never indexed", offset=0, ref="1" * 40)
 
@@ -260,10 +256,20 @@ def test_add_chunks_empty_batch(test_index):
 
 
 def test_add_chunk_of_uncommitted_note_is_refused(test_index, make_chunk):
-    """The index holds committed versions only, so a chunk must name one."""
+    """The index holds versions only, so a chunk must name one."""
     chunk = make_chunk(path="draft.md", section="S", text="Draft text", offset=0, ref=None)
 
     with pytest.raises(sqlite3.IntegrityError):
         test_index.add_chunks([chunk])
+
+    assert list(test_index.get_indexed_paths()) == []
+
+
+def test_add_chunks_refused_midway_leaves_none_of_the_batch(test_index, make_chunk):
+    good = make_chunk(path="kept.md", section="S", text="Kept text", offset=0)
+    bad = make_chunk(path="draft.md", section="S", text="Draft text", offset=0, ref=None)
+
+    with pytest.raises(sqlite3.IntegrityError):
+        test_index.add_chunks([good, bad])
 
     assert list(test_index.get_indexed_paths()) == []
