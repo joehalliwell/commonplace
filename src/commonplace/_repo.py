@@ -411,11 +411,27 @@ class Commonplace:
         return {Path(fields[i + 1]): Path(fields[i + 2]) for i in range(0, len(fields) - 2, 3)}
 
     def note_paths(self) -> Iterator[RepoPath]:
-        """Get an iterator over all note paths at current HEAD, skipping dot-directories."""
-        head, dirty = self._status()
+        """Every note in the working tree at its version (see `note_version`), skipping dot-directories."""
+        head, dirty = self._status(untracked=True)
+        edits = self._blobs(dirty)
         for path in self.paths():
             if path.suffix == ".md":
-                yield self._repo_path(path, head, dirty)
+                yield self._version(path, head, edits)
+
+    def note_version(self, path: Path) -> RepoPath:
+        """The commit that last changed the note, or the blob of an edit not yet committed, so each edit is new."""
+        head, dirty = self._status(path.as_posix(), untracked=True)
+        return self._version(path, head, self._blobs(dirty))
+
+    def _version(self, path: Path, head: str, edits: dict[str, str]) -> RepoPath:
+        if path.as_posix() in edits:
+            return RepoPath(path=path, ref=edits[path.as_posix()])
+        return self._repo_path(path, head, set())
+
+    def _blobs(self, dirty: set[str]) -> dict[str, str]:
+        """The blob each of these notes would commit as, for those still in the working tree."""
+        notes = sorted(p for p in dirty if p.endswith(".md") and (self.root / p).exists())
+        return dict(zip(notes, self._git("hash-object", "--", *notes).split())) if notes else {}
 
     def load(self, repo_path: RepoPath) -> Note:
         """
