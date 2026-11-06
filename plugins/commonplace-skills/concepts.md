@@ -14,7 +14,9 @@ checked per skill, against that skill's newest entry.
 
 - **Primitive**: captured, not produced. `chats/` (imported conversations),
   `journal/` (the user's daily entries) and `notes/` (the user's own writing).
-  These are the only sources. Provenance bottoms out here.
+  These are the only sources. Provenance bottoms out here. `notes/keep/` is
+  the user's Google Keep, a mirror rewritten and pruned on every fetch: a
+  source like the rest of `notes/`, but never a place to file anything.
 - **Agent memory**: `memory/<agent>/`, mirrored from what an agent keeps
   about the user. Its paraphrase of the user, so a lead to the originating passage,
   never the user's words.
