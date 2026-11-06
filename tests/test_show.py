@@ -74,6 +74,17 @@ def test_show_index_says_whether_the_current_version_is_indexed(notes):
     assert show(notes, "ideas")["index"]["state"] == "stale"
 
 
+def test_show_index_is_current_while_an_uncommitted_edit_waits_for_its_commit(notes, make_note):
+    """The index holds committed versions only, so current means the note's last commit is indexed."""
+    notes.save(make_note(path="notes/other.md", content="# Other\n"))
+    notes.commit("Move HEAD past the note", auto_index=False)
+    _commands.index(notes)
+
+    (notes.root / "notes/ideas.md").write_text(IDEAS + "\nMore.\n")
+
+    assert show(notes, "ideas")["index"]["state"] == "current"
+
+
 def test_show_a_hidden_note_when_asked_by_name_and_says_so(notes, as_joe):
     """Asking for it by name is asking for it; hidden only keeps it out of what's offered."""
     tag(notes, "ideas", ["hidden"])

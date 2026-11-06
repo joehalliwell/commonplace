@@ -291,7 +291,7 @@ class Commonplace:
         path = Path(path)
         if path.is_absolute():
             path = path.relative_to(self.root, walk_up=False)
-        return self._repo_path(path, *self._status(path.as_posix()))
+        return self._repo_path(path, self._status(path.as_posix())[0])
 
     def _status(self, *pathspec: str, untracked: bool = False) -> tuple[str, set[str]]:
         """HEAD, and which files under `pathspec` differ from it (untracked ones only if asked), from one `git status`."""
@@ -309,10 +309,8 @@ class Commonplace:
                 dirty.add(entry.removeprefix("? "))
         return head, dirty
 
-    def _repo_path(self, path: Path, head: str, dirty: set[str]) -> RepoPath:
-        """The commit that last changed `path`, or HEAD if it is uncommitted or changed since."""
-        if path.as_posix() in dirty:
-            return RepoPath(path=path, ref=head)
+    def _repo_path(self, path: Path, head: str) -> RepoPath:
+        """The commit that last changed `path`, uncommitted changes aside, or HEAD if no commit has it."""
         return RepoPath(path=path, ref=self._build_path_commit_map(str(self.root), head).get(path.as_posix(), head))
 
     @staticmethod
@@ -403,10 +401,10 @@ class Commonplace:
 
     def note_paths(self) -> Iterator[RepoPath]:
         """Get an iterator over all note paths at current HEAD, skipping dot-directories."""
-        head, dirty = self._status()
+        head = self._status()[0]
         for path in self.paths():
             if path.suffix == ".md":
-                yield self._repo_path(path, head, dirty)
+                yield self._repo_path(path, head)
 
     def load(self, repo_path: RepoPath) -> Note:
         """
