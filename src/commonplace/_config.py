@@ -15,6 +15,11 @@ from platformdirs import user_config_dir
 from pydantic import Field
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
+#: Commonplace's own folder in a repo, relative to the root: config, cache, blobs, marginalia, skill state.
+DOT = Path(".commonplace")
+#: The per-repo config file, relative to the root.
+CONFIG = DOT / "config.toml"
+
 DEFAULT_CONFIG = Path(user_config_dir("commonplace")) / "config.toml"
 DEFAULT_NAME = getpass.getuser().title()  # Get the current user's name for default human-readable name
 DEFAULT_EDITOR = os.getenv("EDITOR", default="vim")
@@ -65,7 +70,7 @@ class Config(BaseSettings):
     @classmethod
     def load(cls, repo_root: Path, global_file: Path | None = None) -> "Config":
         """Overlay the per-repo config file on the global one, beneath the environment."""
-        files = [global_file or DEFAULT_CONFIG, repo_root / ".commonplace" / "config.toml"]
+        files = [global_file or DEFAULT_CONFIG, repo_root / CONFIG]
         settings: dict[str, Any] = {}
         for path in files:
             if path.is_file():
