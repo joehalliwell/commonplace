@@ -37,7 +37,10 @@ def index(
     # What the repo holds now, against what the index already has. The two
     # differences say what to add, and what has been deleted or edited since.
     # A rebuild needs no special case: clear() just emptied `indexed`.
-    live = set(repo.note_paths())
+    # The index holds committed versions only, and `load` reads the file on disk, so a note with
+    # uncommitted changes is left as it is, its last indexed version kept, until they're committed.
+    uncommitted = repo.uncommitted(".")
+    live = {path for path in repo.note_paths() if path.path.as_posix() not in uncommitted}
     indexed = set(repo.index.get_indexed_paths())
 
     to_index = live - indexed
@@ -58,7 +61,7 @@ def index(
 
     # After adding, so the versions being replaced can lend their unchanged chunks' embeddings.
     if prune:
-        repo.index.remove(indexed - live)
+        repo.index.remove({path for path in indexed - live if path.path.as_posix() not in uncommitted})
 
     # Dropping them would cost a full re-embed to undo, so this only says they're there.
     for model_id, count in repo.index.other_models().items():
