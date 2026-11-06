@@ -13,7 +13,7 @@ from commonplace._import._placement import Placement
 from commonplace._import._types import ChatImporter
 from commonplace._logging import logger
 from commonplace._progress import track
-from commonplace._repo import Commonplace
+from commonplace._repo import BLOBS, Commonplace
 from commonplace._types import Note
 from commonplace._utils import dump_frontmatter
 from commonplace._wire import read_header
@@ -24,7 +24,6 @@ RENDER_MESSAGE = "Re-render chats from stored archives"
 #: included, carries a hand edit, which a re-render would overwrite.
 _RENDERING = ("Import from ", RENDER_MESSAGE)
 
-_BLOBS = ".commonplace/blobs"
 _CHATS = "chats"
 _UNDATED = datetime.min.replace(tzinfo=UTC)
 
@@ -88,9 +87,9 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
 
 def _in_capture_order(repo: Commonplace) -> list[tuple[Path, ChatImporter]]:
     """Every stored archive a chat importer reads, oldest capture first."""
-    stored = {path: i for i, path in enumerate(repo.first_added(_BLOBS))}
+    stored = {path: i for i, path in enumerate(repo.first_added(BLOBS.as_posix()))}
     archives: list[tuple[Path, ChatImporter]] = []
-    for path in sorted((repo.root / _BLOBS).glob("*/*")):
+    for path in sorted((repo.root / BLOBS).glob("*/*")):
         if isinstance(importer := autodetect_importer(path), ChatImporter):
             archives.append((path.relative_to(repo.root), importer))
 

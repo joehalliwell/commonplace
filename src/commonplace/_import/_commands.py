@@ -23,7 +23,7 @@ from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import ChatImporter, MemoryImporter
 from commonplace._logging import logger
 from commonplace._progress import track
-from commonplace._repo import Commonplace
+from commonplace._repo import BLOBS, Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import slugify
 
@@ -48,7 +48,7 @@ def import_(path: Path, repo: Commonplace, user: str, auto_index: bool | None = 
     """Import an exported/local log or a directory of the same"""
     assert path.exists()
     # Re-importing stored archives lets whichever loads last win; `doctor --render` replays them in capture order.
-    blobs, target = (repo.root / ".commonplace" / "blobs").resolve(), path.resolve()
+    blobs, target = (repo.root / BLOBS).resolve(), path.resolve()
     if target.is_relative_to(blobs) or blobs.is_relative_to(target):
         raise ValueError(
             f"'{path}' is or holds this repo's blob store; re-render it with `commonplace doctor --render`"
