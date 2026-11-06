@@ -484,7 +484,7 @@ def stats(
 ) -> None:
     """Show statistics about your commonplace and search index."""
 
-    from commonplace._stats import generate_stats
+    from commonplace._stats import generate_stats, source
 
     try:
         heatmap_output, table_output = generate_stats(
@@ -501,8 +501,7 @@ def stats(
     except ValueError as e:
         logger.error(str(e))
         # Show available sources
-        all_note_paths = list(repo.note_paths())
-        available_sources = sorted({repo.source(path) for path in all_note_paths})
+        available_sources = sorted({source(path.path) for path in repo.note_paths()})
         logger.info(f"Available sources: {', '.join(available_sources)}")
         return
 

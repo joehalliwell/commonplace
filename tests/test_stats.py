@@ -6,7 +6,7 @@ import pytest
 from rich.text import Text
 
 from commonplace._search._commands import index
-from commonplace._stats import generate_stats
+from commonplace._stats import generate_stats, source
 from commonplace._types import Note, RepoPath
 
 
@@ -43,6 +43,31 @@ def test_generate_stats_ties_are_ordered_by_name(test_repo, any_terminal):
 
     rows = [line.split("│")[1].strip() for line in plain(table_output).splitlines() if line.startswith("│")]
     assert rows[:3] == ["journal", "misc", "notes"]
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("notes/keep/shopping.md", "notes/keep"),
+        ("notes/projects/garden.md", "notes"),
+        ("memory/claude/work.md", "memory/claude"),
+        ("chats/claude/2024/01/2024-01-15-hello.md", "chats/claude"),
+        ("journal/2024/01/2024-01-15.md", "journal"),
+        ("readme.md", "misc"),
+    ],
+)
+def test_source_is_a_mirrors_tree_a_chats_agent_or_the_top_folder(path, expected):
+    assert source(Path(path)) == expected
+
+
+def test_generate_stats_counts_a_mirror_apart_but_its_parent_folder_still_matches_it(test_repo, any_terminal):
+    test_repo.save(Note(RepoPath(Path("notes/keep/shopping.md"), ""), "# Shopping\n\nEggs"))
+    test_repo.save(Note(RepoPath(Path("notes/general.md"), ""), "# Note\n\nContent"))
+
+    _, table_output = generate_stats(test_repo, sources=["notes"], all_time=True, console=any_terminal)
+
+    rows = [line.split("│")[1].strip() for line in plain(table_output).splitlines() if line.startswith("│")]
+    assert rows[:2] == ["notes", "notes/keep"]
 
 
 def test_generate_stats_with_source_filter(test_repo, any_terminal):

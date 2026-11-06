@@ -378,15 +378,6 @@ class Commonplace:
         """Paths under `pathspec` that differ from HEAD, untracked ones included."""
         return self._status(pathspec, untracked=True)[1]
 
-    def source(self, repo_path: RepoPath) -> str:
-        """The source of this collection of notes/chats."""
-        parts = repo_path.path.parts
-        if len(parts) < 2:
-            return "misc"
-        if parts[0] in ("chats", "memory"):
-            return "/".join(parts[:2])
-        return parts[0]
-
     def paths(self) -> Iterator[Path]:
         """Every file in the working tree that git would share, relative to the root, skipping dot-directories."""
         out = self._git("ls-files", "--cached", "--others", "--exclude-standard", "-z")
