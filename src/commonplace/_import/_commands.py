@@ -46,7 +46,8 @@ IMPORTERS: list[ChatImporter | MemoryImporter] = [
 
 def import_(path: Path, repo: Commonplace, user: str, auto_index: bool | None = None):
     """Import an exported/local log or a directory of the same"""
-    assert path.exists()
+    if not path.exists():
+        raise FileNotFoundError(f"No such file or directory: '{path}'")
     # Re-importing stored archives lets whichever loads last win; `doctor --render` replays them in capture order.
     blobs, target = (repo.root / BLOBS).resolve(), path.resolve()
     if target.is_relative_to(blobs) or blobs.is_relative_to(target):
@@ -57,7 +58,6 @@ def import_(path: Path, repo: Commonplace, user: str, auto_index: bool | None = 
         import_one(path, repo, user, auto_index=auto_index)
     else:
         logger.debug(f"Scanning '{path}' for export files")
-        assert path.is_dir()
         paths_to_import = sorted(p for p in path.rglob("*") if p.is_file())
         for filepath in track(paths_to_import, "Importing files"):
             import_one(filepath, repo, user, auto_index=auto_index)
@@ -78,7 +78,7 @@ def autodetect_importer(path: Path) -> ChatImporter | MemoryImporter | None:
             if importer.can_import(path):
                 logger.info(f"Using {importer.source} importer for {path}")
                 return importer
-        except:  # noqa
+        except Exception:  # noqa: BLE001 - probing an arbitrary file; any failure means "not ours"
             logger.debug(f"{importer.source} cannot handle {path}", exc_info=True)
     logger.debug(f"No importer claimed '{path}'")
     return None

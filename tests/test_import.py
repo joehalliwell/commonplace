@@ -531,6 +531,25 @@ def test_import_refuses_the_repos_own_blob_store(test_repo, target):
     assert not list((test_repo.root / "chats").glob("**/*.md"))
 
 
+def test_import_a_missing_path_raises_rather_than_importing_nothing(test_repo, tmp_path):
+    with pytest.raises(FileNotFoundError, match="missing.zip"):
+        import_(tmp_path / "missing.zip", test_repo, user="Human")
+
+
+def test_autodetect_importer_lets_an_interrupt_through(tmp_path, monkeypatch):
+    class Interrupted:
+        source = "interrupted"
+
+        def can_import(self, path: Path) -> bool:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr("commonplace._import._commands.IMPORTERS", [Interrupted()])
+    (tmp_path / "export.json").write_text("{}")
+
+    with pytest.raises(KeyboardInterrupt):
+        autodetect_importer(tmp_path / "export.json")
+
+
 HELLO = Path("chats/claude/2026/07/2026-07-15-hello.md")
 
 
