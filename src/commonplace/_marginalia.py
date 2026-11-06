@@ -12,12 +12,13 @@ from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 
+from commonplace._config import DOT
 from commonplace._links import Target, UnresolvedNote, is_named, links_from, links_to, resolve, resolve_target
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
 
-MARGINALIA_ROOT = Path(".commonplace/marginalia")
+MARGINALIA_ROOT = DOT / "marginalia"
 
 #: The marginalia format this release writes. Bump it, with an example in tests/resources/marginalia/, on any change.
 MARGINALIA_VERSION = 1
