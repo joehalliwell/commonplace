@@ -11,6 +11,7 @@ from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
 from commonplace._import._claude_memory import ClaudeMemoryImporter
 from commonplace._import._commands import IMPORTERS, autodetect_importer, import_, landing_tree
 from commonplace._import._types import ChatImporter, MemoryImporter, Snapshot
+from commonplace._stats import source
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
 from commonplace._wire import write_archive
@@ -344,4 +345,4 @@ def test_mirror_leaves_other_vendors_memory_alone(test_repo, tmp_path, make_note
 def test_source_memory_note_is_named_for_its_vendor(test_repo):
     _mirror(test_repo, EXAMPLE)
 
-    assert {test_repo.source(p) for p in test_repo.note_paths() if p.path.parts[0] == "memory"} == {"memory/claude"}
+    assert {source(p.path) for p in test_repo.note_paths() if p.path.parts[0] == "memory"} == {"memory/claude"}
