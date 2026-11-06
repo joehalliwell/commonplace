@@ -12,13 +12,11 @@ from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 
-from commonplace._config import DOT
+from commonplace._config import MARGINALIA
 from commonplace._links import Target, UnresolvedNote, is_named, links_from, links_to, resolve, resolve_target
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
-
-MARGINALIA_ROOT = DOT / "marginalia"
 
 #: The marginalia format this release writes. Bump it, with an example in tests/resources/marginalia/, on any change.
 MARGINALIA_VERSION = 1
@@ -70,7 +68,7 @@ _WIKILINK_TARGET = re.compile(r"\[\[([^[\]\n]+)]]")
 
 def marginalia_path(note: Path) -> Path:
     """Where a note's marginalia live, relative to the root."""
-    return MARGINALIA_ROOT / note
+    return MARGINALIA / note
 
 
 def read_marginalia(root: Path, note: Path) -> Marginalia:
@@ -250,5 +248,5 @@ def _resolves(target: str, root: Path, files: list[Path]) -> bool:
 
 def annotated_notes(root: Path) -> list[Path]:
     """The path of every note that has marginalia, in order, whether or not the note is still there."""
-    shadow = root / MARGINALIA_ROOT
+    shadow = root / MARGINALIA
     return sorted(path.relative_to(shadow) for path in shadow.rglob("*.md"))
