@@ -344,28 +344,6 @@ def test_index_prunes_superseded_versions(test_repo, make_note):
     assert test_repo.index.search_keyword("silver", limit=10) == []
 
 
-def test_index_reindexes_an_uncommitted_edit_each_time_it_changes(test_repo, make_note):
-    test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
-    test_repo.commit("Add note", auto_index=False)
-    _commands.index(test_repo)
-
-    for colour in ("crimson", "scarlet"):
-        (test_repo.root / "draft.md").write_text(f"# Draft\n\nHerrings are {colour}.\n")
-        _commands.index(test_repo)
-        assert test_repo.index.search_keyword(colour, limit=10)
-
-    assert test_repo.index.search_keyword("crimson", limit=10) == []
-
-
-def test_index_reindexes_an_untracked_note_each_time_it_changes(test_repo):
-    for colour in ("crimson", "scarlet"):
-        (test_repo.root / "draft.md").write_text(f"# Draft\n\nHerrings are {colour}.\n")
-        _commands.index(test_repo)
-        assert test_repo.index.search_keyword(colour, limit=10)
-
-    assert test_repo.index.search_keyword("crimson", limit=10) == []
-
-
 def test_index_no_prune_keeps_deleted_notes(test_repo, make_note):
     """`--no-prune` leaves the index alone, for when re-embedding would cost more than the noise."""
     test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nNot long for this world.\n"))

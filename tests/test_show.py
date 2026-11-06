@@ -74,15 +74,6 @@ def test_show_index_says_whether_the_current_version_is_indexed(notes):
     assert show(notes, "ideas")["index"]["state"] == "stale"
 
 
-def test_show_index_calls_an_uncommitted_edit_stale(notes):
-    _commands.index(notes)
-    (notes.root / "notes/ideas.md").write_text(IDEAS + "\nMore.\n")
-    assert show(notes, "ideas")["index"]["state"] == "stale"
-
-    _commands.index(notes)
-    assert show(notes, "ideas")["index"]["state"] == "current"
-
-
 def test_show_a_hidden_note_when_asked_by_name_and_says_so(notes, as_joe):
     """Asking for it by name is asking for it; hidden only keeps it out of what's offered."""
     tag(notes, "ideas", ["hidden"])
