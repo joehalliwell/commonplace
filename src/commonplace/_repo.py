@@ -23,7 +23,7 @@ _USER_OWNED = frozenset({".commonplace/config.toml", "index.md"})
 _BOT_USERNAME = "Commonplace Bot"
 _BOT_EMAIL = "commonplace@joehalliwell.com"
 #: Where captured archives are stored, each under its SHA-256.
-_BLOBS = Path(".commonplace") / "blobs"
+BLOBS = Path(".commonplace") / "blobs"
 
 # Seconds to wait between attempts while another git process holds a lock.
 _LOCK_RETRY_DELAYS = (0.05, 0.1, 0.2, 0.4, 0.8, 1.6)
@@ -218,7 +218,7 @@ class Commonplace:
         self._ensure_gitattributes()
 
         digest = _hash_file(source_path)
-        rel_path = _BLOBS / digest / source_path.name
+        rel_path = BLOBS / digest / source_path.name
         abs_path = self.root / rel_path
 
         if not abs_path.exists():
@@ -401,7 +401,7 @@ class Commonplace:
 
     def stored_archives(self, name: str) -> list[Path]:
         """The archives called `name` this repo has stored, oldest first, relative to the root."""
-        out = self._git("log", "--reverse", "--diff-filter=A", "--name-only", "--format=", "--", _BLOBS.as_posix())
+        out = self._git("log", "--reverse", "--diff-filter=A", "--name-only", "--format=", "--", BLOBS.as_posix())
         return [Path(line) for line in out.splitlines() if line.endswith(f"/{name}")]
 
     def renamed_since(self, ref: str) -> dict[Path, Path]:
