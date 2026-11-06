@@ -6,6 +6,7 @@ from pathlib import Path
 from zipfile import ZipFile, is_zipfile
 
 from commonplace import __version__
+from commonplace._config import BLOBS
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
 from commonplace._import._claude import ClaudeImporter
@@ -23,7 +24,7 @@ from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import ChatImporter, MemoryImporter
 from commonplace._logging import logger
 from commonplace._progress import track
-from commonplace._repo import BLOBS, Commonplace
+from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import slugify
 

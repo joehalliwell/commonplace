@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from functools import cached_property, lru_cache
 from pathlib import Path
 
-from commonplace._config import CONFIG, DOT
+from commonplace._config import BLOBS, CACHE, CONFIG
 from commonplace._logging import logger
 from commonplace._types import Note, Pathlike, RepoPath
 from commonplace._utils import dump_frontmatter, load_frontmatter
@@ -23,8 +23,6 @@ _USER_OWNED = frozenset({CONFIG.as_posix(), "index.md"})
 
 _BOT_USERNAME = "Commonplace Bot"
 _BOT_EMAIL = "commonplace@joehalliwell.com"
-#: Where captured archives are stored, each under its SHA-256.
-BLOBS = DOT / "blobs"
 
 # Seconds to wait between attempts while another git process holds a lock.
 _LOCK_RETRY_DELAYS = (0.05, 0.1, 0.2, 0.4, 0.8, 1.6)
@@ -209,7 +207,7 @@ class Commonplace:
     @cached_property
     def cache(self) -> Path:
         """Get the cache directory."""
-        return self.root / DOT / "cache"
+        return self.root / CACHE
 
     def store_blob(self, source_path: Path) -> RepoPath:
         """Store a file in .commonplace/blobs/ addressed by its SHA-256 hash.

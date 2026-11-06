@@ -15,10 +15,16 @@ from platformdirs import user_config_dir
 from pydantic import Field
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
-#: Commonplace's own folder in a repo, relative to the root: config, cache, blobs, marginalia, skill state.
+# Commonplace's own folder in a repo and what it holds, relative to the root. Skills keep their state
+# under `skills/`, which they name themselves.
 DOT = Path(".commonplace")
-#: The per-repo config file, relative to the root.
 CONFIG = DOT / "config.toml"
+#: Search index and other rebuildable state; not committed.
+CACHE = DOT / "cache"
+#: Captured archives, each under its SHA-256.
+BLOBS = DOT / "blobs"
+#: A note's marginalia, at the note's own path.
+MARGINALIA = DOT / "marginalia"
 
 DEFAULT_CONFIG = Path(user_config_dir("commonplace")) / "config.toml"
 DEFAULT_NAME = getpass.getuser().title()  # Get the current user's name for default human-readable name

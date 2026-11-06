@@ -8,12 +8,13 @@ themselves in the order they were stored: never hash order, which is chance.
 from datetime import UTC, datetime
 from pathlib import Path
 
+from commonplace._config import BLOBS
 from commonplace._import._commands import autodetect_importer, landing_tree, render_chats
 from commonplace._import._placement import Placement
 from commonplace._import._types import ChatImporter
 from commonplace._logging import logger
 from commonplace._progress import track
-from commonplace._repo import BLOBS, Commonplace
+from commonplace._repo import Commonplace
 from commonplace._types import Note
 from commonplace._utils import dump_frontmatter
 from commonplace._wire import read_header
