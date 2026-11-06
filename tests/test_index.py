@@ -9,6 +9,7 @@ from commonplace._search import _commands
 from commonplace._search._types import Chunk, SearchMethod
 from commonplace._types import RepoPath
 from tests.conftest import StubEmbedder
+from tests.porcelain import git
 
 
 def _delete(repo, path: str) -> None:
@@ -342,6 +343,36 @@ def test_index_prunes_superseded_versions(test_repo, make_note):
     assert drafts == [test_repo.make_repo_path("draft.md")]
     assert test_repo.index.search_keyword("crimson", limit=10)
     assert test_repo.index.search_keyword("silver", limit=10) == []
+
+
+def test_index_keeps_an_edited_notes_committed_text_until_the_edit_is_committed(test_repo, make_note):
+    """The index holds committed versions only, so an edit on disk waits for its commit."""
+    test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
+    test_repo.commit("Add note", auto_index=False)
+    test_repo.save(make_note(path="other.md", content="# Other\n\nSomething else.\n"))
+    test_repo.commit("Move HEAD past the note", auto_index=False)
+    _commands.index(test_repo)
+
+    (test_repo.root / "draft.md").write_text("# Draft\n\nHerrings are crimson.\n")
+    _commands.index(test_repo)
+    assert test_repo.index.search_keyword("silver", limit=10)
+    assert test_repo.index.search_keyword("crimson", limit=10) == []
+
+    git(test_repo.root, "commit", "-qam", "Edit note")
+    _commands.index(test_repo)
+    assert test_repo.index.search_keyword("crimson", limit=10)
+    assert test_repo.index.search_keyword("silver", limit=10) == []
+
+
+def test_index_leaves_an_untracked_note_until_its_first_commit(test_repo):
+    (test_repo.root / "draft.md").write_text("# Draft\n\nHerrings are crimson.\n")
+    _commands.index(test_repo)
+    assert test_repo.index.search_keyword("crimson", limit=10) == []
+
+    git(test_repo.root, "add", "draft.md")
+    git(test_repo.root, "commit", "-qm", "Add note")
+    _commands.index(test_repo)
+    assert test_repo.index.search_keyword("crimson", limit=10)
 
 
 def test_index_no_prune_keeps_deleted_notes(test_repo, make_note):
