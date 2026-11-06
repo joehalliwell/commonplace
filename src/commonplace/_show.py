@@ -43,7 +43,7 @@ def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str
 
 def _index_state(repo: Commonplace, note: Path) -> dict[str, Any]:
     """How many chunks the current version has in the index, and whether it's current, stale or not indexed."""
-    current = repo.make_repo_path(note)
+    current = repo.note_version(note)
     index = repo.index
     versions = [path for path in index.get_indexed_paths() if path.path == note]
     if current in versions:
