@@ -356,9 +356,7 @@ each top-level folder the root index links) and diffs the managed files against
 the templates `init` currently writes. Run it after upgrading commonplace to
 see what an older repo is missing. It only reports — applying the diff is up to
 you. The root `index.md` and the config file are yours once seeded, so they are
-never diffed. An older repo may also have a `.gitattributes` routing
-`.commonplace/blobs` through Git LFS: delete it, since blobs are plain git
-objects that git compresses itself.
+never diffed.
 
 The marginalia operation looks after tags and links whose note has moved. After
 a plain `git mv`, the marginalia are left at the old path; doctor follows git's
