@@ -17,7 +17,10 @@ whose `response` is the verbatim body text:
 Verbatim is load-bearing: parsing and re-serialising rewrites `1e5` as
 `100000.0` and `\\/` as `/`, and resolves `\\u` escapes. Gzip costs no
 inspection convenience — the content is opaque JSON either way — and saves
-~7× on disk and LFS bandwidth.
+~5–7× on disk. Its price is git's delta packing: a re-capture of content an
+earlier archive holds costs its full compressed size again, so history grows
+with how often a source re-captures (for Claude Code sessions, ~1.3× the
+minimum at a daily fetch, ~3.7× at hourly).
 
 Version 1 is the pre-versioning format: no header, and for Claude a `response`
 already parsed. Those archives are committed in users' repos and referenced
