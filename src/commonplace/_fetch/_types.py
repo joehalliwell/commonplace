@@ -14,6 +14,11 @@ class Fetcher(Protocol):
     is the paired Importer's job — a ChatImporter for conversations, a
     MemoryImporter for live state. Each source therefore has both halves, and
     the seam between them is the archive on disk.
+
+    So a fetcher errs on the side of caution: it captures all of the user's
+    material it can reach and leaves every judgement of what's worth reading
+    to its importer, since whatever it leaves out no later reader can recover.
+    It excludes only what isn't the user's, like account and auth state.
     """
 
     source: str
