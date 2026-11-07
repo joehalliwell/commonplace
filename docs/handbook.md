@@ -77,7 +77,8 @@ lands in `chats/claude-code/`, titled by the title Claude Code gave it, else by
 your first prompt. Subagent transcripts are left out: the session already holds
 each subagent's prompt and report. Turns the harness wrote, such as a skill's
 prompt, a command's output or a background task's notice, appear as `System`,
-not as you.
+not as you. A transcript holds whatever its tools printed, and git keeps every
+capture, so a secret that ever shows up in a session stays in your history.
 
 ### Mirrors
 
