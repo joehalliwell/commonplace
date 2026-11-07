@@ -99,14 +99,14 @@ def test_doctor_reports_a_managed_file_that_differs(test_repo):
 
 def test_doctor_shows_the_diff_against_the_template(test_repo):
     """The diff is the whole point: it says what the template has that the repo doesn't."""
-    gitattributes = test_repo.root / ".gitattributes"
-    gitattributes.write_text("*.md text\n")
+    gitignore = test_repo.root / ".gitignore"
+    gitignore.write_text("*.log\n")
 
     report = doctor(test_repo)
 
-    warning = next(w for w in report.warnings if ".gitattributes" in w)
-    assert "-.commonplace/blobs/** filter=lfs diff=lfs merge=lfs -text" in warning
-    assert "+*.md text" in warning
+    warning = next(w for w in report.warnings if ".gitignore" in w)
+    assert "-.commonplace/cache" in warning
+    assert "+*.log" in warning
 
 
 def test_doctor_reports_additions_too(test_repo):

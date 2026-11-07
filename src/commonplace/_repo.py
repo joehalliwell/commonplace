@@ -82,7 +82,6 @@ _SCAFFOLDING: tuple[ConfigFile, ...] = tuple(
     for file in sorted(_SCAFFOLD_ROOT.rglob("*"))
     if file.is_file()
 )
-_GIT_ATTRIBUTES = _scaffold(".gitattributes")
 
 
 def _create_missing(root: Path, config: ConfigFile) -> bool:
@@ -214,8 +213,6 @@ class Commonplace:
 
         Returns the existing path if the blob already exists (idempotent).
         """
-        self._ensure_gitattributes()
-
         digest = _hash_file(source_path)
         rel_path = BLOBS / digest / source_path.name
         abs_path = self.root / rel_path
@@ -247,11 +244,6 @@ class Commonplace:
             if target.exists() and (divergence := config.divergence(target.read_text())):
                 drift[config.path] = divergence
         return drift
-
-    def _ensure_gitattributes(self) -> None:
-        """Create .gitattributes with LFS config if it doesn't exist yet."""
-        if _create_missing(self.root, _GIT_ATTRIBUTES):
-            self._pending.add(_GIT_ATTRIBUTES.path)
 
     @cached_property
     def index(self):

@@ -62,32 +62,19 @@ def test_store_blob_different_content_different_hash(test_repo, tmp_path):
     assert p1.path.name == p2.path.name == "data.bin"
 
 
-def test_store_blob_creates_gitattributes(test_repo, sample_file):
-    """store_blob() ensures .gitattributes exists with LFS config."""
-    gitattributes = test_repo.root / ".gitattributes"
-    # Remove if init() already created it
-    if gitattributes.exists():
-        gitattributes.unlink()
+def test_store_blob_is_a_plain_git_object(test_repo, sample_file):
+    """Git compresses and delta-packs blobs itself; no attribute should route them elsewhere, such as LFS."""
+    path = test_repo.store_blob(sample_file).path.as_posix()
 
-    test_repo.store_blob(sample_file)
+    attrs = subprocess.run(
+        ["git", "check-attr", "filter", "diff", "merge", "--", path],
+        cwd=test_repo.root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
 
-    assert gitattributes.exists()
-    content = gitattributes.read_text()
-    assert ".commonplace/blobs/**" in content
-    assert "filter=lfs" in content
-
-
-def test_init_creates_gitattributes(tmp_path):
-    """Commonplace.init() includes .gitattributes with LFS config."""
-    root = tmp_path / "fresh_repo"
-    root.mkdir()
-    Commonplace.init(root)
-
-    gitattributes = root / ".gitattributes"
-    assert gitattributes.exists()
-    content = gitattributes.read_text()
-    assert ".commonplace/blobs/**" in content
-    assert "filter=lfs" in content
+    assert attrs.splitlines() == [f"{path}: {name}: unspecified" for name in ("filter", "diff", "merge")]
 
 
 def test_init_creates_claude_settings(tmp_path):
