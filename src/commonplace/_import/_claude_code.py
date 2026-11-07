@@ -155,12 +155,11 @@ class ClaudeCodeImporter:
                 tool_calls[tool_use_id] = ToolCall(created=timestamp, tool=tool_name, args=tool_input, output="PENDING")
 
             elif block_type == "tool_result":
-                # Format tool results
-                content = block["content"]
-                tool_use_id = block["tool_use_id"]
                 output = block["content"]
-                call = tool_calls[tool_use_id]
-                call.output = output
+                # An image's base64 would swamp the note; the stored session keeps it.
+                if isinstance(output, list):
+                    output = [{"type": "image"} if part.get("type") == "image" else part for part in output]
+                tool_calls[block["tool_use_id"]].output = output
 
             else:
                 logger.debug(f"Skipping {block_type} content block")

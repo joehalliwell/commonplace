@@ -488,6 +488,23 @@ def test_claude_code_import_untitled_session_is_titled_by_the_users_first_prompt
     assert log.title == "Why is the build red after the dependency bump that landed…"
 
 
+def test_claude_code_import_image_in_tool_output_is_a_placeholder(tmp_path):
+    image = {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "iVBORw0KGgo="}}
+    tool_use = {"type": "tool_use", "id": "t1", "name": "Screenshot", "input": {}}
+    tool_result = {"type": "tool_result", "tool_use_id": "t1", "content": [{"type": "text", "text": "shot"}, image]}
+    session = _claude_code_session(
+        tmp_path,
+        _claude_code_line("user", "look", "2025-10-01T10:00:00Z"),
+        _claude_code_line("assistant", [tool_use], "2025-10-01T10:00:01Z"),
+        _claude_code_line("user", [tool_result], "2025-10-01T10:00:02Z"),
+    )
+
+    [log] = ClaudeCodeImporter().import_(session)
+
+    [call] = [e for e in log.events if not isinstance(e, Message)]
+    assert call.output == [{"type": "text", "text": "shot"}, {"type": "image"}]
+
+
 def test_claude_code_import_records_each_model_once_in_order(tmp_path):
     session = _claude_code_session(
         tmp_path,
