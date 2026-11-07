@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
-from commonplace._wire import write_archive
+from commonplace._wire import read_header, write_archive
 
 
 class ClaudeCodeFetcher:
@@ -18,6 +18,11 @@ class ClaudeCodeFetcher:
         self.root = root or Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
 
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
+        # Git's cursor is when the last capture was committed, after it read; a session written in between
+        # would wait for its next change. Each capture is stamped before it lists anything, so start from that.
+        started = datetime.now(UTC)
+        if stamps := [stamp for p in previous if (stamp := read_header(p).fetched_at)]:
+            since = max(stamps)
         projects = self.root / "projects"
         # Subagents sit a level down, under `<session>/subagents/`; an orphaned copy repeats a session's id.
         sessions = [p for p in sorted(projects.glob("*/*.jsonl")) if ".orphaned-" not in p.name]
@@ -28,4 +33,4 @@ class ClaudeCodeFetcher:
             {"endpoint": "session", "path": p.relative_to(projects).as_posix(), "response": p.read_text("utf-8")}
             for p in fresh
         )
-        return write_archive(destination / f"{self.source}-wire.jsonl.gz", self.source, entries)
+        return write_archive(destination / f"{self.source}-wire.jsonl.gz", self.source, entries, fetched_at=started)

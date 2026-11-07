@@ -79,12 +79,14 @@ class WireHeader(NamedTuple):
     fetched_by: str | None = None
 
 
-def write_archive(path: Path, source: str, entries: Iterable[dict[str, Any]]) -> Path:
-    """Write `entries` to `path` as a gzipped JSONL archive with a header."""
+def write_archive(
+    path: Path, source: str, entries: Iterable[dict[str, Any]], fetched_at: datetime | None = None
+) -> Path:
+    """Write `entries` to `path` as a gzipped JSONL archive with a header stamped `fetched_at`, else now."""
     header = {
         "wire": source,
         "version": WIRE_VERSION,
-        "fetched_at": datetime.now(UTC).isoformat(),
+        "fetched_at": (fetched_at or datetime.now(UTC)).isoformat(),
         "fetched_by": f"{TOOL}/{__version__}",
     }
     with gzip.open(path, "wt", encoding="utf-8") as f:
