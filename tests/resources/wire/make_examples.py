@@ -226,6 +226,31 @@ CHATGPT_MEMORY_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
     ),
 }
 
+# Shaped like the first saved memory fetched, on 2026-11-07.
+CHATGPT_SAVED_MEMORY = {
+    "id": "00000000-0000-4000-8000-0000000000a1",
+    "content": "Prefers tea to coffee.",
+    "updated_at": "2026-11-07",
+    "gizmo_id": None,
+    "status": "warm",
+    "conversation_id": "00000000-0000-4000-8000-0000000000c1",
+    "created_timestamp": 1794067098.487252,
+    "last_updated": None,
+    "labels": [],
+}
+CHATGPT_MEMORY_ARCHIVES[4] = (
+    {**CHATGPT_MEMORY_ARCHIVES[3][0], "version": 4, "fetched_by": "commonplace/0.9.1"},  # type: ignore[dict-item]
+    [
+        {
+            "endpoint": "memories",
+            "response": json.dumps(
+                {"memories": [CHATGPT_SAVED_MEMORY], "memory_max_tokens": 5000000, "memory_num_tokens": 21}
+            ),
+        },
+        {"endpoint": "summary", "response": CHATGPT_STREAM},
+    ],
+)
+
 
 # Synthetic, shaped like one scheduled run as first fetched on 2026-10-11. Numbers arrive as strings,
 # events newest first, thinking only as a signature, and the prompt from the client with no payload timestamp.
