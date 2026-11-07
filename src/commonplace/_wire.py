@@ -42,6 +42,10 @@ Version 3 adds `fetched_at` and `fetched_by`: when the capture was made and
 what made it (`tool/version`), so a blob detached from its commit still dates
 and attributes itself. Both read back `None` on v1 and v2 archives.
 
+Version 4 lets a body be base64, marked `"encoding": "base64"`, so a file that
+isn't UTF-8 can be captured. Its archives are xz. A reader refuses an archive
+newer than the version it knows (`NewerWireVersion`) rather than misread it.
+
 A vendor changing what it sends is not a version bump: bodies are verbatim, so
 the format holds and only the content moves. Bump when a fetcher changes what
 it records around the body. The importer then reads both shapes, telling them
@@ -65,7 +69,7 @@ from typing import IO, Any, NamedTuple, cast
 
 from commonplace import __version__
 
-WIRE_VERSION = 3
+WIRE_VERSION = 4
 
 GZ, XZ = ".jsonl.gz", ".jsonl.xz"
 _XZ_MAGIC = b"\xfd7zXZ\x00"
@@ -76,6 +80,10 @@ LEGACY_VERSION = 1
 #: Names this implementation in `fetched_by`. A reimplementation writes its
 #: own token here; see the module docstring.
 TOOL = "commonplace"
+
+
+class NewerWireVersion(Exception):
+    """An archive written in a wire version newer than this commonplace reads, which it must refuse, not guess at."""
 
 
 class WireHeader(NamedTuple):
@@ -153,6 +161,11 @@ def read_header(path: Path) -> WireHeader:
     entry = _first_entry(path)
     if entry is None or "wire" not in entry:
         return WireHeader(None, LEGACY_VERSION)
+    if entry["version"] > WIRE_VERSION:
+        raise NewerWireVersion(
+            f"'{path}' is wire v{entry['version']}, newer than this commonplace reads (v{WIRE_VERSION}): "
+            "upgrade commonplace"
+        )
     fetched_at = entry.get("fetched_at")
     return WireHeader(
         entry["wire"],

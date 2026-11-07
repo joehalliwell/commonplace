@@ -247,7 +247,8 @@ def any_gemini_wire_version(request) -> WireExample:
 
 
 def _wire_example(source: str, version: int) -> WireExample:
-    path = WIRE_EXAMPLES / f"{source}-v{version}.jsonl.gz"
+    # From v4, archives are xz, as fetchers write them.
+    path = WIRE_EXAMPLES / f"{source}-v{version}.jsonl.{'xz' if version >= 4 else 'gz'}"
     if not path.exists():
         pytest.fail(f"wire v{version} has no example archive at {path} — add one with the version bump")
     return WireExample(version, path)

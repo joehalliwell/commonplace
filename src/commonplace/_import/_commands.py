@@ -28,6 +28,7 @@ from commonplace._progress import track
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import slugify
+from commonplace._wire import NewerWireVersion
 
 #: Everything that can claim a file: chat importers accumulate, memory importers mirror live state.
 IMPORTERS: list[ChatImporter | MemoryImporter] = [
@@ -81,6 +82,9 @@ def autodetect_importer(path: Path) -> ChatImporter | MemoryImporter | None:
             if importer.can_import(path):
                 logger.info(f"Using {importer.source} importer for {path}")
                 return importer
+        except NewerWireVersion:
+            # Ours, but from a newer commonplace: skipping it as not ours would lose it quietly.
+            raise
         except Exception:  # noqa: BLE001 - probing an arbitrary file; any failure means "not ours"
             logger.debug(f"{importer.source} cannot handle {path}", exc_info=True)
     logger.debug(f"No importer claimed '{path}'")
