@@ -58,7 +58,9 @@ uv run commonplace search "query text"
 
 All changes require tests. Test names: `test_<feature>_<scenario>_<expected_result>`. Use `conftest.py` fixtures; snapshot tests for complex output.
 
-Code standards: Python 3.12+, ruff at 120 chars, mypy, type hints throughout. Update README.md for user-facing changes.
+Code standards: Python 3.12+, ruff at 120 chars, mypy, type hints throughout.
+
+User-facing changes are documented in one place each: options in the command's `--help` (its docstrings), behaviour across commands in `docs/handbook.md`, and anything a user must do by hand after upgrading as an entry under the handbook's Upgrading, named by the release. README.md is the overview, and changes only when the overview does: a new command, source or capability.
 
 Pre-commit hooks run ruff and mdformat. If mdformat reformats a file, re-stage and retry the commit.
 
