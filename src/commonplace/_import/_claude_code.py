@@ -100,6 +100,11 @@ class ClaudeCodeImporter:
         """Parse a user or assistant message from Messages API format."""
         msg_type = data["type"]
 
+        # A prompt typed while the agent works is absorbed mid-turn and recorded only as an attachment.
+        attachment = data.get("attachment") or {}
+        if attachment.get("type") == "queued_command" and (attachment.get("origin") or {}).get("kind") == "human":
+            return Message(sender=Role.USER, content=attachment["prompt"], created=data["timestamp"])
+
         if msg_type not in {"user", "assistant"}:
             logger.debug(f"Skipping unhandled message type {msg_type}")
             return None

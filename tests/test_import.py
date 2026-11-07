@@ -426,6 +426,25 @@ def test_claude_code_import_titles_a_session_by_its_latest_ai_title_else_summary
     assert titled.metadata == {"sessionId": "session-1", "cwd": "/work"}
 
 
+def _claude_code_queued(prompt: str, origin: str, timestamp: str) -> dict:
+    attachment = {"type": "queued_command", "prompt": prompt, "origin": {"kind": origin}}
+    return {"type": "attachment", "sessionId": "session-1", "timestamp": timestamp, "attachment": attachment}
+
+
+def test_claude_code_import_a_prompt_queued_mid_turn_is_the_users(tmp_path):
+    session = _claude_code_session(
+        tmp_path,
+        _claude_code_line("user", "start", "2025-10-01T10:00:00Z"),
+        _claude_code_queued("wait, stop", "human", "2025-10-01T10:00:01Z"),
+        _claude_code_queued("from another session", "peer", "2025-10-01T10:00:02Z"),
+        _claude_code_queued("<task-notification>done</task-notification>", "task-notification", "2025-10-01T10:00:03Z"),
+    )
+
+    [log] = ClaudeCodeImporter().import_(session)
+
+    assert [(e.sender, e.content) for e in log.events] == [(Role.USER, "start"), (Role.USER, "wait, stop")]
+
+
 def test_claude_code_import_records_each_model_once_in_order(tmp_path):
     session = _claude_code_session(
         tmp_path,
