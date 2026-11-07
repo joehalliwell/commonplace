@@ -38,9 +38,9 @@ def setup_test_environment():
 def make_note():
     """Helper to create a Note with RepoPath for testing."""
 
-    def _make_note(path: str | Path, content: str, ref: str = TEST_REF) -> Note:
+    def _make_note(path: str | Path, content: str, ref: str = TEST_REF, metadata: dict | None = None) -> Note:
         repo_path = RepoPath(path=Path(path), ref=ref)
-        return Note(repo_path=repo_path, body=content)
+        return Note(repo_path=repo_path, body=content, metadata=metadata or {})
 
     return _make_note
 

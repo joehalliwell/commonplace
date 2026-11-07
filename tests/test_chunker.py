@@ -206,3 +206,63 @@ Also short.
     assert chunks[1].section == "Title / Section 2"
     assert chunks[0].text == "Short content here."
     assert chunks[1].text == "Also short."
+
+
+CHAT = """# Fixing the build [created:: 2026-11-07T10:00:00+00:00]
+
+## Joe [created:: 2026-11-07T10:00:00+00:00]
+
+Why is the build red?
+
+## Bash call [created:: 2026-11-07T10:00:01+00:00]
+
+```yaml
+tool: Bash
+output: 3,000 lines of grep output
+```
+
+## System [created:: 2026-11-07T10:00:02+00:00]
+
+````text
+Base directory for this skill: /skills/rake
+
+## Workflow
+
+Rake the commonplace.
+````
+
+## Claude Code [created:: 2026-11-07T10:00:03+00:00]
+
+A stale lockfile; here is the fix:
+
+```python
+# regenerate it
+lock()
+```
+"""
+
+
+def test_chunk_chat_indexes_what_was_said_not_tool_calls_or_system_turns(make_note):
+    note = make_note(path="chats/claude-code/build.md", content=CHAT, metadata={"type": "Chat"})
+
+    chunks = list(MarkdownChunker().chunk(note))
+
+    assert [c.section for c in chunks] == ["Fixing the build / Joe", "Fixing the build / Claude Code"]
+    assert "grep output" not in " ".join(c.text for c in chunks)
+    assert "Rake the commonplace" not in " ".join(c.text for c in chunks)
+
+
+def test_chunk_heading_inside_a_code_fence_is_content(make_note):
+    """A code comment or a quoted document's heading is text, not a new section."""
+    note = make_note(path="chats/claude-code/build.md", content=CHAT, metadata={"type": "Chat"})
+
+    [_, agent] = MarkdownChunker().chunk(note)
+
+    assert "# regenerate it" in agent.text
+
+
+def test_chunk_note_keeps_a_section_named_like_a_call_outside_chats(make_note):
+    """Only a chat's own turn headings mark tool calls; a note's `## Sales call` is the user's."""
+    note = make_note(path="notes/week.md", content="# Week\n\n## Sales call\n\nThey want a demo.\n")
+
+    assert [c.text for c in MarkdownChunker().chunk(note)] == ["They want a demo."]
