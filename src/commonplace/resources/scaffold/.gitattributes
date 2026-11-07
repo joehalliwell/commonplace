@@ -1,3 +1,0 @@
-
-# Track blobs with Git LFS
-.commonplace/blobs/** filter=lfs diff=lfs merge=lfs -text

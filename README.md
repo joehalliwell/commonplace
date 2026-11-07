@@ -349,14 +349,16 @@ commonplace doctor --check
 
 Each operation runs in turn under its own heading, and a closing line totals
 what was fixed and what needs a look. The scaffolding operation restores and commits any scaffolding that has gone missing (`.gitignore`,
-`.gitattributes`, `.claude/settings.json`, `.commonplace/config.toml`, the root
+`.claude/settings.json`, `.commonplace/config.toml`, the root
 `index.md`, and the mdformat config in `.pre-commit-config.yaml` and
 `.mdformat.toml`, which keeps wikilinks from being escaped, and a `.gitkeep` in
 each top-level folder the root index links) and diffs the managed files against
 the templates `init` currently writes. Run it after upgrading commonplace to
 see what an older repo is missing. It only reports — applying the diff is up to
 you. The root `index.md` and the config file are yours once seeded, so they are
-never diffed.
+never diffed. An older repo may also have a `.gitattributes` routing
+`.commonplace/blobs` through Git LFS: delete it, since blobs are plain git
+objects that git compresses itself.
 
 The marginalia operation looks after tags and links whose note has moved. After
 a plain `git mv`, the marginalia are left at the old path; doctor follows git's
