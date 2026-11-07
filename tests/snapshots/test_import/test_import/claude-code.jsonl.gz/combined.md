@@ -10,7 +10,7 @@ generated:
   by: commonplace/1.2.3
   at: '2025-10-01T19:57:17+00:00'
 source: claude-code
-source_export: .commonplace/blobs/52e0e484e5efa8fba74b0cc0b6d3badbd204e4c0d318bd4fe26c904c53ce09e6/claude-code.jsonl
+source_export: .commonplace/blobs/0df010b926629fa4e6bdaec691ed7af73bc3af32915ac78963f767fb8fbeced5/claude-code.jsonl.gz
 ---
 
 # Hybrid Search Implementation for Semantic Text Retrieval [created:: 2025-10-01T19:55:52+00:00]

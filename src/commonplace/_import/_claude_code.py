@@ -1,43 +1,33 @@
 import json
 import re
+from collections.abc import Iterator
 from pathlib import Path
 from textwrap import shorten
 from typing import Any
 
+from commonplace._import._base import BaseWireImporter
 from commonplace._import._types import Event, EventLog, Message, Role, ToolCall, models_field
 from commonplace._logging import logger
 from commonplace._utils import truncate
+from commonplace._wire import read_entries
 
 
-class ClaudeCodeImporter:
-    """
-    Importer for Claude Code conversation logs.
+class ClaudeCodeImporter(BaseWireImporter):
+    """Importer for the `claude-code-wire.jsonl.gz` archive [[ClaudeCodeFetcher]] records.
 
-    Handles JSONL files from ~/.claude/projects/ which use the
-    Anthropic Messages API format.
+    Each entry is `{"endpoint": "session", "path": ..., "response": ...}`, whose `response` is a session's
+    transcript verbatim: JSONL in the Anthropic Messages API format.
     """
 
     source: str = "claude-code"
     name: str = "Claude Code"
-    member: str | None = None  # Not an archive
     id_key: str | None = "sessionId"
 
-    def can_import(self, path: Path) -> bool:
-        """Check if this is a Claude Code JSONL file."""
-        if path.suffix != ".jsonl":
-            return False
-
-        # The preamble of harness lines before the first turn grows with each release, so read until it.
-        with open(path, "r") as fp:
-            for line in fp:
-                data = json.loads(line)
-                # A subagent shares its parent's sessionId, and the parent already holds its prompt and result.
-                if data["type"] == "user":
-                    return "sessionId" in data and not data.get("isSidechain")
-        return False
-
     def import_(self, path: Path) -> list[EventLog]:
-        """Import a single Claude Code conversation from JSONL file."""
+        return [log for entry in read_entries(path) for log in self._session(entry["response"], entry["path"])]
+
+    def _session(self, transcript: str, where: str) -> list[EventLog]:
+        """One session's transcript as a chat, or none if it holds no turns."""
         events: list[Event] = []
         required_metadata = (
             "sessionId",
@@ -50,9 +40,7 @@ class ClaudeCodeImporter:
         tool_calls: dict[str, ToolCall] = {}
         ai_title: str | None = None
 
-        for line in path.read_text(encoding="utf-8").splitlines():
-            data = json.loads(line)
-
+        for data in _records(transcript, where):
             # Claude Code refines its title as the session goes, so the last one wins.
             if data.get("type") == "ai-title":
                 ai_title = data["aiTitle"]
@@ -76,7 +64,7 @@ class ClaudeCodeImporter:
         events.sort(key=lambda evt: evt.created)
 
         if not events:
-            logger.warning(f"No messages found in {path}")
+            logger.warning(f"No messages found in {where}")
             return []
 
         # Ensure metadata is correctly ordered for the frontmatter
@@ -174,6 +162,18 @@ class ClaudeCodeImporter:
             role, content = _attribute(data, content)
 
         return Message(sender=role, content=content, created=data["timestamp"])
+
+
+def _records(transcript: str, where: str) -> Iterator[dict[str, Any]]:
+    """The transcript's lines, parsed; a session fetched while running can end mid-line, and the next fetch has it."""
+    lines = [line for line in transcript.splitlines() if line.strip()]
+    for i, line in enumerate(lines):
+        try:
+            yield json.loads(line)
+        except json.JSONDecodeError:
+            if i < len(lines) - 1:
+                raise
+            logger.warning(f"Dropping the half-written last line of {where}")
 
 
 _HARNESS_TAGS = (

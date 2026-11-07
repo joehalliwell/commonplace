@@ -153,7 +153,7 @@ RESOURCES = {
     "claude.jsonl.gz": lambda m: f"https://claude.ai/chat/{m['uuid']}",
     "chatgpt.zip": lambda m: f"https://chatgpt.com/c/{m['id']}",
     "gemini.jsonl.gz": lambda m: f"https://gemini.google.com/app/{m['uuid'].removeprefix('c_')}",
-    "claude-code.jsonl": lambda m: None,
+    "claude-code.jsonl.gz": lambda m: None,
     "gemini-takeout.zip": lambda m: None,
 }
 
@@ -171,7 +171,7 @@ AGENTS = {
     "claude.jsonl.gz": "Claude",
     "chatgpt.zip": "ChatGPT",
     "gemini.jsonl.gz": "Gemini",
-    "claude-code.jsonl": "Claude Code",
+    "claude-code.jsonl.gz": "Claude Code",
     "gemini-takeout.zip": "Gemini",
 }
 
@@ -365,10 +365,14 @@ def _claude_code_line(role: str, content, timestamp: str, **message) -> dict:
     }
 
 
+def _claude_code_text(*lines: dict) -> str:
+    return "".join(json.dumps(line) + "\n" for line in lines)
+
+
 def _claude_code_session(tmp_path: Path, *lines: dict) -> Path:
-    path = tmp_path / "session.jsonl"
-    path.write_text("".join(json.dumps(line) + "\n" for line in lines))
-    return path
+    """A `claude-code` wire archive holding one session, as `ClaudeCodeFetcher` records it."""
+    entry = {"endpoint": "session", "path": "-work/session-1.jsonl", "response": _claude_code_text(*lines)}
+    return write_archive(tmp_path / "claude-code-wire.jsonl.gz", "claude-code", [entry])
 
 
 def test_claude_code_import_pairs_a_tool_result_with_its_call(tmp_path):
@@ -389,18 +393,41 @@ def test_claude_code_import_pairs_a_tool_result_with_its_call(tmp_path):
     assert (call.tool, call.args, call.output) == ("Bash", {"command": "ls"}, "a.txt")
 
 
-def test_claude_code_detection_session_behind_a_metadata_preamble_is_claimed(tmp_path, claims):
-    preamble = [{"type": kind, "sessionId": "session-1"} for kind in ("agent-setting", "mode", "permission-mode")]
-    preamble += [{"type": "queue-operation", "sessionId": "session-1"}] * 4
-    message = _claude_code_line("user", "hi", "2025-10-01T10:00:00Z")
+def test_claude_code_detection_session_log_is_left_to_fetch(tmp_path):
+    """Sessions arrive by `fetch`; `import` walking `~/.claude` would claim test fixtures in the plugin cache too."""
+    session = tmp_path / "session-1.jsonl"
+    session.write_text(_claude_code_text(_claude_code_line("user", "hi", "2025-10-01T10:00:00Z")))
 
-    assert claims(ClaudeCodeImporter(), _claude_code_session(tmp_path, *preamble, message))
+    assert autodetect_importer(session) is None
 
 
-def test_claude_code_detection_subagent_transcript_is_not_claimed(tmp_path, claims):
-    message = _claude_code_line("user", "survey", "2025-10-01T10:00:00Z") | {"isSidechain": True, "agentId": "a1"}
+def test_claude_code_import_a_half_written_last_line_is_dropped(tmp_path):
+    """A session still running when it was fetched can end mid-line; the next fetch captures the rest."""
+    text = _claude_code_text(_claude_code_line("user", "hi", "2025-10-01T10:00:00Z")) + '{"type": "assist'
+    entry = {"endpoint": "session", "path": "-work/session-1.jsonl", "response": text}
+    archive = write_archive(tmp_path / "claude-code-wire.jsonl.gz", "claude-code", [entry])
 
-    assert not claims(ClaudeCodeImporter(), _claude_code_session(tmp_path, message))
+    [log] = ClaudeCodeImporter().import_(archive)
+
+    assert [e.content for e in log.events] == ["hi"]
+
+
+def test_claude_code_import_each_session_in_an_archive_is_a_chat(tmp_path):
+    entries = [
+        {
+            "endpoint": "session",
+            "path": f"-work/{sid}.jsonl",
+            "response": _claude_code_text(
+                _claude_code_line("user", f"hi from {sid}", "2025-10-01T10:00:00Z") | {"sessionId": sid}
+            ),
+        }
+        for sid in ("s1", "s2")
+    ]
+    archive = write_archive(tmp_path / "claude-code-wire.jsonl.gz", "claude-code", entries)
+
+    logs = ClaudeCodeImporter().import_(archive)
+
+    assert [(log.metadata["sessionId"], log.title) for log in logs] == [("s1", "hi from s1"), ("s2", "hi from s2")]
 
 
 def test_claude_code_import_harness_lines_log_no_warnings(tmp_path, caplog):
