@@ -1,4 +1,4 @@
-"""Importer for the `keep-wire.jsonl.gz` archives produced by [[KeepFetcher]].
+"""Importer for the `keep-wire.jsonl.xz` archives produced by [[KeepFetcher]].
 
 An archive holds every page of one sync of Keep's `notes/v1/changes`: a full sync if its first request named
 no version, otherwise a change set since the version it named. Keep's state is the last full sync with every

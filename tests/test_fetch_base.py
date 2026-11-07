@@ -154,7 +154,7 @@ def test_archive_is_named_for_the_source(tmp_path):
         fetcher._log(endpoint="thing", response="{}")
     archive = fetcher._write_archive(tmp_path)
 
-    assert archive.name == "stub-wire.jsonl.gz"
+    assert archive.name == "stub-wire.jsonl.xz"
     assert read_header(archive)[0] == "stub"
 
 

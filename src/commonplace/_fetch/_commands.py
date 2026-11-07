@@ -18,6 +18,7 @@ from commonplace._fetch._types import Fetcher
 from commonplace._import._commands import import_one, landing_tree
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
+from commonplace._wire import archive_names
 
 
 def default_fetchers(config: Config) -> list[Fetcher]:
@@ -84,7 +85,7 @@ def _fetch_one(repo: Commonplace, fetcher: Fetcher, auto_index: bool | None, all
     tree = landing_tree(fetcher.source).as_posix()
     since = None if all_ else repo.last_commit_time(f"{tree}/", diff_filter="AM")
     # What this source has landed, for a fetcher that asks only for what changed since; --full asks for it all.
-    previous = [] if all_ else [repo.root / p for p in repo.stored_archives(f"{fetcher.source}-wire.jsonl.gz")]
+    previous = [] if all_ else [repo.root / p for p in repo.stored_archives(*archive_names(fetcher.source))]
     with tempfile.TemporaryDirectory() as tmp:
         archives = fetcher.fetch(Path(tmp), since, previous=previous)
         if not archives:

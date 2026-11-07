@@ -85,7 +85,7 @@ def test_fetch_writes_raw_wire_only(tmp_path):
     """One entry per API call, in call order."""
     [archive] = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
-    assert archive.name == "claude-wire.jsonl.gz"
+    assert archive.name == "claude-wire.jsonl.xz"
 
     wire = _read_wire(archive)
     # 1 list call + 2 details for the two summaries.

@@ -98,7 +98,7 @@ def test_fetch_writes_raw_wire_only(tmp_path):
     """Every `batchexecute` call is recorded, response text untouched."""
     [archive] = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
-    assert archive.name == "gemini-wire.jsonl.gz"
+    assert archive.name == "gemini-wire.jsonl.xz"
 
     wire = _read_wire(archive)
     list_calls = [e for e in wire if e["rpc"] == "MaZiqc"]

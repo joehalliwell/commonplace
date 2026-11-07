@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
-from commonplace._wire import file_entry, read_header, write_archive
+from commonplace._wire import archive_name, file_entry, read_header, write_archive
 
 
 def _folder(transcript: Path) -> list[Path]:
@@ -48,7 +48,7 @@ class ClaudeCodeFetcher:
         archives = []
         for transcript in fresh:
             entries = (file_entry(f, f.relative_to(projects).as_posix()) for f in (transcript, *_folder(transcript)))
-            archive = destination / transcript.relative_to(projects).with_suffix("") / f"{self.source}-wire.jsonl.gz"
+            archive = destination / transcript.relative_to(projects).with_suffix("") / archive_name(self.source)
             archive.parent.mkdir(parents=True)
             archives.append(write_archive(archive, self.source, entries, fetched_at=started))
         return archives
@@ -72,7 +72,7 @@ class ClaudeCodeMemoryFetcher:
             {"endpoint": "projects", "response": json.dumps(self._project_paths())},
             *(file_entry(p, p.relative_to(projects).as_posix()) for p in memory),
         ]
-        return [write_archive(destination / f"{self.source}-wire.jsonl.gz", self.source, entries)]
+        return [write_archive(destination / archive_name(self.source), self.source, entries)]
 
     def _project_paths(self) -> list[str]:
         """The real paths behind `projects/`' directory names, which encode them lossily (`/` and `.` both as `-`).

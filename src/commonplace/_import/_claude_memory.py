@@ -1,4 +1,4 @@
-"""Importer for the `claude-memory-wire.jsonl.gz` archive produced by [[ClaudeMemoryFetcher]].
+"""Importer for the `claude-memory-wire.jsonl.xz` archive produced by [[ClaudeMemoryFetcher]].
 
 Entries are `{"endpoint": "list"|"read", "path": ..., "response": ...}`."""
 

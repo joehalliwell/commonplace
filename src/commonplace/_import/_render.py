@@ -17,7 +17,7 @@ from commonplace._progress import track
 from commonplace._repo import Commonplace
 from commonplace._types import Note
 from commonplace._utils import dump_frontmatter
-from commonplace._wire import read_header
+from commonplace._wire import GZ, XZ, read_header
 
 RENDER_MESSAGE = "Re-render chats from stored archives"
 
@@ -96,7 +96,7 @@ def _in_capture_order(repo: Commonplace) -> list[tuple[Path, ChatImporter]]:
 
     def capture(archive: tuple[Path, ChatImporter]) -> tuple[bool, datetime, int]:
         blob = archive[0]
-        fetched_at = read_header(repo.root / blob).fetched_at if blob.name.endswith(".jsonl.gz") else None
+        fetched_at = read_header(repo.root / blob).fetched_at if blob.name.endswith((GZ, XZ)) else None
         # An uncommitted blob was stored last.
         return fetched_at is not None, fetched_at or _UNDATED, stored.get(blob.as_posix(), len(stored))
 

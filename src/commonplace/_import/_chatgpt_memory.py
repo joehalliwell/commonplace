@@ -1,4 +1,4 @@
-"""Importer for the `chatgpt-memory-wire.jsonl.gz` archive produced by [[ChatGptMemoryFetcher]].
+"""Importer for the `chatgpt-memory-wire.jsonl.xz` archive produced by [[ChatGptMemoryFetcher]].
 
 Entries are `{"endpoint": "memories"|"summary", "response": ...}`; the summary is a server-sent event stream."""
 

@@ -10,11 +10,11 @@ import pytest
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._helpers import FetchBlocked, NoSession
 from commonplace._fetch._keep import CHECKPOINT_EVERY, KeepFetcher
-from commonplace._import._commands import autodetect_importer
+from commonplace._import._commands import autodetect_importer, import_
 from commonplace._import._keep import KeepImporter
 from commonplace._marginalia import Marginalia, write_marginalia
 from commonplace._utils import load_frontmatter
-from commonplace._wire import read_entries, write_archive
+from commonplace._wire import archive_names, read_entries, write_archive
 
 EXAMPLE = Path(__file__).parent / "resources" / "wire" / "keep-v3.jsonl.gz"
 PAGES = {entry["targetVersion"]: json.loads(entry["response"]) for entry in read_entries(EXAMPLE)}
@@ -291,13 +291,29 @@ def test_a_second_fetch_stores_only_what_changed(test_repo):
 
     fetch(test_repo, fetchers=[FakeKeep({**PAGES, "v2": CHANGES}).fetcher()], auto_index=False)
 
-    archives = test_repo.stored_archives("keep-wire.jsonl.gz")
+    archives = test_repo.stored_archives(*archive_names("keep"))
     assert len(archives) == 2
     [entry] = read_entries(test_repo.root / archives[-1])
     assert len(json.loads(entry["response"])["nodes"]) == len(CHANGES["nodes"])
     _, body = load_frontmatter((test_repo.root / SHOPPING).read_text())
     assert body == "# Shopping\n\n- [ ] Milk\n- [ ] Eggs\n"
     assert not (test_repo.root / WORD).exists()
+
+
+def test_a_capture_after_the_switch_to_xz_builds_on_a_gzip_one(test_repo, tmp_path):
+    """Captures stored before archives were xz still count as earlier ones, for the fetch and for the mirror."""
+    gzipped = tmp_path / "keep-wire.jsonl.gz"
+    gzipped.write_bytes(EXAMPLE.read_bytes())
+    import_(gzipped, test_repo, user="Human", auto_index=False)
+
+    fetch(test_repo, fetchers=[FakeKeep({**PAGES, "v2": CHANGES}).fetcher()], auto_index=False)
+
+    archives = test_repo.stored_archives(*archive_names("keep"))
+    assert [a.name for a in archives] == ["keep-wire.jsonl.gz", "keep-wire.jsonl.xz"]
+    [entry] = read_entries(test_repo.root / archives[-1])
+    assert len(json.loads(entry["response"])["nodes"]) == len(CHANGES["nodes"])
+    _, body = load_frontmatter((test_repo.root / SHOPPING).read_text())
+    assert body == "# Shopping\n\n- [ ] Milk\n- [ ] Eggs\n"
 
 
 def test_a_note_trashed_in_keep_leaves_the_mirror(test_repo):

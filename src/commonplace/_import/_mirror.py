@@ -14,7 +14,7 @@ from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._types import Note
 from commonplace._utils import load_frontmatter
-from commonplace._wire import read_header
+from commonplace._wire import archive_names, read_header
 
 
 def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_index: bool | None = None) -> None:
@@ -27,7 +27,7 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         return
 
     # Captures of this source already landed, for an importer whose captures are changes on earlier ones.
-    earlier = [repo.root / stored for stored in repo.stored_archives(path.name)]
+    earlier = [repo.root / stored for stored in repo.stored_archives(*archive_names(importer.source))]
     snapshot = importer.snapshot(path, earlier=earlier)
     if importer.id_key is not None:
         snapshot = replace(snapshot, notes=_placed(repo.root, tree, importer.id_key, snapshot.notes))

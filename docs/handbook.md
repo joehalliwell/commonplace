@@ -343,6 +343,10 @@ copy `navigator.userAgent` from your browser's console and set `COMMONPLACE_UA`
 What to do by hand when a release needs it. After any upgrade, run
 `commonplace doctor` to see what scaffolding an older repo is missing.
 
+**0.8.0**: new archives are xz-compressed (`.jsonl.xz`), and an earlier release
+can't read them, so upgrade commonplace on every machine that syncs your
+commonplace. Archives stored before stay gzip and still read.
+
 **0.6.0**: a chat's index holds only what was said, and a heading inside a code
 block no longer splits a note into sections. An existing index keeps its old
 chunks until you run `commonplace index --rebuild`.

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from commonplace._fetch._claude_code import ClaudeCodeFetcher
 from commonplace._fetch._commands import fetch
-from commonplace._wire import entry_body, read_entries, read_header, write_archive
+from commonplace._wire import archive_names, entry_body, read_entries, read_header, write_archive
 from tests.porcelain import git
 
 OLD = datetime(2025, 9, 1, tzinfo=UTC)
@@ -155,7 +155,7 @@ def test_fetch_command_lands_sessions_under_claude_code_in_one_commit(test_repo,
         "chats/claude-code/2025/10/2025-10-01-new-work.md",
     ]
     assert len(git(test_repo.root, "log", "--oneline").splitlines()) == before + 1
-    assert len(test_repo.stored_archives("claude-code-wire.jsonl.gz")) == 3
+    assert len(test_repo.stored_archives(*archive_names("claude-code"))) == 3
 
 
 def _entries(captured: list[Path]) -> list[dict]:

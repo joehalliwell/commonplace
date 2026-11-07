@@ -2,6 +2,7 @@
 
 import gzip
 import json
+import lzma
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -16,6 +17,8 @@ from commonplace._import._gemini import GeminiImporter
 from commonplace._wire import (
     LEGACY_VERSION,
     WIRE_VERSION,
+    archive_name,
+    archive_names,
     entry_body,
     file_entry,
     read_entries,
@@ -280,3 +283,25 @@ def test_file_entry_text_stays_readable_and_only_binary_is_encoded(tmp_path):
 
     assert (text["response"], "encoding" in text) == ("# Notes\n", False)
     assert binary["encoding"] == "base64"
+
+
+def test_archive_name_is_xz_and_lookups_also_find_gzip():
+    """Archives stored before the switch keep their `.gz` names, and still belong to their source."""
+    assert archive_name("claude") == "claude-wire.jsonl.xz"
+    assert archive_names("claude") == ("claude-wire.jsonl.gz", "claude-wire.jsonl.xz")
+
+
+def test_write_archive_compresses_with_xz(tmp_path):
+    archive = write_archive(tmp_path / archive_name("test"), "test", ENTRIES)
+
+    assert archive.read_bytes().startswith(b"\xfd7zXZ\x00")
+    assert (read_header(archive).source, list(read_entries(archive))) == ("test", ENTRIES)
+
+
+def test_a_gzip_and_an_xz_archive_of_the_same_capture_read_the_same(tmp_path):
+    gzipped = write_archive(tmp_path / "test-wire.jsonl.gz", "test", ENTRIES)
+    xz = tmp_path / archive_name("test")
+    xz.write_bytes(lzma.compress(gzip.decompress(gzipped.read_bytes())))
+
+    assert read_header(xz) == read_header(gzipped)
+    assert list(read_entries(xz)) == list(read_entries(gzipped))

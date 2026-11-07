@@ -1,4 +1,4 @@
-"""Importer for the `claude-wire.jsonl.gz` archive produced by [[ClaudeFetcher]].
+"""Importer for the `claude-wire.jsonl.xz` archive produced by [[ClaudeFetcher]].
 
 Entries are `{"endpoint": "conversations"|"conversation", "cid": ..., "response": ...}`.
 Text→content wrapping and per-message parsing live here, not in the fetcher."""
