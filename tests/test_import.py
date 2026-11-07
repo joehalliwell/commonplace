@@ -397,6 +397,12 @@ def test_claude_code_detection_session_behind_a_metadata_preamble_is_claimed(tmp
     assert claims(ClaudeCodeImporter(), _claude_code_session(tmp_path, *preamble, message))
 
 
+def test_claude_code_detection_subagent_transcript_is_not_claimed(tmp_path, claims):
+    message = _claude_code_line("user", "survey", "2025-10-01T10:00:00Z") | {"isSidechain": True, "agentId": "a1"}
+
+    assert not claims(ClaudeCodeImporter(), _claude_code_session(tmp_path, message))
+
+
 def test_claude_code_import_harness_lines_log_no_warnings(tmp_path, caplog):
     harness = [{"type": kind, "sessionId": "session-1"} for kind in ("agent-setting", "mode", "worktree-state")]
     session = _claude_code_session(tmp_path, *harness, _claude_code_line("user", "hi", "2025-10-01T10:00:00Z"))
