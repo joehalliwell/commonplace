@@ -1,6 +1,7 @@
 import json
 import re
 from pathlib import Path
+from textwrap import shorten
 from typing import Any
 
 from commonplace._import._types import Event, EventLog, Message, Role, ToolCall, models_field
@@ -83,8 +84,10 @@ class ClaudeCodeImporter:
 
         # Extract title and created time
         created = metadata.pop("timestamp")
-        summary = metadata.pop("summary", metadata["sessionId"])
-        title = ai_title or summary
+        summary = metadata.pop("summary", None)
+        prompt = next((e.content.strip() for e in events if isinstance(e, Message) and e.sender == Role.USER), "")
+        first_line = shorten(prompt.splitlines()[0], 60, placeholder="…") if prompt else None
+        title = ai_title or summary or first_line or metadata["sessionId"]
 
         return [
             EventLog(
