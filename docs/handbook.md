@@ -79,7 +79,9 @@ first prompt. The note is what was said: your prompts, your answers to the
 agent's questions, and the agent's prose, with each tool call as one line
 naming the tool and its first argument. Tool output, thinking, subagent
 transcripts and turns the harness wrote, such as a skill's prompt or a
-command's output, stay in the capture but not the note. A capture holds
+command's output, stay in the capture but not the note. When Claude Code
+resumes an interrupted response in a new session, which copies the old one's
+history, only the new session gets a note. A capture holds
 whatever its tools printed, and git keeps every capture, so a secret that ever
 shows up in a session stays in your history.
 
@@ -343,6 +345,10 @@ copy `navigator.userAgent` from your browser's console and set `COMMONPLACE_UA`
 
 What to do by hand when a release needs it. After any upgrade, run
 `commonplace doctor` to see what scaffolding an older repo is missing.
+
+**0.9.1**: a Claude Code session resumed in another no longer gets a note of its
+own. Any fetched before stay, each a short duplicate of a note with the same
+title; delete them by hand.
 
 **0.9.0**: a Claude Code note keeps only what was said, with each tool call as
 one line, so notes are about a sixth of their old size. Run

@@ -532,6 +532,19 @@ def test_claude_code_import_notes_come_from_main_transcripts_only(tmp_path):
     assert [e.content for e in log.events] == ["hi"]
 
 
+def test_claude_code_import_session_continued_in_another_is_left_to_it(tmp_path):
+    """An interrupted response resumes in a new session that copies the history, so the first would repeat it."""
+    continued = {"type": "continued-in", "sessionId": "session-1", "continuedInSessionId": "session-2"}
+    session = _claude_code_session(
+        tmp_path,
+        _claude_code_line("user", "what's left?", "2025-10-01T10:00:00Z"),
+        _claude_code_line("assistant", "I'll read the issue.", "2025-10-01T10:00:01Z"),
+        continued,
+    )
+
+    assert ClaudeCodeImporter().import_(session) == []
+
+
 def test_claude_code_import_harness_lines_log_no_warnings(tmp_path, caplog):
     harness = [{"type": kind, "sessionId": "session-1"} for kind in ("agent-setting", "mode", "worktree-state")]
     session = _claude_code_session(tmp_path, *harness, _claude_code_line("user", "hi", "2025-10-01T10:00:00Z"))

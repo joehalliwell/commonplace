@@ -41,6 +41,11 @@ class ClaudeCodeImporter(BaseWireImporter):
         ai_title: str | None = None
 
         for data in _records(transcript, where):
+            # An interrupted response resumes in a new session, which copies this one's history.
+            if data.get("type") == "continued-in":
+                logger.info(f"Skipping {where}: continued in {data['continuedInSessionId']}")
+                return []
+
             # Claude Code refines its title as the session goes, so the last one wins.
             if data.get("type") == "ai-title":
                 ai_title = data["aiTitle"]
