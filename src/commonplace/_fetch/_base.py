@@ -47,7 +47,7 @@ from commonplace._fetch._helpers import (
 )
 from commonplace._logging import logger
 from commonplace._progress import track
-from commonplace._wire import write_archive
+from commonplace._wire import archive_name, write_archive
 
 ACCEPT_LANGUAGE = "en-GB,en;q=0.9"
 
@@ -191,4 +191,4 @@ class BaseFetcher:
         self._wire_log.append(entry)
 
     def _write_archive(self, destination: Path) -> Path:
-        return write_archive(destination / f"{self.source}-wire.jsonl.gz", self.source, self._wire_log)
+        return write_archive(destination / archive_name(self.source), self.source, self._wire_log)

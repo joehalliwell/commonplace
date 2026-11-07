@@ -1,5 +1,5 @@
 """Importers for ChatGPT conversations, from either the export ZIP or the
-`chatgpt-wire.jsonl.gz` archive produced by [[ChatGptFetcher]].
+`chatgpt-wire.jsonl.xz` archive produced by [[ChatGptFetcher]].
 
 Both sources carry the same `mapping` tree, so the parse below is shared. They
 differ only in keying the conversation `id` vs `conversation_id`, and in dating

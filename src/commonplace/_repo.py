@@ -379,10 +379,10 @@ class Commonplace:
         out = self._git("log", "--follow", "--format=%as%x00%s", "--", path.as_posix())
         return [tuple(line.split("\0", 1)) for line in out.splitlines() if "\0" in line]  # type: ignore[misc]
 
-    def stored_archives(self, name: str) -> list[Path]:
-        """The archives called `name` this repo has stored, oldest first, relative to the root."""
+    def stored_archives(self, *names: str) -> list[Path]:
+        """The archives called any of `names` this repo has stored, oldest first, relative to the root."""
         out = self._git("log", "--reverse", "--diff-filter=A", "--name-only", "--format=", "--", BLOBS.as_posix())
-        return [Path(line) for line in out.splitlines() if line.endswith(f"/{name}")]
+        return [Path(line) for line in out.splitlines() if line.endswith(tuple(f"/{name}" for name in names))]
 
     def renamed_since(self, ref: str) -> dict[Path, Path]:
         """Where each file `ref` had has moved to by HEAD, as git's rename detection sees it."""

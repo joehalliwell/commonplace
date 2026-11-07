@@ -1,4 +1,4 @@
-"""Importer for the `claude-tasks-wire.jsonl.gz` archive produced by [[ClaudeTasksFetcher]].
+"""Importer for the `claude-tasks-wire.jsonl.xz` archive produced by [[ClaudeTasksFetcher]].
 
 Entries are `{"endpoint": "sessions"|"events", "sid": ..., "cursor": ..., "response": ...}`, one per page.
 Each run is a Code session, so its event payloads are Claude Code transcript lines."""

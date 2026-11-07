@@ -1,4 +1,4 @@
-"""Importer for the `gemini-memory-wire.jsonl.gz` archive produced by [[GeminiMemoryFetcher]].
+"""Importer for the `gemini-memory-wire.jsonl.xz` archive produced by [[GeminiMemoryFetcher]].
 
 The archive holds one `ZKcapf` entry whose body is `[items, token]`, each item
 `[id, text, [created s, ns], None, [updated s, ns], None, None, None, None, int, int]`.

@@ -13,7 +13,7 @@ from commonplace._wire import entry_body, read_entries
 
 
 class ClaudeCodeImporter(BaseWireImporter):
-    """Importer for the `claude-code-wire.jsonl.gz` archive [[ClaudeCodeFetcher]] records.
+    """Importer for the `claude-code-wire.jsonl.xz` archive [[ClaudeCodeFetcher]] records.
 
     Each entry is `{"endpoint": "session", "path": ..., "response": ...}`, whose `response` is a session's
     transcript verbatim: JSONL in the Anthropic Messages API format.

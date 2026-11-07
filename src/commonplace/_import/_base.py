@@ -22,7 +22,7 @@ class BaseWireImporter:
     """Recognises the wire archive written by the fetcher of the same `source`."""
 
     source: str
-    #: A wire archive is gzipped JSONL, not a ZIP, so it is stored whole.
+    #: A wire archive is compressed JSONL, not a ZIP, so it is stored whole.
     member: str | None = None
     #: The metadata key holding the vendor's id, which keeps a note at the path it first landed at.
     #: None by default: a mirror's upstream paths are authoritative.

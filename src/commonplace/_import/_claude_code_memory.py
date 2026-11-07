@@ -1,4 +1,4 @@
-"""Importer for the `claude-code-memory-wire.jsonl.gz` archive produced by [[ClaudeCodeMemoryFetcher]].
+"""Importer for the `claude-code-memory-wire.jsonl.xz` archive produced by [[ClaudeCodeMemoryFetcher]].
 
 Entries are `{"endpoint": "projects", "response": ...}`, the real paths of Claude Code's projects, then
 `{"endpoint": "memory", "path": "<encoded project>/memory/<file>", "response": ...}` for every memory file."""

@@ -1,4 +1,3 @@
-import gzip
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -76,7 +75,7 @@ def test_fetch_records_nothing_else_from_the_registry(tmp_path):
     """`.claude.json` also holds account and auth state; only its project paths are needed."""
     [archive] = ClaudeCodeMemoryFetcher(root=_home(tmp_path)).fetch(tmp_path, since=None)
 
-    assert b"secret@example.com" not in gzip.decompress(archive.read_bytes())
+    assert "secret@example.com" not in json.dumps(list(read_entries(archive)))
 
 
 def test_fetch_records_the_listing_even_when_nothing_changed(tmp_path):

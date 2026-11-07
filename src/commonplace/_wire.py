@@ -6,7 +6,8 @@ evidence of what a provider sent, so the pipeline splits in two — fetchers
 record bytes and nothing else; importers do every interpretation. Anything a
 fetcher decides is a decision no later reader can revisit.
 
-Gzipped JSONL. First line is a header naming the provider, the format version,
+JSONL, xz-compressed (gzip before 0.8.0; readers tell them apart by their magic
+bytes, so both still read). First line is a header naming the provider, the format version,
 and when the capture was written; every line after it records one exchange,
 whose `response` is the verbatim body text:
 
@@ -15,9 +16,11 @@ whose `response` is the verbatim body text:
     {"endpoint": "conversation", "cid": "...", "response": "{...}"}
 
 Verbatim is load-bearing: parsing and re-serialising rewrites `1e5` as
-`100000.0` and `\\/` as `/`, and resolves `\\u` escapes. Gzip costs no
-inspection convenience — the content is opaque JSON either way — and saves
-~5–7× on disk. Its price is git's delta packing: a re-capture of content an
+`100000.0` and `\\/` as `/`, and resolves `\\u` escapes. Compression costs no
+inspection convenience — the content is opaque JSON either way (`xzcat`, not
+`zcat`). xz is 1.7× smaller than gzip across a live corpus, 2.7× on Claude Code
+transcripts, whose repeats lie further apart than gzip's 32 KB window reaches;
+it compresses ~6× slower. Its price is git's delta packing: a re-capture of content an
 earlier archive holds costs its full compressed size again, so history grows
 with how often a source re-captures (for Claude Code sessions, ~1.3× the
 minimum at a daily fetch, ~3.7× at hourly).
@@ -54,15 +57,18 @@ one of each with the next version bump.
 import base64
 import gzip
 import json
+import lzma
 from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import IO, Any, NamedTuple, cast
 
 from commonplace import __version__
-from commonplace._utils import sniff_gzipped_jsonl
 
 WIRE_VERSION = 3
+
+GZ, XZ = ".jsonl.gz", ".jsonl.xz"
+_XZ_MAGIC = b"\xfd7zXZ\x00"
 
 # Archives written before the header existed.
 LEGACY_VERSION = 1
@@ -90,18 +96,51 @@ class WireHeader(NamedTuple):
 def write_archive(
     path: Path, source: str, entries: Iterable[dict[str, Any]], fetched_at: datetime | None = None
 ) -> Path:
-    """Write `entries` to `path` as a gzipped JSONL archive with a header stamped `fetched_at`, else now."""
+    """Write `entries` to `path` as a compressed JSONL archive with a header stamped `fetched_at`, else now."""
     header = {
         "wire": source,
         "version": WIRE_VERSION,
         "fetched_at": (fetched_at or datetime.now(UTC)).isoformat(),
         "fetched_by": f"{TOOL}/{__version__}",
     }
-    with gzip.open(path, "wt", encoding="utf-8") as f:
+    with _open(path, "wt") as f:
         f.write(json.dumps(header) + "\n")
         for entry in entries:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     return path
+
+
+def archive_name(source: str) -> str:
+    """What a fetch of `source` names its archive."""
+    return f"{source}-wire{XZ}"
+
+
+def archive_names(source: str) -> tuple[str, ...]:
+    """Every name an archive of `source` has had, oldest first: they were gzip before 0.8.0."""
+    return (f"{source}-wire{GZ}", archive_name(source))
+
+
+def _open(path: Path, mode: str) -> IO[str]:
+    """`path` as text through its codec: written as its suffix says, read as its magic bytes say."""
+    if mode.startswith("w"):
+        xz = path.name.endswith(XZ)
+    else:
+        with path.open("rb") as raw:
+            xz = raw.read(len(_XZ_MAGIC)) == _XZ_MAGIC
+    opener = lzma.open if xz else gzip.open
+    return cast(IO[str], opener(path, mode, encoding="utf-8"))
+
+
+def _first_entry(path: Path) -> dict | None:
+    """The first JSON object in a wire-named archive, or None for any other file."""
+    if not path.name.endswith((GZ, XZ)):
+        return None
+    try:
+        with _open(path, "rt") as f:
+            entry = json.loads(f.readline())
+    except Exception:  # noqa: BLE001 - probing an arbitrary file; any failure means "not ours"
+        return None
+    return entry if isinstance(entry, dict) else None
 
 
 def read_header(path: Path) -> WireHeader:
@@ -111,7 +150,7 @@ def read_header(path: Path) -> WireHeader:
     either a pre-versioning archive or a file that isn't a wire archive at
     all. Importers distinguish the two by their own legacy sniff.
     """
-    entry = sniff_gzipped_jsonl(path)
+    entry = _first_entry(path)
     if entry is None or "wire" not in entry:
         return WireHeader(None, LEGACY_VERSION)
     fetched_at = entry.get("fetched_at")
@@ -125,7 +164,7 @@ def read_header(path: Path) -> WireHeader:
 
 def read_entries(path: Path) -> Iterator[dict[str, Any]]:
     """Yield the recorded exchanges, skipping the header if there is one."""
-    with gzip.open(path, "rt", encoding="utf-8") as f:
+    with _open(path, "rt") as f:
         first = True
         for line in f:
             if not line.strip():
