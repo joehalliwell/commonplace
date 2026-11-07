@@ -47,7 +47,7 @@ def test_write_archive_leads_with_a_header(tmp_path):
 
 def test_write_archive_records_when_it_was_written(tmp_path):
     """v3's guarantee: the capture dates itself, so a blob handed to someone
-    without its commit is still datable (MANIFESTO §3.5)."""
+    without its commit is still datable (MANIFESTO §4.1)."""
     before = datetime.now(UTC)
     archive = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", ENTRIES)
     after = datetime.now(UTC)
