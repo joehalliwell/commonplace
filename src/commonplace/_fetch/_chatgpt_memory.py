@@ -18,7 +18,7 @@ class ChatGptMemoryFetcher(ChatGptSessionFetcher):
 
     source = "chatgpt-memory"
 
-    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         # Neither endpoint can be asked for changes only, so `since` has nothing to narrow.
         with self._signed_in():
             self._api("GET", "memories", endpoint="memories")
@@ -30,4 +30,4 @@ class ChatGptMemoryFetcher(ChatGptSessionFetcher):
                 timeout=httpx.Timeout(SUMMARY_READ_TIMEOUT, connect=CONNECT_TIMEOUT),
             )
 
-        return self._write_archive(destination)
+        return [self._write_archive(destination)]

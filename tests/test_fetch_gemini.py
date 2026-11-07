@@ -96,7 +96,7 @@ def test_extract_rpc_body_raises_on_bad_preamble():
 
 def test_fetch_writes_raw_wire_only(tmp_path):
     """Every `batchexecute` call is recorded, response text untouched."""
-    archive = _make_fetcher().fetch(tmp_path, since=None)
+    [archive] = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
     assert archive.name == "gemini-wire.jsonl.gz"
 
@@ -112,15 +112,15 @@ def test_fetch_writes_raw_wire_only(tmp_path):
 
 def test_fetch_incremental_skips_seen(tmp_path):
     """A cursor >= all summaries' updated_at → nothing to fetch."""
-    assert _make_fetcher().fetch(tmp_path, since=datetime(2030, 1, 1, tzinfo=UTC)) is None
+    assert _make_fetcher().fetch(tmp_path, since=datetime(2030, 1, 1, tzinfo=UTC)) == []
 
 
 def test_fetch_cursor_honours_offset(tmp_path):
     """The same instant spelled as +01:00 behaves like its UTC spelling."""
     zulu = datetime(2030, 1, 1, 0, 0, tzinfo=UTC)
     bst = datetime(2030, 1, 1, 1, 0, tzinfo=timezone(timedelta(hours=1)))
-    assert _make_fetcher().fetch(tmp_path, since=zulu) is None
-    assert _make_fetcher().fetch(tmp_path, since=bst) is None
+    assert _make_fetcher().fetch(tmp_path, since=zulu) == []
+    assert _make_fetcher().fetch(tmp_path, since=bst) == []
 
 
 def test_fetch_raises_on_403(tmp_path):
@@ -188,7 +188,7 @@ def test_importer_rejects_uncompressed_jsonl(tmp_path):
 def test_importer_reconstructs_events_from_wire(tmp_path):
     """The importer reads raw responses and produces EventLogs with per-turn
     timestamps drawn from the wire."""
-    archive = _make_fetcher().fetch(tmp_path, since=None)
+    [archive] = _make_fetcher().fetch(tmp_path, since=None)
     logs = GeminiImporter().import_(archive)
 
     assert len(logs) == LISTED * BUCKETS
@@ -207,7 +207,7 @@ def test_importer_reconstructs_events_from_wire(tmp_path):
 
 
 def test_importer_carries_thoughts_metadata(tmp_path):
-    archive = _make_fetcher().fetch(tmp_path, since=None)
+    [archive] = _make_fetcher().fetch(tmp_path, since=None)
     logs = GeminiImporter().import_(archive)
     # events[1] is the earliest model message. Wire turns are newest-first in
     # the fixture; after chronological reversal the earliest round is wire
@@ -219,7 +219,7 @@ def test_importer_carries_thoughts_metadata(tmp_path):
 
 
 def test_importer_extracts_per_turn_timestamps_from_wire(tmp_path):
-    archive = _make_fetcher().fetch(tmp_path, since=None)
+    [archive] = _make_fetcher().fetch(tmp_path, since=None)
     logs = GeminiImporter().import_(archive)
     # The three per-round timestamps in the fixture (chronological after reversal):
     times = [e.created.isoformat().replace("+00:00", "Z") for e in logs[0].events[::2]]  # user messages only
@@ -247,7 +247,7 @@ def test_importer_handles_null_body_with_warning(tmp_path, caplog):
                 return httpx.Response(200, text=null_body_response)
         return httpx.Response(404)
 
-    archive = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
+    [archive] = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
     assert archive is not None
     with caplog.at_level(logging.WARNING, logger="commonplace"):
         logs = GeminiImporter().import_(archive)

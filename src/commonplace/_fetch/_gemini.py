@@ -100,14 +100,14 @@ class GeminiFetcher(GeminiSessionFetcher):
 
     source = "gemini"
 
-    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         with self._signed_in():
             # Walk list_chats pages to find fresh cids. Full parse of each chat
             # happens in the importer against the same wire we're logging here.
             fresh = list(self._list_fresh(since))
             self._read_fresh(fresh, since, self._read)
 
-        return self._write_archive(destination) if fresh else None
+        return [self._write_archive(destination)] if fresh else []
 
     def _list_fresh(self, since: datetime | None) -> Iterator[str]:
         """Walk both pinned + unpinned buckets. Yield cids whose updated_at is

@@ -13,7 +13,7 @@ class ClaudeTasksFetcher(ClaudeSessionFetcher):
 
     source = "claude-tasks"
 
-    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         with self._signed_in():
             # The server returns no runs at all without `exclude_tags`.
             runs = self._code_pages(
@@ -23,7 +23,7 @@ class ClaudeTasksFetcher(ClaudeSessionFetcher):
             fresh = [r for r in runs if since is None or datetime.fromisoformat(r["last_event_at"]) > since]
             self._read_fresh(fresh, since, self._read)
 
-        return self._write_archive(destination) if fresh else None
+        return [self._write_archive(destination)] if fresh else []
 
     def _read(self, run: dict[str, Any]) -> None:
         self._code_pages(f"sessions/{run['id']}/events", endpoint="events", key={"sid": run["id"]})

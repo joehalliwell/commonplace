@@ -55,7 +55,7 @@ class KeepFetcher(BaseFetcher):
         digest = hashlib.sha1(f"{stamp} {sapisid} {ORIGIN}".encode()).hexdigest()
         client.headers["Authorization"] = f"SAPISIDHASH {stamp}_{digest}"
 
-    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         # `since` goes unused: Keep's own version, from the last capture, says what's new far more exactly.
         chain = since_last_full(previous)
         checkpoint = not chain or len(chain) > CHECKPOINT_EVERY
@@ -64,7 +64,7 @@ class KeepFetcher(BaseFetcher):
             if not self._sync(resume):
                 self._wire_log.clear()  # Keep asked to start over: only the full sync it gets is the capture
                 self._sync(None)
-        return self._write_archive(destination)
+        return [self._write_archive(destination)]
 
     def _sync(self, target: str | None) -> bool:
         """Page through the sync from `target` (None: everything); False if Keep asks for a full sync instead."""

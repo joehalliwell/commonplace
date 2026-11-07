@@ -49,7 +49,7 @@ def test_fetch_without_org_is_blocked(tmp_path):
 
 
 def test_fetch_everything_records_one_list_and_a_read_per_path(tmp_path):
-    archive = FakeMemory().fetcher().fetch(tmp_path, since=None)
+    [archive] = FakeMemory().fetcher().fetch(tmp_path, since=None)
 
     assert read_header(archive).source == "claude-memory"
     entries = list(read_entries(archive))
@@ -76,20 +76,20 @@ def test_fetch_posts_strict_bodies(tmp_path):
 def test_fetch_stores_response_bodies_verbatim(tmp_path):
     raw = '{"data": [], "categories": [], "n": 1e5, "u": "\\/x"}'
     transport = httpx.MockTransport(lambda request: httpx.Response(200, text=raw))
-    archive = ClaudeMemoryFetcher(cookies=TEST_COOKIES, transport=transport).fetch(tmp_path, since=None)
+    [archive] = ClaudeMemoryFetcher(cookies=TEST_COOKIES, transport=transport).fetch(tmp_path, since=None)
 
     assert [e["response"] for e in read_entries(archive)] == [raw]
 
 
 def test_fetch_incremental_reads_only_paths_newer_than_the_cursor(tmp_path):
-    archive = FakeMemory().fetcher().fetch(tmp_path, since=datetime(2026, 7, 1, tzinfo=UTC))
+    [archive] = FakeMemory().fetcher().fetch(tmp_path, since=datetime(2026, 7, 1, tzinfo=UTC))
 
     assert [e.get("path") for e in read_entries(archive)] == [None, "/topics/new.md"]
 
 
 def test_fetch_incremental_with_nothing_newer_still_records_the_listing(tmp_path):
     """The listing is the only evidence of a deletion, so it is captured even when nothing is read."""
-    archive = FakeMemory().fetcher().fetch(tmp_path, since=datetime(2026, 8, 1, tzinfo=UTC))
+    [archive] = FakeMemory().fetcher().fetch(tmp_path, since=datetime(2026, 8, 1, tzinfo=UTC))
 
     assert [e["endpoint"] for e in read_entries(archive)] == ["list"]
 

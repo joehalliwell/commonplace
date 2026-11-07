@@ -24,6 +24,7 @@ def test_a_blocked_source_does_not_stop_the_others(test_repo):
 
         def fetch(self, destination, since, previous=()):
             called.append("stub")
+            return []
 
     with pytest.raises(FetchBlocked, match="blocked"):
         fetch(test_repo, fetchers=[Blocked(), Stub()], auto_index=False)
@@ -45,6 +46,7 @@ def test_a_source_with_no_session_is_skipped_without_failing_the_run(test_repo):
 
         def fetch(self, destination, since, previous=()):
             called.append("stub")
+            return []
 
     fetch(test_repo, fetchers=[Unused(), Stub()], auto_index=False)
     assert called == ["stub"]
@@ -58,6 +60,7 @@ def test_fetch_command_filters_by_source(test_repo):
 
         def fetch(self, destination, since, previous=()):
             called.append("stub")
+            return []
 
     fetch(test_repo, sources=["nonexistent"], fetchers=[Stub()], auto_index=False)
     assert called == []
@@ -76,6 +79,7 @@ def test_fetch_command_all_flag_bypasses_cursor(test_repo, make_note):
 
         def fetch(self, destination, since, previous=()):
             calls.append(since)
+            return []
 
     # Seed the repo with a chats/recording/ commit so last_commit_time would
     # return a non-None cursor without --all.

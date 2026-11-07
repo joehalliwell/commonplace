@@ -81,12 +81,12 @@ class ClaudeFetcher(ClaudeSessionFetcher):
 
     source = "claude"
 
-    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         with self._signed_in():
             fresh = self._list_fresh(since)
             self._read_fresh(fresh, since, self._read)
 
-        return self._write_archive(destination) if fresh else None
+        return [self._write_archive(destination)] if fresh else []
 
     def _list_fresh(self, since: datetime | None) -> list[dict[str, Any]]:
         return updated_after(self._api("GET", "chat_conversations", endpoint="conversations").json(), since)

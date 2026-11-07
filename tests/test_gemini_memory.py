@@ -108,7 +108,7 @@ def test_landing_tree_gemini_memory_lands_in_memory_gemini():
 
 def test_fetch_records_one_saved_info_call(tmp_path):
     gemini = FakeGemini()
-    archive = gemini.fetcher().fetch(tmp_path, since=None)
+    [archive] = gemini.fetcher().fetch(tmp_path, since=None)
 
     assert read_header(archive).source == "gemini-memory"
     [entry] = read_entries(archive)
@@ -119,7 +119,7 @@ def test_fetch_records_one_saved_info_call(tmp_path):
 
 def test_fetch_with_cursor_after_every_update_still_archives(tmp_path):
     """The listing is the only evidence of a deletion, so it is captured whatever the cursor says."""
-    archive = FakeGemini().fetcher().fetch(tmp_path, since=datetime(2030, 1, 1, tzinfo=UTC))
+    [archive] = FakeGemini().fetcher().fetch(tmp_path, since=datetime(2030, 1, 1, tzinfo=UTC))
 
     assert archive is not None
 

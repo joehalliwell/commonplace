@@ -69,7 +69,7 @@ def test_fetch_writes_one_archive_per_session(tmp_path):
     """Files stay as small as one session, and a newer capture of a session supersedes its older one whole."""
     captured = ClaudeCodeFetcher(root=_claude_home(tmp_path)).fetch(tmp_path, since=None)
 
-    archives = {a.parent.relative_to(captured).as_posix(): a for a in _archives(captured)}
+    archives = {a.parent.relative_to(tmp_path).as_posix(): a for a in captured}
     assert sorted(archives) == ["-work/s-new", "-work/s-new.orphaned-1-a2", "-work/s-old"]
     assert all(read_header(a).source == "claude-code" for a in archives.values())
     assert [e["path"] for e in read_entries(archives["-work/s-new"])] == EVERYTHING[:4]
@@ -120,17 +120,18 @@ def test_fetch_stamps_the_archive_before_listing_sessions(tmp_path, monkeypatch)
     captured = fetcher.fetch(tmp_path, since=None)
     monkeypatch.undo()
 
-    assert all(read_header(a).fetched_at <= listed[0] for a in _archives(captured))
+    assert captured
+    assert all(read_header(a).fetched_at <= listed[0] for a in captured)
 
 
 def test_fetch_with_nothing_fresh_returns_none(tmp_path):
     fetcher = ClaudeCodeFetcher(root=_claude_home(tmp_path))
 
-    assert fetcher.fetch(tmp_path, since=datetime(2025, 11, 1, tzinfo=UTC)) is None
+    assert fetcher.fetch(tmp_path, since=datetime(2025, 11, 1, tzinfo=UTC)) == []
 
 
 def test_fetch_without_claude_code_installed_returns_none(tmp_path):
-    assert ClaudeCodeFetcher(root=tmp_path / "absent").fetch(tmp_path, since=None) is None
+    assert ClaudeCodeFetcher(root=tmp_path / "absent").fetch(tmp_path, since=None) == []
 
 
 def test_fetch_root_follows_claude_config_dir(tmp_path, monkeypatch):
@@ -157,13 +158,9 @@ def test_fetch_command_lands_sessions_under_claude_code_in_one_commit(test_repo,
     assert len(test_repo.stored_archives("claude-code-wire.jsonl.gz")) == 3
 
 
-def _archives(captured: Path) -> list[Path]:
-    return sorted(captured.rglob("claude-code-wire.jsonl.gz"))
+def _entries(captured: list[Path]) -> list[dict]:
+    return [e for a in captured for e in read_entries(a)]
 
 
-def _entries(captured: Path) -> list[dict]:
-    return [e for a in _archives(captured) for e in read_entries(a)]
-
-
-def _paths(captured: Path) -> list[str]:
+def _paths(captured: list[Path]) -> list[str]:
     return sorted(e["path"] for e in _entries(captured))

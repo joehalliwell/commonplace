@@ -72,7 +72,7 @@ class FakeSessions:
 
 
 def test_fetch_records_the_listing_then_each_runs_events(tmp_path):
-    archive = FakeSessions().fetcher().fetch(tmp_path, since=None)
+    [archive] = FakeSessions().fetcher().fetch(tmp_path, since=None)
 
     assert read_header(archive).source == "claude-tasks"
     assert [(e["endpoint"], e.get("sid")) for e in read_entries(archive)] == [
@@ -95,7 +95,7 @@ def test_fetch_lists_only_trigger_sessions(tmp_path):
 
 
 def test_fetch_follows_cursors_through_every_page(tmp_path):
-    archive = FakeSessions(page_size=1).fetcher().fetch(tmp_path, since=None)
+    [archive] = FakeSessions(page_size=1).fetcher().fetch(tmp_path, since=None)
 
     entries = list(read_entries(archive))
     assert [(e["endpoint"], e.get("sid"), e.get("cursor")) for e in entries] == [
@@ -118,18 +118,18 @@ def test_fetch_stores_response_bodies_verbatim(tmp_path):
         return httpx.Response(200, text=raw_events if request.url.path.endswith("/events") else raw_list)
 
     transport = httpx.MockTransport(handler)
-    archive = ClaudeTasksFetcher(cookies=TEST_COOKIES, transport=transport).fetch(tmp_path, since=None)
+    [archive] = ClaudeTasksFetcher(cookies=TEST_COOKIES, transport=transport).fetch(tmp_path, since=None)
 
     assert [e["response"] for e in read_entries(archive)] == [raw_list, raw_events]
 
 
 def test_fetch_with_nothing_fresh_returns_none(tmp_path):
-    assert FakeSessions().fetcher().fetch(tmp_path, since=datetime(2026, 8, 1, tzinfo=UTC)) is None
+    assert FakeSessions().fetcher().fetch(tmp_path, since=datetime(2026, 8, 1, tzinfo=UTC)) == []
 
 
 def test_fetch_incremental_reads_runs_with_events_after_the_cursor(tmp_path):
     """A follow-up typed into an old run's chat moves its `last_event_at`, so it is read again."""
-    archive = FakeSessions().fetcher().fetch(tmp_path, since=datetime(2026, 7, 1, tzinfo=UTC))
+    [archive] = FakeSessions().fetcher().fetch(tmp_path, since=datetime(2026, 7, 1, tzinfo=UTC))
 
     assert [e.get("sid") for e in read_entries(archive)] == [None, "cse_new"]
 

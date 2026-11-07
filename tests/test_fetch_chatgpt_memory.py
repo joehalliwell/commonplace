@@ -80,7 +80,7 @@ def test_fetch_without_session_cookie_is_blocked(tmp_path):
 
 
 def test_fetch_records_saved_memories_then_the_summary(tmp_path):
-    archive = FakeMemory().fetcher().fetch(tmp_path, since=None)
+    [archive] = FakeMemory().fetcher().fetch(tmp_path, since=None)
 
     assert read_header(archive).source == "chatgpt-memory"
     assert [e["endpoint"] for e in read_entries(archive)] == ["memories", "summary"]
@@ -96,14 +96,14 @@ def test_fetch_posts_the_summary_with_the_bearer_token(tmp_path):
 
 
 def test_fetch_stores_the_stream_verbatim(tmp_path):
-    archive = FakeMemory().fetcher().fetch(tmp_path, since=None)
+    [archive] = FakeMemory().fetcher().fetch(tmp_path, since=None)
 
     assert list(read_entries(archive))[1]["response"] == summary_stream(SECTIONS)
 
 
 def test_fetch_with_a_cursor_still_records_everything(tmp_path):
     """Neither endpoint can be asked for changes only, so the cursor has nothing to narrow."""
-    archive = FakeMemory().fetcher().fetch(tmp_path, since=datetime(2099, 1, 1, tzinfo=UTC))
+    [archive] = FakeMemory().fetcher().fetch(tmp_path, since=datetime(2099, 1, 1, tzinfo=UTC))
 
     assert [e["endpoint"] for e in read_entries(archive)] == ["memories", "summary"]
 

@@ -13,13 +13,13 @@ class ClaudeMemoryFetcher(ClaudeSessionFetcher):
 
     source = "claude-memory"
 
-    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         with self._signed_in():
             fresh = self._list_fresh(since)
             self._read_fresh(fresh, since, self._read)
 
         # Archived even with nothing fresh: the listing alone is how a deletion is seen.
-        return self._write_archive(destination)
+        return [self._write_archive(destination)]
 
     def _list_fresh(self, since: datetime | None) -> list[dict[str, Any]]:
         return updated_after(self._api("POST", "melange/list", endpoint="list", json={}).json()["data"], since)
