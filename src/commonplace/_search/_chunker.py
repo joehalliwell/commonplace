@@ -6,6 +6,18 @@ from collections.abc import Iterator
 from commonplace._search._types import Chunk
 from commonplace._types import Note
 
+#: A chat turn's heading, as the serializer writes it; nothing else in a chat carries the `created` marker.
+_TURN = re.compile(r"^## (?P<speaker>.+?) \[created:: [^\]]+\]$")
+_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+
+
+def _fence_after(line: str, fence: str | None) -> str | None:
+    """The code fence open after `line`, given the one open before it: CommonMark's opening and closing rules."""
+    if fence is None:
+        return match[1] if (match := _FENCE.match(line)) else None
+    closing = line.strip()
+    return None if closing and set(closing) == {fence[0]} and len(closing) >= len(fence) else fence
+
 
 class MarkdownChunker:
     """
@@ -46,12 +58,26 @@ class MarkdownChunker:
         current_text: list[str] = []
         chunk_start_offset = 0
         offset = 0
+        # In a chat, a tool call and its output, or the harness's own text, is not what anyone said.
+        is_chat = note.metadata.get("type") == "Chat"
+        skipping = False
+        fence: str | None = None
 
         for line in lines:
-            # Check if this is a header line
-            header_match = re.match(r"^(#{1,6})\s+(.+?)(?:\s+\[.*\])?$", line)
+            # A heading inside a code fence is content: a code comment, or a document the turn quotes.
+            in_fence = fence is not None
+            fence = _fence_after(line, fence)
+            header_match = None if in_fence or fence else re.match(r"^(#{1,6})\s+(.+?)(?:\s+\[.*\])?$", line)
 
-            if header_match:
+            if header_match and len(header_match.group(1)) <= 2:
+                turn = _TURN.match(line) if is_chat else None
+                skipping = bool(turn and (turn["speaker"] == "System" or turn["speaker"].endswith(" call")))
+
+            if skipping:
+                if header_match and current_text and any(t.strip() for t in current_text):
+                    yield from self._split_if_needed(note, current_section, current_text, chunk_start_offset)
+                current_text = []
+            elif header_match:
                 # Yield previous chunk if we have content
                 if current_text and any(t.strip() for t in current_text):
                     yield from self._split_if_needed(note, current_section, current_text, chunk_start_offset)
