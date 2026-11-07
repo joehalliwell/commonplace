@@ -70,6 +70,15 @@ These are the vendors' internal endpoints — unofficial, and they change withou
 notice. If a fetcher breaks, fall back to [manual exports](#importing); if a
 vendor starts rejecting you as a bot, see [`ua`](#configuration).
 
+`claude-code` reads your Claude Code sessions from `~/.claude/projects/` (or
+`$CLAUDE_CONFIG_DIR/projects/`), where Claude Code keeps them, so it needs no
+browser session. Each session changed since the last fetch is captured whole and
+lands in `chats/claude-code/`, titled by the title Claude Code gave it, else by
+your first prompt. Subagent transcripts are left out: the session already holds
+each subagent's prompt and report. Turns the harness wrote, such as a skill's
+prompt, a command's output or a background task's notice, appear as `System`,
+not as you.
+
 ### Mirrors
 
 Three more sources mirror agent memory. `claude-memory` mirrors claude.ai's
@@ -97,15 +106,13 @@ so say things about a note in its marginalia rather than editing it there.
 
 ## Importing
 
-`fetch` covers the three chat agents. Import is for everything else: local
-logs, historical archives, and conversations a fetcher can't reach (see the
+`fetch` covers the chat agents and Claude Code. Import is for everything else:
+historical archives, and conversations a fetcher can't reach (see the
 `<antThinking>` caveat above). It takes a vendor export, a wire archive written
-by `fetch`, or a directory, which it searches recursively; your local Claude
-Code sessions are in `~/.claude/projects/`.
+by `fetch`, or a directory, which it searches recursively.
 
 The format is detected per file — Claude export, ChatGPT export, Gemini
-Takeout, Claude Code session log, or wire archive — and files no importer
-claims are skipped. Chats belong to commonplace: re-importing a conversation
+Takeout, or wire archive — and files no importer claims are skipped. Chats belong to commonplace: re-importing a conversation
 rewrites it in place, so annotate them in `notes/`, not in the chat itself.
 Import refuses the repo's own `.commonplace/blobs`: to re-render chats from the
 archives already stored there, run `commonplace doctor --render`. Each chat is
@@ -326,6 +333,11 @@ copy `navigator.userAgent` from your browser's console and set `COMMONPLACE_UA`
 
 What to do by hand when a release needs it. After any upgrade, run
 `commonplace doctor` to see what scaffolding an older repo is missing.
+
+**0.4.0**: Claude Code sessions arrive with `fetch`, and `import` no longer reads
+`.jsonl` session logs, so drop `commonplace import ~/.claude/projects/` from your
+routine. A session you imported before keeps its note and its path; the next
+fetch brings it up to date.
 
 **0.3.4**: blobs are plain git objects. A repo made earlier has a
 `.gitattributes` routing `.commonplace/blobs` through Git LFS, which `doctor` no

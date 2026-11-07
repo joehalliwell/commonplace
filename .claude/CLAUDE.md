@@ -48,7 +48,7 @@ uv run commonplace search "query text"
 
 **Data flows:**
 
-- Fetch: cookies → vendor API → wire archive (gzipped JSONL) → Import
+- Fetch: cookies → vendor API → wire archive (gzipped JSONL) → Import; Claude Code's fetcher reads local files instead (`~/.claude/projects/`)
 - Import (chat): ZIP or wire archive → ChatImporter → ActivityLog → MarkdownSerializer → Note → git
 - Import (memory): wire archive → MemoryImporter → Snapshot → write + prune under `memory/{agent}/` → git
 - Index: Notes → Chunker → Chunks → Embedder → Embeddings → VectorStore
