@@ -5,7 +5,7 @@ from pathlib import Path
 
 from commonplace._fetch._claude_code import ClaudeCodeFetcher
 from commonplace._fetch._commands import fetch
-from commonplace._wire import read_entries, read_header
+from commonplace._wire import read_entries, read_header, write_archive
 
 OLD = datetime(2025, 9, 1, tzinfo=UTC)
 NEW = datetime(2025, 10, 1, tzinfo=UTC)
@@ -55,6 +55,35 @@ def test_fetch_incremental_reads_sessions_changed_after_the_cursor(tmp_path):
     archive = ClaudeCodeFetcher(root=_claude_home(tmp_path)).fetch(tmp_path, since=datetime(2025, 9, 15, tzinfo=UTC))
 
     assert [e["path"] for e in read_entries(archive)] == ["-work/s-new.jsonl"]
+
+
+def test_fetch_session_changed_during_the_previous_fetch_is_read_again(tmp_path):
+    """Git's cursor is the previous fetch's commit, made after it read; its archive is stamped before."""
+    home = _claude_home(tmp_path)
+    previous = write_archive(
+        tmp_path / "previous.jsonl.gz", "claude-code", [], fetched_at=datetime(2025, 9, 30, tzinfo=UTC)
+    )
+
+    archive = ClaudeCodeFetcher(root=home).fetch(tmp_path, since=datetime(2025, 10, 2, tzinfo=UTC), previous=[previous])
+
+    assert [e["path"] for e in read_entries(archive)] == ["-work/s-new.jsonl"]
+
+
+def test_fetch_stamps_the_archive_before_listing_sessions(tmp_path, monkeypatch):
+    """A session written between listing and stamping would otherwise fall between two fetches."""
+    home = _claude_home(tmp_path)
+    fetcher = ClaudeCodeFetcher(root=home)
+    listed = []
+    real_glob = Path.glob
+
+    def glob(self, pattern):
+        listed.append(datetime.now(UTC))
+        return real_glob(self, pattern)
+
+    monkeypatch.setattr(Path, "glob", glob)
+    archive = fetcher.fetch(tmp_path, since=None)
+
+    assert read_header(archive).fetched_at <= listed[0]
 
 
 def test_fetch_with_nothing_fresh_returns_none(tmp_path):
