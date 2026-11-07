@@ -8,8 +8,8 @@ providers that existed to write one.
 
 [[commonplace._import._types.ChatImporter]] and its `MemoryImporter` sibling
 remain the contracts. Importers that
-consume something other than a wire archive — export ZIPs, Takeout, Claude
-Code — satisfy that Protocol directly and have no business here: they identify
+consume something other than a wire archive — export ZIPs and Takeout —
+satisfy that Protocol directly and have no business here: they identify
 themselves by archive contents, and the ZIP ones declare the `member` they read.
 """
 
