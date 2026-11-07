@@ -70,12 +70,12 @@ class ChatGptFetcher(ChatGptSessionFetcher):
 
     source = "chatgpt"
 
-    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         with self._signed_in():
             fresh = list(self._list_fresh(since))
             self._read_fresh(fresh, since, self._read)
 
-        return self._write_archive(destination) if fresh else None
+        return [self._write_archive(destination)] if fresh else []
 
     def _list_fresh(self, since: datetime | None) -> Iterator[str]:
         """Walk listing pages, yielding ids updated after `since`.

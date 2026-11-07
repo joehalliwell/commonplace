@@ -206,12 +206,12 @@ def test_fetch_without_session_cookie_is_blocked(tmp_path):
 
 def test_fetch_accepts_chunked_session_cookie(tmp_path):
     """The token arrives as `.0`/`.1`; httpx sends both and the server rejoins."""
-    archive = _make_fetcher().fetch(tmp_path, since=None)
+    [archive] = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
 
 
 def test_fetch_writes_a_chatgpt_wire_archive(tmp_path):
-    archive = _make_fetcher().fetch(tmp_path, since=None)
+    [archive] = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
     assert archive.name == "chatgpt-wire.jsonl.gz"
     header = read_header(archive)
@@ -230,7 +230,7 @@ def test_fetch_stores_response_bodies_verbatim(tmp_path):
             return httpx.Response(200, content=raw, headers={"content-type": "application/json"})
         return _handler(request)
 
-    archive = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
+    [archive] = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
     assert archive is not None
     assert next(iter(read_entries(archive)))["response"] == raw
 
@@ -247,7 +247,7 @@ def test_fetch_paginates(tmp_path):
             return httpx.Response(200, json={"items": page, "total": len(items), "limit": limit, "offset": offset})
         return _handler(request)
 
-    archive = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
+    [archive] = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
     assert archive is not None
     entries = list(read_entries(archive))
     assert len([e for e in entries if e["endpoint"] == "conversations"]) == 3  # 100 + 100 + 50
@@ -269,14 +269,14 @@ def test_fetch_stops_paging_once_past_the_cursor(tmp_path):
             return httpx.Response(200, json={"items": page, "total": len(items), "limit": 100, "offset": offset})
         return _handler(request)
 
-    archive = _make_fetcher(handler=handler).fetch(tmp_path, since=datetime(2026, 7, 26, tzinfo=UTC))
+    [archive] = _make_fetcher(handler=handler).fetch(tmp_path, since=datetime(2026, 7, 26, tzinfo=UTC))
     assert archive is not None
     assert requested == [0], "should not request a second page once a stale item is seen"
     assert len([e for e in read_entries(archive) if e["endpoint"] == "conversation"]) == 2
 
 
 def test_fetch_returns_none_when_nothing_is_new(tmp_path):
-    assert _make_fetcher().fetch(tmp_path, since=datetime(2026, 7, 29, tzinfo=UTC)) is None
+    assert _make_fetcher().fetch(tmp_path, since=datetime(2026, 7, 29, tzinfo=UTC)) == []
 
 
 def test_fetch_raises_on_401(tmp_path):
@@ -334,7 +334,7 @@ def test_wire_importer_claims_only_its_own_archives(tmp_path):
 
 
 def test_wire_importer_reads_fetched_conversations(tmp_path):
-    archive = _make_fetcher().fetch(tmp_path, since=None)
+    [archive] = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
 
     logs = ChatGptWireImporter().import_(archive)
@@ -345,7 +345,7 @@ def test_wire_importer_reads_fetched_conversations(tmp_path):
 
 def test_wire_importer_reads_epoch_timestamps(tmp_path):
     """Detail responses date conversations with epoch floats, not ISO strings."""
-    archive = _make_fetcher().fetch(tmp_path, since=None)
+    [archive] = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
 
     log = ChatGptWireImporter().import_(archive)[0]
@@ -366,7 +366,7 @@ def test_fetch_paginates_when_total_under_reports(tmp_path):
             return httpx.Response(200, json={"items": page, "total": understated, "limit": limit, "offset": offset})
         return _handler(request)
 
-    archive = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
+    [archive] = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
     assert archive is not None
     assert len([e for e in read_entries(archive) if e["endpoint"] == "conversation"]) == 150
 
@@ -444,7 +444,7 @@ def test_fetch_widens_pacing_after_a_429(no_retry_sleep, tmp_path):
     fetcher = _make_fetcher(handler=_throttle_once_then_ok())
     before = fetcher._pacer.interval
 
-    archive = fetcher.fetch(tmp_path, since=None)
+    [archive] = fetcher.fetch(tmp_path, since=None)
 
     assert archive is not None
     assert fetcher._pacer.interval > before

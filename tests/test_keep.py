@@ -123,7 +123,7 @@ def test_snapshot_lists_everything_so_the_mirror_can_prune():
 def test_fetch_pages_until_keep_says_its_done(tmp_path):
     keep = FakeKeep()
 
-    archive = keep.fetcher().fetch(tmp_path, since=None)
+    [archive] = keep.fetcher().fetch(tmp_path, since=None)
 
     assert [json.loads(r.content).get("targetVersion") for r in keep.requests] == [None, "v1"]
     assert [entry["targetVersion"] for entry in read_entries(archive)] == [None, "v1"]
@@ -241,7 +241,7 @@ def _archive(tmp_path: Path, name: str, target: str | None, page: dict) -> Path:
 def test_fetch_asks_only_for_what_changed_since_the_last_capture(tmp_path):
     keep = FakeKeep({**PAGES, "v2": CHANGES})
 
-    archive = keep.fetcher().fetch(tmp_path, since=None, previous=[EXAMPLE])
+    [archive] = keep.fetcher().fetch(tmp_path, since=None, previous=[EXAMPLE])
 
     assert [json.loads(r.content).get("targetVersion") for r in keep.requests] == ["v2"]
     assert [entry["targetVersion"] for entry in read_entries(archive)] == ["v2"]
@@ -260,7 +260,7 @@ def test_fetch_checkpoints_with_a_full_sync_after_enough_change_sets(tmp_path):
 def test_fetch_starts_over_when_keep_asks_for_a_full_resync(tmp_path):
     keep = FakeKeep({**PAGES, "v2": {"forceFullResync": True, "toVersion": "v2", "truncated": False}})
 
-    archive = keep.fetcher().fetch(tmp_path, since=None, previous=[EXAMPLE])
+    [archive] = keep.fetcher().fetch(tmp_path, since=None, previous=[EXAMPLE])
 
     assert [json.loads(r.content).get("targetVersion") for r in keep.requests] == ["v2", None, "v1"]
     assert [entry["targetVersion"] for entry in read_entries(archive)] == [None, "v1"]

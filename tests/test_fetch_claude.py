@@ -83,7 +83,7 @@ def test_fetch_without_org_is_blocked(tmp_path):
 
 def test_fetch_writes_raw_wire_only(tmp_path):
     """One entry per API call, in call order."""
-    archive = _make_fetcher().fetch(tmp_path, since=None)
+    [archive] = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
     assert archive.name == "claude-wire.jsonl.gz"
 
@@ -109,7 +109,7 @@ def test_fetch_stores_response_bodies_verbatim(tmp_path):
             return httpx.Response(200, content=raw_list, headers=headers)
         return httpx.Response(200, content=raw_detail, headers=headers)
 
-    archive = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
+    [archive] = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
     assert archive is not None
     wire = _read_wire(archive)
     assert wire[0]["response"] == raw_list
@@ -126,7 +126,7 @@ def test_fetch_records_the_request_id(tmp_path):
         response.headers["request-id"] = f"req_{request.url.path.rsplit('/', 1)[-1]}"
         return response
 
-    archive = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
+    [archive] = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
     assert archive is not None
     wire = _read_wire(archive)
     assert [e["request_id"] for e in wire] == ["req_chat_conversations", "req_c-old", "req_c-new"]
@@ -135,13 +135,13 @@ def test_fetch_records_the_request_id(tmp_path):
 def test_fetch_omits_request_id_when_the_response_has_none(tmp_path):
     """An absent key already says the header wasn't there; writing `null`
     would add nothing and is a reading the fetcher has no business making."""
-    archive = _make_fetcher().fetch(tmp_path, since=None)
+    [archive] = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
     assert all("request_id" not in entry for entry in _read_wire(archive))
 
 
 def test_fetch_end_to_end(tmp_path):
-    archive = _make_fetcher().fetch(tmp_path, since=None)
+    [archive] = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
     assert ClaudeImporter().can_import(archive)
     assert len(ClaudeImporter().import_(archive)) == 2
@@ -149,12 +149,12 @@ def test_fetch_end_to_end(tmp_path):
 
 def test_fetch_incremental_skips_seen(tmp_path):
     """Cursor at or after latest summary → nothing to fetch."""
-    assert _make_fetcher().fetch(tmp_path, since=_utc(2026, 7, 15)) is None
+    assert _make_fetcher().fetch(tmp_path, since=_utc(2026, 7, 15)) == []
 
 
 def test_fetch_incremental_picks_up_newer(tmp_path):
     """Cursor between the two summaries → only the newer one."""
-    archive = _make_fetcher().fetch(tmp_path, since=_utc(2026, 6, 15))
+    [archive] = _make_fetcher().fetch(tmp_path, since=_utc(2026, 6, 15))
     assert archive is not None
     logs = ClaudeImporter().import_(archive)
     assert len(logs) == 1
@@ -165,7 +165,7 @@ def test_fetch_cursor_honours_offset(tmp_path):
     """A cursor of 00:30+01:00 is 23:30Z the previous day, so both
     conversations are newer than it."""
     cursor = datetime(2026, 6, 1, 0, 30, tzinfo=timezone(timedelta(hours=1)))
-    archive = _make_fetcher().fetch(tmp_path, since=cursor)
+    [archive] = _make_fetcher().fetch(tmp_path, since=cursor)
     assert archive is not None
     uuids = {log.metadata["uuid"] for log in ClaudeImporter().import_(archive)}
     assert uuids == {"c-old", "c-new"}
@@ -179,7 +179,7 @@ def test_fetch_cursor_honours_subsecond_precision(tmp_path):
             return httpx.Response(200, json=[{**SUMMARIES[1], "updated_at": "2026-07-15T00:00:00.500000Z"}])
         return _handler(request)
 
-    archive = _make_fetcher(handler=handler).fetch(tmp_path, since=_utc(2026, 7, 15))
+    [archive] = _make_fetcher(handler=handler).fetch(tmp_path, since=_utc(2026, 7, 15))
     assert archive is not None
     assert len(ClaudeImporter().import_(archive)) == 1
 

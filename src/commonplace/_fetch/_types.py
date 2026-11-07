@@ -18,11 +18,11 @@ class Fetcher(Protocol):
 
     source: str
 
-    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         """Fetch new content.
 
         Args:
-            destination: Directory to write the fetched artifact into.
+            destination: Directory to write the fetched archives into.
             since: UTC cursor — only fetch what was updated after this
                 instant. `None` means fetch everything. Compare parsed
                 datetimes, not ISO strings, which mis-sort across offsets.
@@ -30,10 +30,10 @@ class Fetcher(Protocol):
                 vendor for only what changed since the last; most ignore it.
 
         Returns:
-            Path to an importable file, or to a directory of them, imported
-            as one commit; or None if there is nothing worth importing. A
-            mirrored source returns its listing even when nothing is new,
-            since that is how a deletion is seen.
+            The archives written, inside `destination`, in the order to
+            import them, as one commit; empty if there is nothing worth
+            importing. A mirrored source returns its listing even when
+            nothing is new, since that is how a deletion is seen.
 
         Raises:
             FetchBlocked: The provider turned us away; the run skips to the next source.

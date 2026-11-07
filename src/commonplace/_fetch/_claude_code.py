@@ -33,7 +33,7 @@ class ClaudeCodeFetcher:
     def __init__(self, root: Path | None = None):
         self.root = _claude_home(root)
 
-    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         # Git's cursor is when the last capture was committed, after it read; a session written in between
         # would wait for its next change. Each capture is stamped before it lists anything, so start from that.
         started = datetime.now(UTC)
@@ -44,16 +44,14 @@ class ClaudeCodeFetcher:
         # orphaned copies included. All of it is captured: what makes a note is the importer's call, and whatever a
         # fetch leaves out is gone once Claude Code cleans up.
         fresh = [t for t in sorted(projects.glob("*/*.jsonl")) if since is None or _last_changed(t) > since]
-        if not fresh:
-            return None
         # One archive per session, so no file outgrows its session and a newer capture of one supersedes it whole.
-        captured = destination / self.source
+        archives = []
         for transcript in fresh:
             entries = (file_entry(f, f.relative_to(projects).as_posix()) for f in (transcript, *_folder(transcript)))
-            archive = captured / transcript.relative_to(projects).with_suffix("") / f"{self.source}-wire.jsonl.gz"
+            archive = destination / transcript.relative_to(projects).with_suffix("") / f"{self.source}-wire.jsonl.gz"
             archive.parent.mkdir(parents=True)
-            write_archive(archive, self.source, entries, fetched_at=started)
-        return captured
+            archives.append(write_archive(archive, self.source, entries, fetched_at=started))
+        return archives
 
 
 class ClaudeCodeMemoryFetcher:
@@ -64,9 +62,9 @@ class ClaudeCodeMemoryFetcher:
     def __init__(self, root: Path | None = None):
         self.root = _claude_home(root)
 
-    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         if not self.root.is_dir():
-            return None
+            return []
         projects = self.root / "projects"
         # A mirror sees a deletion only by its absence from a complete listing, so every run records it all.
         memory = sorted(p for p in projects.glob("*/memory/**/*") if p.is_file())
@@ -74,7 +72,7 @@ class ClaudeCodeMemoryFetcher:
             {"endpoint": "projects", "response": json.dumps(self._project_paths())},
             *(file_entry(p, p.relative_to(projects).as_posix()) for p in memory),
         ]
-        return write_archive(destination / f"{self.source}-wire.jsonl.gz", self.source, entries)
+        return [write_archive(destination / f"{self.source}-wire.jsonl.gz", self.source, entries)]
 
     def _project_paths(self) -> list[str]:
         """The real paths behind `projects/`' directory names, which encode them lossily (`/` and `.` both as `-`).

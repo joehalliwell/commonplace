@@ -13,9 +13,9 @@ class GeminiMemoryFetcher(GeminiSessionFetcher):
 
     source = "gemini-memory"
 
-    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> Path | None:
+    def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         # `since` goes unused: the listing is the whole state, and it is how a deletion is seen.
         with self._signed_in():
             self._rpc_body(RPC_LIST_SAVED_INFO, [], source_path="/saved-info")
 
-        return self._write_archive(destination)
+        return [self._write_archive(destination)]

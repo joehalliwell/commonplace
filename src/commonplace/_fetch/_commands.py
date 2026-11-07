@@ -15,7 +15,7 @@ from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
 from commonplace._fetch._helpers import FetchBlocked, NoSession
 from commonplace._fetch._keep import KeepFetcher
 from commonplace._fetch._types import Fetcher
-from commonplace._import._commands import import_, import_one, landing_tree
+from commonplace._import._commands import import_one, landing_tree
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 
@@ -86,14 +86,13 @@ def _fetch_one(repo: Commonplace, fetcher: Fetcher, auto_index: bool | None, all
     # What this source has landed, for a fetcher that asks only for what changed since; --full asks for it all.
     previous = [] if all_ else [repo.root / p for p in repo.stored_archives(f"{fetcher.source}-wire.jsonl.gz")]
     with tempfile.TemporaryDirectory() as tmp:
-        artifact = fetcher.fetch(Path(tmp), since, previous=previous)
-        if artifact is None:
+        archives = fetcher.fetch(Path(tmp), since, previous=previous)
+        if not archives:
             logger.info(f"Nothing new from {fetcher.source}")
             return
-        if artifact.is_file():
-            import_(artifact, repo, user=repo.config.user, auto_index=auto_index)
-            return
         # One fetch is one commit, however many archives it wrote.
-        for archive in sorted(p for p in artifact.rglob("*") if p.is_file()):
-            import_one(archive, repo, repo.config.user, commit=False)
-        repo.commit(f"Import from '{artifact}' using '{fetcher.source}' importer", auto_index=auto_index)
+        for archive in archives:
+            # A mirror commits its own; it still needs to know whether to index.
+            import_one(archive, repo, repo.config.user, auto_index=auto_index, commit=False)
+        imported = archives[0] if len(archives) == 1 else tmp
+        repo.commit(f"Import from '{imported}' using '{fetcher.source}' importer", auto_index=auto_index)
