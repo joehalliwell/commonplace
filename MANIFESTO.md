@@ -4,9 +4,9 @@
 
 1 Commonplace is a conversation.
 
-1.1 Its parties are never quite the same twice.
+1.1 Whoever takes part changes.
 
-1.2 The conversation continues anyway.
+1.2 The conversation persists.
 
 2 Commonplace is immutable.
 
@@ -18,7 +18,7 @@
 
 3.1 It is the graph that would form in a mind that could take it all in.
 
-3.2 What can be seen of it is a git repository.
+3.2 What can be seen of it is a git repository: a tree, and its history.
 
 4 Commonplace records and generates through conversation.
 
