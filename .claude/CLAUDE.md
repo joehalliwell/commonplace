@@ -56,6 +56,10 @@ uv run commonplace search "query text"
 
 ## Workflow
 
+Priorities: work that preserves the user's data goes first, ahead of other features and fixes. That means capturing material that would otherwise be lost, landing what is captured but never imported, and stopping writes that overwrite what a person wrote.
+
+This file is procedure: how to work here. Facts about the code drift, so they belong in the docstring of the module that enforces them. When this file disagrees with the code, remove the passage rather than correct it.
+
 All changes require tests. Test names: `test_<feature>_<scenario>_<expected_result>`. Use `conftest.py` fixtures; snapshot tests for complex output.
 
 Code standards: Python 3.12+, ruff at 120 chars, mypy, type hints throughout.
