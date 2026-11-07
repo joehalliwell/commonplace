@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -69,7 +69,6 @@ class Snapshot:
     unread: frozenset[Path] | None = frozenset()
 
 
-@runtime_checkable
 class MemoryImporter(Protocol):
     """
     Protocol for mirroring live upstream state, where a ChatImporter accumulates closed conversations.
@@ -94,7 +93,6 @@ class MemoryImporter(Protocol):
         ...
 
 
-@runtime_checkable
 class ChatImporter(Protocol):
     """
     Protocol for importing activity logs from different AI chat providers.

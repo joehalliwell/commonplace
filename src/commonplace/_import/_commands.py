@@ -1,6 +1,7 @@
 """Import entrypoint: find what claims a file, then import or mirror it."""
 
 import tempfile
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 from zipfile import ZipFile, is_zipfile
@@ -30,21 +31,25 @@ from commonplace._types import Note, RepoPath
 from commonplace._utils import slugify
 from commonplace._wire import NewerWireVersion
 
-#: Everything that can claim a file: chat importers accumulate, memory importers mirror live state.
-IMPORTERS: list[ChatImporter | MemoryImporter] = [
+#: Importers that accumulate conversations under `chats/`, probed in order.
+CHAT_IMPORTERS: list[ChatImporter] = [
     GeminiTakeoutImporter(),
     GeminiImporter(),
-    GeminiMemoryImporter(),
     ClaudeExportImporter(),
     ClaudeImporter(),
-    ClaudeMemoryImporter(),
     ClaudeTasksImporter(),
     ClaudeCodeImporter(),
-    ClaudeCodeMemoryImporter(),
     ChatGptWireImporter(),
+    ChatGptImporter(),
+]
+
+#: Importers that mirror live upstream state into a tree they own; an importer's kind is the list it is in.
+MIRROR_IMPORTERS: list[MemoryImporter] = [
+    GeminiMemoryImporter(),
+    ClaudeMemoryImporter(),
+    ClaudeCodeMemoryImporter(),
     ChatGptMemoryImporter(),
     KeepImporter(),
-    ChatGptImporter(),
 ]
 
 
@@ -69,15 +74,16 @@ def import_(path: Path, repo: Commonplace, user: str, auto_index: bool | None = 
 
 def landing_tree(source: str) -> Path:
     """Where `source` lands, which is also the pathspec its fetch cursor is read from."""
-    for importer in IMPORTERS:
-        if isinstance(importer, MemoryImporter) and importer.source == source:
+    for importer in MIRROR_IMPORTERS:
+        if importer.source == source:
             return importer.tree
     return Path("chats") / source
 
 
-def autodetect_importer(path: Path) -> ChatImporter | MemoryImporter | None:
+def autodetect_importer[I: (ChatImporter, MemoryImporter)](path: Path, importers: Sequence[I]) -> I | None:
+    """The first of `importers` to claim the file at `path`."""
     assert path.is_file()
-    for importer in IMPORTERS:
+    for importer in importers:
         try:
             if importer.can_import(path):
                 logger.info(f"Using {importer.source} importer for {path}")
@@ -101,12 +107,12 @@ def import_one(
     path: Path, repo: Commonplace, user: str, auto_index: bool | None = None, commit: bool = True
 ) -> RepoPath | None:
     """Import chats, or hand a mirrored source to `mirror_one`; returns the blob stored, if any."""
-    importer = autodetect_importer(path)
+    if mirror := autodetect_importer(path, MIRROR_IMPORTERS):
+        return mirror_one(path, repo, mirror, auto_index=auto_index)
+    importer = autodetect_importer(path, CHAT_IMPORTERS)
     if not importer:
         logger.debug(f"Skipping {path}")
         return None
-    if isinstance(importer, MemoryImporter):
-        return mirror_one(path, repo, importer, auto_index=auto_index)
     # Store only the member an archive's importer reads, or the whole file for non-archives —
     # which includes a member already extracted from one, re-imported from the blob store.
     if importer.member and is_zipfile(path):
