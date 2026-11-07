@@ -13,7 +13,15 @@ from commonplace._import._chatgpt import ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._commands import IMPORTERS, autodetect_importer
 from commonplace._import._gemini import GeminiImporter
-from commonplace._wire import LEGACY_VERSION, WIRE_VERSION, read_entries, read_header, write_archive
+from commonplace._wire import (
+    LEGACY_VERSION,
+    WIRE_VERSION,
+    entry_body,
+    file_entry,
+    read_entries,
+    read_header,
+    write_archive,
+)
 
 ENTRIES = [
     {"endpoint": "conversations", "response": "[]"},
@@ -248,3 +256,27 @@ def test_exactly_one_importer_claims_each_fetchers_archive(tmp_path, test_repo, 
     }
 
     assert claimants == {source: [source] for source in claimants}
+
+
+@pytest.mark.parametrize(
+    "content",
+    [b'{"type": "user"}\n', "café\r\nline two".encode(), b"\x89PNG\r\n\x1a\n\x00\xff"],
+    ids=["json-text", "crlf-utf8", "binary"],
+)
+def test_file_entry_body_round_trips_the_bytes_through_an_archive(tmp_path, content):
+    (tmp_path / "in.bin").write_bytes(content)
+    archive = write_archive(tmp_path / "a.jsonl.gz", "test", [file_entry(tmp_path / "in.bin", "dir/in.bin")])
+
+    [entry] = read_entries(archive)
+
+    assert (entry["endpoint"], entry["path"], entry_body(entry)) == ("file", "dir/in.bin", content)
+
+
+def test_file_entry_text_stays_readable_and_only_binary_is_encoded(tmp_path):
+    (tmp_path / "text.md").write_bytes(b"# Notes\n")
+    (tmp_path / "image.png").write_bytes(b"\x89PNG\x00\xff")
+
+    text, binary = file_entry(tmp_path / "text.md", "text.md"), file_entry(tmp_path / "image.png", "image.png")
+
+    assert (text["response"], "encoding" in text) == ("# Notes\n", False)
+    assert binary["encoding"] == "base64"

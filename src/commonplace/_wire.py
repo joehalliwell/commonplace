@@ -22,6 +22,13 @@ earlier archive holds costs its full compressed size again, so history grows
 with how often a source re-captures (for Claude Code sessions, ~1.3× the
 minimum at a daily fetch, ~3.7× at hourly).
 
+A body is text. One that isn't valid UTF-8, like an image a local fetcher read
+off disk, is base64 in `response`, and the entry says so with
+`"encoding": "base64"`, as HAR does. Base64 for every body would cost ~70%
+more after compression, since it hides repeats from the compressor. Read a
+body through `entry_body`, the one place that decodes it. A fetcher that reads
+files records each with `file_entry`: `{"endpoint": "file", "path": ...}`.
+
 Version 1 is the pre-versioning format: no header, and for Claude a `response`
 already parsed. Those archives are committed in users' repos and referenced
 from note frontmatter, so readers still accept them. Beyond the header, entry
@@ -44,6 +51,7 @@ source (chat, memory) — the evidence of what each actually looked like. Add
 one of each with the next version bump.
 """
 
+import base64
 import gzip
 import json
 from collections.abc import Iterable, Iterator
@@ -128,3 +136,19 @@ def read_entries(path: Path) -> Iterator[dict[str, Any]]:
                 if "wire" in entry:
                     continue
             yield entry
+
+
+def file_entry(path: Path, name: str) -> dict[str, Any]:
+    """The file at `path`, recorded as `name`: its exact bytes as text, or base64 when they aren't UTF-8."""
+    content = path.read_bytes()
+    try:
+        return {"endpoint": "file", "path": name, "response": content.decode("utf-8")}
+    except UnicodeDecodeError:
+        return {"endpoint": "file", "path": name, "response": base64.b64encode(content).decode(), "encoding": "base64"}
+
+
+def entry_body(entry: dict[str, Any]) -> bytes:
+    """An entry's body as the bytes it was captured as, whatever it was encoded as to travel."""
+    if entry.get("encoding") == "base64":
+        return base64.b64decode(entry["response"])
+    return entry["response"].encode("utf-8")
