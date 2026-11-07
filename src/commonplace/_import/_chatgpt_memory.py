@@ -18,19 +18,28 @@ class ChatGptMemoryImporter(BaseWireImporter):
     tree: Path = Path("memory") / "chatgpt"
 
     def snapshot(self, path: Path, earlier: Sequence[Path] = ()) -> Snapshot:
+        notes: list[Note] = []
+        summarised = False
         for entry in read_entries(path):
-            if entry.get("endpoint") == "summary" and (done := _done(entry["response"])) is not None:
+            if entry.get("endpoint") == "memories" and (memories := json.loads(entry["response"])["memories"]):
+                # By creation, so an edit changes its own line rather than moving it.
+                items = sorted(memories, key=lambda m: m["created_timestamp"])
+                bullets = "".join(f"- {m['content'].replace('\n', '\n  ')}\n" for m in items)
+                title = "Saved memories"
+                repo_path = RepoPath(self.tree / "saved-memories.md")
+                notes.append(Note.compose(repo_path, "Memory", title, f"# {title}\n\n{bullets}"))
+            elif entry.get("endpoint") == "summary" and (done := _done(entry["response"])) is not None:
                 # Each section's id is a stable slug, so it names the file. Follow-ups are prompts, not
                 # memory, so a section that is nothing else lands nothing.
+                summarised = True
                 updated = {"updated_at": done["generatedAtIso"]}
-                notes = []
                 for s in done["sections"]:
                     if s["description"]:
                         repo_path = RepoPath(self.tree / f"{s['id']}.md")
                         body = f"# {s['title']}\n\n{s['description']}"
                         notes.append(Note.compose(repo_path, "Memory", s["title"], body, updated))
-                return Snapshot(notes)
-        return Snapshot([], None)
+        # Without the summary's `done` event the sections may be partial, so absence proves nothing.
+        return Snapshot(notes) if summarised else Snapshot(notes, None)
 
 
 def _done(stream: str) -> dict[str, Any] | None:

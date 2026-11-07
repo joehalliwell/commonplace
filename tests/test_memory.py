@@ -154,6 +154,42 @@ def test_snapshot_chatgpt_summary_with_no_sections_lists_nothing(tmp_path):
     assert ChatGptMemoryImporter().snapshot(archive) == Snapshot([])
 
 
+def _memories(*items: tuple[str, float]) -> dict:
+    """A ChatGPT saved-memories wire entry holding each `(content, created_timestamp)`."""
+    memories = [{"id": f"m{i}", "content": c, "created_timestamp": t} for i, (c, t) in enumerate(items)]
+    return {"endpoint": "memories", "response": json.dumps({"memories": memories})}
+
+
+def test_snapshot_chatgpt_saved_memories_land_as_one_file_bulleted_by_creation(tmp_path):
+    entries = [
+        _memories(("Writes British English.", 2.0), ("Prefers coffee\nto tea.", 1.0)),
+        _summary(summary_stream([])),
+    ]
+    archive = write_archive(tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", entries)
+
+    [note] = ChatGptMemoryImporter().snapshot(archive).notes
+    assert note.repo_path == RepoPath(Path("memory/chatgpt/saved-memories.md"))
+    assert note.body == "# Saved memories\n\n- Prefers coffee\n  to tea.\n- Writes British English.\n"
+
+
+def test_snapshot_chatgpt_saved_memories_land_though_the_summary_stopped_short(tmp_path):
+    stream = summary_stream(SECTIONS).split("event: done")[0]
+    entries = [_memories(("Prefers coffee.", 1.0)), _summary(stream)]
+    archive = write_archive(tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", entries)
+
+    snapshot = ChatGptMemoryImporter().snapshot(archive)
+    assert [n.repo_path.path.name for n in snapshot.notes] == ["saved-memories.md"]
+    assert snapshot.unread is None
+
+
+def test_snapshot_chatgpt_no_saved_memories_lands_no_file(tmp_path):
+    archive = write_archive(
+        tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", [_memories(), _summary(summary_stream([]))]
+    )
+
+    assert ChatGptMemoryImporter().snapshot(archive) == Snapshot([])
+
+
 def test_landing_tree_chatgpt_memory_lands_in_its_own_tree():
     assert landing_tree("chatgpt-memory") == Path("memory/chatgpt")
 
@@ -167,7 +203,7 @@ def test_landing_tree_chat_source_lands_under_chats():
 # ---------------------------------------------------------------------------
 
 
-MEMORY_EXAMPLES = sorted(EXAMPLE.parent.glob("*-memory-v*.jsonl.gz"))
+MEMORY_EXAMPLES = sorted(EXAMPLE.parent.glob("*-memory-v*.jsonl.*"))
 
 
 @pytest.mark.parametrize("archive", MEMORY_EXAMPLES, ids=lambda p: p.name)
