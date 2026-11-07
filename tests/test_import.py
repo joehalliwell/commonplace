@@ -445,6 +445,36 @@ def test_claude_code_import_a_prompt_queued_mid_turn_is_the_users(tmp_path):
     assert [(e.sender, e.content) for e in log.events] == [(Role.USER, "start"), (Role.USER, "wait, stop")]
 
 
+def test_claude_code_import_harness_turns_are_system_and_commands_the_users(tmp_path):
+    command = "<command-message>rake</command-message>\n<command-name>/rake</command-name>\n<command-args>quick</command-args>"
+    turns = [
+        (command, {}),
+        ("<command-name>/clear</command-name>\n<command-message>clear</command-message>", {}),
+        ("<local-command-stdout>cleared</local-command-stdout>", {}),
+        ("<bash-input>ls</bash-input>", {}),
+        ("<bash-stdout>a.txt</bash-stdout><bash-stderr></bash-stderr>", {}),
+        ("<task-notification>finished</task-notification>", {}),
+        ("Base directory for this skill: /skills/rake", {"isMeta": True}),
+        ("This session is being continued from a previous conversation.", {"isCompactSummary": True}),
+    ]
+    lines = [
+        _claude_code_line("user", text, f"2025-10-01T10:00:0{i}Z") | flags for i, (text, flags) in enumerate(turns)
+    ]
+
+    [log] = ClaudeCodeImporter().import_(_claude_code_session(tmp_path, *lines))
+
+    assert [(e.sender, e.content) for e in log.events] == [
+        (Role.USER, "/rake quick"),
+        (Role.USER, "/clear"),
+        (Role.SYSTEM, "<local-command-stdout>cleared</local-command-stdout>"),
+        (Role.USER, "!ls"),
+        (Role.SYSTEM, "<bash-stdout>a.txt</bash-stdout><bash-stderr></bash-stderr>"),
+        (Role.SYSTEM, "<task-notification>finished</task-notification>"),
+        (Role.SYSTEM, "Base directory for this skill: /skills/rake"),
+        (Role.SYSTEM, "This session is being continued from a previous conversation."),
+    ]
+
+
 def test_claude_code_import_records_each_model_once_in_order(tmp_path):
     session = _claude_code_session(
         tmp_path,
@@ -663,7 +693,7 @@ That's it.
 """
 
 
-def _serialize_message(content: str) -> str:
+def _serialize_message(content: str, sender: Role = Role.AGENT) -> str:
     serializer = MarkdownSerializer(human="Human", agent="Agent")
     log = EventLog(
         source="test",
@@ -671,7 +701,7 @@ def _serialize_message(content: str) -> str:
         created=datetime(2024, 1, 1, 12, 0, 0),  # noqa: DTZ001 - naive on purpose
         events=[
             Message(
-                sender=Role.AGENT,
+                sender=sender,
                 content=content,
                 created=datetime(2024, 1, 1, 12, 0, 0),  # noqa: DTZ001 - naive on purpose
                 metadata={},
@@ -680,6 +710,13 @@ def _serialize_message(content: str) -> str:
         metadata={},
     )
     return serializer.serialize(log)
+
+
+def test_serialize_system_turn_is_labelled_system_and_fenced():
+    out = _serialize_message("## Workflow\n\nRun ```this```", sender=Role.SYSTEM)
+
+    assert re.findall(r"^## (.+?) \[created::", out, re.MULTILINE) == ["System"]
+    assert "## Workflow\n\nRun ```this```" in out
 
 
 def test_serialize_keeps_artifact_code_line_structure():
