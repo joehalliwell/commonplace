@@ -45,9 +45,14 @@ class ClaudeCodeImporter:
         metadata = {}
         models: list[str | None] = []
         tool_calls: dict[str, ToolCall] = {}
+        ai_title: str | None = None
 
         for line in path.read_text(encoding="utf-8").splitlines():
             data = json.loads(line)
+
+            # Claude Code refines its title as the session goes, so the last one wins.
+            if data.get("type") == "ai-title":
+                ai_title = data["aiTitle"]
 
             # `<synthetic>` marks a message the harness wrote, not a model.
             if data.get("type") == "assistant" and (model := data["message"].get("model")) != "<synthetic>":
@@ -76,7 +81,8 @@ class ClaudeCodeImporter:
 
         # Extract title and created time
         created = metadata.pop("timestamp")
-        title = metadata.pop("summary", metadata["sessionId"])
+        summary = metadata.pop("summary", metadata["sessionId"])
+        title = ai_title or summary
 
         return [
             EventLog(
