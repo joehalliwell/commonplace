@@ -93,7 +93,7 @@ def extract_and_store(archive: Path, member: str, repo: Commonplace) -> RepoPath
         return repo.store_blob(Path(zf.extract(member, tmp)))
 
 
-def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None = None):
+def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None = None, commit: bool = True):
     """Import chats, overwriting any already there since commonplace owns them, or hand a mirrored source to `mirror_one`."""
     importer = autodetect_importer(path)
     if not importer:
@@ -114,7 +114,8 @@ def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None
         repo.save(note)
         logger.info(f"Stored log '{note.metadata['title']}' at '{note.repo_path}'")
 
-    repo.commit(f"Import from '{path}' using '{importer.source}' importer", auto_index=auto_index)
+    if commit:
+        repo.commit(f"Import from '{path}' using '{importer.source}' importer", auto_index=auto_index)
 
 
 def render_chats(

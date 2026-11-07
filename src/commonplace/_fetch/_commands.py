@@ -15,7 +15,7 @@ from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
 from commonplace._fetch._helpers import FetchBlocked, NoSession
 from commonplace._fetch._keep import KeepFetcher
 from commonplace._fetch._types import Fetcher
-from commonplace._import._commands import import_, landing_tree
+from commonplace._import._commands import import_, import_one, landing_tree
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 
@@ -90,4 +90,10 @@ def _fetch_one(repo: Commonplace, fetcher: Fetcher, auto_index: bool | None, all
         if artifact is None:
             logger.info(f"Nothing new from {fetcher.source}")
             return
-        import_(artifact, repo, user=repo.config.user, auto_index=auto_index)
+        if artifact.is_file():
+            import_(artifact, repo, user=repo.config.user, auto_index=auto_index)
+            return
+        # One fetch is one commit, however many archives it wrote.
+        for archive in sorted(p for p in artifact.rglob("*") if p.is_file()):
+            import_one(archive, repo, repo.config.user, commit=False)
+        repo.commit(f"Import from '{artifact}' using '{fetcher.source}' importer", auto_index=auto_index)

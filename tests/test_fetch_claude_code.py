@@ -6,6 +6,7 @@ from pathlib import Path
 from commonplace._fetch._claude_code import ClaudeCodeFetcher
 from commonplace._fetch._commands import fetch
 from commonplace._wire import entry_body, read_entries, read_header, write_archive
+from tests.porcelain import git
 
 OLD = datetime(2025, 9, 1, tzinfo=UTC)
 NEW = datetime(2025, 10, 1, tzinfo=UTC)
@@ -57,18 +58,27 @@ def test_fetch_records_each_session_whole_byte_for_byte(tmp_path):
     """Which of it makes a note is the importer's call; whatever a fetch leaves out is lost once upstream deletes it."""
     home = _claude_home(tmp_path)
 
-    archive = ClaudeCodeFetcher(root=home).fetch(tmp_path, since=None)
+    captured = ClaudeCodeFetcher(root=home).fetch(tmp_path, since=None)
 
-    assert read_header(archive).source == "claude-code"
-    entries = list(read_entries(archive))
-    assert [(e["endpoint"], e["path"]) for e in entries] == [("file", path) for path in EVERYTHING]
+    entries = _entries(captured)
+    assert sorted((e["endpoint"], e["path"]) for e in entries) == [("file", path) for path in sorted(EVERYTHING)]
     assert all(entry_body(e) == (home / "projects" / e["path"]).read_bytes() for e in entries)
 
 
-def test_fetch_incremental_reads_sessions_changed_after_the_cursor(tmp_path):
-    archive = ClaudeCodeFetcher(root=_claude_home(tmp_path)).fetch(tmp_path, since=datetime(2025, 9, 15, tzinfo=UTC))
+def test_fetch_writes_one_archive_per_session(tmp_path):
+    """Files stay as small as one session, and a newer capture of a session supersedes its older one whole."""
+    captured = ClaudeCodeFetcher(root=_claude_home(tmp_path)).fetch(tmp_path, since=None)
 
-    assert [e["path"] for e in read_entries(archive)] == EVERYTHING[:-1]
+    archives = {a.parent.relative_to(captured).as_posix(): a for a in _archives(captured)}
+    assert sorted(archives) == ["-work/s-new", "-work/s-new.orphaned-1-a2", "-work/s-old"]
+    assert all(read_header(a).source == "claude-code" for a in archives.values())
+    assert [e["path"] for e in read_entries(archives["-work/s-new"])] == EVERYTHING[:4]
+
+
+def test_fetch_incremental_reads_sessions_changed_after_the_cursor(tmp_path):
+    captured = ClaudeCodeFetcher(root=_claude_home(tmp_path)).fetch(tmp_path, since=datetime(2025, 9, 15, tzinfo=UTC))
+
+    assert _paths(captured) == sorted(EVERYTHING[:-1])
 
 
 def test_fetch_session_whose_folder_changed_is_read_again(tmp_path):
@@ -76,12 +86,9 @@ def test_fetch_session_whose_folder_changed_is_read_again(tmp_path):
     home = _claude_home(tmp_path)
     _write(home / "projects" / "-work" / "s-old" / "subagents" / "agent-a3.jsonl", "{}\n", NEW)
 
-    archive = ClaudeCodeFetcher(root=home).fetch(tmp_path, since=datetime(2025, 9, 15, tzinfo=UTC))
+    captured = ClaudeCodeFetcher(root=home).fetch(tmp_path, since=datetime(2025, 9, 15, tzinfo=UTC))
 
-    assert [e["path"] for e in read_entries(archive)][-2:] == [
-        "-work/s-old.jsonl",
-        "-work/s-old/subagents/agent-a3.jsonl",
-    ]
+    assert {"-work/s-old.jsonl", "-work/s-old/subagents/agent-a3.jsonl"} <= set(_paths(captured))
 
 
 def test_fetch_session_changed_during_the_previous_fetch_is_read_again(tmp_path):
@@ -91,9 +98,11 @@ def test_fetch_session_changed_during_the_previous_fetch_is_read_again(tmp_path)
         tmp_path / "previous.jsonl.gz", "claude-code", [], fetched_at=datetime(2025, 9, 30, tzinfo=UTC)
     )
 
-    archive = ClaudeCodeFetcher(root=home).fetch(tmp_path, since=datetime(2025, 10, 2, tzinfo=UTC), previous=[previous])
+    captured = ClaudeCodeFetcher(root=home).fetch(
+        tmp_path, since=datetime(2025, 10, 2, tzinfo=UTC), previous=[previous]
+    )
 
-    assert [e["path"] for e in read_entries(archive)] == EVERYTHING[:-1]
+    assert _paths(captured) == sorted(EVERYTHING[:-1])
 
 
 def test_fetch_stamps_the_archive_before_listing_sessions(tmp_path, monkeypatch):
@@ -108,9 +117,10 @@ def test_fetch_stamps_the_archive_before_listing_sessions(tmp_path, monkeypatch)
         return real_glob(self, pattern, **kwargs)
 
     monkeypatch.setattr(Path, "glob", glob)
-    archive = fetcher.fetch(tmp_path, since=None)
+    captured = fetcher.fetch(tmp_path, since=None)
+    monkeypatch.undo()
 
-    assert read_header(archive).fetched_at <= listed[0]
+    assert all(read_header(a).fetched_at <= listed[0] for a in _archives(captured))
 
 
 def test_fetch_with_nothing_fresh_returns_none(tmp_path):
@@ -127,12 +137,15 @@ def test_fetch_root_follows_claude_config_dir(tmp_path, monkeypatch):
     """Claude Code reads `CLAUDE_CONFIG_DIR` to move `~/.claude`, so the fetcher follows it there."""
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(_claude_home(tmp_path)))
 
-    archive = ClaudeCodeFetcher().fetch(tmp_path, since=None)
+    captured = ClaudeCodeFetcher().fetch(tmp_path, since=None)
 
-    assert [e["path"] for e in read_entries(archive)] == EVERYTHING
+    assert _paths(captured) == sorted(EVERYTHING)
 
 
-def test_fetch_command_lands_sessions_under_claude_code(test_repo, tmp_path):
+def test_fetch_command_lands_sessions_under_claude_code_in_one_commit(test_repo, tmp_path):
+    """One fetch is one commit, however many sessions it captured, as it is for every source."""
+    before = len(git(test_repo.root, "log", "--oneline").splitlines())
+
     fetch(test_repo, fetchers=[ClaudeCodeFetcher(root=_claude_home(tmp_path))], auto_index=False)
 
     landed = sorted(p.relative_to(test_repo.root).as_posix() for p in (test_repo.root / "chats").rglob("*.md"))
@@ -140,3 +153,17 @@ def test_fetch_command_lands_sessions_under_claude_code(test_repo, tmp_path):
         "chats/claude-code/2025/09/2025-09-01-old-work.md",
         "chats/claude-code/2025/10/2025-10-01-new-work.md",
     ]
+    assert len(git(test_repo.root, "log", "--oneline").splitlines()) == before + 1
+    assert len(test_repo.stored_archives("claude-code-wire.jsonl.gz")) == 3
+
+
+def _archives(captured: Path) -> list[Path]:
+    return sorted(captured.rglob("claude-code-wire.jsonl.gz"))
+
+
+def _entries(captured: Path) -> list[dict]:
+    return [e for a in _archives(captured) for e in read_entries(a)]
+
+
+def _paths(captured: Path) -> list[str]:
+    return sorted(e["path"] for e in _entries(captured))
