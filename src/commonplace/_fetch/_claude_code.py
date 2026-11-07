@@ -6,6 +6,8 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
+from commonplace._logging import logger
+from commonplace._progress import track
 from commonplace._wire import archive_name, file_entry, read_header, write_archive
 
 
@@ -45,8 +47,9 @@ class ClaudeCodeFetcher:
         # fetch leaves out is gone once Claude Code cleans up.
         fresh = [t for t in sorted(projects.glob("*/*.jsonl")) if since is None or _last_changed(t) > since]
         # One archive per session, so no file outgrows its session and a newer capture of one supersedes it whole.
+        logger.info(f"{len(fresh)} sessions changed since {since or 'beginning'}")
         archives = []
-        for transcript in fresh:
+        for transcript in track(fresh, f"Fetching {self.source}"):
             entries = (file_entry(f, f.relative_to(projects).as_posix()) for f in (transcript, *_folder(transcript)))
             archive = destination / transcript.relative_to(projects).with_suffix("") / archive_name(self.source)
             archive.parent.mkdir(parents=True)
