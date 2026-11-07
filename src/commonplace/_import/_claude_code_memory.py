@@ -12,7 +12,7 @@ from commonplace._import._base import BaseWireImporter
 from commonplace._import._types import Snapshot
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
-from commonplace._wire import read_entries
+from commonplace._wire import entry_body, read_entries
 
 
 class ClaudeCodeMemoryImporter(BaseWireImporter):
@@ -22,7 +22,12 @@ class ClaudeCodeMemoryImporter(BaseWireImporter):
     def snapshot(self, path: Path, earlier: Sequence[Path] = ()) -> Snapshot:
         entries = list(read_entries(path))
         projects: list[str] = next((json.loads(e["response"]) for e in entries if e["endpoint"] == "projects"), [])
-        memory = [(*e["path"].partition("/memory/")[::2], e["response"]) for e in entries if e["endpoint"] == "memory"]
+        # The capture holds every file in a memory folder; Claude Code's memories are its Markdown.
+        memory = [
+            (*e["path"].partition("/memory/")[::2], entry_body(e).decode("utf-8"))
+            for e in entries
+            if e["endpoint"] == "file" and e["path"].endswith(".md")
+        ]
         # Only projects with memory compete for a name, so one without can't push another to `-2`.
         folders = _folders([p for p in projects if _encode(p) in {encoded for encoded, _, _ in memory}])
         notes = []

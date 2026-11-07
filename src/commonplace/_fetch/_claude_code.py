@@ -6,7 +6,18 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
-from commonplace._wire import read_header, write_archive
+from commonplace._wire import file_entry, read_header, write_archive
+
+
+def _folder(transcript: Path) -> list[Path]:
+    """The files under a session's `<session>/` folder, if it has one."""
+    return sorted(p for p in transcript.with_suffix("").rglob("*") if p.is_file())
+
+
+def _last_changed(transcript: Path) -> datetime:
+    """When a session last changed: a subagent can finish after its transcript last did."""
+    stamps = [transcript.stat().st_mtime, *(p.stat().st_mtime for p in _folder(transcript))]
+    return datetime.fromtimestamp(max(stamps), UTC)
 
 
 def _claude_home(root: Path | None) -> Path:
@@ -29,15 +40,14 @@ class ClaudeCodeFetcher:
         if stamps := [stamp for p in previous if (stamp := read_header(p).fetched_at)]:
             since = max(stamps)
         projects = self.root / "projects"
-        # Subagents sit a level down, under `<session>/subagents/`; an orphaned copy repeats a session's id.
-        sessions = [p for p in sorted(projects.glob("*/*.jsonl")) if ".orphaned-" not in p.name]
-        fresh = [p for p in sessions if since is None or datetime.fromtimestamp(p.stat().st_mtime, UTC) > since]
+        # A session is its transcript and everything under `<session>/`, like its subagents and spilled tool results,
+        # orphaned copies included. All of it is captured: what makes a note is the importer's call, and whatever a
+        # fetch leaves out is gone once Claude Code cleans up.
+        fresh = [t for t in sorted(projects.glob("*/*.jsonl")) if since is None or _last_changed(t) > since]
         if not fresh:
             return None
-        entries = (
-            {"endpoint": "session", "path": p.relative_to(projects).as_posix(), "response": p.read_text("utf-8")}
-            for p in fresh
-        )
+        files = (f for t in fresh for f in (t, *_folder(t)))
+        entries = (file_entry(f, f.relative_to(projects).as_posix()) for f in files)
         return write_archive(destination / f"{self.source}-wire.jsonl.gz", self.source, entries, fetched_at=started)
 
 
@@ -54,12 +64,10 @@ class ClaudeCodeMemoryFetcher:
             return None
         projects = self.root / "projects"
         # A mirror sees a deletion only by its absence from a complete listing, so every run records it all.
+        memory = sorted(p for p in projects.glob("*/memory/**/*") if p.is_file())
         entries = [
             {"endpoint": "projects", "response": json.dumps(self._project_paths())},
-            *(
-                {"endpoint": "memory", "path": p.relative_to(projects).as_posix(), "response": p.read_text("utf-8")}
-                for p in sorted(projects.glob("*/memory/*.md"))
-            ),
+            *(file_entry(p, p.relative_to(projects).as_posix()) for p in memory),
         ]
         return write_archive(destination / f"{self.source}-wire.jsonl.gz", self.source, entries)
 
