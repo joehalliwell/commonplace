@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -121,8 +122,9 @@ class ClaudeCodeImporter:
 
         # Handle basic (single-part) content as string
         if isinstance(content, str):
-            timestamp = data["timestamp"]
-            return Message(sender=role, content=content, created=timestamp)
+            if role == Role.USER:
+                role, content = _attribute(data, content)
+            return Message(sender=role, content=content, created=data["timestamp"])
 
         # Handle multi-part content
         assert isinstance(content, list)
@@ -166,10 +168,31 @@ class ClaudeCodeImporter:
             return None
 
         content = "\n\n".join(blocks)
-        timestamp = data["timestamp"]
+        if role == Role.USER:
+            role, content = _attribute(data, content)
 
-        return Message(
-            sender=role,
-            content=content,
-            created=timestamp,
-        )
+        return Message(sender=role, content=content, created=data["timestamp"])
+
+
+_HARNESS_TAGS = (
+    "<local-command-stdout>",
+    "<local-command-stderr>",
+    "<local-command-caveat>",
+    "<bash-stdout>",
+    "<bash-stderr>",
+    "<task-notification>",
+    "<system-reminder>",
+)
+
+
+def _attribute(data: dict[str, Any], content: str) -> tuple[Role, str]:
+    """Who wrote a user-role turn: the user, as typed or as the command they ran, or the harness."""
+    text = content.lstrip()
+    if data.get("isMeta") or data.get("isCompactSummary") or text.startswith(_HARNESS_TAGS):
+        return Role.SYSTEM, content
+    if text.startswith("<command-") and (name := re.search(r"<command-name>(.*?)</command-name>", text)):
+        args = re.search(r"<command-args>(.*?)</command-args>", text, re.DOTALL)
+        return Role.USER, " ".join(filter(None, [name[1], args and args[1].strip()]))
+    if bash := re.fullmatch(r"<bash-input>(.*?)</bash-input>\s*", text, re.DOTALL):
+        return Role.USER, f"!{bash[1]}"
+    return Role.USER, content

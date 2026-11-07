@@ -20,11 +20,15 @@ def _fence_artifacts(content: str) -> str:
         if 'type="text/markdown"' in opening:
             return match.group()
         language = language_match.group(1) if (language_match := _LANGUAGE.search(opening)) else ""
-        # Long enough to survive a body that contains fences of its own.
-        ticks = "`" * max(3, *(len(run) + 1 for run in re.findall(r"`+", body)), 3)
-        return f"{opening}\n\n{ticks}{language}\n{body}\n{ticks}\n\n{match.group('close') or ''}"
+        return f"{opening}\n\n{_fenced(body, language)}\n\n{match.group('close') or ''}"
 
     return _ARTIFACT.sub(fence, content)
+
+
+def _fenced(body: str, language: str = "") -> str:
+    """`body` in a code fence long enough to survive any fences of its own."""
+    ticks = "`" * max(3, *(len(run) + 1 for run in re.findall(r"`+", body)), 3)
+    return f"{ticks}{language}\n{body}\n{ticks}"
 
 
 class MarkdownSerializer(BaseModel):
@@ -57,7 +61,7 @@ class MarkdownSerializer(BaseModel):
 
         for event in log.events:
             if isinstance(event, Message):
-                sender = self.human if event.sender == Role.USER else self.agent
+                sender = {Role.USER: self.human, Role.AGENT: self.agent, Role.SYSTEM: "System"}[event.sender]
 
                 self._add_header(
                     lines,
@@ -67,7 +71,11 @@ class MarkdownSerializer(BaseModel):
                 )
                 self._add_metadata(lines, event.metadata)
 
-                lines.append(_fence_artifacts(event.content))
+                # Harness text is quoted, not composed: its headings must not join the note's outline.
+                if event.sender == Role.SYSTEM:
+                    lines.append(_fenced(event.content, "text"))
+                else:
+                    lines.append(_fence_artifacts(event.content))
                 lines.append("")
 
             elif isinstance(event, ToolCall):
