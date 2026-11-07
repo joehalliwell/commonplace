@@ -14,13 +14,13 @@
 
 2.2 Last Tuesday's wine spill still happened, even if the linen is clean.
 
-3 Commonplace is a graph.
+3 Commonplace does not exist.
 
-3.1 It is what would form in a mind that could take it all in.
+3.1 It is the graph that would form in a mind that could take it all in.
 
 3.2 What can be seen of it is a git repository.
 
-4 Commonplace records and generates.
+4 Commonplace records and generates through conversation.
 
 4.1 Recording keeps what happens, outside and in.
 
