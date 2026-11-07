@@ -26,7 +26,7 @@
 
 4.2 Conversations generate something new from what has been kept.
 
-4.3 Questions generate answers; answers generate questions.
+4.3 Most conversations do both.
 
 5 One day something will replace this. Let it be us.
 
