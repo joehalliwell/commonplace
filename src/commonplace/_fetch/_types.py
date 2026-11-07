@@ -30,9 +30,10 @@ class Fetcher(Protocol):
                 vendor for only what changed since the last; most ignore it.
 
         Returns:
-            Path to an importable file, or None if there is nothing worth
-            importing. A mirrored source returns its listing even when nothing
-            is new, since that is how a deletion is seen.
+            Path to an importable file, or to a directory of them, imported
+            as one commit; or None if there is nothing worth importing. A
+            mirrored source returns its listing even when nothing is new,
+            since that is how a deletion is seen.
 
         Raises:
             FetchBlocked: The provider turned us away; the run skips to the next source.

@@ -46,9 +46,14 @@ class ClaudeCodeFetcher:
         fresh = [t for t in sorted(projects.glob("*/*.jsonl")) if since is None or _last_changed(t) > since]
         if not fresh:
             return None
-        files = (f for t in fresh for f in (t, *_folder(t)))
-        entries = (file_entry(f, f.relative_to(projects).as_posix()) for f in files)
-        return write_archive(destination / f"{self.source}-wire.jsonl.gz", self.source, entries, fetched_at=started)
+        # One archive per session, so no file outgrows its session and a newer capture of one supersedes it whole.
+        captured = destination / self.source
+        for transcript in fresh:
+            entries = (file_entry(f, f.relative_to(projects).as_posix()) for f in (transcript, *_folder(transcript)))
+            archive = captured / transcript.relative_to(projects).with_suffix("") / f"{self.source}-wire.jsonl.gz"
+            archive.parent.mkdir(parents=True)
+            write_archive(archive, self.source, entries, fetched_at=started)
+        return captured
 
 
 class ClaudeCodeMemoryFetcher:
