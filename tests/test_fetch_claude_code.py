@@ -65,6 +65,21 @@ def test_fetch_records_each_session_whole_byte_for_byte(tmp_path):
     assert all(entry_body(e) == (home / "projects" / e["path"]).read_bytes() for e in entries)
 
 
+def test_fetch_shows_progress_over_the_sessions_it_reads(tmp_path, monkeypatch):
+    """Compressing every session can take minutes; a bar says it hasn't stalled."""
+    tracked = []
+
+    def track(items, name):
+        tracked.extend(items)
+        return tracked
+
+    monkeypatch.setattr("commonplace._fetch._claude_code.track", track)
+
+    ClaudeCodeFetcher(root=_claude_home(tmp_path)).fetch(tmp_path, since=NEW - (NEW - OLD) / 2)
+
+    assert [t.name for t in tracked] == ["s-new.jsonl", "s-new.orphaned-1-a2.jsonl"]
+
+
 def test_fetch_writes_one_archive_per_session(tmp_path):
     """Files stay as small as one session, and a newer capture of a session supersedes its older one whole."""
     captured = ClaudeCodeFetcher(root=_claude_home(tmp_path)).fetch(tmp_path, since=None)
