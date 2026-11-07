@@ -69,12 +69,13 @@ class Snapshot:
     unread: frozenset[Path] | None = frozenset()
 
 
-class MemoryImporter(Protocol):
+class MirrorImporter(Protocol):
     """
-    Protocol for mirroring live upstream state, where a ChatImporter accumulates closed conversations.
+    Protocol for mirroring live upstream state, such as agent memory or Keep, where a ChatImporter accumulates
+    closed conversations.
 
-    Claimed exactly as a ChatImporter is, but what it yields is authoritative: files land at the
-    paths the provider gave them, and paths missing from the listing are pruned.
+    Claimed exactly as a ChatImporter is, but what it yields is authoritative: it rewrites its tree to match
+    upstream, and prunes the paths upstream no longer lists.
     """
 
     source: str
