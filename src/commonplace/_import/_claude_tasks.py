@@ -12,7 +12,7 @@ from typing import Any
 
 from commonplace._import._base import BaseWireImporter
 from commonplace._import._claude_code import ClaudeCodeImporter
-from commonplace._import._types import Event, EventLog, ToolCall, models_field
+from commonplace._import._types import Event, EventLog, models_field
 from commonplace._logging import logger
 from commonplace._wire import read_entries
 
@@ -51,15 +51,12 @@ def _to_log(run: dict[str, Any], run_events: list[dict[str, Any]], source: str) 
     # The prompt is a template and the scheduled turn's tool calls are working; both stay in the archive.
     # Not `result`, which repeats only the turn's last text: that can be a sign-off after the output proper.
     output = [
-        m for line in lines[:end] if line["type"] == "assistant" and (m := ClaudeCodeImporter._process_event(line, {}))
+        m
+        for line in lines[:end]
+        if line["type"] == "assistant" and (m := ClaudeCodeImporter._process_event(line, tools=False))
     ]
-    tool_calls: dict[str, ToolCall] = {}
     follow_ups = [line for line in lines[end + 1 :] if line["type"] in {"user", "assistant"}]
-    events: list[Event] = [
-        *output,
-        *(m for line in follow_ups if (m := ClaudeCodeImporter._process_event(line, tool_calls))),
-    ]
-    events.extend(tool_calls.values())
+    events: list[Event] = [*output, *(m for line in follow_ups if (m := ClaudeCodeImporter._process_event(line)))]
     events.sort(key=lambda e: e.created)
 
     created = datetime.fromisoformat(run["created_at"])

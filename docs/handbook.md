@@ -75,12 +75,13 @@ vendor starts rejecting you as a bot, see [`ua`](#configuration).
 browser session. Each session changed since the last fetch is captured whole,
 with its subagents and the full output of long tool calls, and lands in
 `chats/claude-code/`, titled by the title Claude Code gave it, else by your
-first prompt. The note is the session as you had it: subagent transcripts stay
-in the capture, since the session already holds each subagent's prompt and
-report. Turns the harness wrote, such as a skill's
-prompt, a command's output or a background task's notice, appear as `System`,
-not as you. A transcript holds whatever its tools printed, and git keeps every
-capture, so a secret that ever shows up in a session stays in your history.
+first prompt. The note is what was said: your prompts, your answers to the
+agent's questions, and the agent's prose, with each tool call as one line
+naming the tool and its first argument. Tool output, thinking, subagent
+transcripts and turns the harness wrote, such as a skill's prompt or a
+command's output, stay in the capture but not the note. A capture holds
+whatever its tools printed, and git keeps every capture, so a secret that ever
+shows up in a session stays in your history.
 
 ### Mirrors
 
@@ -342,6 +343,10 @@ copy `navigator.userAgent` from your browser's console and set `COMMONPLACE_UA`
 
 What to do by hand when a release needs it. After any upgrade, run
 `commonplace doctor` to see what scaffolding an older repo is missing.
+
+**0.9.0**: a Claude Code note keeps only what was said, with each tool call as
+one line, so notes are about a sixth of their old size. Run
+`commonplace doctor --render` to re-render the ones you have.
 
 **0.8.0**: new archives are xz-compressed (`.jsonl.xz`), and an earlier release
 can't read them, so upgrade commonplace on every machine that syncs your

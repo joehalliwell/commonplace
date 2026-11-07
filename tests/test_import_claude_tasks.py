@@ -8,7 +8,7 @@ import pytest
 
 from commonplace._import._claude_tasks import ClaudeTasksImporter
 from commonplace._import._commands import autodetect_importer
-from commonplace._import._types import Message, Role, ToolCall
+from commonplace._import._types import Message, Role
 from commonplace._wire import read_entries, write_archive
 
 WIRE = Path(__file__).parent / "resources" / "wire"
@@ -55,7 +55,7 @@ def test_claude_tasks_run_opens_with_its_output_then_reads_on_in_sequence(run):
 
 
 def test_claude_tasks_run_leaves_out_the_work_behind_its_output(run):
-    assert not [e for e in run.events if isinstance(e, ToolCall)]
+    assert not [e for e in run.events if "\n- " in f"\n{e.content}"]
 
 
 def test_claude_tasks_run_without_output_yet_is_skipped(tmp_path):
