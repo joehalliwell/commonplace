@@ -15,6 +15,7 @@ byte-identical and only the new file shows up in the diff.
 
 import gzip
 import json
+import lzma
 from pathlib import Path
 
 OUT = Path(__file__).parent
@@ -434,6 +435,13 @@ KEEP_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
 }
 
 
+# v4 changes nothing these sources record, only what a body may be (base64, for files that aren't UTF-8) and the
+# codec, so their v4 examples hold the v3 entries under a v4 header, written as xz.
+for _archives in (ARCHIVES, GEMINI_ARCHIVES, MEMORY_ARCHIVES):
+    _header, _entries = _archives[3]
+    _archives[4] = ({**_header, "version": 4, "fetched_by": "commonplace/0.8.0"}, _entries)
+
+
 def main() -> None:
     for source, archives in (
         ("claude", ARCHIVES),
@@ -447,9 +455,14 @@ def main() -> None:
         for version, (header, entries) in archives.items():
             lines = [] if header is None else [json.dumps(header)]
             lines += [json.dumps(entry, ensure_ascii=False) for entry in entries]
-            body = "".join(line + "\n" for line in lines)
-            path = OUT / f"{source}-v{version}.jsonl.gz"
-            path.write_bytes(gzip.compress(body.encode("utf-8"), mtime=0))
+            body = "".join(line + "\n" for line in lines).encode("utf-8")
+            # v4 archives are xz, as fetchers write them; xz has no timestamp to pin.
+            if version >= 4:
+                path = OUT / f"{source}-v{version}.jsonl.xz"
+                path.write_bytes(lzma.compress(body))
+            else:
+                path = OUT / f"{source}-v{version}.jsonl.gz"
+                path.write_bytes(gzip.compress(body, mtime=0))
             print(f"wrote {path.relative_to(Path.cwd())}")
 
 

@@ -12,11 +12,12 @@ from commonplace import __version__
 from commonplace._fetch._commands import default_fetchers
 from commonplace._import._chatgpt import ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
-from commonplace._import._commands import IMPORTERS, autodetect_importer
+from commonplace._import._commands import IMPORTERS, autodetect_importer, import_
 from commonplace._import._gemini import GeminiImporter
 from commonplace._wire import (
     LEGACY_VERSION,
     WIRE_VERSION,
+    NewerWireVersion,
     archive_name,
     archive_names,
     entry_body,
@@ -163,7 +164,7 @@ def test_provenance_is_absent_before_v3_and_present_from_v3(any_wire_version):
         assert (header.fetched_at, header.fetched_by) == (None, None)
     else:
         assert header.fetched_at == datetime(2026, 8, 9, 12, tzinfo=UTC)
-        assert header.fetched_by == "commonplace/0.0.5"
+        assert header.fetched_by is not None and header.fetched_by.startswith("commonplace/")
 
 
 def test_every_gemini_wire_version_imports_to_the_same_conversation(any_gemini_wire_version):
@@ -305,3 +306,25 @@ def test_a_gzip_and_an_xz_archive_of_the_same_capture_read_the_same(tmp_path):
 
     assert read_header(xz) == read_header(gzipped)
     assert list(read_entries(xz)) == list(read_entries(gzipped))
+
+
+def _from_the_future(tmp_path: Path) -> Path:
+    """An archive written by a commonplace newer than this one."""
+    header = {"wire": "claude", "version": WIRE_VERSION + 1, "fetched_at": "2030-01-01T00:00:00+00:00"}
+    path = tmp_path / archive_name("claude")
+    path.write_bytes(lzma.compress((json.dumps(header) + "\n").encode()))
+    return path
+
+
+def test_read_header_refuses_an_archive_newer_than_it_reads(tmp_path):
+    """Read as if it were the current version, a newer archive could be quietly misread."""
+    with pytest.raises(NewerWireVersion, match="upgrade"):
+        read_header(_from_the_future(tmp_path))
+
+
+def test_import_of_a_newer_archive_fails_rather_than_being_skipped(tmp_path, test_repo):
+    """Detection treats a file it can't read as not its own; a newer archive must not slip past that way."""
+    with pytest.raises(NewerWireVersion):
+        autodetect_importer(_from_the_future(tmp_path))
+    with pytest.raises(NewerWireVersion):
+        import_(_from_the_future(tmp_path), test_repo, user="Human", auto_index=False)
