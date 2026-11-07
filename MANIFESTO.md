@@ -26,6 +26,8 @@
 
 4.2 Most do both.
 
-5 One day something will replace this. Let it be us.
+5 One day something will replace this.
 
-*Floreamus.*
+5.1 Let it be us.
+
+5.2 *Floreamus.*
