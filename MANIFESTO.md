@@ -12,7 +12,7 @@
 
 2.1 Each day the table is cleared and laid again.
 
-2.2 Last Tuesday's wine spill still happened, even if the linen is clean.
+2.2 The clean linen does not unspill last Tuesday's wine.
 
 3 Commonplace does not exist.
 
