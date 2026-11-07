@@ -162,7 +162,9 @@ nothing leaves your machine. When the model changes, run
 everything. The index lives at `.commonplace/cache/index.db` and is not tracked
 by git. Every `.md` file is indexed except those git ignores or that sit under a
 dot-directory (`.commonplace/`, `.claude/`, …), which hold tool state, not
-notes. Only a note's body is indexed, not its frontmatter.
+notes. Only a note's body is indexed, not its frontmatter. In a chat, only what
+the user and the agent said is indexed: tool calls and their output, and
+`System` turns, stay in the note but not the index.
 
 Each index run also drops chunks for notes that have been deleted or edited
 since they were indexed, so the index tracks the repository instead of
@@ -338,6 +340,10 @@ copy `navigator.userAgent` from your browser's console and set `COMMONPLACE_UA`
 
 What to do by hand when a release needs it. After any upgrade, run
 `commonplace doctor` to see what scaffolding an older repo is missing.
+
+**0.6.0**: a chat's index holds only what was said, and a heading inside a code
+block no longer splits a note into sections. An existing index keeps its old
+chunks until you run `commonplace index --rebuild`.
 
 **0.4.0**: Claude Code sessions arrive with `fetch`, and `import` no longer reads
 `.jsonl` session logs, so drop `commonplace import ~/.claude/projects/` from your
