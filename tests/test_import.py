@@ -12,7 +12,7 @@ import pytest
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._claude_code import ClaudeCodeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
-from commonplace._import._commands import autodetect_importer, import_, render_chats
+from commonplace._import._commands import CHAT_IMPORTERS, autodetect_importer, import_, render_chats
 from commonplace._import._gemini import _to_log as _gemini_to_log
 from commonplace._import._gemini_takeout import GeminiTakeoutImporter
 from commonplace._import._serializer import MarkdownSerializer
@@ -257,7 +257,10 @@ def test_import_stored_blob_is_claimed_by_the_same_importer_and_yields_the_same_
     }
     blob = test_repo.root / stored
 
-    importer, blob_importer = autodetect_importer(sample_export.path), autodetect_importer(blob)
+    importer, blob_importer = (
+        autodetect_importer(sample_export.path, CHAT_IMPORTERS),
+        autodetect_importer(blob, CHAT_IMPORTERS),
+    )
     assert type(blob_importer) is type(importer)
     assert blob_importer.import_(blob) == importer.import_(sample_export.path)
 
@@ -271,7 +274,7 @@ def test_render_chats_of_a_stored_blob_reproduces_what_import_wrote_without_writ
     [stored] = {load_frontmatter(text)[0]["source_export"] for text in written.values()}
     blob = test_repo.root / stored
 
-    rendered = render_chats(blob, autodetect_importer(blob), user="Human", source_export=stored)
+    rendered = render_chats(blob, autodetect_importer(blob, CHAT_IMPORTERS), user="Human", source_export=stored)
 
     assert {note.repo_path.path: dump_frontmatter(note.metadata, note.body) for note in rendered} == written
     assert all(note.repo_path.ref is None for note in rendered)
@@ -483,7 +486,7 @@ def test_claude_code_detection_session_log_is_left_to_fetch(tmp_path):
     session = tmp_path / "session-1.jsonl"
     session.write_text(_claude_code_text(_claude_code_line("user", "hi", "2025-10-01T10:00:00Z")))
 
-    assert autodetect_importer(session) is None
+    assert autodetect_importer(session, CHAT_IMPORTERS) is None
 
 
 def test_claude_code_import_a_half_written_last_line_is_dropped(tmp_path):
@@ -761,18 +764,17 @@ def test_import_a_missing_path_raises_rather_than_importing_nothing(test_repo, t
         import_(tmp_path / "missing.zip", test_repo, user="Human")
 
 
-def test_autodetect_importer_lets_an_interrupt_through(tmp_path, monkeypatch):
+def test_autodetect_importer_lets_an_interrupt_through(tmp_path):
     class Interrupted:
         source = "interrupted"
 
         def can_import(self, path: Path) -> bool:
             raise KeyboardInterrupt
 
-    monkeypatch.setattr("commonplace._import._commands.IMPORTERS", [Interrupted()])
     (tmp_path / "export.json").write_text("{}")
 
     with pytest.raises(KeyboardInterrupt):
-        autodetect_importer(tmp_path / "export.json")
+        autodetect_importer(tmp_path / "export.json", [Interrupted()])
 
 
 HELLO = Path("chats/claude/2026/07/2026-07-15-hello.md")

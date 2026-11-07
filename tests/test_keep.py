@@ -10,7 +10,7 @@ import pytest
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._helpers import FetchBlocked, NoSession
 from commonplace._fetch._keep import CHECKPOINT_EVERY, KeepFetcher
-from commonplace._import._commands import autodetect_importer, import_
+from commonplace._import._commands import MIRROR_IMPORTERS, autodetect_importer, import_
 from commonplace._import._keep import KeepImporter
 from commonplace._marginalia import Marginalia, write_marginalia
 from commonplace._utils import load_frontmatter
@@ -57,7 +57,7 @@ def _notes() -> dict[Path, tuple[dict, str]]:
 
 
 def test_example_archive_is_claimed_by_the_keep_importer():
-    assert isinstance(autodetect_importer(EXAMPLE), KeepImporter)
+    assert isinstance(autodetect_importer(EXAMPLE, MIRROR_IMPORTERS), KeepImporter)
 
 
 def test_snapshot_lands_each_note_by_its_creation_month_and_title():

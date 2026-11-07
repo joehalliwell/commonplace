@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from commonplace._config import BLOBS
-from commonplace._import._commands import autodetect_importer, landing_tree, render_chats
+from commonplace._import._commands import CHAT_IMPORTERS, autodetect_importer, landing_tree, render_chats
 from commonplace._import._placement import Placement
 from commonplace._import._types import ChatImporter
 from commonplace._logging import logger
@@ -91,7 +91,7 @@ def _in_capture_order(repo: Commonplace) -> list[tuple[Path, ChatImporter]]:
     stored = {path: i for i, path in enumerate(repo.first_added(BLOBS.as_posix()))}
     archives: list[tuple[Path, ChatImporter]] = []
     for path in sorted((repo.root / BLOBS).glob("*/*")):
-        if isinstance(importer := autodetect_importer(path), ChatImporter):
+        if importer := autodetect_importer(path, CHAT_IMPORTERS):
             archives.append((path.relative_to(repo.root), importer))
 
     def capture(archive: tuple[Path, ChatImporter]) -> tuple[bool, datetime, int]:

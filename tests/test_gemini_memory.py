@@ -10,7 +10,7 @@ import pytest
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
 from commonplace._fetch._helpers import FetchBlocked
-from commonplace._import._commands import autodetect_importer, landing_tree
+from commonplace._import._commands import MIRROR_IMPORTERS, autodetect_importer, landing_tree
 from commonplace._import._gemini_memory import GeminiMemoryImporter
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
@@ -94,7 +94,7 @@ def test_snapshot_null_body_raises(tmp_path):
 
 
 def test_autodetect_example_archive_finds_the_gemini_memory_importer():
-    assert isinstance(autodetect_importer(EXAMPLE), GeminiMemoryImporter)
+    assert isinstance(autodetect_importer(EXAMPLE, MIRROR_IMPORTERS), GeminiMemoryImporter)
 
 
 def test_landing_tree_gemini_memory_lands_in_memory_gemini():

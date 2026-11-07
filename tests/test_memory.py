@@ -8,9 +8,10 @@ from pathlib import Path
 import pytest
 
 from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
+from commonplace._import._claude import ClaudeImporter
 from commonplace._import._claude_memory import ClaudeMemoryImporter
-from commonplace._import._commands import IMPORTERS, autodetect_importer, import_, landing_tree
-from commonplace._import._types import ChatImporter, MemoryImporter, Snapshot
+from commonplace._import._commands import MIRROR_IMPORTERS, autodetect_importer, import_, landing_tree
+from commonplace._import._types import Snapshot
 from commonplace._stats import source
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
@@ -20,6 +21,7 @@ from tests.test_fetch_chatgpt_memory import SECTIONS, summary_stream
 
 EXAMPLE = Path(__file__).parent / "resources" / "wire" / "claude-memory-v3.jsonl.gz"
 CHATGPT_EXAMPLE = Path(__file__).parent / "resources" / "wire" / "chatgpt-memory-v3.jsonl.gz"
+CLAUDE_CHATS = Path(__file__).parent / "resources" / "wire" / "claude-v4.jsonl.xz"
 
 
 def _entries(files: dict[str, str], listed: list[str] | None = None) -> list[dict]:
@@ -60,20 +62,24 @@ def _blobs(repo) -> set[Path]:
 # ---------------------------------------------------------------------------
 
 
-def test_claude_memory_importer_is_a_memory_importer_not_a_chat_importer():
-    importer = ClaudeMemoryImporter()
+def test_import_chat_importer_shaped_like_a_mirror_still_lands_chats(test_repo, monkeypatch):
+    """Kind is the registry an importer is in, not the members it happens to have."""
 
-    assert isinstance(importer, MemoryImporter)
-    assert not isinstance(importer, ChatImporter)
+    class Shaped(ClaudeImporter):
+        tree = Path("memory") / "claude"
 
+        def snapshot(self, path, earlier=()):
+            raise AssertionError("mirrored a chat importer")
 
-def test_every_registered_importer_is_exactly_one_kind():
-    for importer in IMPORTERS:
-        assert isinstance(importer, ChatImporter) != isinstance(importer, MemoryImporter), importer.source
+    monkeypatch.setattr("commonplace._import._commands.CHAT_IMPORTERS", [Shaped()])
+
+    import_(CLAUDE_CHATS, test_repo, user="Human", auto_index=False)
+
+    assert list((test_repo.root / "chats" / "claude").rglob("*.md"))
 
 
 def test_autodetect_example_archive_finds_the_memory_importer():
-    assert isinstance(autodetect_importer(EXAMPLE), ClaudeMemoryImporter)
+    assert isinstance(autodetect_importer(EXAMPLE, MIRROR_IMPORTERS), ClaudeMemoryImporter)
 
 
 def test_snapshot_example_archive_interprets_without_a_repo():
@@ -126,7 +132,7 @@ def test_landing_tree_memory_source_lands_in_its_own_tree():
 
 
 def test_autodetect_chatgpt_example_archive_finds_its_memory_importer():
-    assert isinstance(autodetect_importer(CHATGPT_EXAMPLE), ChatGptMemoryImporter)
+    assert isinstance(autodetect_importer(CHATGPT_EXAMPLE, MIRROR_IMPORTERS), ChatGptMemoryImporter)
 
 
 def test_snapshot_chatgpt_example_archive_lands_the_summary_as_one_file():

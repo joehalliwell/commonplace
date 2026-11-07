@@ -7,11 +7,10 @@ from rich.console import Console
 from rich.table import Table
 
 from commonplace._heatmap import ActivityHeatmap, build_activity_data, render_all_time_heatmap
-from commonplace._import._commands import IMPORTERS
-from commonplace._import._types import MemoryImporter
+from commonplace._import._commands import MIRROR_IMPORTERS
 from commonplace._repo import Commonplace
 
-_MIRRORS = [importer.tree for importer in IMPORTERS if isinstance(importer, MemoryImporter)]
+_MIRRORS = [importer.tree for importer in MIRROR_IMPORTERS]
 
 
 def source(path: Path) -> str:

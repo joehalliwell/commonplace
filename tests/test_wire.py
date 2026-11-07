@@ -12,7 +12,7 @@ from commonplace import __version__
 from commonplace._fetch._commands import default_fetchers
 from commonplace._import._chatgpt import ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
-from commonplace._import._commands import IMPORTERS, autodetect_importer, import_
+from commonplace._import._commands import CHAT_IMPORTERS, MIRROR_IMPORTERS, autodetect_importer, import_
 from commonplace._import._gemini import GeminiImporter
 from commonplace._wire import (
     LEGACY_VERSION,
@@ -228,13 +228,16 @@ def test_wire_importers_extract_nothing(importer_class):
 #
 # `source` binds the two halves, but it is declared twice — once on the
 # Fetcher, once on the Importer — and the registries carrying them
-# (`default_fetchers()` and `IMPORTERS`) are maintained by hand, in different
+# (`default_fetchers()`, `CHAT_IMPORTERS` and `MIRROR_IMPORTERS`) are maintained by hand, in different
 # modules. A provider misspelt on one side, or an importer left out of
-# `IMPORTERS`, fetches perfectly and imports nothing: the archive is written,
+# either importer registry, fetches perfectly and imports nothing: the archive is written,
 # no importer claims it, and the run reports no error. These tests are derived
 # from the registries rather than from a list of their own, so a fourth
 # provider is covered without anyone remembering to add it.
 # ---------------------------------------------------------------------------
+
+
+IMPORTERS = [*MIRROR_IMPORTERS, *CHAT_IMPORTERS]
 
 
 def _archive_for(fetcher, tmp_path: Path) -> Path:
@@ -244,14 +247,14 @@ def _archive_for(fetcher, tmp_path: Path) -> Path:
 def test_every_fetchers_archive_reaches_an_importer(tmp_path, test_repo):
     reached = {}
     for fetcher in default_fetchers(test_repo.config):
-        importer = autodetect_importer(_archive_for(fetcher, tmp_path))
+        importer = autodetect_importer(_archive_for(fetcher, tmp_path), IMPORTERS)
         reached[fetcher.source] = importer and importer.source
 
     assert reached == {source: source for source in reached}
 
 
 def test_exactly_one_importer_claims_each_fetchers_archive(tmp_path, test_repo, claims):
-    """Two claimants would make the seam depend on `IMPORTERS` ordering, so
+    """Two claimants would make the seam depend on registry order, so
     reordering the list for an unrelated reason could silently reroute a
     provider."""
     claimants = {
@@ -325,6 +328,6 @@ def test_read_header_refuses_an_archive_newer_than_it_reads(tmp_path):
 def test_import_of_a_newer_archive_fails_rather_than_being_skipped(tmp_path, test_repo):
     """Detection treats a file it can't read as not its own; a newer archive must not slip past that way."""
     with pytest.raises(NewerWireVersion):
-        autodetect_importer(_from_the_future(tmp_path))
+        autodetect_importer(_from_the_future(tmp_path), IMPORTERS)
     with pytest.raises(NewerWireVersion):
         import_(_from_the_future(tmp_path), test_repo, user="Human", auto_index=False)
