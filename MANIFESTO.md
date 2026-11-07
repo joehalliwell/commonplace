@@ -16,9 +16,9 @@
 
 3 Commonplace is a graph.
 
-3.1 Its what would form in your head if you read it all.
+3.1 It is what would form in a mind that could take it all in.
 
-3.3 What can be seen of it is a tree of markdown files.
+3.2 What can be seen of it is a git repository.
 
 4 Commonplace records and generates.
 
