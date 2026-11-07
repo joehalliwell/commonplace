@@ -1,7 +1,7 @@
 """The on-disk format for the wire archives fetchers produce.
 
-A wire archive is the *primitive* artefact of a fetch: captured, not produced
-(MANIFESTO §3.2), and the point at which provenance bottoms out (§3.5). It is
+A wire archive is the *primitive* artefact of a fetch: the record of what
+happened (MANIFESTO §4.1), and the point at which provenance bottoms out. It is
 evidence of what a provider sent, so the pipeline splits in two — fetchers
 record bytes and nothing else; importers do every interpretation. Anything a
 fetcher decides is a decision no later reader can revisit.
