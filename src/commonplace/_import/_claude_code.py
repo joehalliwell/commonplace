@@ -29,8 +29,9 @@ class ClaudeCodeImporter:
         with open(path, "r") as fp:
             for line in fp:
                 data = json.loads(line)
+                # A subagent shares its parent's sessionId, and the parent already holds its prompt and result.
                 if data["type"] == "user":
-                    return "sessionId" in data
+                    return "sessionId" in data and not data.get("isSidechain")
         return False
 
     def import_(self, path: Path) -> list[EventLog]:
