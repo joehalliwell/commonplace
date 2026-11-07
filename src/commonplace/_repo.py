@@ -1,3 +1,11 @@
+"""The commonplace's git repository, and the one way anything reaches it.
+
+Every git operation goes through the git CLI via `_run_git`, never a library: re-implementing the porcelain cost
+a silent revert (#102). Every operation that writes commits what it wrote: `save`, `remove` and `store_blob`
+record their paths, `commit` stages and commits exactly those, and nothing else touches the index. Commits run
+the user's hooks.
+"""
+
 import difflib
 import hashlib
 import os
