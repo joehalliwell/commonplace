@@ -129,15 +129,24 @@ def test_autodetect_chatgpt_example_archive_finds_its_memory_importer():
     assert isinstance(autodetect_importer(CHATGPT_EXAMPLE), ChatGptMemoryImporter)
 
 
-def test_snapshot_chatgpt_example_archive_lands_a_file_per_section_with_a_description():
+def test_snapshot_chatgpt_example_archive_lands_the_summary_as_one_file():
     """The example's `dive-deeper` section is only follow-up prompts, so it has nothing to land."""
     snapshot = ChatGptMemoryImporter().snapshot(CHATGPT_EXAMPLE)
 
     assert snapshot.unread == set()
     [note] = snapshot.notes
-    assert note.repo_path == RepoPath(Path("memory/chatgpt/overview.md"))
-    assert note.body == "# Overview\n\nPrefers tea, and asks for sources."
-    assert note.metadata == {"type": "Memory", "title": "Overview", "updated_at": "2026-10-03T22:27:53.035594+00:00"}
+    assert note.repo_path == RepoPath(Path("memory/chatgpt/about-you.md"))
+    assert note.body == "# About you\n\n## Overview\n\nPrefers tea, and asks for sources.\n"
+    assert note.metadata == {"type": "Memory", "title": "About you", "updated_at": "2026-10-03T22:27:53.035594+00:00"}
+
+
+def test_snapshot_chatgpt_summary_sections_are_headings_in_upstream_order(tmp_path):
+    archive = write_archive(
+        tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", [_summary(summary_stream(SECTIONS))]
+    )
+
+    [note] = ChatGptMemoryImporter().snapshot(archive).notes
+    assert note.body == "# About you\n\n## Overview\n\nPrefers tea.\n\n## Work\n\nWrites software.\n"
 
 
 def test_snapshot_chatgpt_stream_cut_short_has_no_listed_set(tmp_path):

@@ -89,10 +89,10 @@ shows up in a session stays in your history.
 
 Four more sources mirror agent memory. `claude-memory` mirrors claude.ai's
 file-based memory into `memory/claude/`, each file at the path claude.ai gives
-it, titled with the name claude.ai displays. `chatgpt-memory` mirrors the
-sections of ChatGPT's "about you" summary into `memory/chatgpt/`, one file per
-section; ChatGPT generates that summary itself and regenerates it as it learns,
-so it changes without you editing anything. ChatGPT's saved memories, the
+it, titled with the name claude.ai displays. `chatgpt-memory` mirrors
+ChatGPT's "about you" summary into `memory/chatgpt/about-you.md`, a heading per
+section; ChatGPT generates that summary itself and regenerates it on every
+fetch, redrawing its sections, so it changes without you editing anything. ChatGPT's saved memories, the
 facts you asked it to remember, go beside them in `saved-memories.md`, one
 bullet per memory, oldest first. `gemini-memory` mirrors Gemini's
 [saved info](https://gemini.google.com/saved-info) into
