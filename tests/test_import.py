@@ -414,7 +414,7 @@ def test_claude_code_import_harness_lines_log_no_warnings(tmp_path, caplog):
 
 
 def test_claude_code_import_titles_a_session_by_its_latest_ai_title_else_summary_else_id(tmp_path):
-    message = _claude_code_line("user", "hi", "2025-10-01T10:00:00Z")
+    message = _claude_code_line("assistant", "hi", "2025-10-01T10:00:00Z")
     summary = {"type": "summary", "summary": "A greeting"}
     drafts = [{"type": "ai-title", "aiTitle": title, "sessionId": "session-1"} for title in ("Hello", "Greeting")]
 
@@ -473,6 +473,19 @@ def test_claude_code_import_harness_turns_are_system_and_commands_the_users(tmp_
         (Role.SYSTEM, "Base directory for this skill: /skills/rake"),
         (Role.SYSTEM, "This session is being continued from a previous conversation."),
     ]
+
+
+def test_claude_code_import_untitled_session_is_titled_by_the_users_first_prompt(tmp_path):
+    prompt = "Why is the build red after the dependency bump that landed on main this morning?\nLogs below."
+    session = _claude_code_session(
+        tmp_path,
+        _claude_code_line("user", "Base directory for this skill: /x", "2025-10-01T10:00:00Z") | {"isMeta": True},
+        _claude_code_line("user", prompt, "2025-10-01T10:00:01Z"),
+    )
+
+    [log] = ClaudeCodeImporter().import_(session)
+
+    assert log.title == "Why is the build red after the dependency bump that landed…"
 
 
 def test_claude_code_import_records_each_model_once_in_order(tmp_path):
