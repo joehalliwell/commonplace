@@ -1,7 +1,7 @@
 import json
 import re
 from collections.abc import Iterator
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from textwrap import shorten
 from typing import Any
 
@@ -9,7 +9,7 @@ from commonplace._import._base import BaseWireImporter
 from commonplace._import._types import Event, EventLog, Message, Role, ToolCall, models_field
 from commonplace._logging import logger
 from commonplace._utils import truncate
-from commonplace._wire import read_entries
+from commonplace._wire import entry_body, read_entries
 
 
 class ClaudeCodeImporter(BaseWireImporter):
@@ -24,7 +24,8 @@ class ClaudeCodeImporter(BaseWireImporter):
     id_key: str | None = "sessionId"
 
     def import_(self, path: Path) -> list[EventLog]:
-        return [log for entry in read_entries(path) for log in self._session(entry["response"], entry["path"])]
+        transcripts = (e for e in read_entries(path) if _is_transcript(e["path"]))
+        return [log for e in transcripts for log in self._session(entry_body(e).decode("utf-8"), e["path"])]
 
     def _session(self, transcript: str, where: str) -> list[EventLog]:
         """One session's transcript as a chat, or none if it holds no turns."""
@@ -162,6 +163,13 @@ class ClaudeCodeImporter(BaseWireImporter):
             role, content = _attribute(data, content)
 
         return Message(sender=role, content=content, created=data["timestamp"])
+
+
+def _is_transcript(path: str) -> bool:
+    """A session's own transcript, `<project>/<session>.jsonl`: a note is the session as it was had, so not its
+    subagents or tool results, nor an orphaned copy, which repeats its session's id."""
+    parts = PurePosixPath(path).parts
+    return len(parts) == 2 and parts[1].endswith(".jsonl") and ".orphaned-" not in parts[1]
 
 
 def _records(transcript: str, where: str) -> Iterator[dict[str, Any]]:

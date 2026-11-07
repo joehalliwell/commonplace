@@ -371,7 +371,7 @@ def _claude_code_text(*lines: dict) -> str:
 
 def _claude_code_session(tmp_path: Path, *lines: dict) -> Path:
     """A `claude-code` wire archive holding one session, as `ClaudeCodeFetcher` records it."""
-    entry = {"endpoint": "session", "path": "-work/session-1.jsonl", "response": _claude_code_text(*lines)}
+    entry = {"endpoint": "file", "path": "-work/session-1.jsonl", "response": _claude_code_text(*lines)}
     return write_archive(tmp_path / "claude-code-wire.jsonl.gz", "claude-code", [entry])
 
 
@@ -404,7 +404,7 @@ def test_claude_code_detection_session_log_is_left_to_fetch(tmp_path):
 def test_claude_code_import_a_half_written_last_line_is_dropped(tmp_path):
     """A session still running when it was fetched can end mid-line; the next fetch captures the rest."""
     text = _claude_code_text(_claude_code_line("user", "hi", "2025-10-01T10:00:00Z")) + '{"type": "assist'
-    entry = {"endpoint": "session", "path": "-work/session-1.jsonl", "response": text}
+    entry = {"endpoint": "file", "path": "-work/session-1.jsonl", "response": text}
     archive = write_archive(tmp_path / "claude-code-wire.jsonl.gz", "claude-code", [entry])
 
     [log] = ClaudeCodeImporter().import_(archive)
@@ -415,7 +415,7 @@ def test_claude_code_import_a_half_written_last_line_is_dropped(tmp_path):
 def test_claude_code_import_each_session_in_an_archive_is_a_chat(tmp_path):
     entries = [
         {
-            "endpoint": "session",
+            "endpoint": "file",
             "path": f"-work/{sid}.jsonl",
             "response": _claude_code_text(
                 _claude_code_line("user", f"hi from {sid}", "2025-10-01T10:00:00Z") | {"sessionId": sid}
@@ -428,6 +428,23 @@ def test_claude_code_import_each_session_in_an_archive_is_a_chat(tmp_path):
     logs = ClaudeCodeImporter().import_(archive)
 
     assert [(log.metadata["sessionId"], log.title) for log in logs] == [("s1", "hi from s1"), ("s2", "hi from s2")]
+
+
+def test_claude_code_import_notes_come_from_main_transcripts_only(tmp_path):
+    """The archive keeps subagents, tool output and orphaned copies; a note is the session as it was had."""
+    transcript = _claude_code_text(_claude_code_line("user", "hi", "2025-10-01T10:00:00Z"))
+    subagent = _claude_code_text(_claude_code_line("user", "survey", "2025-10-01T10:00:01Z") | {"isSidechain": True})
+    entries = [
+        {"endpoint": "file", "path": "-work/session-1.jsonl", "response": transcript},
+        {"endpoint": "file", "path": "-work/session-1/subagents/agent-a1.jsonl", "response": subagent},
+        {"endpoint": "file", "path": "-work/session-1/tool-results/b1.bin", "response": "iVBO", "encoding": "base64"},
+        {"endpoint": "file", "path": "-work/session-1.orphaned-1-a2.jsonl", "response": transcript},
+    ]
+    archive = write_archive(tmp_path / "claude-code-wire.jsonl.gz", "claude-code", entries)
+
+    [log] = ClaudeCodeImporter().import_(archive)
+
+    assert [e.content for e in log.events] == ["hi"]
 
 
 def test_claude_code_import_harness_lines_log_no_warnings(tmp_path, caplog):

@@ -7,7 +7,7 @@ from commonplace._fetch._claude_code import ClaudeCodeMemoryFetcher
 from commonplace._fetch._commands import fetch
 from commonplace._import._claude_code_memory import ClaudeCodeMemoryImporter
 from commonplace._utils import load_frontmatter
-from commonplace._wire import read_entries, read_header
+from commonplace._wire import entry_body, read_entries, read_header
 
 MEMORY = """---
 name: prefer-dumb-mechanisms
@@ -47,6 +47,7 @@ def _home(tmp_path: Path) -> Path:
 def test_fetch_records_the_project_paths_and_every_memory_file_verbatim(tmp_path):
     home = _home(tmp_path)
     (home / "projects" / "-work-3rd-doux" / "s1.jsonl").write_text("{}\n")
+    (home / "projects" / "-work-3rd-doux" / "memory" / "scratch.txt").write_bytes(b"\x00\xff")
 
     archive = ClaudeCodeMemoryFetcher(root=home).fetch(tmp_path, since=None)
 
@@ -54,10 +55,21 @@ def test_fetch_records_the_project_paths_and_every_memory_file_verbatim(tmp_path
     entries = list(read_entries(archive))
     assert json.loads(entries[0]["response"]) == ["/work/3rd/doux", "/work/site.github.io"]
     assert [(e["endpoint"], e["path"]) for e in entries[1:]] == [
-        ("memory", "-work-3rd-doux/memory/prefer-dumb-mechanisms.md"),
-        ("memory", "-work-site-github-io/memory/MEMORY.md"),
+        ("file", "-work-3rd-doux/memory/prefer-dumb-mechanisms.md"),
+        ("file", "-work-3rd-doux/memory/scratch.txt"),
+        ("file", "-work-site-github-io/memory/MEMORY.md"),
     ]
-    assert entries[1]["response"] == MEMORY
+    assert [entry_body(e) for e in entries[1:3]] == [MEMORY.encode(), b"\x00\xff"]
+
+
+def test_snapshot_mirrors_only_markdown(tmp_path):
+    home = _home(tmp_path)
+    (home / "projects" / "-work-3rd-doux" / "memory" / "scratch.txt").write_text("not a memory\n")
+    archive = ClaudeCodeMemoryFetcher(root=home).fetch(tmp_path, since=None)
+
+    paths = sorted(n.repo_path.path.name for n in ClaudeCodeMemoryImporter().snapshot(archive).notes)
+
+    assert paths == ["MEMORY.md", "prefer-dumb-mechanisms.md"]
 
 
 def test_fetch_records_nothing_else_from_the_registry(tmp_path):
