@@ -2,6 +2,20 @@
 
 How to work in this repository. `MANIFESTO.md` is the northstar for system design: read it before changing what the system does. A rule that belongs to one module is stated in that module's docstring, so read the docstring before changing the module.
 
+## Principles
+
+What a change must keep true, whatever the code is called.
+
+1. **Capture, interpret, index.** Data flows one way: fetch captures, import or render interprets, index makes searchable. Each stage reads only the one before it, so each can be replayed from it. Archives are primitive, notes are renderings that can be regenerated, and the index is a cache nobody commits.
+1. **Capture is total and dumb; interpretation is revisable.** A fetcher keeps everything verbatim, because whatever it drops is gone for good. Every judgement lives in import, where a later release can make it again from the same archive.
+1. **A tree projection of a graph.** The commonplace is a graph of artefacts, provenance and links, laid out as a tree a person browses: by where (the source or agent the note is with), then when (year, month, date), named by title. Paths are for people: an id only finds a path, and a note keeps its first path, because links and marginalia hang off it.
+1. **One writer per note**, as things stand. A note's writer is the process whose output it is: import renders chats, a mirror copies upstream state, a person writes journal and notes, a skill derives topics. A writer may overwrite its own committed output; nothing overwrites another's, nor anything uncommitted. Everything else said about a note goes in its marginalia.
+1. **Git is the trajectory.** Every write is a commit of exactly what it wrote, so any prior state can be recovered: no dated filenames, no version suffixes.
+1. **Provenance bottoms out at primitives.** A rendered note names the archive it came from; a derived artefact is never cited as a source.
+1. **Every persisted format carries a version.** Readers refuse a newer one, keep reading older ones, and the repo keeps an example of each.
+1. **LLM work goes in skills.** The tooling stays deterministic, for now: anything that needs judgement (synthesis, triage, titling) is a skill run in an agent session over the CLI, and the CLI does what gives the same answer every time.
+1. **Data preservation first**: see Workflow.
+
 ## Commands
 
 ```bash
