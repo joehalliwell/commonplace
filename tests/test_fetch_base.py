@@ -14,7 +14,7 @@ from commonplace._fetch._base import BaseFetcher
 from commonplace._fetch._chatgpt import ChatGptFetcher
 from commonplace._fetch._chatgpt_memory import ChatGptMemoryFetcher
 from commonplace._fetch._claude import ClaudeFetcher
-from commonplace._fetch._claude_code import ClaudeCodeFetcher
+from commonplace._fetch._claude_code import ClaudeCodeFetcher, ClaudeCodeMemoryFetcher
 from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
 from commonplace._fetch._claude_tasks import ClaudeTasksFetcher
 from commonplace._fetch._commands import default_fetchers
@@ -67,7 +67,7 @@ def test_fetchers_satisfy_the_protocol(fetcher_class):
 
 def test_default_fetchers_cover_every_provider(test_repo):
     """`FETCHERS` are the browser-session ones; Claude Code's sessions are local files."""
-    local = {ClaudeCodeFetcher.source}
+    local = {ClaudeCodeFetcher.source, ClaudeCodeMemoryFetcher.source}
     assert {f.source for f in default_fetchers(test_repo.config)} == {c.source for c in FETCHERS} | local
 
 
