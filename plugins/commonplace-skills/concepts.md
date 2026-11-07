@@ -77,7 +77,9 @@ agent's riff, quoted without its speaker, coming back a year later as
 evidence of what the user thought. Every quote carries its speaker. A plan,
 claim or shift counts as the user's only if the user said it, or an agent
 said it and the user took it up in so many words. An agent journal entry is
-its agent's, save the user's words it quotes under `**<user>:**`.
+its agent's, save the user's words it quotes under `**<user>:**`. A `System`
+turn is the harness's (a skill's prompt, command output, a notice), never the
+user's or the agent's: quote it, if at all, as `System`.
 
 ## Silence is not abandonment
 
