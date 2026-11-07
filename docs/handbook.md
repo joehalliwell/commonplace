@@ -82,14 +82,18 @@ capture, so a secret that ever shows up in a session stays in your history.
 
 ### Mirrors
 
-Three more sources mirror agent memory. `claude-memory` mirrors claude.ai's
+Four more sources mirror agent memory. `claude-memory` mirrors claude.ai's
 file-based memory into `memory/claude/`, each file at the path claude.ai gives
 it, titled with the name claude.ai displays. `chatgpt-memory` mirrors the
 sections of ChatGPT's "about you" summary into `memory/chatgpt/`, one file per
 section; ChatGPT generates that summary itself and regenerates it as it learns,
 so it changes without you editing anything. `gemini-memory` mirrors Gemini's
 [saved info](https://gemini.google.com/saved-info) into
-`memory/gemini/saved-info.md`, one bullet per item, oldest first. Each is a
+`memory/gemini/saved-info.md`, one bullet per item, oldest first.
+`claude-code-memory` mirrors the memory Claude Code keeps for each project into
+`memory/claude-code/<project>/`, named for the project's folder (a clash takes
+`-2`), titled by each memory's `name`, with what kind of memory it is under
+`metadata.type`. Each is a
 mirror rather than an import: a memory deleted upstream is deleted here on the
 next fetch, and git history keeps what it used to say. Every mirrored file's
 frontmatter leads with `type: Memory` and its `title`. Memory is materially
