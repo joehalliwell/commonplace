@@ -100,7 +100,7 @@ class ClaudeCodeImporter:
         msg_type = data["type"]
 
         if msg_type not in {"user", "assistant"}:
-            logger.warning(f"Skipping unhandled message type {msg_type}")
+            logger.debug(f"Skipping unhandled message type {msg_type}")
             return None
 
         # Determine role from message type

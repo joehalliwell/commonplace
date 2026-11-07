@@ -397,6 +397,16 @@ def test_claude_code_detection_session_behind_a_metadata_preamble_is_claimed(tmp
     assert claims(ClaudeCodeImporter(), _claude_code_session(tmp_path, *preamble, message))
 
 
+def test_claude_code_import_harness_lines_log_no_warnings(tmp_path, caplog):
+    harness = [{"type": kind, "sessionId": "session-1"} for kind in ("agent-setting", "mode", "worktree-state")]
+    session = _claude_code_session(tmp_path, *harness, _claude_code_line("user", "hi", "2025-10-01T10:00:00Z"))
+
+    with caplog.at_level(logging.WARNING):
+        ClaudeCodeImporter().import_(session)
+
+    assert not caplog.records
+
+
 def test_claude_code_import_titles_a_session_by_its_latest_ai_title_else_summary_else_id(tmp_path):
     message = _claude_code_line("user", "hi", "2025-10-01T10:00:00Z")
     summary = {"type": "summary", "summary": "A greeting"}
