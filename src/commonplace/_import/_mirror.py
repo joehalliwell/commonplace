@@ -1,4 +1,4 @@
-"""Apply a [[commonplace._import._types.MemoryImporter]]'s snapshot to the repository.
+"""Apply a [[commonplace._import._types.MirrorImporter]]'s snapshot to the repository.
 
 A mirror, not an import: the upstream state is live, rewritten and deleted in
 place, so the tree holds what the latest capture listed and git holds the
@@ -9,7 +9,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from commonplace._import._placement import Placement
-from commonplace._import._types import MemoryImporter
+from commonplace._import._types import MirrorImporter
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
@@ -18,7 +18,7 @@ from commonplace._wire import archive_names, read_header
 
 
 def mirror_one(
-    path: Path, repo: Commonplace, importer: MemoryImporter, auto_index: bool | None = None
+    path: Path, repo: Commonplace, importer: MirrorImporter, auto_index: bool | None = None
 ) -> RepoPath | None:
     """Land the files the capture read and prune the paths its listing no longer names; returns the blob stored."""
     tree = importer.tree

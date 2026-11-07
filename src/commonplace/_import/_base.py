@@ -6,7 +6,7 @@ claiming one is the same operation for every provider: read the header,
 compare. Only the headerless v1 case needs provider knowledge, and only for
 providers that existed to write one.
 
-[[commonplace._import._types.ChatImporter]] and its `MemoryImporter` sibling
+[[commonplace._import._types.ChatImporter]] and its `MirrorImporter` sibling
 remain the contracts. Importers that
 consume something other than a wire archive — export ZIPs and Takeout —
 satisfy that Protocol directly and have no business here: they identify

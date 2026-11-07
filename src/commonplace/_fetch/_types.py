@@ -12,7 +12,7 @@ class Fetcher(Protocol):
     A Fetcher records what the provider sent and stops there: it writes a wire
     archive (see [[commonplace._wire]]) and interprets nothing. Interpreting it
     is the paired Importer's job — a ChatImporter for conversations, a
-    MemoryImporter for live state. Each source therefore has both halves, and
+    MirrorImporter for live state. Each source therefore has both halves, and
     the seam between them is the archive on disk.
 
     So a fetcher errs on the side of caution: it captures all of the user's

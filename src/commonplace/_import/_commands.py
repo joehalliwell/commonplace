@@ -23,7 +23,7 @@ from commonplace._import._keep import KeepImporter
 from commonplace._import._mirror import mirror_one
 from commonplace._import._placement import Placement
 from commonplace._import._serializer import MarkdownSerializer
-from commonplace._import._types import ChatImporter, MemoryImporter
+from commonplace._import._types import ChatImporter, MirrorImporter
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
@@ -44,7 +44,7 @@ CHAT_IMPORTERS: list[ChatImporter] = [
 ]
 
 #: Importers that mirror live upstream state into a tree they own; an importer's kind is the list it is in.
-MIRROR_IMPORTERS: list[MemoryImporter] = [
+MIRROR_IMPORTERS: list[MirrorImporter] = [
     GeminiMemoryImporter(),
     ClaudeMemoryImporter(),
     ClaudeCodeMemoryImporter(),
@@ -80,7 +80,7 @@ def landing_tree(source: str) -> Path:
     return Path("chats") / source
 
 
-def autodetect_importer[I: (ChatImporter, MemoryImporter)](path: Path, importers: Sequence[I]) -> I | None:
+def autodetect_importer[I: (ChatImporter, MirrorImporter)](path: Path, importers: Sequence[I]) -> I | None:
     """The first of `importers` to claim the file at `path`."""
     assert path.is_file()
     for importer in importers:

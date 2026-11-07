@@ -58,7 +58,7 @@ def _blobs(repo) -> set[Path]:
 
 
 # ---------------------------------------------------------------------------
-# The contract: a MemoryImporter is claimed like a ChatImporter but interprets differently.
+# The contract: a MirrorImporter is claimed like a ChatImporter but interprets differently.
 # ---------------------------------------------------------------------------
 
 
