@@ -179,3 +179,14 @@ def _entries(captured: list[Path]) -> list[dict]:
 
 def _paths(captured: list[Path]) -> list[str]:
     return sorted(e["path"] for e in _entries(captured))
+
+
+def test_fetch_command_commit_names_each_stored_archive(test_repo, tmp_path):
+    """The temporary directory is gone once the commit lands; the blobs it added are the provenance."""
+    fetch(test_repo, fetchers=[ClaudeCodeFetcher(root=_claude_home(tmp_path))], auto_index=False)
+
+    message = git(test_repo.root, "log", "-1", "--format=%B")
+    stored = test_repo.stored_archives(*archive_names("claude-code"))
+    assert message.startswith("Fetch claude-code: 3 archives")
+    assert all(path.as_posix() in message for path in stored)
+    assert "/tmp" not in message

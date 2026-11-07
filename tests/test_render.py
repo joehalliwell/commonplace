@@ -140,6 +140,17 @@ def test_render_rewrites_a_note_its_last_import_wrote(test_repo, store):
     assert "hi back" in _note(test_repo)[1]
 
 
+def test_render_rewrites_a_note_its_last_fetch_wrote(test_repo, store):
+    store("hi back", fetched_at="2026-08-01T00:00:00+00:00")
+    _render(test_repo)
+    (test_repo.root / NOTE).write_text((test_repo.root / NOTE).read_text().replace("hi back", "stale"))
+    git(test_repo.root, "commit", "-qam", "Fetch claude: .commonplace/blobs/x/claude-wire.jsonl.xz")
+
+    _render(test_repo)
+
+    assert "hi back" in _note(test_repo)[1]
+
+
 def test_render_leaves_a_hand_edited_note_alone_and_names_it(test_repo, store):
     store("hi back", fetched_at="2026-08-01T00:00:00+00:00")
     _render(test_repo)

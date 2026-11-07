@@ -97,15 +97,16 @@ def extract_and_store(archive: Path, member: str, repo: Commonplace) -> RepoPath
         return repo.store_blob(Path(zf.extract(member, tmp)))
 
 
-def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None = None, commit: bool = True):
-    """Import chats, overwriting any already there since commonplace owns them, or hand a mirrored source to `mirror_one`."""
+def import_one(
+    path: Path, repo: Commonplace, user: str, auto_index: bool | None = None, commit: bool = True
+) -> RepoPath | None:
+    """Import chats, or hand a mirrored source to `mirror_one`; returns the blob stored, if any."""
     importer = autodetect_importer(path)
     if not importer:
         logger.debug(f"Skipping {path}")
-        return
+        return None
     if isinstance(importer, MemoryImporter):
-        mirror_one(path, repo, importer, auto_index=auto_index)
-        return
+        return mirror_one(path, repo, importer, auto_index=auto_index)
     # Store only the member an archive's importer reads, or the whole file for non-archives —
     # which includes a member already extracted from one, re-imported from the blob store.
     if importer.member and is_zipfile(path):
@@ -120,6 +121,7 @@ def import_one(path: Path, repo: Commonplace, user: str, auto_index: bool | None
 
     if commit:
         repo.commit(f"Import from '{path}' using '{importer.source}' importer", auto_index=auto_index)
+    return blob
 
 
 def render_chats(

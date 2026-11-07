@@ -10,7 +10,7 @@ from commonplace._fetch._chatgpt import ChatGptFetcher
 from commonplace._fetch._chatgpt_memory import ChatGptMemoryFetcher
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._helpers import FetchBlocked
-from commonplace._wire import read_entries, read_header
+from commonplace._wire import archive_names, read_entries, read_header
 from tests.porcelain import git
 
 SESSION_COOKIES = {"__Secure-next-auth.session-token": "tok"}
@@ -133,3 +133,10 @@ def test_fetch_command_section_dropped_upstream_leaves_the_file(test_repo):
 
     text = (test_repo.root / "memory" / "chatgpt" / "about-you.md").read_text()
     assert "## Work" in text and "## Overview" not in text
+
+
+def test_fetch_command_mirror_commit_names_the_stored_archive(test_repo):
+    fetch(test_repo, fetchers=[FakeMemory().fetcher()], auto_index=False)
+
+    [stored] = test_repo.stored_archives(*archive_names("chatgpt-memory"))
+    assert git(test_repo.root, "log", "-1", "--format=%s").strip() == f"Mirror chatgpt-memory: {stored.as_posix()}"

@@ -23,7 +23,7 @@ RENDER_MESSAGE = "Re-render chats from stored archives"
 
 #: Subjects of the commits that render chats. Anything else last to touch one, `sync`'s auto-commit
 #: included, carries a hand edit, which a re-render would overwrite.
-_RENDERING = ("Import from ", RENDER_MESSAGE)
+_RENDERING = ("Import from ", "Fetch ", RENDER_MESSAGE)
 
 _CHATS = "chats"
 _UNDATED = datetime.min.replace(tzinfo=UTC)

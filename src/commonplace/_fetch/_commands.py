@@ -92,8 +92,13 @@ def _fetch_one(repo: Commonplace, fetcher: Fetcher, auto_index: bool | None, all
             logger.info(f"Nothing new from {fetcher.source}")
             return
         # One fetch is one commit, however many archives it wrote.
-        for archive in archives:
-            # A mirror commits its own; it still needs to know whether to index.
-            import_one(archive, repo, repo.config.user, auto_index=auto_index, commit=False)
-        imported = archives[0] if len(archives) == 1 else tmp
-        repo.commit(f"Import from '{imported}' using '{fetcher.source}' importer", auto_index=auto_index)
+        # A mirror commits its own; it still needs to know whether to index.
+        stored = [import_one(a, repo, repo.config.user, auto_index=auto_index, commit=False) for a in archives]
+        repo.commit(_message(fetcher.source, [b.path.as_posix() for b in stored if b]), auto_index=auto_index)
+
+
+def _message(source: str, blobs: list[str]) -> str:
+    """Name the stored archives, since the temporary ones are gone by the time anyone reads the commit."""
+    if len(blobs) == 1:
+        return f"Fetch {source}: {blobs[0]}"
+    return f"Fetch {source}: {len(blobs)} archives\n\n" + "\n".join(blobs)
