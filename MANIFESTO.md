@@ -2,8 +2,6 @@
 
 *2026-01-31, revised 2026-11-07*
 
-______________________________________________________________________
-
 1 Commonplace is a conversation.
 
 1.1 Its parties are never quite the same twice.
@@ -14,15 +12,13 @@ ______________________________________________________________________
 
 2.1 Each day the table is cleared and laid again.
 
-2.2 Nothing that was ever on it is lost, mistakes included.
+2.2 Last Tuesday's wine spill still happened, even if the linen is clean.
 
 3 Commonplace is a graph.
 
-3.1 It runs from anything to anything.
+3.1 Its what would form in your head if you read it all.
 
-3.2 Most of it is implicit: a name mentioned is a link not yet made.
-
-3.3 What can be seen of it is a tree of files.
+3.3 What can be seen of it is a tree of markdown files.
 
 4 Commonplace records and generates.
 
@@ -32,8 +28,6 @@ ______________________________________________________________________
 
 4.3 They already blur: asking generates a question and records its answer.
 
-5 One day something will replace it. Let it be us.
-
-______________________________________________________________________
+5 One day something will replace this. Let it be us.
 
 *Floreamus.*
