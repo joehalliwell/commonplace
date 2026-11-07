@@ -397,14 +397,16 @@ def test_claude_code_detection_session_behind_a_metadata_preamble_is_claimed(tmp
     assert claims(ClaudeCodeImporter(), _claude_code_session(tmp_path, *preamble, message))
 
 
-def test_claude_code_import_titles_a_session_by_its_summary_else_its_id(tmp_path):
+def test_claude_code_import_titles_a_session_by_its_latest_ai_title_else_summary_else_id(tmp_path):
     message = _claude_code_line("user", "hi", "2025-10-01T10:00:00Z")
     summary = {"type": "summary", "summary": "A greeting"}
+    drafts = [{"type": "ai-title", "aiTitle": title, "sessionId": "session-1"} for title in ("Hello", "Greeting")]
 
     [untitled] = ClaudeCodeImporter().import_(_claude_code_session(tmp_path, message))
-    [titled] = ClaudeCodeImporter().import_(_claude_code_session(tmp_path, summary, message))
+    [summarised] = ClaudeCodeImporter().import_(_claude_code_session(tmp_path, summary, message))
+    [titled] = ClaudeCodeImporter().import_(_claude_code_session(tmp_path, drafts[0], summary, message, drafts[1]))
 
-    assert (untitled.title, titled.title) == ("session-1", "A greeting")
+    assert (untitled.title, summarised.title, titled.title) == ("session-1", "A greeting", "Greeting")
     assert titled.metadata == {"sessionId": "session-1", "cwd": "/work"}
 
 
