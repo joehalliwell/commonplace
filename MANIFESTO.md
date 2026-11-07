@@ -2,7 +2,7 @@
 
 *2026-01-31, revised 2026-11-07*
 
-1 Commonplace is a conversation.
+1 Commonplace is one conversation.
 
 1.1 Whoever takes part changes.
 
@@ -20,13 +20,11 @@
 
 3.2 Its shadow is a git repository.
 
-4 Commonplace is a conversation.
+4 Commonplace is many conversations.
 
-4.1 Conversations record what happens.
+4.1 Some record what happens; some make something new of it.
 
-4.2 Conversations generate something new from what has been kept.
-
-4.3 Most conversations do both.
+4.2 Most do both.
 
 5 One day something will replace this. Let it be us.
 
