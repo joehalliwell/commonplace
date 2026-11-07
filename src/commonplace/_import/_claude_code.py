@@ -1,5 +1,4 @@
 import json
-from itertools import islice
 from pathlib import Path
 from typing import Any
 
@@ -26,19 +25,13 @@ class ClaudeCodeImporter:
         if path.suffix != ".jsonl":
             return False
 
-        messages_by_type: dict[str, dict] = {}
-
+        # The preamble of harness lines before the first turn grows with each release, so read until it.
         with open(path, "r") as fp:
-            for line in islice(fp, 5):
+            for line in fp:
                 data = json.loads(line)
-                messages_by_type[data["type"]] = data
-
-        # Not always present...
-        # assert "file-history-snapshot" in messages_by_type
-        assert "user" in messages_by_type
-        assert "sessionId" in messages_by_type["user"]
-
-        return True
+                if data["type"] == "user":
+                    return "sessionId" in data
+        return False
 
     def import_(self, path: Path) -> list[EventLog]:
         """Import a single Claude Code conversation from JSONL file."""

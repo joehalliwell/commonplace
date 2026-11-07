@@ -389,6 +389,14 @@ def test_claude_code_import_pairs_a_tool_result_with_its_call(tmp_path):
     assert (call.tool, call.args, call.output) == ("Bash", {"command": "ls"}, "a.txt")
 
 
+def test_claude_code_detection_session_behind_a_metadata_preamble_is_claimed(tmp_path, claims):
+    preamble = [{"type": kind, "sessionId": "session-1"} for kind in ("agent-setting", "mode", "permission-mode")]
+    preamble += [{"type": "queue-operation", "sessionId": "session-1"}] * 4
+    message = _claude_code_line("user", "hi", "2025-10-01T10:00:00Z")
+
+    assert claims(ClaudeCodeImporter(), _claude_code_session(tmp_path, *preamble, message))
+
+
 def test_claude_code_import_titles_a_session_by_its_summary_else_its_id(tmp_path):
     message = _claude_code_line("user", "hi", "2025-10-01T10:00:00Z")
     summary = {"type": "summary", "summary": "A greeting"}
