@@ -12,19 +12,21 @@ from commonplace._import._placement import Placement
 from commonplace._import._types import MemoryImporter
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
-from commonplace._types import Note
+from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
 from commonplace._wire import archive_names, read_header
 
 
-def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_index: bool | None = None) -> None:
-    """Land the files the capture read and prune the paths its listing no longer names."""
+def mirror_one(
+    path: Path, repo: Commonplace, importer: MemoryImporter, auto_index: bool | None = None
+) -> RepoPath | None:
+    """Land the files the capture read and prune the paths its listing no longer names; returns the blob stored."""
     tree = importer.tree
     fetched_at = read_header(path).fetched_at
     landed_at = repo.last_commit_time(f"{tree.as_posix()}/")
     if fetched_at and landed_at and fetched_at < landed_at:
         logger.error(f"Not mirroring '{path}': captured {fetched_at}, but '{tree}' was last changed {landed_at}")
-        return
+        return None
 
     # Captures of this source already landed, for an importer whose captures are changes on earlier ones.
     earlier = [repo.root / stored for stored in repo.stored_archives(*archive_names(importer.source))]
@@ -50,9 +52,10 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
     # Decided before the blob is stored, so a capture that changes nothing leaves no trace.
     if not notes and not stale:
         logger.info(f"'{tree}' already matches '{path}'")
-        return
+        return None
 
-    provenance = {"source": importer.source, "source_export": repo.store_blob(path).path.as_posix()}
+    blob = repo.store_blob(path)
+    provenance = {"source": importer.source, "source_export": blob.path.as_posix()}
     for note in notes:
         repo.save(replace(note, metadata=note.metadata | provenance))
         logger.info(f"Mirrored '{note.repo_path}'")
@@ -60,7 +63,8 @@ def mirror_one(path: Path, repo: Commonplace, importer: MemoryImporter, auto_ind
         repo.remove(target)
         logger.info(f"Pruned '{target}'")
 
-    repo.commit(f"Mirror '{path}' using '{importer.source}' importer", auto_index=auto_index)
+    repo.commit(f"Mirror {importer.source}: {blob.path.as_posix()}", auto_index=auto_index)
+    return blob
 
 
 def _placed(root: Path, tree: Path, id_key: str, notes: list[Note]) -> list[Note]:
