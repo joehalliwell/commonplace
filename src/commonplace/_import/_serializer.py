@@ -2,10 +2,9 @@ import re
 from typing import Any
 
 import mdformat
-import yaml
 from pydantic import BaseModel, Field
 
-from commonplace._import._types import EventLog, Message, Role, ToolCall
+from commonplace._import._types import EventLog, Message, Role
 
 # An unclosed artifact runs to the end of its message.
 _ARTIFACT = re.compile(r"(?P<open><antArtifact\b[^>]*>)\n(?P<body>.*?)\n?(?:(?P<close></antArtifact>)|\Z)", re.DOTALL)
@@ -44,7 +43,6 @@ class MarkdownSerializer(BaseModel):
     agent: str = Field(default="Agent", description="Name to use for the AI agent")
     timespec: str = Field(default="seconds", description="Timespec for isoformat used in titles")
     wrap: int = Field(default=80, description="Target characters per line for text wrapping")
-    inline_tool_output: bool = Field(default=True, description="If true, tool output will be included in full")
 
     def serialize(self, log: EventLog) -> str:
         """
@@ -77,24 +75,6 @@ class MarkdownSerializer(BaseModel):
                 else:
                     lines.append(_fence_artifacts(event.content))
                 lines.append("")
-
-            elif isinstance(event, ToolCall):
-                assert isinstance(event, ToolCall)
-                self._add_header(
-                    lines,
-                    f"{event.tool} call",
-                    level=2,
-                    created=event.created.isoformat(timespec=self.timespec),
-                )
-                lines.append("")
-                details = {
-                    "tool": event.tool,
-                    "args": event.args,
-                }
-                if self.inline_tool_output:
-                    details["output"] = event.output
-                yaml_str = yaml.dump(details, sort_keys=False)
-                lines.append(f"```yaml\n{yaml_str}\n```")
 
         markdown = "\n".join(lines)
         return mdformat.text(

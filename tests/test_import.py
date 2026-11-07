@@ -375,22 +375,107 @@ def _claude_code_session(tmp_path: Path, *lines: dict) -> Path:
     return write_archive(tmp_path / "claude-code-wire.jsonl.gz", "claude-code", [entry])
 
 
-def test_claude_code_import_pairs_a_tool_result_with_its_call(tmp_path):
-    tool_use = {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls"}}
-    tool_result = {"type": "tool_result", "tool_use_id": "t1", "content": "a.txt"}
+def _tool_use(name: str, tool_input: dict, id: str = "t1") -> dict:
+    return {"type": "tool_use", "id": id, "name": name, "input": tool_input}
+
+
+def _tool_result(content, id: str = "t1") -> dict:
+    return {"type": "tool_result", "tool_use_id": id, "content": content}
+
+
+def test_claude_code_import_tool_call_is_a_line_in_the_agents_turn_without_its_output(tmp_path):
     session = _claude_code_session(
         tmp_path,
         _claude_code_line("user", "list the files", "2025-10-01T10:00:00Z"),
-        _claude_code_line("assistant", [{"type": "text", "text": "Looking."}, tool_use], "2025-10-01T10:00:01Z"),
-        _claude_code_line("user", [tool_result], "2025-10-01T10:00:02Z"),
+        _claude_code_line(
+            "assistant",
+            [{"type": "text", "text": "Looking."}, _tool_use("Bash", {"command": "ls", "description": "List"})],
+            "2025-10-01T10:00:01Z",
+        ),
+        _claude_code_line("user", [_tool_result("a.txt")], "2025-10-01T10:00:02Z"),
+        _claude_code_line("assistant", "One file.", "2025-10-01T10:00:03Z"),
     )
 
     [log] = ClaudeCodeImporter().import_(session)
 
-    user, agent, call = log.events
-    assert (user.sender, user.content) == (Role.USER, "list the files")
-    assert (agent.sender, agent.content) == (Role.AGENT, "Looking.")
-    assert (call.tool, call.args, call.output) == ("Bash", {"command": "ls"}, "a.txt")
+    assert [(e.sender, e.content) for e in log.events] == [
+        (Role.USER, "list the files"),
+        (Role.AGENT, "Looking.\n\n- Bash: `ls`\n\nOne file."),
+    ]
+    assert log.events[1].created == datetime(2025, 10, 1, 10, 0, 1, tzinfo=UTC)
+
+
+def test_claude_code_import_consecutive_tool_calls_are_one_list(tmp_path):
+    session = _claude_code_session(
+        tmp_path,
+        _claude_code_line("assistant", [_tool_use("Read", {"file_path": "a.py"}, "t1")], "2025-10-01T10:00:00Z"),
+        _claude_code_line("assistant", [_tool_use("Read", {"file_path": "b.py"}, "t2")], "2025-10-01T10:00:01Z"),
+        _claude_code_line("user", [_tool_result("…", "t1"), _tool_result("…", "t2")], "2025-10-01T10:00:02Z"),
+        _claude_code_line("assistant", [_tool_use("TodoWrite", {"todos": []}, "t3")], "2025-10-01T10:00:03Z"),
+    )
+
+    [log] = ClaudeCodeImporter().import_(session)
+
+    assert [e.content for e in log.events] == ["- Read: `a.py`\n- Read: `b.py`\n- TodoWrite"]
+
+
+@pytest.mark.parametrize(
+    ("argument", "line"),
+    [
+        ("cd src\n  make  all", "- Bash: `cd src make all`"),
+        ("`date`", "- Bash: `` `date` ``"),
+        ("x" * 100, "- Bash: `" + "x" * 79 + "…`"),
+    ],
+)
+def test_claude_code_import_tool_line_is_its_first_text_argument_on_one_short_line(tmp_path, argument, line):
+    session = _claude_code_session(
+        tmp_path, _claude_code_line("assistant", [_tool_use("Bash", {"command": argument})], "2025-10-01T10:00:00Z")
+    )
+
+    [log] = ClaudeCodeImporter().import_(session)
+
+    assert [e.content for e in log.events] == [line]
+
+
+def test_claude_code_import_thinking_is_left_out(tmp_path):
+    thinking = {"type": "thinking", "thinking": "Hmm, the build.", "signature": "s"}
+    session = _claude_code_session(
+        tmp_path,
+        _claude_code_line("assistant", [thinking, {"type": "text", "text": "Fixed."}], "2025-10-01T10:00:00Z"),
+    )
+
+    [log] = ClaudeCodeImporter().import_(session)
+
+    assert [e.content for e in log.events] == ["Fixed."]
+
+
+def test_claude_code_import_answers_to_the_agents_questions_are_the_users(tmp_path):
+    question = "Which store?"
+    answered = _claude_code_line(
+        "user",
+        [_tool_result(f'Your questions have been answered: "{question}"="SQLite". You can now continue.')],
+        "2025-10-01T10:00:02Z",
+    ) | {
+        "toolUseResult": {
+            "questions": [{"question": question}],
+            "answers": {question: "SQLite"},
+            "annotations": {question: {"notes": "it's already a dependency"}},
+        }
+    }
+    session = _claude_code_session(
+        tmp_path,
+        _claude_code_line(
+            "assistant", [_tool_use("AskUserQuestion", {"questions": [{"question": question}]})], "2025-10-01T10:00:01Z"
+        ),
+        answered,
+    )
+
+    [log] = ClaudeCodeImporter().import_(session)
+
+    assert [(e.sender, e.content) for e in log.events] == [
+        (Role.AGENT, "- AskUserQuestion"),
+        (Role.USER, "> Which store?\n\nSQLite: it's already a dependency"),
+    ]
 
 
 def test_claude_code_detection_session_log_is_left_to_fetch(tmp_path):
@@ -489,7 +574,7 @@ def test_claude_code_import_a_prompt_queued_mid_turn_is_the_users(tmp_path):
     assert [(e.sender, e.content) for e in log.events] == [(Role.USER, "start"), (Role.USER, "wait, stop")]
 
 
-def test_claude_code_import_harness_turns_are_system_and_commands_the_users(tmp_path):
+def test_claude_code_import_harness_turns_are_left_out_and_commands_are_the_users(tmp_path):
     command = "<command-message>rake</command-message>\n<command-name>/rake</command-name>\n<command-args>quick</command-args>"
     turns = [
         (command, {}),
@@ -510,12 +595,7 @@ def test_claude_code_import_harness_turns_are_system_and_commands_the_users(tmp_
     assert [(e.sender, e.content) for e in log.events] == [
         (Role.USER, "/rake quick"),
         (Role.USER, "/clear"),
-        (Role.SYSTEM, "<local-command-stdout>cleared</local-command-stdout>"),
         (Role.USER, "!ls"),
-        (Role.SYSTEM, "<bash-stdout>a.txt</bash-stdout><bash-stderr></bash-stderr>"),
-        (Role.SYSTEM, "<task-notification>finished</task-notification>"),
-        (Role.SYSTEM, "Base directory for this skill: /skills/rake"),
-        (Role.SYSTEM, "This session is being continued from a previous conversation."),
     ]
 
 
@@ -530,23 +610,6 @@ def test_claude_code_import_untitled_session_is_titled_by_the_users_first_prompt
     [log] = ClaudeCodeImporter().import_(session)
 
     assert log.title == "Why is the build red after the dependency bump that landed…"
-
-
-def test_claude_code_import_image_in_tool_output_is_a_placeholder(tmp_path):
-    image = {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "iVBORw0KGgo="}}
-    tool_use = {"type": "tool_use", "id": "t1", "name": "Screenshot", "input": {}}
-    tool_result = {"type": "tool_result", "tool_use_id": "t1", "content": [{"type": "text", "text": "shot"}, image]}
-    session = _claude_code_session(
-        tmp_path,
-        _claude_code_line("user", "look", "2025-10-01T10:00:00Z"),
-        _claude_code_line("assistant", [tool_use], "2025-10-01T10:00:01Z"),
-        _claude_code_line("user", [tool_result], "2025-10-01T10:00:02Z"),
-    )
-
-    [log] = ClaudeCodeImporter().import_(session)
-
-    [call] = [e for e in log.events if not isinstance(e, Message)]
-    assert call.output == [{"type": "text", "text": "shot"}, {"type": "image"}]
 
 
 def test_claude_code_import_records_each_model_once_in_order(tmp_path):

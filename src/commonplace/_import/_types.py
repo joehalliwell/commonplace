@@ -37,12 +37,6 @@ class Message(Event):
     content: str = Field(description="The content of the message in Markdown")
 
 
-class ToolCall(Event):
-    tool: str = Field(description="The name of tool")
-    args: dict[str, Any] = Field(description="The arguments to the tool call")
-    output: str = Field(description="The output from the tool call")
-
-
 class EventLog(BaseModel):
     """
     Represents a log of activity, which may include one or more messages or

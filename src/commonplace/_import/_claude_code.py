@@ -6,7 +6,7 @@ from textwrap import shorten
 from typing import Any
 
 from commonplace._import._base import BaseWireImporter
-from commonplace._import._types import Event, EventLog, Message, Role, ToolCall, models_field
+from commonplace._import._types import EventLog, Message, Role, models_field
 from commonplace._logging import logger
 from commonplace._utils import truncate
 from commonplace._wire import entry_body, read_entries
@@ -29,7 +29,7 @@ class ClaudeCodeImporter(BaseWireImporter):
 
     def _session(self, transcript: str, where: str) -> list[EventLog]:
         """One session's transcript as a chat, or none if it holds no turns."""
-        events: list[Event] = []
+        events: list[Message] = []
         required_metadata = (
             "sessionId",
             "timestamp",
@@ -38,7 +38,6 @@ class ClaudeCodeImporter(BaseWireImporter):
         )
         metadata = {}
         models: list[str | None] = []
-        tool_calls: dict[str, ToolCall] = {}
         ai_title: str | None = None
 
         for data in _records(transcript, where):
@@ -57,12 +56,10 @@ class ClaudeCodeImporter(BaseWireImporter):
                 if val := data.get(required, data.get("message", {}).get(required)):
                     metadata[required] = val
 
-            if message := self._process_event(data, tool_calls):
+            if message := self._process_event(data):
                 events.append(message)
 
-        # Add in the tool calls and sort
-        events.extend(tool_calls.values())
-        events.sort(key=lambda evt: evt.created)
+        events = _merged(sorted(events, key=lambda evt: evt.created))
 
         if not events:
             logger.warning(f"No messages found in {where}")
@@ -74,7 +71,7 @@ class ClaudeCodeImporter(BaseWireImporter):
         # Extract title and created time
         created = metadata.pop("timestamp")
         summary = metadata.pop("summary", None)
-        prompt = next((e.content.strip() for e in events if isinstance(e, Message) and e.sender == Role.USER), "")
+        prompt = next((e.content.strip() for e in events if e.sender == Role.USER), "")
         first_line = shorten(prompt.splitlines()[0], 60, placeholder="…") if prompt else None
         title = ai_title or summary or first_line or metadata["sessionId"]
 
@@ -89,8 +86,8 @@ class ClaudeCodeImporter(BaseWireImporter):
         ]
 
     @staticmethod
-    def _process_event(data: dict[str, Any], tool_calls: dict[str, ToolCall]) -> Message | None:
-        """Parse a user or assistant message from Messages API format."""
+    def _process_event(data: dict[str, Any], tools: bool = True) -> Message | None:
+        """A record as a turn: what the user or agent said, each tool call a line; its output stays in the archive."""
         msg_type = data["type"]
 
         # A prompt typed while the agent works is absorbed mid-turn and recorded only as an attachment.
@@ -102,67 +99,87 @@ class ClaudeCodeImporter(BaseWireImporter):
             logger.debug(f"Skipping unhandled message type {msg_type}")
             return None
 
-        # Determine role from message type
-        role = Role.USER if msg_type == "user" else Role.AGENT
+        if answers := _answers(data):
+            return Message(sender=Role.USER, content=answers, created=data["timestamp"])
 
-        # Extract content from message structure
+        role = Role.USER if msg_type == "user" else Role.AGENT
         content = data["message"]["content"]
 
         if not content:
             logger.warning(f"Skipping message without content: {truncate(str(data))}")
             return None
 
-        # Handle basic (single-part) content as string
-        if isinstance(content, str):
-            if role == Role.USER:
-                role, content = _attribute(data, content)
-            return Message(sender=role, content=content, created=data["timestamp"])
+        if isinstance(content, list):
+            blocks = []
+            for block in content:
+                block_type = block["type"]
+                if block_type == "text":
+                    blocks.append(block["text"])
+                elif block_type == "tool_use":
+                    if tools:
+                        blocks.append(_tool_line(block["name"], block.get("input", {})))
+                elif block_type not in {"thinking", "redacted_thinking", "tool_result"}:
+                    logger.debug(f"Skipping {block_type} content block")
+                    blocks.append(f"<!-- Skipped content of type {block_type} -->")
+            if not blocks:
+                return None
+            content = _joined(blocks)
 
-        # Handle multi-part content
-        assert isinstance(content, list)
-
-        # Parse content blocks (array format)
-        blocks = []
-        for block in content:
-            block_type = block["type"]
-
-            if block_type == "text":
-                blocks.append(block["text"])
-
-            elif block_type == "thinking":
-                # Include thinking blocks as collapsed sections; a redacted one carries only its signature
-                if thinking := block["thinking"]:
-                    blocks.append(f"<!--\n{thinking}\n-->")
-
-            elif block_type == "tool_use":
-                # Format tool calls
-                tool_use_id = block["id"]
-                tool_name = block["name"]
-                tool_input = block.get("input", {})
-                timestamp = data["timestamp"]
-
-                tool_calls[tool_use_id] = ToolCall(created=timestamp, tool=tool_name, args=tool_input, output="PENDING")
-
-            elif block_type == "tool_result":
-                output = block["content"]
-                # An image's base64 would swamp the note; the stored session keeps it.
-                if isinstance(output, list):
-                    output = [{"type": "image"} if part.get("type") == "image" else part for part in output]
-                tool_calls[block["tool_use_id"]].output = output
-
-            else:
-                logger.debug(f"Skipping {block_type} content block")
-                blocks.append(f"<!-- Skipped content of type {block_type} -->")
-
-        # If there's no direct output i.e. we're just dealing with tool results
-        if not blocks:
-            return None
-
-        content = "\n\n".join(blocks)
         if role == Role.USER:
             role, content = _attribute(data, content)
-
+        if role == Role.SYSTEM:
+            return None
         return Message(sender=role, content=content, created=data["timestamp"])
+
+
+def _tool_line(name: str, tool_input: dict[str, Any]) -> str:
+    """A tool call as a list item: its name and first text argument, on one shortened line."""
+    target = next((" ".join(v.split()) for v in tool_input.values() if isinstance(v, str) and v.strip()), None)
+    if target is None:
+        return f"- {name}"
+    if len(target) > _TOOL_LINE:
+        target = target[: _TOOL_LINE - 1] + "…"
+    ticks = "`" * (max((len(run) for run in re.findall(r"`+", target)), default=0) + 1)
+    pad = " " if target.startswith("`") or target.endswith("`") else ""
+    return f"- {name}: {ticks}{pad}{target}{pad}{ticks}"
+
+
+_TOOL_LINE = 80
+
+
+def _joined(parts: list[str]) -> str:
+    """Parts as paragraphs, but adjacent list items as one list."""
+    joined = parts[0]
+    for part in parts[1:]:
+        tight = joined.rsplit("\n", 1)[-1].startswith("- ") and part.startswith("- ")
+        joined += ("\n" if tight else "\n\n") + part
+    return joined
+
+
+def _merged(events: list[Message]) -> list[Message]:
+    """Consecutive agent records as one turn, as it was had: Claude Code writes each content block as a record."""
+    merged: list[Message] = []
+    for event in events:
+        if merged and event.sender == merged[-1].sender == Role.AGENT:
+            merged[-1] = merged[-1].model_copy(update={"content": _joined([merged[-1].content, event.content])})
+        else:
+            merged.append(event)
+    return merged
+
+
+def _answers(data: dict[str, Any]) -> str | None:
+    """The user's answers to the agent's questions: a tool result, but the user's words."""
+    result = data.get("toolUseResult")
+    if not (isinstance(result, dict) and isinstance(answers := result.get("answers"), dict)):
+        return None
+    annotations = result.get("annotations") or {}
+
+    def answer(question: str, choice: str) -> str:
+        quoted = "\n".join(f"> {line}" for line in question.splitlines())
+        notes = (annotations.get(question) or {}).get("notes")
+        return f"{quoted}\n\n{choice}" + (f": {notes}" if notes else "")
+
+    return "\n\n".join(answer(q, a) for q, a in answers.items())
 
 
 def _is_transcript(path: str) -> bool:
