@@ -11,6 +11,7 @@ from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._claude_code import ClaudeCodeImporter
+from commonplace._import._claude_code_memory import ClaudeCodeMemoryImporter
 from commonplace._import._claude_export import ClaudeExportImporter
 from commonplace._import._claude_memory import ClaudeMemoryImporter
 from commonplace._import._claude_tasks import ClaudeTasksImporter
@@ -38,6 +39,7 @@ IMPORTERS: list[ChatImporter | MemoryImporter] = [
     ClaudeMemoryImporter(),
     ClaudeTasksImporter(),
     ClaudeCodeImporter(),
+    ClaudeCodeMemoryImporter(),
     ChatGptWireImporter(),
     ChatGptMemoryImporter(),
     KeepImporter(),
