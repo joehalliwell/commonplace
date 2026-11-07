@@ -108,11 +108,10 @@ def test_fetch_with_a_cursor_still_records_everything(tmp_path):
     assert [e["endpoint"] for e in read_entries(archive)] == ["memories", "summary"]
 
 
-def test_fetch_command_mirrors_each_section_into_the_memory_tree(test_repo):
+def test_fetch_command_mirrors_the_summary_into_one_file(test_repo):
     fetch(test_repo, fetchers=[FakeMemory().fetcher()], auto_index=False)
 
-    landed = {p.name for p in (test_repo.root / "memory" / "chatgpt").iterdir()}
-    assert landed == {"overview.md", "work.md"}
+    assert {p.name for p in (test_repo.root / "memory" / "chatgpt").iterdir()} == {"about-you.md"}
 
 
 def test_fetch_command_unchanged_summary_makes_no_commit(test_repo):
@@ -125,11 +124,12 @@ def test_fetch_command_unchanged_summary_makes_no_commit(test_repo):
     assert git(test_repo.root, "rev-parse", "HEAD") == head
 
 
-def test_fetch_command_section_dropped_upstream_is_pruned(test_repo):
+def test_fetch_command_section_dropped_upstream_leaves_the_file(test_repo):
     memory = FakeMemory()
     fetch(test_repo, fetchers=[memory.fetcher()], auto_index=False)
 
     memory.sections = SECTIONS[1:]
     fetch(test_repo, fetchers=[memory.fetcher()], auto_index=False)
 
-    assert {p.name for p in (test_repo.root / "memory" / "chatgpt").iterdir()} == {"work.md"}
+    text = (test_repo.root / "memory" / "chatgpt" / "about-you.md").read_text()
+    assert "## Work" in text and "## Overview" not in text

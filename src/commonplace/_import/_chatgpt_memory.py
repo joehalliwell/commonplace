@@ -29,15 +29,16 @@ class ChatGptMemoryImporter(BaseWireImporter):
                 repo_path = RepoPath(self.tree / "saved-memories.md")
                 notes.append(Note.compose(repo_path, "Memory", title, f"# {title}\n\n{bullets}"))
             elif entry.get("endpoint") == "summary" and (done := _done(entry["response"])) is not None:
-                # Each section's id is a stable slug, so it names the file. Follow-ups are prompts, not
-                # memory, so a section that is nothing else lands nothing.
+                # One file, since every regeneration redraws the sections under new ids. Follow-ups are
+                # prompts, not memory, so a section that is nothing else lands nothing.
                 summarised = True
-                updated = {"updated_at": done["generatedAtIso"]}
-                for s in done["sections"]:
-                    if s["description"]:
-                        repo_path = RepoPath(self.tree / f"{s['id']}.md")
-                        body = f"# {s['title']}\n\n{s['description']}"
-                        notes.append(Note.compose(repo_path, "Memory", s["title"], body, updated))
+                if sections := "".join(
+                    f"\n## {s['title']}\n\n{s['description']}\n" for s in done["sections"] if s["description"]
+                ):
+                    title = "About you"
+                    repo_path = RepoPath(self.tree / "about-you.md")
+                    body = f"# {title}\n{sections}"
+                    notes.append(Note.compose(repo_path, "Memory", title, body, {"updated_at": done["generatedAtIso"]}))
         # Without the summary's `done` event the sections may be partial, so absence proves nothing.
         return Snapshot(notes) if summarised else Snapshot(notes, None)
 
