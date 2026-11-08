@@ -1,3 +1,4 @@
+import hashlib
 import json
 import shutil
 import subprocess
@@ -6,7 +7,8 @@ from pathlib import Path
 import pytest
 
 from commonplace._import._commands import import_
-from commonplace._repo import Commonplace, _hash_file
+from commonplace._repo import Commonplace
+from commonplace._types import Blob
 from commonplace._utils import load_frontmatter
 
 SAMPLE_EXPORTS_DIR = Path(__file__).parent / "resources" / "sample-exports"
@@ -29,11 +31,18 @@ def test_store_blob_after_files_read_lands_links_to_it(test_repo, sample_file):
     assert test_repo.files.named("sample.txt") == [stored.path]
 
 
+def test_a_blobs_path_is_its_contents_sha256_then_its_name(sample_file):
+    """A blob is immutable, so the same capture lands at the same path however often it's stored."""
+    digest = hashlib.sha256(b"hello world").hexdigest()
+
+    assert Blob.of(sample_file) == Blob(Path(".commonplace/blobs") / digest / "sample.txt")
+
+
 def test_store_blob_copies_file(test_repo, sample_file):
     """File appears at .commonplace/blobs/<hash>/<name> and the next commit includes it."""
     repo_path = test_repo.store_blob(sample_file)
 
-    digest = _hash_file(sample_file)
+    digest = hashlib.sha256(sample_file.read_bytes()).hexdigest()
     expected_rel = Path(".commonplace") / "blobs" / digest / "sample.txt"
     assert repo_path.path == expected_rel
 
