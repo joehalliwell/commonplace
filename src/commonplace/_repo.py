@@ -12,20 +12,18 @@ import os
 import shutil
 import subprocess
 import time
-from collections.abc import Iterator
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass, field, replace
+from datetime import UTC, date, datetime
 from functools import cached_property, lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from commonplace._config import BLOBS, CACHE, CONFIG
+from commonplace._links import BrokenLink, Edge, Names, Target, UnresolvedNote, broken, lands, resolve, resolve_target
 from commonplace._logging import logger
-from commonplace._types import Note, Pathlike, RepoPath
+from commonplace._marginalia import annotated_notes, read_marginalia, write_marginalia
+from commonplace._types import Marginalia, Note, Pathlike, RepoPath
 from commonplace._utils import dump_frontmatter, load_frontmatter
-
-if TYPE_CHECKING:
-    from commonplace._graph import Graph
 
 # What `init` lays down, as it lands in a repo. Its dotfiles match nothing here, so they are inert.
 _SCAFFOLD_ROOT = Path(__file__).parent / "resources" / "scaffold"
@@ -260,12 +258,13 @@ class Commonplace:
     @cached_property
     def index(self):
         """Get the search index."""
-        from commonplace._graph import Node
         from commonplace._search._sqlite import SQLiteSearchIndex
 
         index_path = self.cache / "index.db"
         return SQLiteSearchIndex(
-            index_path, note_exists=self.note_exists, is_hidden=lambda path: "hidden" in Node(self.root, path).labels
+            index_path,
+            note_exists=self.note_exists,
+            is_hidden=lambda path: "hidden" in self.load(RepoPath(path)).labels,
         )
 
     def note_exists(self, repo_path: RepoPath) -> bool:
@@ -386,12 +385,6 @@ class Commonplace:
             if not any(part.startswith(".") for part in path.parts[:-1]) and (self.root / path).exists():
                 yield path
 
-    def graph(self) -> "Graph":
-        """The repository as a graph, one node per file `paths` gives."""
-        from commonplace._graph import Graph
-
-        return Graph(self.root, self.paths())
-
     def history(self, path: Path) -> list[tuple[str, str]]:
         """The commits that changed `path`, newest first, following renames, as (date, subject)."""
         out = self._git("log", "--follow", "--format=%as%x00%s", "--", path.as_posix())
@@ -416,21 +409,13 @@ class Commonplace:
                 yield self._repo_path(path, head)
 
     def load(self, repo_path: RepoPath) -> Note:
-        """
-        Fetch a note at a specific repository location.
-
-        Args:
-            repo_path: The repository path to fetch
-
-        Returns:
-            Note object with its metadata and body
-        """
+        """The note at `repo_path`, as the working tree has it, with its marginalia; one that's gone reads as empty."""
         logger.debug(f"Fetching note at {repo_path}")
-        abs_path = self.root / repo_path.path
-
-        with open(abs_path) as fd:
-            metadata, body = load_frontmatter(fd.read())
-        return Note(repo_path=repo_path, body=body, metadata=metadata)
+        path = self.root / repo_path.path
+        text = path.read_text(errors="replace") if repo_path.path.suffix == ".md" and path.exists() else ""
+        metadata, body = load_frontmatter(text)
+        marginalia = read_marginalia(self.root, repo_path.path)
+        return Note(repo_path=repo_path, body=body, metadata=metadata, marginalia=marginalia, text=text)
 
     def save(self, note: Note) -> None:
         """Save a note to working directory for the next commit. Beware! This will overwrite
@@ -440,11 +425,106 @@ class Commonplace:
         with open(abs_path, "w") as fd:
             fd.write(dump_frontmatter(note.metadata, note.body))
         self._pending.add(note.repo_path.path.as_posix())
+        self.__dict__.pop("_names", None)
 
     def remove(self, path: Path) -> None:
         """Delete a file from the working directory, for the next commit."""
         (self.root / path).unlink()
         self._pending.add(path.as_posix())
+        self.__dict__.pop("_names", None)
+
+    # --- The repository as a graph: each file a node, its path its id, each link a note makes an edge ---
+
+    def notes(self) -> list[Note]:
+        """Every node that makes edges: each note, and each one gone whose marginalia remain."""
+        present = list(self.note_paths())
+        gone = set(annotated_notes(self.root)) - {repo_path.path for repo_path in present}
+        notes = [*map(self.load, present), *(self.load(RepoPath(path)) for path in gone)]
+        return sorted(notes, key=lambda note: str(note.repo_path.path))
+
+    def lands(self, edge: Edge) -> list[Path]:
+        """Every node `edge` could mean; each caller says how many it accepts."""
+        return lands(edge, self.root, self._names)
+
+    def into(self, path: Path) -> list[Edge]:
+        """Every edge from another note that could mean `path`."""
+        return [
+            edge
+            for note in self.notes()
+            if note.repo_path.path != path
+            for edge in note.edges
+            if path in self.lands(edge)
+        ]
+
+    def check(self) -> list[BrokenLink]:
+        """Every edge that lands on no node, or on no span it names."""
+        return [
+            found for note in self.notes() for edge in note.edges if (found := broken(edge, self.root, self._names))
+        ]
+
+    def resolve(self, spec: str) -> list[Path]:
+        """The notes a spec names: exactly one, or every match of a glob."""
+        return resolve(spec, self._names)
+
+    def resolve_target(self, spec: str) -> Target:
+        """The one note `spec` names, and the span in it if it names one."""
+        return resolve_target(spec, self.root, self._names)
+
+    def notes_named(self, spec: str) -> list[Path]:
+        """The whole notes `spec` names; a span is refused, since marginalia speak for a whole note."""
+        if "#" in spec:
+            raise UnresolvedNote(f"'{spec}' names a span; marginalia belong to whole notes")
+        return self.resolve(spec)
+
+    def tag(self, spec: str, tags: list[str]) -> list[Path]:
+        """Label the notes `spec` names in their marginalia, committing as the user; returns the notes."""
+        return self._retag(spec, lambda marginalia: marginalia.tagged(*tags), f"Tag {spec}: {', '.join(tags)}")
+
+    def untag(self, spec: str, tags: list[str]) -> list[Path]:
+        """Remove labels from the marginalia of the notes `spec` names, committing as the user; returns the notes."""
+        return self._retag(spec, lambda marginalia: marginalia.untagged(*tags), f"Untag {spec}: {', '.join(tags)}")
+
+    def link(self, from_spec: str, to_spec: str, why: str, on: date | None = None) -> Target:
+        """Add an edge from a whole note to a note or a span in one, in its marginalia, committing as the user."""
+        if "#" in from_spec:
+            raise UnresolvedNote(f"'{from_spec}' names a span; marginalia belong to whole notes")
+        source, target = self.resolve_target(from_spec).note, self.resolve_target(to_spec)
+        today = date.today()  # noqa: DTZ011 - the user's local day, as the journal's
+        marginalia = read_marginalia(self.root, source).linked(target, why, on or today)
+        write_marginalia(self, replace(marginalia, ref=self.make_repo_path(source).ref))
+        self.commit(f"Link {from_spec} to {target}", auto_index=False, as_user=True)
+        return target
+
+    def unlink(self, from_spec: str, to_spec: str) -> int:
+        """Remove a note's edges to exactly `to_spec`'s target from its marginalia, committing as the user."""
+        note = self.load(RepoPath(self.resolve_target(from_spec).note))
+        try:
+            target = str(self.resolve_target(to_spec))
+        except UnresolvedNote as e:
+            # An edge whose note is gone can't be named any more, so take it as the marginalia write it.
+            target = to_spec.removeprefix("[[").removesuffix("]]")
+            if target not in [said.link.target for said in note.said]:
+                dead = [said.link.target for said in note.said if not self.lands(said)]
+                hint = f"; a link whose note is gone is removed as written: {', '.join(dead)}" if dead else ""
+                raise UnresolvedNote(f"{e}{hint}") from e
+        marginalia, removed = note.unlinked(target)
+        if not removed:
+            raise ValueError(f"'{from_spec}' has no link to {target}")
+        write_marginalia(self, marginalia)
+        self.commit(f"Unlink {from_spec} from {target}", auto_index=False, as_user=True)
+        return removed
+
+    def _retag(self, spec: str, change: Callable[[Marginalia], Marginalia], message: str) -> list[Path]:
+        notes = self.notes_named(spec)
+        for note in notes:
+            write_marginalia(self, replace(change(read_marginalia(self.root, note)), ref=self.make_repo_path(note).ref))
+        self.commit(message, auto_index=False, as_user=True)
+        return notes
+
+    @cached_property
+    def _names(self) -> Names:
+        """The files, indexed for landing edges and resolving specs; dropped on any write."""
+        return Names(self.paths())
 
     def commit(self, message: str, auto_index: bool | None = None, *, as_user: bool = False) -> None:
         """Commit what this repo has saved, removed or stored since the last commit, and nothing else.

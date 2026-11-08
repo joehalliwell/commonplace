@@ -11,7 +11,9 @@ from pathlib import Path
 import pytest
 import yaml
 
+from commonplace._marginalia import marginalia_path
 from commonplace._repo import Commonplace
+from commonplace._show import links
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
 from tests.porcelain import git
@@ -269,7 +271,7 @@ def test_init_seeds_a_root_index_declaring_okf_version(test_repo):
 
 def test_init_creates_every_folder_the_root_index_links(test_repo):
     """A fresh repo has the folders its root index describes, so no link needs excusing."""
-    assert test_repo.graph().check() == []
+    assert test_repo.check() == []
 
 
 def test_init_scaffolds_mdformat_that_preserves_wikilinks(test_repo):
@@ -453,3 +455,50 @@ def test_commit_index_locked_too_long_raises_and_leaves_index(test_repo, make_no
         test_repo.commit("Add note", auto_index=False)
 
     assert index.read_bytes() == before
+
+
+# --- The repository as a graph ------------------------------------------------
+
+IDEAS, OTHER = Path("notes/ideas.md"), Path("notes/other.md")
+
+
+def _write(repo: Commonplace, files: dict[Path, str]) -> None:
+    for path, text in files.items():
+        (repo.root / path).parent.mkdir(parents=True, exist_ok=True)
+        (repo.root / path).write_text(text)
+
+
+def test_a_notes_labels_are_its_own_tags_then_its_marginalias(test_repo):
+    _write(
+        test_repo,
+        {
+            IDEAS: "---\ntags:\n- tea\n---\n# Ideas\n",
+            marginalia_path(IDEAS): "---\nmarginalia: 1\ntags:\n- hidden\n- tea\n---\n",
+        },
+    )
+
+    assert test_repo.load(RepoPath(IDEAS)).labels == ["tea", "hidden"]
+
+
+def test_an_edge_in_marginalia_is_written_in_their_file_and_lands_from_the_note(test_repo):
+    """The second body is a file of its own, so that's where the edge is; the edge is the note's, so it lands from it."""
+    _write(
+        test_repo,
+        {
+            IDEAS: "# Ideas\n",
+            OTHER: "# Other\n",
+            marginalia_path(IDEAS): "---\nmarginalia: 1\n---\n\n- see [the other](other.md)\n",
+        },
+    )
+
+    [edge] = test_repo.load(RepoPath(IDEAS)).edges
+
+    assert (edge.link.source, edge.link.line) == (marginalia_path(IDEAS), 5)
+    assert test_repo.lands(edge) == [OTHER]
+
+
+def test_a_note_labelled_hidden_in_its_own_frontmatter_is_left_out_of_links(test_repo):
+    _write(test_repo, {IDEAS: "See [[other]].\n", OTHER: "---\ntags: [hidden]\n---\n# Other\n"})
+
+    assert links(test_repo, IDEAS) == []
+    assert [neighbour.other for neighbour in links(test_repo, IDEAS, include_hidden=True)] == ["/notes/other"]

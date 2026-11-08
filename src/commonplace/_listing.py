@@ -4,9 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from commonplace._graph import Node
 from commonplace._repo import Commonplace
-from commonplace._utils import load_frontmatter
+from commonplace._types import Note, RepoPath
 
 
 def listing(repo: Commonplace, folder: Path, fields: list[str], include_hidden: bool = False) -> str:
@@ -15,10 +14,10 @@ def listing(repo: Commonplace, folder: Path, fields: list[str], include_hidden: 
     Notes labelled `hidden` are left out unless asked for, and a folder holding nothing else; `tags` are its labels.
     """
 
-    def shown(node: Node) -> bool:
-        return include_hidden or "hidden" not in node.labels
+    def shown(note: Note) -> bool:
+        return include_hidden or "hidden" not in note.labels
 
-    notes: list[Node] = []
+    notes: list[Note] = []
     subfolders: set[str] = set()
     for path in repo.paths():
         try:
@@ -26,19 +25,19 @@ def listing(repo: Commonplace, folder: Path, fields: list[str], include_hidden: 
         except ValueError:
             continue
         if len(rest.parts) > 1:
-            if rest.parts[0] not in subfolders and shown(Node(repo.root, path)):
+            if rest.parts[0] not in subfolders and shown(repo.load(RepoPath(path))):
                 subfolders.add(rest.parts[0])
-        elif path.suffix == ".md" and shown(node := Node(repo.root, path)):
-            notes.append(node)
+        elif path.suffix == ".md" and shown(note := repo.load(RepoPath(path))):
+            notes.append(note)
     if not notes and not subfolders:
         raise ValueError(f"Nothing to list in '{folder}'")
 
     lines = [f"# {folder.as_posix()}", ""]
-    for node in notes:
-        metadata, _ = load_frontmatter(node.body)
-        if "tags" in fields and node.labels:
-            metadata["tags"] = node.labels
-        entry = f"- [{_one_line(metadata.get('title')) or node.id.stem}]({node.id.name})"
+    for note in notes:
+        metadata = dict(note.metadata)
+        if "tags" in fields and note.labels:
+            metadata["tags"] = note.labels
+        entry = f"- [{_one_line(metadata.get('title')) or note.repo_path.path.stem}]({note.repo_path.path.name})"
         if description := _one_line(metadata.get("description")):
             entry += f" - {description}"
         lines.append(entry)
