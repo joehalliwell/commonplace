@@ -13,6 +13,7 @@ from commonplace._fetch._keep import CHECKPOINT_EVERY, KeepFetcher
 from commonplace._import._commands import import_
 from commonplace._import._keep import KeepImporter
 from commonplace._marginalia import Marginalia, write_marginalia
+from commonplace._types import Note
 from commonplace._utils import load_frontmatter
 from commonplace._wire import archive_names, read_entries, write_archive
 from tests.fetching import fetching, owned
@@ -48,8 +49,9 @@ class FakeKeep:
         return owned(KeepFetcher, cookies=cookies, transport=httpx.MockTransport(self))
 
 
-def _notes() -> dict[Path, tuple[dict, str]]:
-    return {note.repo_path.path: (note.metadata, note.body) for note in owned(KeepImporter).snapshot(EXAMPLE).notes}
+def _notes() -> dict[str, Note]:
+    """The example's notes by Keep's id: two can propose one path, which only the mirror resolves."""
+    return {note.metadata["id"]: note for note in owned(KeepImporter).snapshot(EXAMPLE).notes}
 
 
 # ---------------------------------------------------------------------------
@@ -58,8 +60,10 @@ def _notes() -> dict[Path, tuple[dict, str]]:
 
 
 def test_snapshot_lands_each_note_by_its_creation_month_and_title():
-    metadata, body = _notes()[TEA]
+    note = _notes()["note-tea"]
+    metadata, body = note.metadata, note.body
 
+    assert note.repo_path.path == TEA
     assert body == "# Tea house\n\nA tea house by the river.\n"
     assert metadata["title"] == "Tea house"
     assert metadata["id"] == "note-tea"
@@ -69,8 +73,7 @@ def test_snapshot_lands_each_note_by_its_creation_month_and_title():
 
 def test_snapshot_writes_keeps_labels_as_tags_and_no_field_when_there_are_none():
     """OKF's word, as marginalia use: a Keep label is what the note is, so frontmatter, but one vocabulary."""
-    tagged, _ = _notes()[TEA]
-    untagged, _ = _notes()[WORD]
+    tagged, untagged = _notes()["note-tea"].metadata, _notes()["note-word"].metadata
 
     assert "labels" not in tagged and tagged["tags"] == ["words"]
     assert "tags" not in untagged
@@ -78,7 +81,9 @@ def test_snapshot_writes_keeps_labels_as_tags_and_no_field_when_there_are_none()
 
 def test_snapshot_names_an_untitled_note_by_its_first_words_and_gives_it_no_heading():
     """Most Keep notes have no title; inventing a heading would only repeat the text."""
-    metadata, body = _notes()[WORD]
+    note = _notes()["note-word"]
+    metadata, body = note.metadata, note.body
+    assert note.repo_path.path == WORD
 
     assert body == "Sesquipedalian: given to long words.\nAnd a second line.\n"
     assert metadata["title"] == "Sesquipedalian: given to long words."
@@ -86,7 +91,7 @@ def test_snapshot_names_an_untitled_note_by_its_first_words_and_gives_it_no_head
 
 def test_snapshot_caps_a_name_drawn_from_one_long_word():
     """A pasted URL is one 'word'; live, one ran a filename to 228 characters."""
-    [link] = [path for path, (metadata, _) in _notes().items() if metadata["id"] == "note-link"]
+    link = _notes()["note-link"].repo_path.path
 
     assert link.parent == Path("notes/keep/2026/06")
     assert len(link.stem) <= len("2026-06-02-") + 50
@@ -94,13 +99,15 @@ def test_snapshot_caps_a_name_drawn_from_one_long_word():
 
 
 def test_snapshot_renders_a_list_as_checkboxes_in_keeps_order():
-    _, body = _notes()[SHOPPING]
+    shopping = _notes()["list-shop"]
+    body = shopping.body
+    assert shopping.repo_path.path == SHOPPING
 
     assert body == "# Shopping\n\n- [ ] Milk\n- [x] Eggs\n"
 
 
 def test_snapshot_leaves_trashed_notes_out():
-    assert "note-bin" not in {metadata["id"] for metadata, _ in _notes().values()}
+    assert "note-bin" not in _notes()
 
 
 def test_snapshot_says_nothing_of_who_last_edited():

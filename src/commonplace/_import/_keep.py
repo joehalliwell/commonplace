@@ -13,12 +13,10 @@ drift fails loudly.
 import json
 from collections import defaultdict
 from collections.abc import Sequence
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from commonplace._import._base import BaseWireImporter
-from commonplace._import._placement import Placement
 from commonplace._import._types import Snapshot
 from commonplace._types import Note, RepoPath
 from commonplace._utils import slugify
@@ -55,15 +53,9 @@ class KeepImporter(BaseWireImporter):
                 items[node["parentId"]].append(node)
         roots = [node for node in nodes.values() if node["parentId"] == "root" and not _gone(node)]
 
-        # Oldest first, so of two notes with the same day and title, the later is the one suffixed.
+        # Oldest first, so of two notes with the same day and title, the later is the one the mirror suffixes.
         roots.sort(key=lambda node: (node["timestamps"]["created"], node["id"]))
-        placement = Placement()
-        notes = []
-        for root in roots:
-            note = self._note(root, items[root["id"]], labels)
-            path = placement.place(note.repo_path.path, root["id"])
-            notes.append(replace(note, repo_path=RepoPath(path)))
-        return Snapshot(notes, unread=frozenset())
+        return Snapshot([self._note(root, items[root["id"]], labels) for root in roots], unread=frozenset())
 
     def _note(self, root: dict[str, Any], items: list[dict[str, Any]], labels: dict[str, str]) -> Note:
         # Keep shows the highest sortValue first; a note's lone item may have none, where order means nothing.
