@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from commonplace._repo import Commonplace
-from commonplace._types import Note, RepoPath
+from commonplace._types import Note
 
 
 def listing(repo: Commonplace, folder: Path, fields: list[str], include_hidden: bool = False) -> str:
@@ -22,9 +22,9 @@ def listing(repo: Commonplace, folder: Path, fields: list[str], include_hidden: 
     for path in repo.paths(folder):
         rest = path.relative_to(folder)
         if len(rest.parts) > 1:
-            if rest.parts[0] not in subfolders and shown(repo.load(RepoPath(path))):
+            if rest.parts[0] not in subfolders and shown(repo.load(path)):
                 subfolders.add(rest.parts[0])
-        elif path.suffix == ".md" and shown(note := repo.load(RepoPath(path))):
+        elif path.suffix == ".md" and shown(note := repo.load(path)):
             notes.append(note)
     if not notes and not subfolders:
         raise ValueError(f"Nothing to list in '{folder}'")
@@ -34,7 +34,7 @@ def listing(repo: Commonplace, folder: Path, fields: list[str], include_hidden: 
         metadata = dict(note.metadata)
         if "tags" in fields and note.labels:
             metadata["tags"] = note.labels
-        entry = f"- [{_one_line(metadata.get('title')) or note.repo_path.path.stem}]({note.repo_path.path.name})"
+        entry = f"- [{_one_line(metadata.get('title')) or note.path.stem}]({note.path.name})"
         if description := _one_line(metadata.get("description")):
             entry += f" - {description}"
         lines.append(entry)

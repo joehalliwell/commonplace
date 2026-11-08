@@ -11,8 +11,6 @@ from rich.segment import Segment
 from rich.style import Style
 from rich.text import Text
 
-from commonplace._types import RepoPath
-
 # Shade ramp for the intensity levels, so the gradient survives where styling doesn't — piped output, a
 # dumb terminal, NO_COLOR. Three shades cover the default num_levels exactly; ask for more levels and
 # glyphs saturate at the top while colour keeps separating them.
@@ -43,7 +41,7 @@ def extract_date_from_path(path: Path) -> date | None:
     return None
 
 
-def build_activity_data(note_paths: list[RepoPath]) -> Counter[date]:
+def build_activity_data(note_paths: list[Path]) -> Counter[date]:
     """
     Build activity data from note paths.
 
@@ -54,8 +52,8 @@ def build_activity_data(note_paths: list[RepoPath]) -> Counter[date]:
         Counter mapping dates to number of notes created on that date
     """
     activity: Counter[date] = Counter()
-    for repo_path in note_paths:
-        note_date = extract_date_from_path(repo_path.path)
+    for path in note_paths:
+        note_date = extract_date_from_path(path)
         if note_date:
             activity[note_date] += 1
     return activity

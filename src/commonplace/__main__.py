@@ -160,10 +160,10 @@ def journal(
     # Ensure parent directory exists
     journal_path.parent.mkdir(parents=True, exist_ok=True)
 
-    repo_path = repo.make_repo_path(journal_path)
+    path = journal_path.relative_to(repo.root)
 
     # Load existing content or use default (but don't create file yet)
-    note = repo.load(repo_path) if journal_path.exists() else Note(repo_path=repo_path, body=default_content)
+    note = repo.load(path) if journal_path.exists() else Note(path, default_content)
     original_content = dump_frontmatter(note.metadata, note.body)
 
     # Open in editor
@@ -182,7 +182,7 @@ def journal(
 
     # Save the edited content (creates file if it doesn't exist)
     metadata, body = load_frontmatter(edited_content)
-    repo.save(Note(repo_path=repo_path, body=body, metadata=metadata))
+    repo.save(Note(path, body, metadata))
     logger.info(f"Saved journal entry to {journal_path.relative_to(repo.root)}")
 
     # Commit the journal entry
@@ -216,7 +216,7 @@ def search(
 
     # Display results
     for i, hit in enumerate(results, 1):
-        print(f"\n{i}. {hit.chunk.repo_path.path}:{hit.chunk.offset}")
+        print(f"\n{i}. {hit.chunk.version.path}:{hit.chunk.offset}")
         print(f"   Section: {hit.chunk.section}")
         print(f"   Score: {hit.score:.3f}")
         print(f"   {hit.chunk.text[:200]}{'...' if len(hit.chunk.text) > 200 else ''}")
@@ -490,7 +490,7 @@ def stats(
     except ValueError as e:
         logger.error(str(e))
         # Show available sources
-        available_sources = sorted({source(path.path) for path in repo.note_paths()})
+        available_sources = sorted({source(path) for path in repo.note_paths()})
         logger.info(f"Available sources: {', '.join(available_sources)}")
         return
 

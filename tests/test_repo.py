@@ -12,7 +12,7 @@ import yaml
 from commonplace._marginalia import marginalia_path
 from commonplace._repo import Commonplace, GitError
 from commonplace._show import links
-from commonplace._types import Note, RepoPath
+from commonplace._types import Note
 from commonplace._utils import load_frontmatter
 from tests.porcelain import git
 
@@ -41,7 +41,7 @@ def test_remove_committed_note_is_gone_from_head(test_repo, make_note):
     test_repo.save(note)
     test_repo.commit("Add", auto_index=False)
 
-    test_repo.remove(note.repo_path.path)
+    test_repo.remove(note.path)
     test_repo.commit("Remove", auto_index=False)
 
     assert not (test_repo.root / "memory/claude/gone.md").exists()
@@ -75,18 +75,17 @@ def test_commit_modified_file(test_repo, make_note):
 
 
 def test_save_note_with_metadata_loads_back_unchanged(test_repo):
-    repo_path = RepoPath(path=Path("test.md"), ref="")
-    note = Note(repo_path=repo_path, body="# Test\n\nHello: world\n", metadata={"gem": "Research: notes #1"})
+    note = Note(Path("test.md"), body="# Test\n\nHello: world\n", metadata={"gem": "Research: notes #1"})
 
     test_repo.save(note)
 
-    assert test_repo.load(repo_path) == note
+    assert test_repo.load(Path("test.md")) == note
 
 
 def test_load_file_with_frontmatter_separates_metadata_from_body(test_repo):
     (test_repo.root / "test.md").write_text("---\ntags: [a, b]\n---\n\n# Test\n")
 
-    note = test_repo.load(RepoPath(path=Path("test.md"), ref=""))
+    note = test_repo.load(Path("test.md"))
 
     assert (note.metadata, note.body) == ({"tags": ["a", "b"]}, "# Test\n")
 
@@ -95,14 +94,14 @@ def test_load_file_opening_with_a_rule_is_all_body(test_repo):
     text = "---\n\nSome prose.\n\n---\n\nMore prose.\n"
     (test_repo.root / "test.md").write_text(text)
 
-    note = test_repo.load(RepoPath(path=Path("test.md"), ref=""))
+    note = test_repo.load(Path("test.md"))
     test_repo.save(note)
 
     assert (note.metadata, note.body) == ({}, text)
     assert (test_repo.root / "test.md").read_text() == text
 
 
-def test_make_repo_path_follows_later_commits(test_repo, make_note):
+def test_a_notes_version_follows_later_commits(test_repo, make_note):
     """A note's version tracks its committed content, even after HEAD moves on.
 
     The path -> content map is cached, so this is really a test that the cache is keyed
@@ -111,17 +110,17 @@ def test_make_repo_path_follows_later_commits(test_repo, make_note):
     """
     test_repo.save(make_note("test.md", "# Test\nOriginal content"))
     test_repo.commit("Add note", auto_index=False)
-    original = test_repo.make_repo_path("test.md")
+    original = test_repo.content_ids()[Path("test.md")]
 
     test_repo.save(make_note("test.md", "# Test\nModified content"))
     test_repo.commit("Update note", auto_index=False)
-    modified = test_repo.make_repo_path("test.md")
+    modified = test_repo.content_ids()[Path("test.md")]
 
-    assert original.ref == _head(test_repo, "HEAD~1:test.md")
-    assert modified.ref == _head(test_repo, "HEAD:test.md")
+    assert original == _head(test_repo, "HEAD~1:test.md")
+    assert modified == _head(test_repo, "HEAD:test.md")
 
 
-def test_make_repo_path_change_on_merged_branch_is_the_side_content(test_repo, make_note):
+def test_a_notes_version_after_a_merge_is_the_side_branchs_content(test_repo, make_note):
     """A file last changed on a merged side branch has that branch's content, not the mainline's before it."""
     test_repo.save(make_note("topic.md", "# Topic\n"))
     test_repo.commit("Add topic", auto_index=False)
@@ -135,8 +134,7 @@ def test_make_repo_path_change_on_merged_branch_is_the_side_content(test_repo, m
     _git(test_repo, "commit", "-qm", "Add other")
     _git(test_repo, "merge", "-q", "--no-ff", "-m", "Merge side", "side")
 
-    assert test_repo.make_repo_path("topic.md").ref == side
-    assert [p.ref for p in test_repo.note_paths() if p.path == Path("topic.md")] == [side]
+    assert test_repo.content_ids()[Path("topic.md")] == side
 
 
 def test_note_paths_commonplace_dir_excluded(test_repo, make_note):
@@ -145,7 +143,7 @@ def test_note_paths_commonplace_dir_excluded(test_repo, make_note):
     test_repo.save(make_note(".commonplace/skills/rake/chaff.md", "# Chaff\n"))
     test_repo.commit("Add notes", auto_index=False)
 
-    assert [p.path for p in test_repo.note_paths()] == [Path("index.md"), Path("notes/idea.md")]
+    assert list(test_repo.note_paths()) == [Path("index.md"), Path("notes/idea.md")]
 
 
 def test_paths_includes_files_that_are_not_markdown(test_repo):
@@ -171,7 +169,7 @@ def test_note_paths_dot_dirs_excluded(test_repo, make_note):
     test_repo.save(make_note("notes/.hidden/draft.md", "# Draft\n"))
     test_repo.commit("Add notes", auto_index=False)
 
-    assert [p.path for p in test_repo.note_paths()] == [Path("index.md"), Path("notes/idea.md")]
+    assert list(test_repo.note_paths()) == [Path("index.md"), Path("notes/idea.md")]
 
 
 def test_open_subdirectory_of_repo_raises(test_repo):
@@ -291,12 +289,12 @@ def _hook(repo: Commonplace, script: str) -> None:
 
 def test_commit_concurrent_writer_keeps_their_commit(test_repo, make_note):
     """A commit landing while a journal is open survives ours, in HEAD and in the index."""
-    journal = test_repo.make_repo_path("journal/2026/10/2026-10-01.md")
+    journal = Path("journal/2026/10/2026-10-01.md")
     (test_repo.root / "x.md").write_text("# X\n")
     _git(test_repo, "add", "x.md")
     _git(test_repo, "commit", "-m", "Concurrent writer")
 
-    test_repo.save(Note(repo_path=journal, body="# Journal\n"))
+    test_repo.save(Note(journal, "# Journal\n"))
     test_repo.commit("Update journal entry", auto_index=False)
 
     assert "x.md" in _git(test_repo, "ls-tree", "--name-only", "HEAD").split()
@@ -415,7 +413,7 @@ def test_a_notes_labels_are_its_own_tags_then_its_marginalias(test_repo):
         },
     )
 
-    assert test_repo.load(RepoPath(IDEAS)).labels == ["tea", "hidden"]
+    assert test_repo.load(IDEAS).labels == ["tea", "hidden"]
 
 
 def test_an_edge_in_marginalia_is_written_in_their_file_and_lands_from_the_note(test_repo):
@@ -429,7 +427,7 @@ def test_an_edge_in_marginalia_is_written_in_their_file_and_lands_from_the_note(
         },
     )
 
-    [edge] = test_repo.load(RepoPath(IDEAS)).edges
+    [edge] = test_repo.load(IDEAS).edges
 
     assert (edge.link.source, edge.link.line) == (marginalia_path(IDEAS), 5)
     assert test_repo.files.lands(edge) == [OTHER]
@@ -458,7 +456,7 @@ def test_a_notes_provenance_is_an_edge_to_its_archive_and_a_missing_one_is_broke
     )
 
     assert [(found.link.source, found.link.target) for found in test_repo.check()] == [(lost, gone)]
-    assert [note.repo_path.path for note, _ in test_repo.into(archive)] == [kept]
+    assert [note.path for note, _ in test_repo.into(archive)] == [kept]
 
 
 def test_blobs_committed_in_storage_order_then_uncommitted_by_path(test_repo, tmp_path):
@@ -468,7 +466,7 @@ def test_blobs_committed_in_storage_order_then_uncommitted_by_path(test_repo, tm
     for name in ("b.json", "a.json"):
         committed.append(test_repo.store_blob(tmp_path / name).path)
         test_repo.commit(f"Store {name}", auto_index=False)
-        test_repo.save(Note(repo_path=RepoPath(Path(f"{name}.md")), body="# Note\n"))
+        test_repo.save(Note(Path(f"{name}.md"), "# Note\n"))
         test_repo.commit(f"Note {name}", auto_index=False)
     pending = sorted((test_repo.store_blob(tmp_path / name).path for name in ("d.json", "c.json")), key=Path.as_posix)
 
@@ -495,7 +493,7 @@ def test_a_notes_version_is_its_committed_content_so_a_reverted_edit_restores_it
     for text in ("# Tea\n", "# Tea, brewed\n", "# Tea\n"):
         _write(test_repo, {note: text})
         test_repo.commit("Edit tea", auto_index=False, written=[note.as_posix()])
-        versions.append(test_repo.make_repo_path(note).ref)
+        versions.append(test_repo.content_ids()[note])
 
     assert versions[0] == versions[2] != versions[1]
 
@@ -503,7 +501,7 @@ def test_a_notes_version_is_its_committed_content_so_a_reverted_edit_restores_it
 def test_an_uncommitted_note_has_no_version(test_repo):
     _write(test_repo, {Path("notes/draft.md"): "# Draft\n"})
 
-    assert test_repo.make_repo_path("notes/draft.md").ref is None
+    assert Path("notes/draft.md") not in test_repo.content_ids()
 
 
 def test_moved_maps_each_renamed_path_to_where_its_last_occupant_is_now(test_repo):

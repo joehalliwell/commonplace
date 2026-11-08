@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from commonplace._heatmap import ActivityHeatmap, build_activity_data, extract_date_from_path
-from commonplace._types import RepoPath
 
 
 def test_extract_date_from_path_journal():
@@ -41,10 +40,10 @@ def test_extract_date_from_path_invalid_date():
 def test_build_activity_data():
     """Test building activity data from note paths."""
     note_paths = [
-        RepoPath(path=Path("journal/2024/01/2024-01-15.md"), ref="abc123"),
-        RepoPath(path=Path("journal/2024/01/2024-01-15.md"), ref="def456"),  # Same day
-        RepoPath(path=Path("journal/2024/01/2024-01-16.md"), ref="ghi789"),
-        RepoPath(path=Path("notes/no-date.md"), ref="jkl012"),  # No date
+        Path("journal/2024/01/2024-01-15.md"),
+        Path("journal/2024/01/2024-01-15.md"),  # Same day
+        Path("journal/2024/01/2024-01-16.md"),
+        Path("notes/no-date.md"),  # No date
     ]
 
     activity = build_activity_data(note_paths)

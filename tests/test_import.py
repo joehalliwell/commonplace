@@ -278,8 +278,7 @@ def test_render_chats_of_a_stored_blob_reproduces_what_import_wrote_without_writ
 
     rendered = render_chats(blob, autodetect_importer(blob, importers(ChatSource)), user="Human", source_export=stored)
 
-    assert {note.repo_path.path: dump_frontmatter(note.metadata, note.body) for note in rendered} == written
-    assert all(note.repo_path.ref is None for note in rendered)
+    assert {note.path: dump_frontmatter(note.metadata, note.body) for note in rendered} == written
     assert git(test_repo.root, "status", "--porcelain") == ""
 
 

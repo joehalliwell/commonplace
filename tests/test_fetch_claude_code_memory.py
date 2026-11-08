@@ -67,7 +67,7 @@ def test_snapshot_mirrors_only_markdown(tmp_path):
     (home / "projects" / "-work-3rd-doux" / "memory" / "scratch.txt").write_text("not a memory\n")
     [archive] = owned(ClaudeCodeMemoryFetcher, root=home).fetch(tmp_path, since=None)
 
-    paths = sorted(n.repo_path.path.name for n in owned(ClaudeCodeMemoryImporter).snapshot(archive).notes)
+    paths = sorted(n.path.name for n in owned(ClaudeCodeMemoryImporter).snapshot(archive).notes)
 
     assert paths == ["MEMORY.md", "prefer-dumb-mechanisms.md"]
 
@@ -95,7 +95,7 @@ def test_snapshot_files_each_project_under_the_last_segment_of_its_path(tmp_path
 
     snapshot = owned(ClaudeCodeMemoryImporter).snapshot(archive)
 
-    assert sorted(n.repo_path.path.as_posix() for n in snapshot.notes) == [
+    assert sorted(n.path.as_posix() for n in snapshot.notes) == [
         "memory/claude-code/doux/prefer-dumb-mechanisms.md",
         "memory/claude-code/site.github.io/MEMORY.md",
     ]
@@ -105,7 +105,7 @@ def test_snapshot_files_each_project_under_the_last_segment_of_its_path(tmp_path
 def test_snapshot_titles_a_memory_by_its_name_else_its_file(tmp_path):
     [archive] = owned(ClaudeCodeMemoryFetcher, root=_home(tmp_path)).fetch(tmp_path, since=None)
 
-    notes = {n.repo_path.path.name: n for n in owned(ClaudeCodeMemoryImporter).snapshot(archive).notes}
+    notes = {n.path.name: n for n in owned(ClaudeCodeMemoryImporter).snapshot(archive).notes}
 
     assert notes["prefer-dumb-mechanisms.md"].metadata["title"] == "prefer-dumb-mechanisms"
     assert notes["prefer-dumb-mechanisms.md"].metadata["description"] == "Blunt beats clever"
@@ -132,7 +132,7 @@ def test_snapshot_projects_sharing_a_last_segment_take_the_next_free_name(tmp_pa
     )
     [archive] = owned(ClaudeCodeMemoryFetcher, root=home).fetch(tmp_path, since=None)
 
-    paths = sorted(n.repo_path.path.as_posix() for n in owned(ClaudeCodeMemoryImporter).snapshot(archive).notes)
+    paths = sorted(n.path.as_posix() for n in owned(ClaudeCodeMemoryImporter).snapshot(archive).notes)
 
     assert paths == ["memory/claude-code/notes-2/x.md", "memory/claude-code/notes/x.md"]
 
@@ -143,7 +143,7 @@ def test_snapshot_a_project_without_memory_takes_no_name(tmp_path):
 
     [note] = owned(ClaudeCodeMemoryImporter).snapshot(archive).notes
 
-    assert note.repo_path.path.as_posix() == "memory/claude-code/notes/x.md"
+    assert note.path.as_posix() == "memory/claude-code/notes/x.md"
 
 
 def test_snapshot_unregistered_project_keeps_its_directory_name(tmp_path):
@@ -152,7 +152,7 @@ def test_snapshot_unregistered_project_keeps_its_directory_name(tmp_path):
 
     [note] = owned(ClaudeCodeMemoryImporter).snapshot(archive).notes
 
-    assert note.repo_path.path.as_posix() == "memory/claude-code/gone-project/x.md"
+    assert note.path.as_posix() == "memory/claude-code/gone-project/x.md"
 
 
 def test_fetch_command_mirrors_memory_and_prunes_what_was_deleted(test_repo, tmp_path):

@@ -13,7 +13,7 @@ from commonplace._import._claude_memory import ClaudeMemoryImporter
 from commonplace._import._commands import import_
 from commonplace._import._types import Snapshot
 from commonplace._stats import source
-from commonplace._types import ChatSource, Note, RepoPath
+from commonplace._types import ChatSource, Note
 from commonplace._utils import load_frontmatter
 from commonplace._wire import write_archive
 from tests.fetching import owned
@@ -82,7 +82,7 @@ def test_snapshot_example_archive_interprets_without_a_repo():
 
     assert snapshot.unread == set()
     [note] = snapshot.notes
-    assert note.repo_path == RepoPath(Path("memory/claude/topics/example.md"))
+    assert note.path == Path("memory/claude/topics/example.md")
     assert note.body == "# Example\n\n- [stated] Prefers tea. See [[other]]."
     assert note.metadata == {
         "type": "Memory",
@@ -128,7 +128,7 @@ def test_snapshot_chatgpt_example_archive_lands_the_summary_as_one_file():
 
     assert snapshot.unread == set()
     [note] = snapshot.notes
-    assert note.repo_path == RepoPath(Path("memory/chatgpt/about-you.md"))
+    assert note.path == Path("memory/chatgpt/about-you.md")
     assert note.body == "# About you\n\n## Overview\n\nPrefers tea, and asks for sources.\n"
     assert note.metadata == {"type": "Memory", "title": "About you", "updated_at": "2026-10-03T22:27:53.035594+00:00"}
 
@@ -170,7 +170,7 @@ def test_snapshot_chatgpt_saved_memories_land_as_one_file_bulleted_by_creation(t
     archive = write_archive(tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", entries)
 
     [note] = owned(ChatGptMemoryImporter).snapshot(archive).notes
-    assert note.repo_path == RepoPath(Path("memory/chatgpt/saved-memories.md"))
+    assert note.path == Path("memory/chatgpt/saved-memories.md")
     assert note.body == "# Saved memories\n\n- Prefers coffee\n  to tea.\n- Writes British English.\n"
 
 
@@ -180,7 +180,7 @@ def test_snapshot_chatgpt_saved_memories_land_though_the_summary_stopped_short(t
     archive = write_archive(tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", entries)
 
     snapshot = owned(ChatGptMemoryImporter).snapshot(archive)
-    assert [n.repo_path.path.name for n in snapshot.notes] == ["saved-memories.md"]
+    assert [n.path.name for n in snapshot.notes] == ["saved-memories.md"]
     assert snapshot.unread is None
 
 
@@ -252,7 +252,7 @@ def test_mirror_file_whose_type_and_title_match_ours_warns_nothing(test_repo, tm
 def test_mirror_file_landed_without_type_gains_it_on_the_next_mirror(test_repo, tmp_path):
     """Files mirrored before `type` existed are otherwise identical, and must not count as landed."""
     old = {"title": "Title", "category_id": "topics", "version": "v1", "updated_at": "2026-09-30"}
-    test_repo.save(Note(RepoPath(Path("memory/claude/a.md")), "# Title\n\nBody.\n", old))
+    test_repo.save(Note(Path("memory/claude/a.md"), "# Title\n\nBody.\n", old))
     test_repo.commit("Seed", auto_index=False)
 
     _mirror(test_repo, _archive(tmp_path, {"/a.md": "Body.\n"}))
@@ -375,4 +375,4 @@ def test_mirror_leaves_other_vendors_memory_alone(test_repo, tmp_path, make_note
 def test_source_memory_note_is_named_for_its_vendor(test_repo):
     _mirror(test_repo, EXAMPLE)
 
-    assert {source(p.path) for p in test_repo.note_paths() if p.path.parts[0] == "memory"} == {"memory/claude"}
+    assert {source(p) for p in test_repo.note_paths() if p.parts[0] == "memory"} == {"memory/claude"}

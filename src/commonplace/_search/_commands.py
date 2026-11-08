@@ -4,7 +4,7 @@ from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
 from commonplace._search._chunker import MarkdownChunker
-from commonplace._search._types import SearchHit, SearchMethod
+from commonplace._search._types import SearchHit, SearchMethod, Version
 from commonplace._utils import batched
 
 # SearchHit/SearchMethod are imported for re-export, not used here.
@@ -37,21 +37,21 @@ def index(
     # What the repo holds now, against what the index already has. The two
     # differences say what to add, and what has been deleted or edited since.
     # A rebuild needs no special case: clear() just emptied `indexed`.
-    live = set(repo.note_paths())
+    ids = repo.content_ids()
+    live = {Version(path, ids[path]) for path in repo.note_paths() if path in ids}
     indexed = set(repo.index.get_indexed_paths())
 
     # The index holds committed versions only, but `load` reads the file on disk, so a note with
-    # uncommitted changes waits for them to be committed. Its last commit, already indexed, stays live.
+    # uncommitted changes waits for them to be committed. Its committed version, already indexed, stays live.
     uncommitted = repo.uncommitted(".")
-    to_index = {path for path in live - indexed if path.path.as_posix() not in uncommitted}
+    to_index = {version for version in live - indexed if version.path.as_posix() not in uncommitted}
 
     logger.info(f"Indexing {len(to_index)} notes")
 
     # Stream chunks from all notes and batch them for efficient embedding
     def chunk_stream():
-        for path in track(to_index, "Indexing notes"):
-            note = repo.load(path)
-            yield from chunker.chunk(note)
+        for version in track(to_index, "Indexing notes"):
+            yield from chunker.chunk(repo.load(version.path), version.oid)
 
     # Process chunks in batches
     for chunk_batch in batched(chunk_stream(), batch_size):

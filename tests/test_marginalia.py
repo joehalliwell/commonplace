@@ -16,7 +16,7 @@ from commonplace._marginalia import (
     write_marginalia,
 )
 from commonplace._show import links
-from commonplace._types import Note, RepoPath
+from commonplace._types import Note
 from commonplace._utils import load_frontmatter
 from tests.porcelain import git
 
@@ -203,7 +203,7 @@ def _targets(root: Path) -> list[str]:
 
 
 def _note(root: Path) -> Note:
-    return Note(RepoPath(NOTE), "", marginalia=read_marginalia(root, NOTE))
+    return Note(NOTE, "", marginalia=read_marginalia(root, NOTE))
 
 
 def _found(neighbours, direction: str) -> set[tuple[str, str, str]]:

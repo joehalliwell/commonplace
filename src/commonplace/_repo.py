@@ -24,7 +24,7 @@ from commonplace._config import BLOBS, CACHE, MARGINALIA, Config
 from commonplace._links import BrokenLink, Edge, Files, Target, UnresolvedNote
 from commonplace._logging import logger
 from commonplace._marginalia import read_marginalia, write_marginalia
-from commonplace._types import Blob, Marginalia, Note, Pathlike, RepoPath
+from commonplace._types import Blob, Marginalia, Note, Pathlike, node_id
 from commonplace._utils import dump_frontmatter, load_frontmatter
 
 _BOT_USERNAME = "Commonplace Bot"
@@ -163,14 +163,14 @@ class Commonplace:
     def config(self) -> Config:
         return Config.load(self.root)
 
-    def store_blob(self, source_path: Path) -> RepoPath:
+    def store_blob(self, source_path: Path) -> Blob:
         """Store a file under its SHA-256 in .commonplace/blobs/, once."""
         rel_path = BLOBS / _hash_file(source_path) / source_path.name
         if not (self.root / rel_path).exists():
             (self.root / rel_path).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source_path, self.root / rel_path)
             self._wrote(rel_path)
-        return self.make_repo_path(rel_path)
+        return Blob(rel_path)
 
     @cached_property
     def index(self):
@@ -180,8 +180,8 @@ class Commonplace:
             self.root / CACHE / "index.db",
             # Blind to which version: an edited note is still there to open, so a chunk of its previous text is
             # worth returning until indexing catches up. A deleted one is not, and quoting it back would be a lie.
-            note_exists=lambda repo_path: (self.root / repo_path.path).exists(),
-            is_hidden=lambda path: self.load(RepoPath(path)).hidden,
+            note_exists=lambda path: (self.root / path).exists(),
+            is_hidden=lambda path: self.load(path).hidden,
         )
 
     @staticmethod
@@ -192,17 +192,9 @@ class Commonplace:
         _commit(root, set(scaffold.TEMPLATES), "Initial commit")
         return Commonplace.open(root)
 
-    def make_repo_path(self, path: Pathlike) -> RepoPath:
-        """A file's RepoPath, versioned by its committed content; one never committed has no version."""
-        path = Path(path)
-        if path.is_absolute():
-            path = path.relative_to(self.root, walk_up=False)
-        return self._repo_paths([path])[0]
-
-    def _repo_paths(self, paths: list[Path]) -> list[RepoPath]:
-        """Each of `paths`, versioned by its content at HEAD, uncommitted changes aside."""
-        ids = _content_ids(self.root, self._head())
-        return [RepoPath(path, ids.get(path.as_posix())) for path in paths]
+    def content_ids(self) -> dict[Path, str]:
+        """Each committed file, with git's id for its content at HEAD, uncommitted changes aside."""
+        return {Path(path): oid for path, oid in _content_ids(self.root, self._head()).items()}
 
     def _head(self) -> str:
         return self._git("rev-parse", "HEAD").strip()
@@ -237,29 +229,30 @@ class Commonplace:
             moved.setdefault(Path(old), Path(then[old]))
         return moved
 
-    def note_paths(self) -> Iterator[RepoPath]:
-        """Every note `paths` gives, at the commit that last changed it."""
-        return iter(self._repo_paths([path for path in self.paths() if path.suffix == ".md"]))
+    def note_paths(self) -> Iterator[Path]:
+        """Every note `paths` gives."""
+        return (path for path in self.paths() if path.suffix == ".md")
 
-    def load(self, repo_path: RepoPath) -> Note:
-        """The note at `repo_path`, as the working tree has it, with its marginalia; one that's gone reads as empty."""
-        logger.debug(f"Fetching note at {repo_path}")
-        path = self.root / repo_path.path
-        text = path.read_text(errors="replace") if repo_path.path.suffix == ".md" and path.exists() else ""
+    def load(self, path: Pathlike) -> Note:
+        """The note at `path`, as the working tree has it, with its marginalia; one that's gone reads as empty."""
+        logger.debug(f"Fetching note at {path}")
+        path = node_id(path)
+        file = self.root / path
+        text = file.read_text(errors="replace") if path.suffix == ".md" and file.exists() else ""
         metadata, body = load_frontmatter(text)
-        marginalia = read_marginalia(self.root, repo_path.path)
+        marginalia = read_marginalia(self.root, path)
         from commonplace._sources import source_holding, source_named
 
         # The source the note names, or failing that the one whose tree holds it.
-        source = source_named(metadata.get("source")) or source_holding(repo_path.path)
-        return Note(repo_path, body, metadata, marginalia=marginalia, text=text, source=source)
+        source = source_named(metadata.get("source")) or source_holding(path)
+        return Note(path, body, metadata, marginalia=marginalia, text=text, source=source)
 
     def save(self, note: Note) -> None:
         """Write a note to the working tree for the next commit, over whatever is there."""
-        abs_path = self.root / note.repo_path.path
+        abs_path = self.root / note.path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         abs_path.write_text(dump_frontmatter(note.metadata, note.body))
-        self._wrote(note.repo_path.path)
+        self._wrote(note.path)
 
     def remove(self, path: Path) -> None:
         """Delete a file from the working directory, for the next commit."""
@@ -276,14 +269,14 @@ class Commonplace:
     def holds(self, note: Note, aside: Collection[str] = ()) -> bool:
         """Whether the working tree holds `note` already: its frontmatter, keys `aside` aside, and its words, since a
         formatting hook may rewrap or reindent what was written."""
-        held = self.load(note.repo_path)
+        held = self.load(note.path)
         kept = {key: value for key, value in held.metadata.items() if key not in aside}
         return bool(held.text) and (kept, held.body.split()) == (note.metadata, note.body.split())
 
     def notes(self, within: Path = Path()) -> list[Note]:
         """Every note under `within`, as read back: each one there, then each one gone whose marginalia remain."""
-        present = [self.load(repo_path) for repo_path in self.note_paths() if repo_path.path.is_relative_to(within)]
-        return present + [self.load(RepoPath(path)) for path in self.gone(within)]
+        present = [self.load(path) for path in self.note_paths() if path.is_relative_to(within)]
+        return present + [self.load(path) for path in self.gone(within)]
 
     def gone(self, within: Path = Path()) -> list[Path]:
         """Every note under `within` that is gone but whose marginalia remain, in order."""
@@ -299,7 +292,7 @@ class Commonplace:
         return [
             (note, edge)
             for note in self.notes()
-            if note.repo_path.path != path
+            if note.path != path
             for edge in note.edges
             if path in self.files.lands(edge)
         ]
@@ -329,7 +322,7 @@ class Commonplace:
 
     def unlink(self, from_spec: str, to_spec: str) -> int:
         """Remove a note's edges to exactly `to_spec`'s target from its marginalia, committing as the user."""
-        note = self.load(RepoPath(self.files.resolve_target(from_spec).note))
+        note = self.load(self.files.resolve_target(from_spec).note)
         try:
             target = str(self.files.resolve_target(to_spec))
         except UnresolvedNote as e:

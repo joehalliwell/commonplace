@@ -9,8 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from commonplace._logging import logger
-from commonplace._search._types import Chunk, Embedder, IndexStat, SearchHit, SearchIndex, SearchMethod
-from commonplace._types import RepoPath
+from commonplace._search._types import Chunk, Embedder, IndexStat, SearchHit, SearchIndex, SearchMethod, Version
 
 #: The schema this store writes, stamped as `user_version`. Version 1 predates the stamp: a database
 #: whose every chunk named its own model, path and ref. Version 2 names a note once, in `notes`, which
@@ -141,7 +140,7 @@ class SQLiteSearchIndex(SearchIndex):
         self,
         db_path: Path,
         embedder: Embedder | None = None,
-        note_exists: Callable[[RepoPath], bool] | None = None,
+        note_exists: Callable[[Path], bool] | None = None,
         is_hidden: Callable[[Path], bool] | None = None,
     ):
         """
@@ -198,9 +197,9 @@ class SQLiteSearchIndex(SearchIndex):
         # Each migration rebuilds `chunks` smaller; only a vacuum gives the space back.
         self._conn.execute("VACUUM")
 
-    def _note_id(self, repo_path: RepoPath) -> int:
+    def _note_id(self, version: Version) -> int:
         """The `notes` row for this version of a note under this store's model, created if need be."""
-        key = (self._embedder.model_id, str(repo_path.path), repo_path.ref)
+        key = (self._embedder.model_id, str(version.path), version.oid)
         # Not OR IGNORE, which would also swallow the NOT NULL that refuses an uncommitted note.
         self._conn.execute(
             "INSERT INTO notes (model_id, path, oid) VALUES (?, ?, ?) ON CONFLICT (model_id, path, oid) DO NOTHING", key
@@ -214,10 +213,10 @@ class SQLiteSearchIndex(SearchIndex):
         )
         return dict(rows.fetchall())
 
-    def record_indexed(self, versions: Iterable[RepoPath]) -> None:
+    def record_indexed(self, versions: Iterable[Version]) -> None:
         """Record these versions as indexed, so one that yielded no chunks is not visited again."""
-        for repo_path in versions:
-            self._note_id(repo_path)
+        for version in versions:
+            self._note_id(version)
         self._conn.commit()
 
     def add_chunks(self, chunks: list[Chunk]) -> None:
@@ -232,7 +231,7 @@ class SQLiteSearchIndex(SearchIndex):
 
         # A chunk whose text another version of its note already has keeps that embedding: an edit
         # makes the whole note new to the index, but usually changes few of its chunks.
-        known = self._embeddings_by_text({str(chunk.repo_path.path) for chunk in chunks})
+        known = self._embeddings_by_text({str(chunk.version.path) for chunk in chunks})
         missing = list(dict.fromkeys(chunk.text for chunk in chunks if chunk.text not in known))
         if missing:
             known.update(zip(missing, self._embedder.embed_docs(missing)))
@@ -254,7 +253,7 @@ class SQLiteSearchIndex(SearchIndex):
             for chunk, embedding in chunks:
                 self._conn.execute(
                     "INSERT OR REPLACE INTO chunks (note_id, section, text, offset, embedding) VALUES (?, ?, ?, ?, ?)",
-                    (self._note_id(chunk.repo_path), chunk.section, chunk.text, chunk.offset, _to_blob(embedding)),
+                    (self._note_id(chunk.version), chunk.section, chunk.text, chunk.offset, _to_blob(embedding)),
                 )
 
     def search(
@@ -304,8 +303,8 @@ class SQLiteSearchIndex(SearchIndex):
         is_hidden = None if include_hidden else self._is_hidden
 
         def shown(hit: SearchHit) -> bool:
-            path = hit.chunk.repo_path
-            hidden = is_hidden is not None and is_hidden(path.path)
+            path = hit.chunk.version.path
+            hidden = is_hidden is not None and is_hidden(path)
             return not hidden and (note_exists is None or note_exists(path))
 
         return list(islice(filter(shown, ranked), limit))
@@ -362,12 +361,12 @@ class SQLiteSearchIndex(SearchIndex):
         chunks = []
         chunk_ids = []
         for row in rows:
-            chunk_id, path, ref_str, section, text, offset, embedding_bytes = row
+            chunk_id, path, oid, section, text, offset, embedding_bytes = row
             embedding = _from_blob(embedding_bytes)
             embeddings.append(embedding)
 
-            repo_path = RepoPath(path=Path(path), ref=ref_str)
-            chunks.append(Chunk(repo_path=repo_path, section=section, text=text, offset=offset))
+            version = Version(Path(path), oid)
+            chunks.append(Chunk(version=version, section=section, text=text, offset=offset))
             chunk_ids.append(chunk_id)
 
         # Compute cosine similarities
@@ -415,9 +414,9 @@ class SQLiteSearchIndex(SearchIndex):
         )
 
         def ranked() -> Iterator[SearchHit]:
-            for _chunk_id, path, ref_str, section, text, offset, rank in cursor:
-                repo_path = RepoPath(path=Path(path), ref=ref_str)
-                chunk = Chunk(repo_path=repo_path, section=section, text=text, offset=offset)
+            for _chunk_id, path, oid, section, text, offset, rank in cursor:
+                version = Version(Path(path), oid)
+                chunk = Chunk(version=version, section=section, text=text, offset=offset)
                 # Convert BM25 rank (negative, lower is better) to positive score
                 yield SearchHit(chunk=chunk, score=-float(rank))
 
@@ -452,7 +451,7 @@ class SQLiteSearchIndex(SearchIndex):
 
         # Build lookup by chunk identity (path + offset uniquely identifies a chunk)
         def chunk_key(chunk: Chunk) -> tuple:
-            return (str(chunk.repo_path.path), chunk.offset)
+            return (str(chunk.version.path), chunk.offset)
 
         # Compute RRF scores
         rrf_scores: dict[tuple, float] = {}
@@ -473,7 +472,7 @@ class SQLiteSearchIndex(SearchIndex):
 
         return results
 
-    def get_indexed_paths(self) -> Iterable[RepoPath]:
+    def get_indexed_paths(self) -> Iterable[Version]:
         """
         Get mapping of paths to their indexed refs for this store's model.
 
@@ -481,10 +480,10 @@ class SQLiteSearchIndex(SearchIndex):
             Dict mapping path -> set of refs
         """
         cursor = self._conn.execute("SELECT path, oid FROM notes WHERE model_id = ?", (self._embedder.model_id,))
-        for path, ref in cursor.fetchall():
-            yield (RepoPath(Path(path), ref))
+        for path, oid in cursor.fetchall():
+            yield Version(Path(path), oid)
 
-    def remove(self, versions: Iterable[RepoPath]) -> int:
+    def remove(self, versions: Iterable[Version]) -> int:
         """
         Remove this store's chunks for the given versions of notes.
 
@@ -499,7 +498,7 @@ class SQLiteSearchIndex(SearchIndex):
             Number of chunks removed
         """
         model_id = self._embedder.model_id
-        keys = [(str(repo_path.path), repo_path.ref, model_id) for repo_path in versions]
+        keys = [(str(version.path), version.oid, model_id) for version in versions]
 
         if not keys:
             return 0
@@ -557,4 +556,4 @@ class SQLiteSearchIndex(SearchIndex):
             "SELECT n.model_id, n.path, n.oid, COUNT(c.id) FROM notes n LEFT JOIN chunks c ON c.note_id = n.id"
             " GROUP BY n.id"
         ):
-            yield IndexStat(row[0], RepoPath(Path(row[1]), row[2]), num_chunks=row[3])
+            yield IndexStat(row[0], Version(Path(row[1]), row[2]), num_chunks=row[3])

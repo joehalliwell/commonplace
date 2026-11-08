@@ -40,7 +40,7 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
             placements[importer.source.name] = Placement.of(repo, tree, importer.id_key)
         placement = placements[importer.source.name]
         rendered = {
-            note.repo_path.path: note
+            note.path: note
             for note in render_chats(repo.root / blob, importer, repo.config.user, blob.as_posix(), placement)
         }
         final.update(rendered)
@@ -66,7 +66,7 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
 
     actions: list[str] = []
     if writes:
-        new = sum(not (repo.root / note.repo_path.path).exists() for note in writes)
+        new = sum(not (repo.root / note.path).exists() for note in writes)
         actions.append(f"{'Would re-render' if check else 'Re-rendered'} {len(writes)} chats ({new} new)")
     if writes and not check:
         for note in writes:

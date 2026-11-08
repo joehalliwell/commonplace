@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from commonplace._config import MARGINALIA
-from commonplace._types import Marginalia, Note, RepoPath
+from commonplace._types import Marginalia, Note
 from commonplace._utils import load_frontmatter
 
 if TYPE_CHECKING:
@@ -46,7 +46,7 @@ def parse_marginalia(note: Path, text: str) -> Marginalia:
 def write_marginalia(repo: "Commonplace", marginalia: Marginalia) -> None:
     """Save the marginalia for the repo's next commit."""
     metadata = {"marginalia": MARGINALIA_VERSION, "tags": marginalia.tags}
-    repo.save(Note(RepoPath(marginalia_path(marginalia.note)), marginalia.body, metadata))
+    repo.save(Note(marginalia_path(marginalia.note), marginalia.body, metadata))
 
 
 def check_marginalia(repo: "Commonplace", check: bool) -> tuple[list[str], list[str]]:
