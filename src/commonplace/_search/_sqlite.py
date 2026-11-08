@@ -16,7 +16,9 @@ from commonplace._types import RepoPath
 #: whose every chunk named its own model, path and ref. Version 2 names a note once, in `notes`, which
 #: also records a note that yields no chunks, so it is visited once rather than on every run. Version 3
 #: stores embeddings at half precision, halving the bulk of the file; cosine ranking never needed more.
-INDEX_VERSION = 3
+#: Version 4 names a note's version by git's id for its content, `oid`, where v3 named the commit that
+#: last changed it: v3's versions are stale on the next run and replaced, keeping their embeddings.
+INDEX_VERSION = 4
 
 #: How an embedding is stored: two bytes a dimension.
 _STORED = np.float16
@@ -35,8 +37,8 @@ CREATE TABLE notes (
     id INTEGER PRIMARY KEY,
     model_id TEXT NOT NULL,
     path TEXT NOT NULL,
-    ref TEXT NOT NULL,
-    UNIQUE(model_id, path, ref)
+    oid TEXT NOT NULL,
+    UNIQUE(model_id, path, oid)
 );
 """
 
@@ -78,10 +80,17 @@ COMMIT;
 
 # Chunk ids are kept, so the external-content full-text index still points at the right rows, and no
 # embedding is recomputed. The copy runs before the new triggers exist, or it would re-add every row to
-# the full-text index; dropping v1's table takes its own indexes and triggers with it.
+# the full-text index; dropping v1's table takes its own indexes and triggers with it. Its `notes` is
+# v2's, which v3 kept and v4 renamed a column of.
 _MIGRATE_V1 = f"""
 BEGIN;
-{_NOTES_DDL}
+CREATE TABLE notes (
+    id INTEGER PRIMARY KEY,
+    model_id TEXT NOT NULL,
+    path TEXT NOT NULL,
+    ref TEXT NOT NULL,
+    UNIQUE(model_id, path, ref)
+);
 INSERT INTO notes (model_id, path, ref)
     SELECT model_id, path, ref FROM chunks GROUP BY model_id, path, ref ORDER BY MIN(id);
 ALTER TABLE chunks RENAME TO chunks_v1;
@@ -108,8 +117,16 @@ PRAGMA user_version = 3;
 COMMIT;
 """
 
+# The commit ids v3 holds are kept, not dropped: replacing them on the next run lends their embeddings.
+_MIGRATE_V3 = """
+BEGIN;
+ALTER TABLE notes RENAME COLUMN ref TO oid;
+PRAGMA user_version = 4;
+COMMIT;
+"""
+
 #: version -> the script that takes an index from it to the next.
-_MIGRATIONS = {1: _MIGRATE_V1, 2: _MIGRATE_V2}
+_MIGRATIONS = {1: _MIGRATE_V1, 2: _MIGRATE_V2, 3: _MIGRATE_V3}
 
 
 class SQLiteSearchIndex(SearchIndex):
@@ -186,9 +203,9 @@ class SQLiteSearchIndex(SearchIndex):
         key = (self._embedder.model_id, str(repo_path.path), repo_path.ref)
         # Not OR IGNORE, which would also swallow the NOT NULL that refuses an uncommitted note.
         self._conn.execute(
-            "INSERT INTO notes (model_id, path, ref) VALUES (?, ?, ?) ON CONFLICT (model_id, path, ref) DO NOTHING", key
+            "INSERT INTO notes (model_id, path, oid) VALUES (?, ?, ?) ON CONFLICT (model_id, path, oid) DO NOTHING", key
         )
-        return self._conn.execute("SELECT id FROM notes WHERE model_id = ? AND path = ? AND ref = ?", key).fetchone()[0]
+        return self._conn.execute("SELECT id FROM notes WHERE model_id = ? AND path = ? AND oid = ?", key).fetchone()[0]
 
     def other_models(self) -> dict[str, int]:
         """How many notes are indexed under each model other than this store's."""
@@ -331,7 +348,7 @@ class SQLiteSearchIndex(SearchIndex):
             List of search hits, ordered by descending similarity
         """
         cursor = self._conn.execute(
-            "SELECT c.id, n.path, n.ref, c.section, c.text, c.offset, c.embedding"
+            "SELECT c.id, n.path, n.oid, c.section, c.text, c.offset, c.embedding"
             " FROM chunks c JOIN notes n ON n.id = c.note_id WHERE n.model_id = ?",
             (self._embedder.model_id,),
         )
@@ -387,7 +404,7 @@ class SQLiteSearchIndex(SearchIndex):
         # limit is filled, which leaves room to skip hits that are no longer live.
         cursor = self._conn.execute(
             """
-            SELECT c.id, n.path, n.ref, c.section, c.text, c.offset, rank
+            SELECT c.id, n.path, n.oid, c.section, c.text, c.offset, rank
             FROM chunks_fts
             JOIN chunks c ON chunks_fts.rowid = c.id
             JOIN notes n ON n.id = c.note_id
@@ -463,7 +480,7 @@ class SQLiteSearchIndex(SearchIndex):
         Returns:
             Dict mapping path -> set of refs
         """
-        cursor = self._conn.execute("SELECT path, ref FROM notes WHERE model_id = ?", (self._embedder.model_id,))
+        cursor = self._conn.execute("SELECT path, oid FROM notes WHERE model_id = ?", (self._embedder.model_id,))
         for path, ref in cursor.fetchall():
             yield (RepoPath(Path(path), ref))
 
@@ -492,10 +509,10 @@ class SQLiteSearchIndex(SearchIndex):
         for key in keys:
             removed += self._conn.execute(
                 "SELECT COUNT(*) FROM chunks c JOIN notes n ON n.id = c.note_id"
-                " WHERE n.path = ? AND n.ref = ? AND n.model_id = ?",
+                " WHERE n.path = ? AND n.oid = ? AND n.model_id = ?",
                 key,
             ).fetchone()[0]
-        self._conn.executemany("DELETE FROM notes WHERE path = ? AND ref = ? AND model_id = ?", keys)
+        self._conn.executemany("DELETE FROM notes WHERE path = ? AND oid = ? AND model_id = ?", keys)
         self._conn.commit()
 
         logger.info(f"Removed {removed} chunks from {len(keys)} deleted or superseded notes")
@@ -537,7 +554,7 @@ class SQLiteSearchIndex(SearchIndex):
         """Get statistics about the vector store."""
 
         for row in self._conn.execute(
-            "SELECT n.model_id, n.path, n.ref, COUNT(c.id) FROM notes n LEFT JOIN chunks c ON c.note_id = n.id"
+            "SELECT n.model_id, n.path, n.oid, COUNT(c.id) FROM notes n LEFT JOIN chunks c ON c.note_id = n.id"
             " GROUP BY n.id"
         ):
             yield IndexStat(row[0], RepoPath(Path(row[1]), row[2]), num_chunks=row[3])

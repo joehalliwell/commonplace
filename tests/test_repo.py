@@ -103,11 +103,11 @@ def test_load_file_opening_with_a_rule_is_all_body(test_repo):
 
 
 def test_make_repo_path_follows_later_commits(test_repo, make_note):
-    """A note's ref tracks the commit that last modified it, even after HEAD moves on.
+    """A note's version tracks its committed content, even after HEAD moves on.
 
-    The path -> commit map is cached, so this is really a test that the cache is keyed
+    The path -> content map is cached, so this is really a test that the cache is keyed
     on HEAD: everything downstream (incremental indexing, pruning, hiding deleted hits
-    from search) decides what is current by comparing refs.
+    from search) decides what is current by comparing versions.
     """
     test_repo.save(make_note("test.md", "# Test\nOriginal content"))
     test_repo.commit("Add note", auto_index=False)
@@ -117,18 +117,18 @@ def test_make_repo_path_follows_later_commits(test_repo, make_note):
     test_repo.commit("Update note", auto_index=False)
     modified = test_repo.make_repo_path("test.md")
 
-    assert original.ref == _head(test_repo, "HEAD~1")
-    assert modified.ref == _head(test_repo)
+    assert original.ref == _head(test_repo, "HEAD~1:test.md")
+    assert modified.ref == _head(test_repo, "HEAD:test.md")
 
 
-def test_make_repo_path_change_on_merged_branch_is_the_side_commit(test_repo, make_note):
-    """A file last changed on a merged side branch is attributed to that commit, not the mainline before it."""
+def test_make_repo_path_change_on_merged_branch_is_the_side_content(test_repo, make_note):
+    """A file last changed on a merged side branch has that branch's content, not the mainline's before it."""
     test_repo.save(make_note("topic.md", "# Topic\n"))
     test_repo.commit("Add topic", auto_index=False)
     _git(test_repo, "switch", "-q", "-c", "side")
     (test_repo.root / "topic.md").write_text("# Topic, revised\n")
     _git(test_repo, "commit", "-qam", "Revise topic")
-    side = _git(test_repo, "rev-parse", "HEAD").strip()
+    side = _head(test_repo, "HEAD:topic.md")
     _git(test_repo, "switch", "-q", "main")
     (test_repo.root / "other.md").write_text("# Other\n")
     _git(test_repo, "add", "other.md")
@@ -486,6 +486,24 @@ def test_uncommitted_reports_edited_deleted_and_untracked_under_pathspec(test_re
     (test_repo.root / "other.md").write_text("# Elsewhere\n")
 
     assert test_repo.uncommitted("notes") == {"notes/edited.md", "notes/deleted.md", "notes/new.md"}
+
+
+def test_a_notes_version_is_its_committed_content_so_a_reverted_edit_restores_it(test_repo):
+    """An index keyed by content re-reads only what changed, however many commits pass."""
+    note = Path("notes/tea.md")
+    versions = []
+    for text in ("# Tea\n", "# Tea, brewed\n", "# Tea\n"):
+        _write(test_repo, {note: text})
+        test_repo.commit("Edit tea", auto_index=False, written=[note.as_posix()])
+        versions.append(test_repo.make_repo_path(note).ref)
+
+    assert versions[0] == versions[2] != versions[1]
+
+
+def test_an_uncommitted_note_has_no_version(test_repo):
+    _write(test_repo, {Path("notes/draft.md"): "# Draft\n"})
+
+    assert test_repo.make_repo_path("notes/draft.md").ref is None
 
 
 def test_moved_maps_each_renamed_path_to_where_its_last_occupant_is_now(test_repo):
