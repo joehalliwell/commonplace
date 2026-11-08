@@ -97,6 +97,10 @@ class Blob(Node):
             return cls(BLOBS / hashlib.file_digest(f, "sha256").hexdigest() / file.name)
 
 
+#: What a link to a label is written with: a tag is an edge to `tag:<label>`, a node with no file.
+TAG = "tag:"
+
+
 @dataclass(frozen=True)
 class Marginalia:
     """What's been said about a note since: labels on its node, and a second body, a log of what's been said."""
@@ -114,7 +118,7 @@ class Marginalia:
         """These marginalia without `tags`."""
         return replace(self, tags=[tag for tag in self.tags if tag not in tags])
 
-    def linked(self, target: Target, why: str, on: date) -> "Marginalia":
+    def linked(self, target: Target | str, why: str, on: date) -> "Marginalia":
         """These marginalia with a link to `target` appended as a dated line."""
         line = f"- {on.isoformat()} [[{target}]]" + (f" {why}" if why else "")
         body = self.body if not self.body or self.body.endswith("\n") else self.body + "\n"

@@ -10,7 +10,7 @@ import os
 import shutil
 import subprocess
 import time
-from collections.abc import Callable, Collection, Iterable, Iterator
+from collections.abc import Collection, Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from functools import cached_property, lru_cache
@@ -20,10 +20,10 @@ from typing import Literal
 
 from commonplace import _scaffold as scaffold
 from commonplace._config import BLOBS, MARGINALIA, Config
-from commonplace._links import BrokenLink, Edge, Files, Target, UnresolvedNote
+from commonplace._links import BrokenLink, Edge, Files
 from commonplace._logging import logger
 from commonplace._marginalia import read_marginalia, write_marginalia
-from commonplace._types import Blob, Marginalia, Note, Pathlike, node_id
+from commonplace._types import TAG, Blob, Note, Pathlike, node_id
 from commonplace._utils import dump_frontmatter, load_frontmatter
 
 _BOT_USERNAME = "Commonplace Bot"
@@ -284,50 +284,26 @@ class Commonplace:
         """Every edge that lands on no node, or on no span it names."""
         return [found for note in self.notes() for edge in note.edges if (found := self.files.broken(edge))]
 
-    def notes_named(self, spec: str) -> list[Path]:
-        """The whole notes `spec` names; a span is refused, since marginalia speak for a whole note."""
-        return self.files.resolve(_whole(spec))
+    def add_link(self, note: Pathlike, target: str, why: str = "", on: date | None = None) -> None:
+        """Add an edge from `note` to `target` as written, in its marginalia, for the next commit; `tag:x` labels it."""
+        marginalia = read_marginalia(self.root, node_id(note))
+        if (label := target.removeprefix(TAG)) != target:
+            write_marginalia(self, marginalia.tagged(label))
+        else:
+            on = on or date.today()  # noqa: DTZ011 - the user's local day, as the journal's
+            write_marginalia(self, marginalia.linked(target, why, on))
 
-    def tag(self, spec: str, tags: list[str]) -> list[Path]:
-        """Label the notes `spec` names in their marginalia, committing as the user; returns the notes."""
-        return self._annotate(self.notes_named(spec), lambda m: m.tagged(*tags), f"Tag {spec}: {', '.join(tags)}")
-
-    def untag(self, spec: str, tags: list[str]) -> list[Path]:
-        """Remove labels from the marginalia of the notes `spec` names, committing as the user; returns the notes."""
-        return self._annotate(self.notes_named(spec), lambda m: m.untagged(*tags), f"Untag {spec}: {', '.join(tags)}")
-
-    def link(self, from_spec: str, to_spec: str, why: str, on: date | None = None) -> Target:
-        """Add an edge from a whole note to a note or a span in one, in its marginalia, committing as the user."""
-        source, target = self.files.resolve_target(_whole(from_spec)).note, self.files.resolve_target(to_spec)
-        on = on or date.today()  # noqa: DTZ011 - the user's local day, as the journal's
-        self._annotate([source], lambda marginalia: marginalia.linked(target, why, on), f"Link {from_spec} to {target}")
-        return target
-
-    def unlink(self, from_spec: str, to_spec: str) -> int:
-        """Remove a note's edges to exactly `to_spec`'s target from its marginalia, committing as the user."""
-        note = self.get(self.files.resolve_target(from_spec).note)
-        try:
-            target = str(self.files.resolve_target(to_spec))
-        except UnresolvedNote as e:
-            # An edge whose note is gone can't be named any more, so take it as the marginalia write it.
-            target = to_spec.removeprefix("[[").removesuffix("]]")
-            if target not in [said.link.target for said in note.said]:
-                dead = [said.link.target for said in note.said if not self.files.lands(said)]
-                hint = f"; a link whose note is gone is removed as written: {', '.join(dead)}" if dead else ""
-                raise UnresolvedNote(f"{e}{hint}") from e
-        marginalia, removed = note.unlinked(target)
-        if not removed:
-            raise ValueError(f"'{from_spec}' has no link to {target}")
-        write_marginalia(self, marginalia)
-        self.commit(f"Unlink {from_spec} from {target}", as_user=True)
+    def remove_link(self, note: Pathlike, target: str) -> int:
+        """Remove `note`'s edges to exactly `target` from its marginalia, for the next commit; how many went."""
+        note = node_id(note)
+        if (label := target.removeprefix(TAG)) != target:
+            marginalia = read_marginalia(self.root, note)
+            changed, removed = marginalia.untagged(label), int(label in marginalia.tags)
+        else:
+            changed, removed = self.get(note).unlinked(target)
+        if removed:
+            write_marginalia(self, changed)
         return removed
-
-    def _annotate(self, notes: list[Path], change: Callable[[Marginalia], Marginalia], message: str) -> list[Path]:
-        """Rewrite the marginalia of `notes` by `change`, committing as the user."""
-        for note in notes:
-            write_marginalia(self, change(read_marginalia(self.root, note)))
-        self.commit(message, as_user=True)
-        return notes
 
     @cached_property
     def files(self) -> Files:
@@ -380,10 +356,3 @@ class Commonplace:
 
     def _git(self, *args: str) -> str:
         return _run_git(self.root, *args)
-
-
-def _whole(spec: str) -> str:
-    """`spec`, unless it names a span, which marginalia can't speak for: they belong to whole notes."""
-    if "#" in spec:
-        raise UnresolvedNote(f"'{spec}' names a span; marginalia belong to whole notes")
-    return spec

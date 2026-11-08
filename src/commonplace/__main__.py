@@ -10,6 +10,7 @@ from typing import Annotated, Literal, TypeAlias
 from cyclopts import App, Parameter
 from platformdirs import user_data_dir
 
+from commonplace import _annotate as annotate
 from commonplace._fetch._helpers import FetchBlocked
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
@@ -327,7 +328,7 @@ def tag(spec: NoteSpec, *tags: str, repo: Repo) -> None:
     try:
         if not tags:
             raise ValueError("Name a tag to add; `commonplace show <note> --only tags` shows a note's tags")
-        repo.tag(spec, list(tags))
+        annotate.tag(repo, spec, list(tags))
     except ValueError as e:  # No tag, an unresolved spec, or marginalia newer than this release
         logger.error(str(e))
         raise SystemExit(1) from e
@@ -337,7 +338,7 @@ def tag(spec: NoteSpec, *tags: str, repo: Repo) -> None:
 def untag(spec: NoteSpec, *tags: str, repo: Repo) -> None:
     """Remove tags from notes' marginalia."""
     try:
-        repo.untag(spec, list(tags))
+        annotate.untag(repo, spec, list(tags))
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
@@ -354,7 +355,7 @@ def link(
 ) -> None:
     """Link one note to another, in the first note's marginalia; the rest of the line says why."""
     try:
-        repo.link(note, target, " ".join(why))
+        annotate.link(repo, note, target, " ".join(why))
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
@@ -364,7 +365,7 @@ def link(
 def unlink(note: NoteSpec, target: NoteSpec, *, repo: Repo) -> None:
     """Remove a note's links to a target from its marginalia."""
     try:
-        repo.unlink(note, target)
+        annotate.unlink(repo, note, target)
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
