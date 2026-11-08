@@ -12,6 +12,7 @@ from typing import NamedTuple
 import pytest
 from rich.console import Console
 
+from commonplace._config import CACHE
 from commonplace._repo import Commonplace
 from commonplace._search._sqlite import INDEX_VERSION
 from commonplace._search._types import Chunk
@@ -111,7 +112,7 @@ def test_index(test_repo):
     """
     from commonplace._search._sqlite import SQLiteSearchIndex
 
-    with closing(SQLiteSearchIndex(test_repo.cache / "index.db")) as index:
+    with closing(SQLiteSearchIndex(test_repo.root / CACHE / "index.db")) as index:
         yield index
 
 
@@ -156,7 +157,7 @@ def other_model_index(test_repo):
     """
     from commonplace._search._sqlite import SQLiteSearchIndex
 
-    with closing(SQLiteSearchIndex(test_repo.cache / "index.db", embedder=StubEmbedder())) as index:
+    with closing(SQLiteSearchIndex(test_repo.root / CACHE / "index.db", embedder=StubEmbedder())) as index:
         yield index
 
 
