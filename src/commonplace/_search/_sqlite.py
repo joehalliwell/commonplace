@@ -1,7 +1,7 @@
 """Vector storage implementations for similarity search."""
 
 import sqlite3
-from collections.abc import Callable, Collection, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from itertools import islice
 from pathlib import Path
 
@@ -125,7 +125,7 @@ class SQLiteSearchIndex(SearchIndex):
         db_path: Path,
         embedder: Embedder | None = None,
         note_exists: Callable[[RepoPath], bool] | None = None,
-        hidden_notes: Callable[[], Collection[Path]] | None = None,
+        is_hidden: Callable[[Path], bool] | None = None,
     ):
         """
         Initialize the vector store.
@@ -137,11 +137,11 @@ class SQLiteSearchIndex(SearchIndex):
                 repository. Hits that fail it are hidden from results unless the
                 caller asks for deleted ones. None (the default) means this store
                 has no repository to ask, and every hit stands.
-            hidden_notes: The notes tagged `hidden`, asked once per search; their hits are left out unless
-                the caller asks for hidden ones. None means nothing is hidden.
+            is_hidden: Whether a note is labelled `hidden`, asked of each hit; their hits are left out
+                unless the caller asks for hidden ones. None means nothing is hidden.
         """
         self._note_exists = note_exists
-        self._hidden_notes = hidden_notes
+        self._is_hidden = is_hidden
 
         try:
             db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -284,11 +284,12 @@ class SQLiteSearchIndex(SearchIndex):
         whatever is left.
         """
         note_exists = None if include_deleted else self._note_exists
-        hidden = set() if include_hidden or self._hidden_notes is None else set(self._hidden_notes())
+        is_hidden = None if include_hidden else self._is_hidden
 
         def shown(hit: SearchHit) -> bool:
             path = hit.chunk.repo_path
-            return path.path not in hidden and (note_exists is None or note_exists(path))
+            hidden = is_hidden is not None and is_hidden(path.path)
+            return not hidden and (note_exists is None or note_exists(path))
 
         return list(islice(filter(shown, ranked), limit))
 

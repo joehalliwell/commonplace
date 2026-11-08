@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from commonplace._marginalia import link, read_marginalia, tag, write_marginalia
+from commonplace._graph import link, tag
+from commonplace._marginalia import read_marginalia, write_marginalia
 from commonplace._search import _commands
 from commonplace._show import render, show
 from tests.porcelain import git

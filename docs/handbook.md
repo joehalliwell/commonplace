@@ -199,10 +199,10 @@ Tags live in the note's marginalia, a file at the note's own path under
 including chats and memory that the next fetch rewrites. Tagging commits as you,
 not as the bot.
 
-`hidden` is the one tag commonplace acts on: a hidden note stays in the
-repository but is left out of `search` and `ls` (and so out of what skills
-gather), unless you pass `--hidden`. `ls --field tags` shows marginalia tags
-after a note's own.
+A note's tags are its own frontmatter `tags` and its marginalia tags together.
+`hidden` is the one tag commonplace acts on, wherever it's set: a hidden note
+stays in the repository but is left out of `search`, `ls` and `show`'s links
+(and so out of what skills gather), unless you pass `--hidden`. `ls --field tags` shows marginalia tags after a note's own.
 
 A link's target can be a note, a heading, or a phrase quoted from the note, and
 the rest of the line says why:
@@ -214,8 +214,9 @@ commonplace link ideas '2026-11-02#"by the river"'
 
 A link is a dated line in the first note's marginalia, with the target written
 from the root (`- 2026-11-02 [[/notes/ideas#Tea house]] filed as …`), so a later
-note of the same name can't make it ambiguous. Any wikilink you write in
-marginalia by hand counts as a link too, unless it is quoted as code.
+note of the same name can't make it ambiguous. Any link you write in marginalia
+by hand counts as the note's too, unless it is quoted as code; a relative path
+in it is measured from the note.
 
 `show` gathers what other commands record about a note: its title and type, its
 own tags and its marginalia tags, its links both ways (from marginalia and from
@@ -256,8 +257,8 @@ It also checks that links land somewhere. Every reference your own markdown
 and your marginalia make into the repository is followed: inline and reference-style links,
 images, wikilinks, raw HTML `href`/`src`, and the paths that topics list as
 their `sources`. Anything that no longer resolves, down to a heading or quoted
-phrase a wikilink names, is reported with the note and line it was written on
-(a line past the note's end is in its marginalia), and — since a rename is what most breakage turns out to
+phrase a wikilink names, is reported with the file and line it was written on,
+the note's or its marginalia's, and — since a rename is what most breakage turns out to
 be — where a file of that name lives now:
 
 ```

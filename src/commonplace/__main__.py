@@ -291,7 +291,7 @@ def resolve(spec: NoteSpec, *, repo: Repo) -> None:
     """Print the path of the note a name refers to, one per line for a glob: $EDITOR $(commonplace resolve ideas)."""
 
     try:
-        notes = repo.tree().resolve(spec)
+        notes = repo.graph().resolve(spec)
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
@@ -302,7 +302,7 @@ def resolve(spec: NoteSpec, *, repo: Repo) -> None:
 @app.command(group=ANNOTATING_SECTION)
 def tag(spec: NoteSpec, *tags: str, repo: Repo) -> None:
     """Tag notes, in their marginalia; `show <note> --only tags` shows a note's tags."""
-    from commonplace._marginalia import tag as add_tags
+    from commonplace._graph import tag as add_tags
 
     try:
         if not tags:
@@ -316,7 +316,7 @@ def tag(spec: NoteSpec, *tags: str, repo: Repo) -> None:
 @app.command(group=ANNOTATING_SECTION)
 def untag(spec: NoteSpec, *tags: str, repo: Repo) -> None:
     """Remove tags from notes' marginalia."""
-    from commonplace._marginalia import untag as remove_tags
+    from commonplace._graph import untag as remove_tags
 
     try:
         remove_tags(repo, spec, list(tags))
@@ -335,7 +335,7 @@ def link(
     repo: Repo,
 ) -> None:
     """Link one note to another, in the first note's marginalia; the rest of the line says why."""
-    from commonplace._marginalia import link as add_link
+    from commonplace._graph import link as add_link
 
     try:
         add_link(repo, note, target, " ".join(why))
@@ -347,7 +347,7 @@ def link(
 @app.command(group=ANNOTATING_SECTION)
 def unlink(note: NoteSpec, target: NoteSpec, *, repo: Repo) -> None:
     """Remove a note's links to a target from its marginalia."""
-    from commonplace._document import unlink as remove_link
+    from commonplace._graph import unlink as remove_link
 
     try:
         remove_link(repo, note, target)
