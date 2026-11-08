@@ -17,12 +17,15 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import cached_property, lru_cache
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from commonplace._config import BLOBS, CACHE, CONFIG
-from commonplace._links import Tree
 from commonplace._logging import logger
 from commonplace._types import Note, Pathlike, RepoPath
 from commonplace._utils import dump_frontmatter, load_frontmatter
+
+if TYPE_CHECKING:
+    from commonplace._graph import Graph
 
 # What `init` lays down, as it lands in a repo. Its dotfiles match nothing here, so they are inert.
 _SCAFFOLD_ROOT = Path(__file__).parent / "resources" / "scaffold"
@@ -257,12 +260,12 @@ class Commonplace:
     @cached_property
     def index(self):
         """Get the search index."""
-        from commonplace._marginalia import tagged
+        from commonplace._graph import Node
         from commonplace._search._sqlite import SQLiteSearchIndex
 
         index_path = self.cache / "index.db"
         return SQLiteSearchIndex(
-            index_path, note_exists=self.note_exists, hidden_notes=lambda: tagged(self.root, "hidden")
+            index_path, note_exists=self.note_exists, is_hidden=lambda path: "hidden" in Node(self.root, path).labels
         )
 
     def note_exists(self, repo_path: RepoPath) -> bool:
@@ -383,9 +386,11 @@ class Commonplace:
             if not any(part.startswith(".") for part in path.parts[:-1]) and (self.root / path).exists():
                 yield path
 
-    def tree(self) -> Tree:
-        """The files `paths` gives, indexed for landing links and resolving specs."""
-        return Tree(self.root, self.paths())
+    def graph(self) -> "Graph":
+        """The repository as a graph, one node per file `paths` gives."""
+        from commonplace._graph import Graph
+
+        return Graph(self.root, self.paths())
 
     def history(self, path: Path) -> list[tuple[str, str]]:
         """The commits that changed `path`, newest first, following renames, as (date, subject)."""

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from commonplace._marginalia import read_marginalia, tagged
+from commonplace._graph import Node
 from commonplace._repo import Commonplace
 from commonplace._utils import load_frontmatter
 
@@ -12,31 +12,33 @@ from commonplace._utils import load_frontmatter
 def listing(repo: Commonplace, folder: Path, fields: list[str], include_hidden: bool = False) -> str:
     """Render a folder's notes, then its subfolders, as an OKF index, with each note's title, description and fields.
 
-    Notes tagged `hidden` are left out unless asked for; a `tags` field adds marginalia tags after the note's own.
+    Notes labelled `hidden` are left out unless asked for, and a folder holding nothing else; `tags` are its labels.
     """
-    hidden = set() if include_hidden else tagged(repo.root, "hidden")
-    notes: list[Path] = []
+
+    def shown(node: Node) -> bool:
+        return include_hidden or "hidden" not in node.labels
+
+    notes: list[Node] = []
     subfolders: set[str] = set()
     for path in repo.paths():
-        if path in hidden:
-            continue
         try:
             rest = path.relative_to(folder)
         except ValueError:
             continue
         if len(rest.parts) > 1:
-            subfolders.add(rest.parts[0])
-        elif path.suffix == ".md":
-            notes.append(path)
+            if rest.parts[0] not in subfolders and shown(Node(repo.root, path)):
+                subfolders.add(rest.parts[0])
+        elif path.suffix == ".md" and shown(node := Node(repo.root, path)):
+            notes.append(node)
     if not notes and not subfolders:
         raise ValueError(f"Nothing to list in '{folder}'")
 
     lines = [f"# {folder.as_posix()}", ""]
-    for path in notes:
-        metadata, _ = load_frontmatter((repo.root / path).read_text())
-        if "tags" in fields and (marginal := read_marginalia(repo.root, path).tags):
-            metadata["tags"] = list(dict.fromkeys([*(metadata.get("tags") or []), *marginal]))
-        entry = f"- [{_one_line(metadata.get('title')) or path.stem}]({path.name})"
+    for node in notes:
+        metadata, _ = load_frontmatter(node.body)
+        if "tags" in fields and node.labels:
+            metadata["tags"] = node.labels
+        entry = f"- [{_one_line(metadata.get('title')) or node.id.stem}]({node.id.name})"
         if description := _one_line(metadata.get("description")):
             entry += f" - {description}"
         lines.append(entry)

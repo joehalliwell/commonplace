@@ -1,18 +1,17 @@
-"""Marginalia: what's been said about a note since, kept in a shadow tree beside it rather than in it.
+"""Marginalia: how the part of a note's node that's said about it since is stored, in a shadow tree beside it.
 
 A note's marginalia sit at its path under `.commonplace/marginalia/`. Notes owned by another system of record
 are rewritten on every fetch, and primitives are immutable, so this is the one place to say anything about any note.
-Frontmatter holds current state (`tags`); the body is a log of dated lines, appended to and never rewritten by tag
-changes. A note is read with its marginalia as one document (`_document`), so a link in the body is the note's.
+Frontmatter holds current state (`tags`, labels on the node); the body is the node's second body, a log of dated
+lines appended to and never rewritten by tag changes. `_graph` reads them as part of the node.
 """
 
-from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 
 from commonplace._config import MARGINALIA
-from commonplace._links import Target, UnresolvedNote
+from commonplace._links import Target
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
@@ -53,12 +52,15 @@ def marginalia_path(note: Path) -> Path:
 def read_marginalia(root: Path, note: Path) -> Marginalia:
     """The note's marginalia, empty if nothing has been said about it."""
     path = root / marginalia_path(note)
-    if not path.exists():
-        return Marginalia(note=note)
-    metadata, body = load_frontmatter(path.read_text())
+    return parse_marginalia(note, path.read_text()) if path.exists() else Marginalia(note=note)
+
+
+def parse_marginalia(note: Path, text: str) -> Marginalia:
+    """`note`'s marginalia, from the text of their file."""
+    metadata, body = load_frontmatter(text)
     version = metadata.get("marginalia", MARGINALIA_VERSION)
     if version > MARGINALIA_VERSION:
-        raise ValueError(f"'{path}' is marginalia v{version}, newer than this release's v{MARGINALIA_VERSION}")
+        raise ValueError(f"The marginalia of '{note}' are v{version}, newer than this release's v{MARGINALIA_VERSION}")
     return Marginalia(note=note, ref=metadata.get("ref"), tags=list(metadata.get("tags") or []), body=body)
 
 
@@ -69,50 +71,6 @@ def write_marginalia(repo: Commonplace, marginalia: Marginalia) -> None:
         metadata["ref"] = marginalia.ref
     metadata["tags"] = marginalia.tags
     repo.save(Note(RepoPath(marginalia_path(marginalia.note)), marginalia.body, metadata))
-
-
-def tagged(root: Path, tag: str) -> set[Path]:
-    """Every note whose marginalia carry `tag`."""
-    return {note for note in annotated_notes(root) if tag in read_marginalia(root, note).tags}
-
-
-def tag(repo: Commonplace, spec: str, tags: list[str]) -> list[Path]:
-    """Tag the notes `spec` names, committing as the user; returns the notes."""
-    return _retag(repo, spec, lambda marginalia: marginalia.tagged(*tags), f"Tag {spec}: {', '.join(tags)}")
-
-
-def untag(repo: Commonplace, spec: str, tags: list[str]) -> list[Path]:
-    """Remove tags from the notes `spec` names, committing as the user; returns the notes."""
-    return _retag(repo, spec, lambda marginalia: marginalia.untagged(*tags), f"Untag {spec}: {', '.join(tags)}")
-
-
-def notes_named(repo: Commonplace, spec: str) -> list[Path]:
-    """The whole notes `spec` names; a span is refused, since marginalia speak for a whole note."""
-    if "#" in spec:
-        raise UnresolvedNote(f"'{spec}' names a span; marginalia belong to whole notes")
-    return repo.tree().resolve(spec)
-
-
-def link(repo: Commonplace, from_spec: str, to_spec: str, why: str, on: date | None = None) -> Target:
-    """Add a link from a whole note to a note or a span in one, committing as the user; returns the target."""
-    if "#" in from_spec:
-        raise UnresolvedNote(f"'{from_spec}' names a span; marginalia belong to whole notes")
-    tree = repo.tree()
-    source, target = tree.resolve_target(from_spec).note, tree.resolve_target(to_spec)
-    today = date.today()  # noqa: DTZ011 - the user's local day, as the journal's
-    marginalia = read_marginalia(repo.root, source).linked(target, why, on or today)
-    write_marginalia(repo, replace(marginalia, ref=repo.make_repo_path(source).ref))
-    repo.commit(f"Link {from_spec} to {target}", auto_index=False, as_user=True)
-    return target
-
-
-def _retag(repo: Commonplace, spec: str, change: Callable[[Marginalia], Marginalia], message: str) -> list[Path]:
-    notes = notes_named(repo, spec)
-    for note in notes:
-        marginalia = change(read_marginalia(repo.root, note))
-        write_marginalia(repo, replace(marginalia, ref=repo.make_repo_path(note).ref))
-    repo.commit(message, auto_index=False, as_user=True)
-    return notes
 
 
 def check_marginalia(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:

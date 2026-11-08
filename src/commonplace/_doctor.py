@@ -7,9 +7,8 @@ loses nothing needs no `--fix`, and `check` stops every step writing.
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from commonplace._document import check_links
+from commonplace._graph import summarize
 from commonplace._import._render import render as replay
-from commonplace._links import summarize
 from commonplace._logging import logger
 from commonplace._marginalia import check_marginalia
 from commonplace._repo import Commonplace
@@ -82,7 +81,7 @@ def _restored(path: str) -> str:
 
 def _links(repo: Commonplace, check: bool) -> DoctorReport:
     """Find broken links; there is nothing to write."""
-    return DoctorReport(actions=[], warnings=summarize(check_links(repo.tree())))
+    return DoctorReport(actions=[], warnings=summarize(repo.graph().check()))
 
 
 def _marginalia(repo: Commonplace, check: bool) -> DoctorReport:

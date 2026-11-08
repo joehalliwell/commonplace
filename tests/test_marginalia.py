@@ -7,16 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from commonplace._document import Document, links, links_to, unlink
-from commonplace._links import Tree, UnresolvedNote
+from commonplace._graph import Graph, Node, UnresolvedNote, link, links, tag, unlink, untag
+from commonplace._links import Target
 from commonplace._marginalia import (
     MARGINALIA_VERSION,
     Marginalia,
-    link,
     marginalia_path,
     read_marginalia,
-    tag,
-    untag,
     write_marginalia,
 )
 from commonplace._utils import load_frontmatter
@@ -201,7 +198,7 @@ def test_link_cli_takes_the_rest_of_the_line_as_why(notes, as_joe, test_app):
 
 
 def _targets(root: Path) -> list[str]:
-    return [link.target for link in Document(root, NOTE).said_links]
+    return [edge.link.target for edge in Node(root, NOTE).said]
 
 
 def _found(neighbours, direction: str) -> set[tuple[str, str, str]]:
@@ -213,7 +210,7 @@ def test_links_incoming_gathers_marginalia_edges_and_links_in_notes(notes, as_jo
     notes.commit("Journal", auto_index=False)
     link(notes, "2026/10/log", 'ideas#"Some text."', "the same thought", on=date(2026, 11, 2))
 
-    assert _found(links(notes, "ideas"), "in") == {
+    assert _found(links(notes.graph(), NOTE), "in") == {
         ("in", "/chats/claude-tasks/2026/10/log", '- 2026-11-02 [[/notes/ideas#"Some text."]] the same thought'),
         ("in", "/journal/2026-11-02", "Added to [[ideas]]."),
     }
@@ -225,7 +222,7 @@ def test_links_outgoing_gathers_marginalia_edges_and_links_in_the_notes_own_text
     notes.commit("Edit", auto_index=False)
     link(notes, "ideas", "2026/10/log", "scheduled", on=date(2026, 11, 2))
 
-    assert _found(links(notes, "ideas"), "out") == {
+    assert _found(links(notes.graph(), NOTE), "out") == {
         ("out", "/chats/claude-tasks/2026/10/log", "- 2026-11-02 [[/chats/claude-tasks/2026/10/log]] scheduled"),
         ("out", "/chats/claude-tasks/2026/11/log", "See [[2026/11/log]]."),
     }
@@ -248,10 +245,11 @@ def test_links_to_finds_every_kind_of_link_to_the_note_in_text_and_marginalia(tm
         (tmp_path / path).write_text(text)
     notes = [Path(p) for p in files if not p.startswith(".")]
 
-    found = links_to(Tree(tmp_path, notes), Path("notes/ideas.md"))
+    graph = Graph(tmp_path, notes)
+    found = graph.into(Path("notes/ideas.md"))
 
     # Chats quote links rather than make them, as for the link check.
-    assert [(neighbour.other, neighbour.context) for neighbour in found] == [
+    assert [(str(Target(edge.node)), graph.node(edge.node).line(edge)) for edge in found] == [
         ("/journal/a", "See [[ideas]]."),
         ("/journal/b", "See [[/notes/ideas#Tea house]]."),
         ("/journal/c", "See [the list](../notes/ideas.md)."),
@@ -267,7 +265,7 @@ def test_a_wikilink_quoted_as_code_in_marginalia_is_commentary_not_a_link(notes)
     )
 
     assert _targets(notes.root) == ["/notes/done"]
-    assert Document(notes.root, NOTE).commentary == ["- write one as `[[/notes/todo]]`"]
+    assert Node(notes.root, NOTE).commentary == ["- write one as `[[/notes/todo]]`"]
 
 
 def test_unlink_leaves_a_line_that_only_quotes_the_link(notes, as_joe):
@@ -286,7 +284,7 @@ def test_a_path_link_in_marginalia_lands_as_if_written_in_the_note(notes, as_joe
     line = "- see [the log](../chats/claude-tasks/2026/10/log.md)"
     write_marginalia(notes, Marginalia(note=NOTE, body=f"{line}\n"))
 
-    assert _found(links(notes, "ideas"), "out") == {("out", "/chats/claude-tasks/2026/10/log", line)}
+    assert _found(links(notes.graph(), NOTE), "out") == {("out", "/chats/claude-tasks/2026/10/log", line)}
 
 
 def test_links_leave_out_hidden_notes_at_the_other_end_unless_asked(notes, as_joe):
@@ -294,8 +292,8 @@ def test_links_leave_out_hidden_notes_at_the_other_end_unless_asked(notes, as_jo
     link(notes, "ideas", "2026/11/log", "", on=date(2026, 11, 2))
     tag(notes, "/chats/claude-tasks/**", ["hidden"])
 
-    assert links(notes, "ideas") == []
-    assert len(links(notes, "ideas", include_hidden=True)) == 2
+    assert links(notes.graph(), NOTE) == []
+    assert len(links(notes.graph(), NOTE, include_hidden=True)) == 2
 
 
 def test_marginalia_newer_than_this_release_are_refused(tmp_path):
