@@ -16,7 +16,7 @@ from commonplace._types import Blob, Note, Source
 from commonplace._wire import archive_names, last_fetched, read_header
 
 
-def mirror_one(path: Path, repo: Commonplace, importer: MirrorImporter, auto_index: bool | None = None) -> Blob | None:
+def mirror_one(path: Path, repo: Commonplace, importer: MirrorImporter) -> Blob | None:
     """Land the files the capture read and prune the paths its listing no longer names; returns the blob stored."""
     tree = importer.source.tree
     # Captures of this source already landed, for an importer whose captures are changes on earlier ones.
@@ -58,7 +58,7 @@ def mirror_one(path: Path, repo: Commonplace, importer: MirrorImporter, auto_ind
         repo.remove(target)
         logger.info(f"Pruned '{target}'")
 
-    repo.commit(f"Mirror {importer.source.name}: {blob.path.as_posix()}", auto_index=auto_index)
+    repo.commit(f"Mirror {importer.source.name}: {blob.path.as_posix()}")
     return blob
 
 

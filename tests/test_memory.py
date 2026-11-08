@@ -46,7 +46,7 @@ def _summary(stream: str) -> dict:
 
 
 def _mirror(repo, archive: Path) -> None:
-    import_(archive, repo, user="Human", auto_index=False)
+    import_(archive, repo, user="Human")
 
 
 def _tree(repo) -> set[str]:
@@ -72,7 +72,7 @@ def test_import_chat_importer_shaped_like_a_mirror_still_lands_chats(test_repo, 
 
     monkeypatch.setattr("commonplace._sources.SOURCES", (ChatSource("claude", (Shaped,), None),))
 
-    import_(CLAUDE_CHATS, test_repo, user="Human", auto_index=False)
+    import_(CLAUDE_CHATS, test_repo, user="Human")
 
     assert list((test_repo.root / "chats" / "claude").rglob("*.md"))
 
@@ -253,7 +253,7 @@ def test_mirror_file_landed_without_type_gains_it_on_the_next_mirror(test_repo, 
     """Files mirrored before `type` existed are otherwise identical, and must not count as landed."""
     old = {"title": "Title", "category_id": "topics", "version": "v1", "updated_at": "2026-09-30"}
     test_repo.save(Note(Path("memory/claude/a.md"), "# Title\n\nBody.\n", old))
-    test_repo.commit("Seed", auto_index=False)
+    test_repo.commit("Seed")
 
     _mirror(test_repo, _archive(tmp_path, {"/a.md": "Body.\n"}))
 
@@ -365,7 +365,7 @@ def test_mirror_path_outside_the_tree_fails_the_mirror(test_repo, tmp_path, path
 
 def test_mirror_leaves_other_vendors_memory_alone(test_repo, tmp_path, make_note):
     test_repo.save(make_note("memory/chatgpt/saved.md", "theirs\n"))
-    test_repo.commit("Seed", auto_index=False)
+    test_repo.commit("Seed")
 
     _mirror(test_repo, _archive(tmp_path, {"/a.md": "a\n"}))
 

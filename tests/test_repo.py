@@ -39,10 +39,10 @@ def test_commit_no_changes(test_repo, make_note):
 def test_remove_committed_note_is_gone_from_head(test_repo, make_note):
     note = make_note("memory/claude/gone.md", "# Gone\n")
     test_repo.save(note)
-    test_repo.commit("Add", auto_index=False)
+    test_repo.commit("Add")
 
     test_repo.remove(note.path)
-    test_repo.commit("Remove", auto_index=False)
+    test_repo.commit("Remove")
 
     assert not (test_repo.root / "memory/claude/gone.md").exists()
     assert "memory/claude" not in _git(test_repo, "ls-tree", "--name-only", "HEAD", "memory/").split()
@@ -109,11 +109,11 @@ def test_a_notes_version_follows_later_commits(test_repo, make_note):
     from search) decides what is current by comparing versions.
     """
     test_repo.save(make_note("test.md", "# Test\nOriginal content"))
-    test_repo.commit("Add note", auto_index=False)
+    test_repo.commit("Add note")
     original = test_repo.content_ids()[Path("test.md")]
 
     test_repo.save(make_note("test.md", "# Test\nModified content"))
-    test_repo.commit("Update note", auto_index=False)
+    test_repo.commit("Update note")
     modified = test_repo.content_ids()[Path("test.md")]
 
     assert original == _head(test_repo, "HEAD~1:test.md")
@@ -123,7 +123,7 @@ def test_a_notes_version_follows_later_commits(test_repo, make_note):
 def test_a_notes_version_after_a_merge_is_the_side_branchs_content(test_repo, make_note):
     """A file last changed on a merged side branch has that branch's content, not the mainline's before it."""
     test_repo.save(make_note("topic.md", "# Topic\n"))
-    test_repo.commit("Add topic", auto_index=False)
+    test_repo.commit("Add topic")
     _git(test_repo, "switch", "-q", "-c", "side")
     (test_repo.root / "topic.md").write_text("# Topic, revised\n")
     _git(test_repo, "commit", "-qam", "Revise topic")
@@ -141,7 +141,7 @@ def test_note_paths_commonplace_dir_excluded(test_repo, make_note):
     """Skill-managed state under .commonplace/ is never a note."""
     test_repo.save(make_note("notes/idea.md", "# Idea\n"))
     test_repo.save(make_note(".commonplace/skills/rake/chaff.md", "# Chaff\n"))
-    test_repo.commit("Add notes", auto_index=False)
+    test_repo.commit("Add notes")
 
     assert list(test_repo.note_paths()) == [Path("index.md"), Path("notes/idea.md")]
 
@@ -167,7 +167,7 @@ def test_note_paths_dot_dirs_excluded(test_repo, make_note):
     test_repo.save(make_note("notes/idea.md", "# Idea\n"))
     test_repo.save(make_note(".claude/copy.md", "# Copy\n"))
     test_repo.save(make_note("notes/.hidden/draft.md", "# Draft\n"))
-    test_repo.commit("Add notes", auto_index=False)
+    test_repo.commit("Add notes")
 
     assert list(test_repo.note_paths()) == [Path("index.md"), Path("notes/idea.md")]
 
@@ -200,41 +200,10 @@ def test_index_matches_head_after_commit(test_repo, make_note):
     assert _git(test_repo, "diff", "--cached", "--name-only") == ""
 
 
-def test_commit_auto_indexes_by_default(test_repo, index_spy, make_note):
-    """Test that commit auto-indexes when config.auto_index is True."""
-    assert test_repo.config.auto_index is True
-
+def test_commit_never_indexes(test_repo, index_spy, make_note):
+    """Indexing reads what was committed, so it runs after a command, never inside the storage layer."""
     test_repo.save(make_note("test.md", "# Test\nHello world"))
     test_repo.commit("Test commit")
-
-    assert index_spy == [(test_repo, False)]
-
-
-def test_commit_no_index_flag_disables_indexing(test_repo, index_spy, make_note):
-    """Test that commit with auto_index=False doesn't index."""
-    test_repo.save(make_note("test.md", "# Test\nHello world"))
-    test_repo.commit("Test commit", auto_index=False)
-
-    assert index_spy == []
-
-
-def test_commit_index_flag_overrides_config(test_repo, index_spy, make_note, monkeypatch):
-    """Test that auto_index=True overrides config when auto_index is False."""
-    monkeypatch.setattr(test_repo.config, "auto_index", False)
-
-    test_repo.save(make_note("test.md", "# Test\nHello world"))
-    test_repo.commit("Test commit", auto_index=True)
-
-    assert index_spy == [(test_repo, False)]
-
-
-def test_commit_no_changes_skips_indexing(test_repo, index_spy, make_note):
-    """Test that commit with no changes doesn't trigger indexing."""
-    test_repo.save(make_note("test.md", "# Test\nHello world"))
-    test_repo.commit("Initial commit")
-    index_spy.clear()
-
-    test_repo.commit("No changes")
 
     assert index_spy == []
 
@@ -295,7 +264,7 @@ def test_commit_concurrent_writer_keeps_their_commit(test_repo, make_note):
     _git(test_repo, "commit", "-m", "Concurrent writer")
 
     test_repo.save(Note(journal, "# Journal\n"))
-    test_repo.commit("Update journal entry", auto_index=False)
+    test_repo.commit("Update journal entry")
 
     assert "x.md" in _git(test_repo, "ls-tree", "--name-only", "HEAD").split()
     assert _git(test_repo, "status", "--porcelain") == ""
@@ -313,7 +282,7 @@ def test_commit_unrelated_changes_left_uncommitted(test_repo, make_note):
     _git(test_repo, "add", "staged.md")
 
     test_repo.save(make_note("journal.md", "# Journal\n"))
-    test_repo.commit("Update journal entry", auto_index=False)
+    test_repo.commit("Update journal entry")
 
     assert _git(test_repo, "diff", "--name-only", "HEAD~1", "HEAD").split() == ["journal.md"]
     assert _git(test_repo, "status", "--porcelain").splitlines() == [" M draft.md", "M  staged.md"]
@@ -324,7 +293,7 @@ def test_commit_awkward_filenames_committed_verbatim(test_repo, make_note):
     names = ["chats/gemini/2026/10/2026-10-01-مرحبا بالعالم.md", "notes/[draft] *.md"]
     for name in names:
         test_repo.save(make_note(name, "# Note\n"))
-    test_repo.commit("Add notes", auto_index=False)
+    test_repo.commit("Add notes")
 
     changed = _git(test_repo, "-c", "core.quotePath=false", "diff", "--name-only", "HEAD~1", "HEAD")
     assert sorted(changed.splitlines()) == sorted(names)
@@ -336,7 +305,7 @@ def test_commit_hook_reformats_retries_with_hook_output(test_repo, make_note):
     _hook(test_repo, "grep -q messy note.md || exit 0\nsed -i s/messy/tidy/ note.md\nexit 1\n")
 
     test_repo.save(make_note("note.md", "# messy\n"))
-    test_repo.commit("Add note", auto_index=False)
+    test_repo.commit("Add note")
 
     assert _git(test_repo, "show", "HEAD:note.md") == "# tidy\n"
     assert _git(test_repo, "status", "--porcelain") == ""
@@ -346,11 +315,11 @@ def test_commit_hook_reformats_back_to_head_is_nothing_to_commit(test_repo, make
     """Re-importing a note the hook already formatted changes nothing once the hook has had its say."""
     _hook(test_repo, "grep -q messy note.md || exit 0\nsed -i s/messy/tidy/ note.md\nexit 1\n")
     test_repo.save(make_note("note.md", "# messy\n"))
-    test_repo.commit("Add note", auto_index=False)
+    test_repo.commit("Add note")
     head = _head(test_repo)
 
     test_repo.save(make_note("note.md", "# messy\n"))
-    test_repo.commit("Re-import note", auto_index=False)
+    test_repo.commit("Re-import note")
 
     assert _head(test_repo) == head
     assert _git(test_repo, "status", "--porcelain") == ""
@@ -363,7 +332,7 @@ def test_commit_hook_rejects_raises_with_hook_output(test_repo, make_note):
 
     test_repo.save(make_note("note.md", "# Note\n"))
     with pytest.raises(GitError, match="lint says no"):
-        test_repo.commit("Add note", auto_index=False)
+        test_repo.commit("Add note")
 
     assert _git(test_repo, "rev-parse", "HEAD") == head
     assert (test_repo.root / "note.md").read_text() == "# Note\n"
@@ -375,7 +344,7 @@ def test_commit_index_briefly_locked_waits_and_succeeds(test_repo, make_note):
     threading.Timer(0.3, lock.unlink).start()
 
     test_repo.save(make_note("note.md", "# Note\n"))
-    test_repo.commit("Add note", auto_index=False)
+    test_repo.commit("Add note")
 
     assert _git(test_repo, "log", "-1", "--format=%s") == "Add note\n"
 
@@ -388,7 +357,7 @@ def test_commit_index_locked_too_long_raises_and_leaves_index(test_repo, make_no
 
     test_repo.save(make_note("note.md", "# Note\n"))
     with pytest.raises(GitError, match=r"index\.lock"):
-        test_repo.commit("Add note", auto_index=False)
+        test_repo.commit("Add note")
 
     assert index.read_bytes() == before
 
@@ -465,9 +434,9 @@ def test_blobs_committed_in_storage_order_then_uncommitted_by_path(test_repo, tm
     committed = []
     for name in ("b.json", "a.json"):
         committed.append(test_repo.store_blob(tmp_path / name).path)
-        test_repo.commit(f"Store {name}", auto_index=False)
+        test_repo.commit(f"Store {name}")
         test_repo.save(Note(Path(f"{name}.md"), "# Note\n"))
-        test_repo.commit(f"Note {name}", auto_index=False)
+        test_repo.commit(f"Note {name}")
     pending = sorted((test_repo.store_blob(tmp_path / name).path for name in ("d.json", "c.json")), key=Path.as_posix)
 
     assert [blob.path for blob in test_repo.blobs()] == [*committed, *pending]
@@ -492,7 +461,7 @@ def test_a_notes_version_is_its_committed_content_so_a_reverted_edit_restores_it
     versions = []
     for text in ("# Tea\n", "# Tea, brewed\n", "# Tea\n"):
         _write(test_repo, {note: text})
-        test_repo.commit("Edit tea", auto_index=False, written=[note.as_posix()])
+        test_repo.commit("Edit tea", written=[note.as_posix()])
         versions.append(test_repo.content_ids()[note])
 
     assert versions[0] == versions[2] != versions[1]

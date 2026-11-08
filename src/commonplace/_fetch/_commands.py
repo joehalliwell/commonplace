@@ -16,7 +16,6 @@ from commonplace._wire import archive_names, last_fetched
 def fetch(
     repo: Commonplace,
     names: list[str] | None = None,
-    auto_index: bool | None = None,
     sources: Sequence[Source] = SOURCES,
     all_: bool = False,
 ) -> None:
@@ -35,7 +34,7 @@ def fetch(
         logger.info(f"Fetching from {source.name}")
         # Each source signs in on its own, so one turned away leaves the rest worth fetching.
         try:
-            _fetch_one(repo, source, auto_index, all_)
+            _fetch_one(repo, source, all_)
         except NoSession:
             logger.info(f"Skipping {source.name}: not signed in")
         except FetchBlocked as e:
@@ -48,7 +47,7 @@ def fetch(
         )
 
 
-def _fetch_one(repo: Commonplace, source: Source, auto_index: bool | None, all_: bool) -> None:
+def _fetch_one(repo: Commonplace, source: Source, all_: bool) -> None:
     """Fetch what is new from one source and import it."""
     fetcher = source.fetcher(repo.config)
     # What this source has landed, for a fetcher that asks only for what changed since; --all asks for it all.
@@ -60,10 +59,9 @@ def _fetch_one(repo: Commonplace, source: Source, auto_index: bool | None, all_:
         if not archives:
             logger.info(f"Nothing new from {source.name}")
             return
-        # One fetch is one commit, however many archives it wrote.
-        # A mirror commits its own; it still needs to know whether to index.
-        stored = [import_one(a, repo, repo.config.user, auto_index=auto_index, commit=False) for a in archives]
-        repo.commit(_message(source.name, [b.path.as_posix() for b in stored if b]), auto_index=auto_index)
+        # One fetch is one commit, however many archives it wrote; a mirror commits its own.
+        stored = [import_one(a, repo, repo.config.user, commit=False) for a in archives]
+        repo.commit(_message(source.name, [b.path.as_posix() for b in stored if b]))
 
 
 def _message(source: str, blobs: list[str]) -> str:

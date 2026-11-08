@@ -137,7 +137,7 @@ def test_fetch_incremental_reads_runs_with_events_after_the_cursor(tmp_path):
 
 def test_fetch_command_lands_runs_under_their_own_tree(test_repo):
     """Not `chats/claude/`: the fetch cursor is read from the landing tree, and chats would move it."""
-    fetch(test_repo, sources=fetching(FakeSessions().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeSessions().fetcher()))
 
     landed = sorted(p.relative_to(test_repo.root).as_posix() for p in (Path(test_repo.root) / "chats").rglob("*.md"))
     assert landed == [

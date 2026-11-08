@@ -200,7 +200,7 @@ def test_generate_stats_with_indexed_content(test_repo, any_terminal):
             "# Test\n\n## Section 1\n\nContent here.\n\n## Section 2\n\nMore content.",
         )
     )
-    test_repo.commit("Add test note", auto_index=False)
+    test_repo.commit("Add test note")
 
     # Index the note
     index(test_repo, rebuild=True)

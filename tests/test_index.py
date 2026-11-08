@@ -19,7 +19,7 @@ def _version(repo, path: str) -> Version:
 def _delete(repo, path: str) -> None:
     """Delete a note the way a user would: remove it and commit the removal."""
     repo.remove(Path(path))
-    repo.commit(f"Delete {path}", auto_index=False)
+    repo.commit(f"Delete {path}")
 
 
 def test_search(test_repo, make_note):
@@ -202,7 +202,7 @@ def test_search_leaves_out_a_note_tagged_hidden(test_repo, make_note):
     """What makes capturing everything safe: a hidden note stays captured but isn't offered."""
     test_repo.save(make_note(path="kept.md", content="# Kept\n\nOzymandias king of kings.\n"))
     test_repo.save(make_note(path="mood.md", content="# Mood\n\nOzymandias, and a bad day.\n"))
-    test_repo.commit("Add notes", auto_index=False)
+    test_repo.commit("Add notes")
     _commands.index(test_repo)
 
     write_marginalia(test_repo, Marginalia(note=Path("mood.md")).tagged("hidden"))
@@ -217,7 +217,7 @@ def test_search_leaves_out_a_note_tagged_hidden(test_repo, make_note):
 def test_search_hides_deleted_notes(test_repo, make_note):
     """A note deleted since the last index run is gone from results, index not yet pruned."""
     test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nOzymandias king of kings.\n"))
-    test_repo.commit("Add note", auto_index=False)
+    test_repo.commit("Add note")
     _commands.index(test_repo)
     assert test_repo.index.search_keyword("Ozymandias", limit=10)
 
@@ -232,7 +232,7 @@ def test_search_hides_deleted_notes(test_repo, make_note):
 def test_search_include_deleted_shows_them(test_repo, make_note):
     """The index still holds the chunks, so --include-deleted can reach them."""
     test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nOzymandias king of kings.\n"))
-    test_repo.commit("Add note", auto_index=False)
+    test_repo.commit("Add note")
     _commands.index(test_repo)
 
     _delete(test_repo, "doomed.md")
@@ -249,11 +249,11 @@ def test_search_keeps_finding_an_edited_note(test_repo, make_note):
     deletion hides a hit.
     """
     test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
-    test_repo.commit("Add note", auto_index=False)
+    test_repo.commit("Add note")
     _commands.index(test_repo)
 
     test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are crimson.\n"))
-    test_repo.commit("Edit note", auto_index=False)
+    test_repo.commit("Edit note")
 
     hits = test_repo.index.search_keyword("silver", limit=10)
     assert [str(hit.chunk.version.path) for hit in hits] == ["draft.md"]
@@ -263,7 +263,7 @@ def test_search_fills_the_limit_around_deleted_notes(test_repo, make_note):
     """Filtering happens while walking the ranking, so hidden hits don't eat the limit."""
     for i in range(5):
         test_repo.save(make_note(path=f"note{i}.md", content=f"# Note {i}\n\nHerrings are silver, number {i}.\n"))
-    test_repo.commit("Add notes", auto_index=False)
+    test_repo.commit("Add notes")
     _commands.index(test_repo)
 
     _delete(test_repo, "note0.md")
@@ -277,7 +277,7 @@ def test_index_rebuild_reindexes_everything(test_repo, make_note):
     """A rebuild clears first, so every live note has to come back on the same run."""
     test_repo.save(make_note(path="one.md", content="# One\n\nFirst note.\n"))
     test_repo.save(make_note(path="two.md", content="# Two\n\nSecond note.\n"))
-    test_repo.commit("Add notes", auto_index=False)
+    test_repo.commit("Add notes")
     _commands.index(test_repo)
     indexed = set(test_repo.index.get_indexed_paths())
     assert {Path("one.md"), Path("two.md")} <= {p.path for p in indexed}
@@ -290,7 +290,7 @@ def test_index_rebuild_reindexes_everything(test_repo, make_note):
 def test_index_prunes_deleted_notes(test_repo, make_note):
     """A note deleted from the repo leaves the index on the next run."""
     test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nNot long for this world.\n"))
-    test_repo.commit("Add note", auto_index=False)
+    test_repo.commit("Add note")
     _commands.index(test_repo)
     assert set(test_repo.index.get_indexed_paths())
 
@@ -303,7 +303,7 @@ def test_index_prunes_deleted_notes(test_repo, make_note):
 def test_index_commonplace_dir_pruned(test_repo, make_note):
     """A chunk indexed from .commonplace/ before it was excluded leaves on the next run."""
     test_repo.save(make_note(path=".commonplace/skills/rake/chaff.md", content="# Chaff\n\nDropped in triage.\n"))
-    test_repo.commit("Add chaff", auto_index=False)
+    test_repo.commit("Add chaff")
     stale = _version(test_repo, ".commonplace/skills/rake/chaff.md")
     chunk = Chunk(version=stale, section="Chaff", text="Dropped in triage.", offset=0)
     test_repo.index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
@@ -317,7 +317,7 @@ def test_index_reembeds_only_the_chunks_an_edit_changed(test_repo, make_note, mo
     """A new commit makes the whole note new to the index; unchanged chunks keep their embeddings."""
     body = "# Draft\n\n## Herrings\n\nHerrings are silver.\n\n## Sprats\n\nSprats are small.\n"
     test_repo.save(make_note(path="draft.md", content=body))
-    test_repo.commit("Add note", auto_index=False)
+    test_repo.commit("Add note")
     _commands.index(test_repo)
     embedded: list[str] = []
     embed_docs = test_repo.index._embedder.embed_docs
@@ -326,7 +326,7 @@ def test_index_reembeds_only_the_chunks_an_edit_changed(test_repo, make_note, mo
     )
 
     test_repo.save(make_note(path="draft.md", content=body.replace("small", "tiny")))
-    test_repo.commit("Edit one section", auto_index=False)
+    test_repo.commit("Edit one section")
     _commands.index(test_repo)
 
     assert len(embedded) == 1 and "tiny" in embedded[0]
@@ -336,11 +336,11 @@ def test_index_reembeds_only_the_chunks_an_edit_changed(test_repo, make_note, mo
 def test_index_prunes_superseded_versions(test_repo, make_note):
     """Editing a note replaces its chunks rather than accumulating a version per edit."""
     test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
-    test_repo.commit("Add note", auto_index=False)
+    test_repo.commit("Add note")
     _commands.index(test_repo)
 
     test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are crimson.\n"))
-    test_repo.commit("Edit note", auto_index=False)
+    test_repo.commit("Edit note")
     _commands.index(test_repo)
 
     drafts = [p for p in test_repo.index.get_indexed_paths() if p.path == Path("draft.md")]
@@ -352,9 +352,9 @@ def test_index_prunes_superseded_versions(test_repo, make_note):
 def test_index_keeps_an_edited_notes_committed_text_until_the_edit_is_committed(test_repo, make_note):
     """The index holds committed versions only, so an edit on disk waits for its commit."""
     test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
-    test_repo.commit("Add note", auto_index=False)
+    test_repo.commit("Add note")
     test_repo.save(make_note(path="other.md", content="# Other\n\nSomething else.\n"))
-    test_repo.commit("Move HEAD past the note", auto_index=False)
+    test_repo.commit("Move HEAD past the note")
     _commands.index(test_repo)
 
     (test_repo.root / "draft.md").write_text("# Draft\n\nHerrings are crimson.\n")
@@ -382,7 +382,7 @@ def test_index_leaves_an_untracked_note_until_its_first_commit(test_repo):
 def test_index_no_prune_keeps_deleted_notes(test_repo, make_note):
     """`--no-prune` leaves the index alone, for when re-embedding would cost more than the noise."""
     test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nNot long for this world.\n"))
-    test_repo.commit("Add note", auto_index=False)
+    test_repo.commit("Add note")
     _commands.index(test_repo)
     indexed = set(test_repo.index.get_indexed_paths())
 

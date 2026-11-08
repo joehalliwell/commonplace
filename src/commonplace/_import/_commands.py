@@ -21,7 +21,7 @@ from commonplace._utils import slugify
 from commonplace._wire import NewerWireVersion
 
 
-def import_(path: Path, repo: Commonplace, user: str, auto_index: bool | None = None):
+def import_(path: Path, repo: Commonplace, user: str):
     """Import an exported/local log or a directory of the same"""
     if not path.exists():
         raise FileNotFoundError(f"No such file or directory: '{path}'")
@@ -32,12 +32,12 @@ def import_(path: Path, repo: Commonplace, user: str, auto_index: bool | None = 
             f"'{path}' is or holds this repo's blob store; re-render it with `commonplace doctor --render`"
         )
     if path.is_file():
-        import_one(path, repo, user, auto_index=auto_index)
+        import_one(path, repo, user)
     else:
         logger.debug(f"Scanning '{path}' for export files")
         paths_to_import = sorted(p for p in path.rglob("*") if p.is_file())
         for filepath in track(paths_to_import, "Importing files"):
-            import_one(filepath, repo, user, auto_index=auto_index)
+            import_one(filepath, repo, user)
 
 
 def autodetect_importer[I: (ChatImporter, MirrorImporter)](path: Path, importers: Sequence[I]) -> I | None:
@@ -63,12 +63,10 @@ def extract_and_store(archive: Path, member: str, repo: Commonplace) -> Blob:
         return repo.store_blob(Path(zf.extract(member, tmp)))
 
 
-def import_one(
-    path: Path, repo: Commonplace, user: str, auto_index: bool | None = None, commit: bool = True
-) -> Blob | None:
+def import_one(path: Path, repo: Commonplace, user: str, commit: bool = True) -> Blob | None:
     """Import chats, or hand a mirrored source to `mirror_one`; returns the blob stored, if any."""
     if mirror := autodetect_importer(path, importers(MirrorSource)):
-        return mirror_one(path, repo, mirror, auto_index=auto_index)
+        return mirror_one(path, repo, mirror)
     importer = autodetect_importer(path, importers(ChatSource))
     if not importer:
         logger.debug(f"Skipping {path}")
@@ -86,7 +84,7 @@ def import_one(
         logger.info(f"Stored log '{note.metadata['title']}' at '{note.path}'")
 
     if commit:
-        repo.commit(f"Import from '{path}' using '{importer.source.name}' importer", auto_index=auto_index)
+        repo.commit(f"Import from '{path}' using '{importer.source.name}' importer")
     return blob
 
 

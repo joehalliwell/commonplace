@@ -339,4 +339,4 @@ def test_import_of_a_newer_archive_fails_rather_than_being_skipped(tmp_path, tes
     with pytest.raises(NewerWireVersion):
         autodetect_importer(_from_the_future(tmp_path), IMPORTERS)
     with pytest.raises(NewerWireVersion):
-        import_(_from_the_future(tmp_path), test_repo, user="Human", auto_index=False)
+        import_(_from_the_future(tmp_path), test_repo, user="Human")

@@ -110,34 +110,34 @@ def test_fetch_with_a_cursor_still_records_everything(tmp_path):
 
 
 def test_fetch_command_mirrors_the_summary_into_one_file(test_repo):
-    fetch(test_repo, sources=fetching(FakeMemory().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeMemory().fetcher()))
 
     assert {p.name for p in (test_repo.root / "memory" / "chatgpt").iterdir()} == {"about-you.md"}
 
 
 def test_fetch_command_unchanged_summary_makes_no_commit(test_repo):
     memory = FakeMemory()
-    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()))
     head = git(test_repo.root, "rev-parse", "HEAD")
 
-    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()))
 
     assert git(test_repo.root, "rev-parse", "HEAD") == head
 
 
 def test_fetch_command_section_dropped_upstream_leaves_the_file(test_repo):
     memory = FakeMemory()
-    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()))
 
     memory.sections = SECTIONS[1:]
-    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()))
 
     text = (test_repo.root / "memory" / "chatgpt" / "about-you.md").read_text()
     assert "## Work" in text and "## Overview" not in text
 
 
 def test_fetch_command_mirror_commit_names_the_stored_archive(test_repo):
-    fetch(test_repo, sources=fetching(FakeMemory().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeMemory().fetcher()))
 
     [stored] = [blob.path for blob in test_repo.blobs(*archive_names("chatgpt-memory"))]
     assert git(test_repo.root, "log", "-1", "--format=%s").strip() == f"Mirror chatgpt-memory: {stored.as_posix()}"

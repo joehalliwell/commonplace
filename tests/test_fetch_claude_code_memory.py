@@ -158,7 +158,7 @@ def test_snapshot_unregistered_project_keeps_its_directory_name(tmp_path):
 def test_fetch_command_mirrors_memory_and_prunes_what_was_deleted(test_repo, tmp_path):
     home = _home(tmp_path)
     fetcher = owned(ClaudeCodeMemoryFetcher, root=home)
-    fetch(test_repo, sources=fetching(fetcher), auto_index=False)
+    fetch(test_repo, sources=fetching(fetcher))
     memory = test_repo.root / "memory" / "claude-code"
     landed = memory / "doux" / "prefer-dumb-mechanisms.md"
     metadata, body = load_frontmatter(landed.read_text())
@@ -166,13 +166,13 @@ def test_fetch_command_mirrors_memory_and_prunes_what_was_deleted(test_repo, tmp
     assert "choose blunt" in body
 
     (home / "projects" / "-work-3rd-doux" / "memory" / "prefer-dumb-mechanisms.md").unlink()
-    fetch(test_repo, sources=fetching(fetcher), auto_index=False)
+    fetch(test_repo, sources=fetching(fetcher))
 
     assert sorted(p.relative_to(memory).as_posix() for p in memory.rglob("*.md")) == ["site.github.io/MEMORY.md"]
 
 
 def test_fetch_command_no_index_reaches_the_mirror(test_repo, tmp_path, index_spy):
     """A mirror commits its own capture, so `--no-index` has to be passed down to it."""
-    fetch(test_repo, sources=fetching(owned(ClaudeCodeMemoryFetcher, root=_home(tmp_path))), auto_index=False)
+    fetch(test_repo, sources=fetching(owned(ClaudeCodeMemoryFetcher, root=_home(tmp_path))))
 
     assert index_spy == []

@@ -163,14 +163,14 @@ def test_fetch_without_the_session_cookie_is_skipped(tmp_path):
 
 
 def test_fetch_command_mirrors_keep_into_notes_keep(test_repo):
-    fetch(test_repo, sources=fetching(FakeKeep().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeKeep().fetcher()))
 
     for path in (TEA, WORD, SHOPPING):
         assert (test_repo.root / path).exists(), path
 
 
 def test_fetch_lands_the_later_of_two_notes_with_the_same_day_and_title_at_the_next_free_path(test_repo):
-    fetch(test_repo, sources=fetching(FakeKeep().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeKeep().fetcher()))
 
     later = load_frontmatter((test_repo.root / TEA.with_stem(f"{TEA.stem}-2")).read_text())[0]
     assert (load_frontmatter((test_repo.root / TEA).read_text())[0]["id"], later["id"]) == ("note-tea", "note-tea-2")
@@ -179,11 +179,11 @@ def test_fetch_lands_the_later_of_two_notes_with_the_same_day_and_title_at_the_n
 
 def test_a_retitled_note_keeps_the_path_it_was_first_captured_at(test_repo):
     """Its marginalia are keyed by path, and git's rename detection fails on short notes."""
-    fetch(test_repo, sources=fetching(FakeKeep().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeKeep().fetcher()))
     retitled = copy.deepcopy(PAGES)
     retitled[None]["nodes"][0]["title"] = "Tea pavilion"
 
-    fetch(test_repo, sources=fetching(FakeKeep(retitled).fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeKeep(retitled).fetcher()))
 
     _, body = load_frontmatter((test_repo.root / TEA).read_text())
     assert body.startswith("# Tea pavilion\n")
@@ -192,12 +192,12 @@ def test_a_retitled_note_keeps_the_path_it_was_first_captured_at(test_repo):
 
 def test_a_new_note_never_takes_the_path_of_a_gone_note_that_still_has_marginalia(test_repo):
     """Marginalia outlive their note; a later note at the same path would silently inherit them."""
-    fetch(test_repo, sources=fetching(FakeKeep().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeKeep().fetcher()))
     write_marginalia(test_repo, Marginalia(note=TEA).tagged("revisit"))
-    test_repo.commit("Tag", auto_index=False)
+    test_repo.commit("Tag")
     binned = copy.deepcopy(PAGES)
     binned[None]["nodes"][0]["timestamps"]["trashed"] = "2026-11-02T08:00:00.000Z"
-    fetch(test_repo, sources=fetching(FakeKeep(binned).fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeKeep(binned).fetcher()))
 
     # A new note, same day and title, and earlier than the other "Tea house", so it's proposed TEA's path.
     newer = copy.deepcopy(binned)
@@ -209,7 +209,7 @@ def test_a_new_note_never_takes_the_path_of_a_gone_note_that_still_has_marginali
         **PAGES[None]["nodes"][0]["timestamps"],
         "created": "2026-05-03T12:00:00.000Z",
     }
-    fetch(test_repo, sources=fetching(FakeKeep(newer).fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeKeep(newer).fetcher()))
 
     assert not (test_repo.root / TEA).exists()
     third = [p for p in (test_repo.root / "notes/keep").rglob("*.md") if "A third." in p.read_text()]
@@ -291,9 +291,9 @@ def test_snapshot_of_a_change_set_without_a_full_sync_before_it_fails(tmp_path):
 
 
 def test_a_second_fetch_stores_only_what_changed(test_repo):
-    fetch(test_repo, sources=fetching(FakeKeep().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeKeep().fetcher()))
 
-    fetch(test_repo, sources=fetching(FakeKeep({**PAGES, "v2": CHANGES}).fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeKeep({**PAGES, "v2": CHANGES}).fetcher()))
 
     archives = [blob.path for blob in test_repo.blobs(*archive_names("keep"))]
     assert len(archives) == 2
@@ -308,9 +308,9 @@ def test_a_capture_after_the_switch_to_xz_builds_on_a_gzip_one(test_repo, tmp_pa
     """Captures stored before archives were xz still count as earlier ones, for the fetch and for the mirror."""
     gzipped = tmp_path / "keep-wire.jsonl.gz"
     gzipped.write_bytes(EXAMPLE.read_bytes())
-    import_(gzipped, test_repo, user="Human", auto_index=False)
+    import_(gzipped, test_repo, user="Human")
 
-    fetch(test_repo, sources=fetching(FakeKeep({**PAGES, "v2": CHANGES}).fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeKeep({**PAGES, "v2": CHANGES}).fetcher()))
 
     archives = [blob.path for blob in test_repo.blobs(*archive_names("keep"))]
     assert [a.name for a in archives] == ["keep-wire.jsonl.gz", "keep-wire.jsonl.xz"]
@@ -321,10 +321,10 @@ def test_a_capture_after_the_switch_to_xz_builds_on_a_gzip_one(test_repo, tmp_pa
 
 
 def test_a_note_trashed_in_keep_leaves_the_mirror(test_repo):
-    fetch(test_repo, sources=fetching(FakeKeep().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeKeep().fetcher()))
     binned = copy.deepcopy(PAGES)
     binned[None]["nodes"][0]["timestamps"]["trashed"] = "2026-11-02T08:00:00.000Z"
 
-    fetch(test_repo, sources=fetching(FakeKeep(binned).fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeKeep(binned).fetcher()))
 
     assert not (test_repo.root / TEA).exists()

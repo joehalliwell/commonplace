@@ -194,14 +194,15 @@ class Commonplace:
 
     def content_ids(self) -> dict[Path, str]:
         """Each committed file, with git's id for its content at HEAD, uncommitted changes aside."""
-        return {Path(path): oid for path, oid in _content_ids(self.root, self._head()).items()}
+        return {Path(path): oid for path, oid in _content_ids(self.root, self.head()).items()}
 
-    def _head(self) -> str:
+    def head(self) -> str:
+        """The commit checked out, which moves with every commit."""
         return self._git("rev-parse", "HEAD").strip()
 
     def last_subjects(self, pathspec: str) -> dict[str, str]:
         """Each committed path under `pathspec`, with the subject of the last commit that changed it."""
-        return dict(_last_changed(self.root, self._head(), pathspec, "%s"))
+        return dict(_last_changed(self.root, self.head(), pathspec, "%s"))
 
     def uncommitted(self, pathspec: str) -> set[str]:
         """Paths under `pathspec` that differ from HEAD, untracked ones included."""
@@ -336,14 +337,14 @@ class Commonplace:
         if not removed:
             raise ValueError(f"'{from_spec}' has no link to {target}")
         write_marginalia(self, marginalia)
-        self.commit(f"Unlink {from_spec} from {target}", auto_index=False, as_user=True)
+        self.commit(f"Unlink {from_spec} from {target}", as_user=True)
         return removed
 
     def _annotate(self, notes: list[Path], change: Callable[[Marginalia], Marginalia], message: str) -> list[Path]:
         """Rewrite the marginalia of `notes` by `change`, committing as the user."""
         for note in notes:
             write_marginalia(self, change(read_marginalia(self.root, note)))
-        self.commit(message, auto_index=False, as_user=True)
+        self.commit(message, as_user=True)
         return notes
 
     @cached_property
@@ -355,35 +356,21 @@ class Commonplace:
         """Every archive stored, or those called any of `names`, in the order stored: committed, then not yet."""
         present = self._ls(BLOBS.as_posix())
         # A blob is never rewritten, so the commit that last changed it is the one that stored it.
-        committed = [p for p in reversed(_last_changed(self.root, self._head(), ".", "%H")) if p in present]
+        committed = [p for p in reversed(_last_changed(self.root, self.head(), ".", "%H")) if p in present]
         stored = [*committed, *sorted(present - set(committed))]
         return [Blob(Path(p)) for p in stored if not names or Path(p).name in names]
 
-    def commit(
-        self, message: str, auto_index: bool | None = None, *, as_user: bool = False, written: Iterable[str] = ()
-    ) -> None:
+    def commit(self, message: str, *, as_user: bool = False, written: Iterable[str] = ()) -> None:
         """Commit what this repo has saved, removed or stored since the last commit, and nothing else.
 
         Args:
             message: Commit message
-            auto_index: Whether to index after committing (default: from config)
             as_user: Commit as the user's own git identity rather than the bot, for something they did themselves
             written: Paths written by other means, to commit with them
         """
         committed = _commit(self.root, self._pending | set(written), message, as_user=as_user)
         self._pending.clear()
-        if not committed:
-            logger.info("No changes to commit")
-            return
-        logger.info(f"Committed changes with message: {message}")
-
-        # Auto-index if enabled
-        should_index = auto_index if auto_index is not None else self.config.auto_index
-        if should_index:
-            from commonplace._search._commands import index
-
-            logger.info("Auto-indexing committed notes")
-            index(self, rebuild=False)
+        logger.info(f"Committed changes with message: {message}" if committed else "No changes to commit")
 
     def sync(
         self,

@@ -187,7 +187,7 @@ def test_fetch_cursor_honours_subsecond_precision(tmp_path):
 
 def test_fetch_command_dispatches(test_repo):
     """`commonplace fetch` runs configured fetchers and imports the result."""
-    fetch(test_repo, sources=fetching(_make_fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(_make_fetcher()))
 
     chats = list((Path(test_repo.root) / "chats" / "claude").rglob("*.md"))
     assert len(chats) == 2

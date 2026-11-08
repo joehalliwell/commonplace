@@ -68,7 +68,7 @@ def check_marginalia(repo: "Commonplace", check: bool) -> tuple[list[str], list[
         write_marginalia(repo, replace(marginalia, note=moved))
         actions.append(f"Moved the marginalia for {note} to {moved}")
     if actions and not check:
-        repo.commit("Re-attach marginalia to moved notes", auto_index=False)
+        repo.commit("Re-attach marginalia to moved notes")
 
     warnings = (
         [f"Marginalia for {len(gone)} notes outlive them, kept as the record:\n" + "\n".join(gone)] if gone else []
