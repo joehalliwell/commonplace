@@ -62,13 +62,10 @@ def _run(step: Step, selected: bool, repo: Commonplace, check: bool, position: s
 
 def _scaffold(repo: Commonplace, check: bool) -> DoctorReport:
     """Restore and commit missing scaffolding, and diff whatever has fallen behind `init`'s templates."""
-    if check:
-        actions = [f"Would create {path}" for path in scaffold.missing(repo.root)]
-    elif restored := scaffold.lay_down(repo.root):
-        repo.commit("Restore scaffolding", auto_index=False, written=restored)
-        actions = [_restored(path) for path in restored]
-    else:
-        actions = []
+    missing = scaffold.lay_down(repo.root, check)
+    if missing and not check:
+        repo.commit("Restore scaffolding", auto_index=False, written=missing)
+    actions = [f"Would create {path}" if check else _restored(path) for path in missing]
     warnings = [
         f"{path} differs from the template init now writes:\n" + "\n".join(diff)
         for path, diff in scaffold.drift(repo.root).items()

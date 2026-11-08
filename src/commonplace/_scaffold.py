@@ -21,18 +21,14 @@ TEMPLATES = {
 }
 
 
-def missing(root: Path) -> list[str]:
-    """The scaffolding no longer in `root`."""
-    return [path for path in TEMPLATES if not (root / path).exists()]
-
-
-def lay_down(root: Path) -> list[str]:
-    """Write the missing scaffolding into `root`, returning what was written."""
-    written = missing(root)
-    for path in written:
-        (root / path).parent.mkdir(parents=True, exist_ok=True)
-        (root / path).write_text(TEMPLATES[path])
-    return written
+def lay_down(root: Path, check: bool = False) -> list[str]:
+    """The scaffolding missing from `root`, written there unless `check`."""
+    missing = [path for path in TEMPLATES if not (root / path).exists()]
+    if not check:
+        for path in missing:
+            (root / path).parent.mkdir(parents=True, exist_ok=True)
+            (root / path).write_text(TEMPLATES[path])
+    return missing
 
 
 def drift(root: Path) -> dict[str, list[str]]:
