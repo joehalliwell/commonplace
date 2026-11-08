@@ -15,6 +15,7 @@ from collections.abc import Callable, Collection, Iterable, Iterator
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from functools import cached_property, lru_cache
+from itertools import batched
 from pathlib import Path
 from typing import Literal
 
@@ -63,9 +64,14 @@ def _run_git(root: Path, *args: str, input: str | None = None, as_user: bool = F
         time.sleep(delay)
 
 
+def _z(root: Path, command: str, *args: str) -> list[str]:
+    """The fields `git <command> -z <args>` prints, separated by NULs."""
+    return [field for field in _run_git(root, command, "-z", *args).split("\0") if field]
+
+
 def _changed(root: Path, paths: set[str], *diff_args: str) -> set[str]:
     """Those of `paths` that `git diff <diff_args>` reports."""
-    return set(_run_git(root, "diff", "--name-only", "--no-renames", "-z", *diff_args).split("\0")) & paths
+    return set(_z(root, "diff", "--name-only", "--no-renames", *diff_args)) & paths
 
 
 def _stage(root: Path, paths: set[str]) -> None:
@@ -214,9 +220,8 @@ class Commonplace:
 
     def uncommitted(self, pathspec: str) -> set[str]:
         """Paths under `pathspec` that differ from HEAD, untracked ones included."""
-        tracked = self._git("diff", "--name-only", "--no-renames", "-z", "HEAD", "--", pathspec)
-        untracked = self._git("ls-files", "--others", "--exclude-standard", "-z", "--", pathspec)
-        return set(f"{tracked}\0{untracked}".split("\0")) - {""}
+        tracked = _z(self.root, "diff", "--name-only", "--no-renames", "HEAD", "--", pathspec)
+        return {*tracked, *self._ls(pathspec, "--others")}
 
     def paths(self, within: Path = Path()) -> Iterator[Path]:
         """Every file under `within` that git would share, relative to the root, skipping dot-directories."""
@@ -224,10 +229,10 @@ class Commonplace:
             if not any(part.startswith(".") for part in path.parts[:-1]):
                 yield path
 
-    def _ls(self, pathspec: str) -> set[str]:
-        """The files under `pathspec` in the working tree that git would share, tracked or not."""
-        out = self._git("ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", pathspec)
-        return {path for path in out.split("\0") if path and (self.root / path).exists()}
+    def _ls(self, pathspec: str, *which: str) -> set[str]:
+        """The files under `pathspec` in the working tree that git would share, of `which` kinds, or tracked or not."""
+        listed = _z(self.root, "ls-files", *(which or ("--cached", "--others")), "--exclude-standard", "--", pathspec)
+        return {path for path in listed if (self.root / path).exists()}
 
     def history(self, path: Path) -> list[tuple[str, str]]:
         """The commits that changed `path`, newest first, following renames, as (date, subject)."""
@@ -236,9 +241,9 @@ class Commonplace:
 
     def renamed_since(self, ref: str) -> dict[Path, Path]:
         """Where each file `ref` had has moved to by HEAD, as git's rename detection sees it."""
-        fields = self._git("diff", "-M", "--name-status", "-z", "--diff-filter=R", ref, "HEAD").split("\0")
+        fields = _z(self.root, "diff", "-M", "--name-status", "--diff-filter=R", ref, "HEAD")
         # -z gives status, old path, new path for each rename.
-        return {Path(fields[i + 1]): Path(fields[i + 2]) for i in range(0, len(fields) - 2, 3)}
+        return {Path(old): Path(new) for _, old, new in batched(fields, 3)}
 
     def note_paths(self) -> Iterator[RepoPath]:
         """Every note `paths` gives, at the commit that last changed it."""
