@@ -99,8 +99,7 @@ def test_repo(tmp_path):
     repo_path = tmp_path / "repo"
     repo_path.mkdir(parents=True)
     Commonplace.init(repo_path)
-    with closing(Commonplace.open(repo_path)) as repo:
-        yield repo
+    yield Commonplace.open(repo_path)
 
 
 @pytest.fixture

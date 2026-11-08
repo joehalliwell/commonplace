@@ -28,7 +28,6 @@ def local_repo_with_remote(tmp_path, remote_repo, make_note):
     repo.commit("Initial commit")
 
     yield repo
-    repo.close()
 
 
 def _pushed(repo, remote: str = "origin") -> bool:
@@ -52,7 +51,6 @@ def test_sync_initial_commit_only_is_pushed(tmp_path, remote_repo):
     repo.sync()
 
     assert _pushed(repo)
-    repo.close()
 
 
 def test_sync_adds_untracked_files(local_repo_with_remote):
@@ -129,7 +127,6 @@ def test_sync_fast_forward(tmp_path, remote_repo, make_note):
     repo1.commit("Initial commit")
     repo1.sync()
     commit1_id = git(repo1.root, "rev-parse", "HEAD")
-    repo1.close()
 
     # Create second local repo (clone)
     local2_path = tmp_path / "local2"
@@ -147,7 +144,6 @@ def test_sync_fast_forward(tmp_path, remote_repo, make_note):
     repo1.commit("Second commit")
     repo1.sync()
     commit2_id = git(repo1.root, "rev-parse", "HEAD")
-    repo1.close()
 
     # Now sync repo2 - should fast-forward
     repo2.sync()
@@ -155,8 +151,6 @@ def test_sync_fast_forward(tmp_path, remote_repo, make_note):
     # Verify repo2 is at commit2
     assert git(repo2.root, "rev-parse", "HEAD") == commit2_id
     assert git(repo2.root, "rev-parse", "HEAD") != commit1_id
-
-    repo2.close()
 
 
 def test_sync_already_up_to_date(local_repo_with_remote):
@@ -188,8 +182,6 @@ def test_sync_with_custom_remote_name(tmp_path, make_note):
 
     assert _pushed(repo, "upstream")
 
-    repo.close()
-
 
 def test_sync_merge_strategy(tmp_path, remote_repo, make_note):
     """Test sync with merge strategy instead of rebase."""
@@ -204,4 +196,3 @@ def test_sync_merge_strategy(tmp_path, remote_repo, make_note):
     repo.sync(strategy="merge")
 
     assert _pushed(repo)
-    repo.close()

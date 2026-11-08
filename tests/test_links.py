@@ -1,6 +1,5 @@
 """Tests for link extraction and broken-link checking."""
 
-from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -307,8 +306,7 @@ def check(root: Path, ignore: str | None = None) -> list[BrokenLink]:
     if ignore:
         with (root / ".gitignore").open("a") as gitignore:
             gitignore.write(f"\n/{ignore}/\n")
-    with closing(Commonplace.open(root)) as repo:
-        return repo.check()
+    return Commonplace.open(root).check()
 
 
 def test_check_links_relative_target_resolves_against_containing_file(tmp_path):
