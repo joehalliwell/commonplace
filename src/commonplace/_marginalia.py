@@ -55,7 +55,7 @@ def check_marginalia(repo: "Commonplace", check: bool) -> tuple[list[str], list[
     """Re-attach marginalia whose note moved, committing as the bot; report those whose note is gone."""
     present = set(repo.paths())
     actions, gone = [], []
-    for note in annotated_notes(repo.root):
+    for note in repo.annotated():
         if note in present:
             continue
         marginalia = read_marginalia(repo.root, note)
@@ -76,9 +76,3 @@ def check_marginalia(repo: "Commonplace", check: bool) -> tuple[list[str], list[
         [f"Marginalia for {len(gone)} notes outlive them, kept as the record:\n" + "\n".join(gone)] if gone else []
     )
     return actions, warnings
-
-
-def annotated_notes(root: Path) -> list[Path]:
-    """The path of every note that has marginalia, in order, whether or not the note is still there."""
-    shadow = root / MARGINALIA
-    return sorted(path.relative_to(shadow) for path in shadow.rglob("*.md"))

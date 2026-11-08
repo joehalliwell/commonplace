@@ -18,10 +18,10 @@ from datetime import UTC, date, datetime
 from functools import cached_property, lru_cache
 from pathlib import Path
 
-from commonplace._config import BLOBS, CACHE, CONFIG
+from commonplace._config import BLOBS, CACHE, CONFIG, MARGINALIA
 from commonplace._links import BrokenLink, Edge, Files, Target, UnresolvedNote
 from commonplace._logging import logger
-from commonplace._marginalia import annotated_notes, read_marginalia, write_marginalia
+from commonplace._marginalia import read_marginalia, write_marginalia
 from commonplace._types import Blob, Marginalia, Note, Pathlike, RepoPath
 from commonplace._utils import dump_frontmatter, load_frontmatter
 
@@ -439,12 +439,20 @@ class Commonplace:
 
     # --- The repository as a graph: each file a node, its path its id, each link a note makes an edge ---
 
-    def notes(self) -> list[Note]:
-        """Every node that makes edges: each note, and each one gone whose marginalia remain."""
-        present = list(self.note_paths())
-        gone = set(annotated_notes(self.root)) - {repo_path.path for repo_path in present}
-        notes = [*map(self.load, present), *(self.load(RepoPath(path)) for path in gone)]
-        return sorted(notes, key=lambda note: str(note.repo_path.path))
+    def notes(self, within: Path = Path()) -> list[Note]:
+        """Every note under `within`, as read back: each one there, then each one gone whose marginalia remain."""
+        present = [self.load(repo_path) for repo_path in self.note_paths() if repo_path.path.is_relative_to(within)]
+        return present + [self.load(RepoPath(path)) for path in self.gone(within)]
+
+    def gone(self, within: Path = Path()) -> list[Path]:
+        """Every note under `within` that is gone but whose marginalia remain, in order."""
+        present = set(self.paths())
+        return [path for path in self.annotated() if path.is_relative_to(within) and path not in present]
+
+    def annotated(self) -> list[Path]:
+        """The path of every note that has marginalia, in order, whether or not the note is still there."""
+        out = self._git("ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", MARGINALIA.as_posix())
+        return sorted(Path(path).relative_to(MARGINALIA) for path in set(out.split("\0")) - {""})
 
     def into(self, path: Path) -> list[tuple[Note, Edge]]:
         """Every edge from another note that could mean `path`, with that note."""

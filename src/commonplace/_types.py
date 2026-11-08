@@ -81,9 +81,11 @@ class ChatSource(Source):
 
     tree: Path = field(init=False)
     quotes: ClassVar[bool] = True
+    #: Where every chat source's tree is.
+    ROOT: ClassVar[Path] = Path("chats")
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "tree", Path("chats") / self.name)
+        object.__setattr__(self, "tree", self.ROOT / self.name)
 
 
 @dataclass(frozen=True)

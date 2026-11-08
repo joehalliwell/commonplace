@@ -13,7 +13,6 @@ from commonplace._import._types import MirrorImporter
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
-from commonplace._utils import load_frontmatter
 from commonplace._wire import archive_names, read_header
 
 
@@ -32,13 +31,13 @@ def mirror_one(
     earlier = [repo.root / stored for stored in repo.stored_archives(*archive_names(importer.source.name))]
     snapshot = importer.snapshot(path, earlier=earlier)
     if importer.id_key is not None:
-        snapshot = replace(snapshot, notes=_placed(repo.root, tree, importer.id_key, snapshot.notes))
+        snapshot = replace(snapshot, notes=_placed(repo, tree, importer.id_key, snapshot.notes))
     # Paths come from upstream, and a mirror owns its tree and nothing else.
     for note in snapshot.notes:
         if not note.repo_path.path.is_relative_to(tree) or note.repo_path.path == tree:
             raise ValueError(f"'{path}' names '{note.repo_path}', outside '{tree}'")
     # A re-read is a new blob, so rewriting what is already there would change only its provenance.
-    notes = [note for note in snapshot.notes if not _landed(repo.root, note)]
+    notes = [note for note in snapshot.notes if not _landed(repo, note)]
 
     stale: list[Path] = []
     if snapshot.unread is None:
@@ -46,8 +45,7 @@ def mirror_one(
         logger.warning(f"'{path}' has no listing; nothing pruned")
     else:
         kept = snapshot.unread | {note.repo_path.path for note in snapshot.notes}
-        on_disk = sorted(p.relative_to(repo.root) for p in (repo.root / tree).rglob("*") if p.is_file())
-        stale = [p for p in on_disk if p not in kept]
+        stale = [p for p in repo.paths() if p.is_relative_to(tree) and p not in kept]
 
     # Decided before the blob is stored, so a capture that changes nothing leaves no trace.
     if not notes and not stale:
@@ -67,9 +65,9 @@ def mirror_one(
     return blob
 
 
-def _placed(root: Path, tree: Path, id_key: str, notes: list[Note]) -> list[Note]:
+def _placed(repo: Commonplace, tree: Path, id_key: str, notes: list[Note]) -> list[Note]:
     """Each note at the path it first landed at, found by its id; a new note, in order, clear of every path held."""
-    placement = Placement.of(root, tree, id_key)
+    placement = Placement.of(repo, tree, id_key)
     return [
         replace(
             note, repo_path=replace(note.repo_path, path=placement.place(note.repo_path.path, note.metadata[id_key]))
@@ -78,14 +76,14 @@ def _placed(root: Path, tree: Path, id_key: str, notes: list[Note]) -> list[Note
     ]
 
 
-def _landed(root: Path, note: Note) -> bool:
+def _landed(repo: Commonplace, note: Note) -> bool:
     """Whether the working tree already holds this note, whichever capture it was landed from."""
-    target = root / note.repo_path.path
-    if not target.is_file():
+    held = repo.load(note.repo_path)
+    if not held.text:
         return False
-    metadata, body = load_frontmatter(target.read_text())
     # Whitespace aside, since a formatting hook may rewrap what was landed.
-    return ({k: v for k, v in metadata.items() if k not in ("source", "source_export")}, body.split()) == (
+    metadata = {k: v for k, v in held.metadata.items() if k not in ("source", "source_export")}
+    return (metadata, held.body.split()) == (
         note.metadata,
         note.body.split(),
     )
