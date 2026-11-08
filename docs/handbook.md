@@ -250,14 +250,14 @@ diffed.
 The marginalia operation looks after tags and links whose note has moved. After
 a plain `git mv`, the marginalia are left at the old path; doctor follows git's
 rename detection and moves them to the note's new path. Marginalia whose note
-was deleted are kept, as the record of what you made of it, and listed. Links in
-marginalia whose note, heading or phrase has gone are reported.
+was deleted are kept, as the record of what you made of it, and listed.
 
 It also checks that links land somewhere. Every reference your own markdown
-makes into the repository is followed: inline and reference-style links,
+and your marginalia make into the repository is followed: inline and reference-style links,
 images, wikilinks, raw HTML `href`/`src`, and the paths that topics list as
-their `sources`. Anything that no longer resolves is reported with the file and
-line it was written on, and — since a rename is what most breakage turns out to
+their `sources`. Anything that no longer resolves, down to a heading or quoted
+phrase a wikilink names, is reported with the note and line it was written on
+(a line past the note's end is in its marginalia), and — since a rename is what most breakage turns out to
 be — where a file of that name lives now:
 
 ```

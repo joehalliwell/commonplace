@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from commonplace._document import Document, links, links_to, unlink
-from commonplace._links import UnresolvedNote
+from commonplace._links import Tree, UnresolvedNote
 from commonplace._marginalia import (
     MARGINALIA_VERSION,
     Marginalia,
@@ -248,10 +248,10 @@ def test_links_to_finds_every_kind_of_link_to_the_note_in_text_and_marginalia(tm
         (tmp_path / path).write_text(text)
     notes = [Path(p) for p in files if not p.startswith(".")]
 
-    found = links_to(tmp_path, Path("notes/ideas.md"), notes)
+    found = links_to(Tree(tmp_path, notes), Path("notes/ideas.md"))
 
     # Chats quote links rather than make them, as for the link check.
-    assert [(neighbour.other, neighbour.context) for neighbour, _ in found] == [
+    assert [(neighbour.other, neighbour.context) for neighbour in found] == [
         ("/journal/a", "See [[ideas]]."),
         ("/journal/b", "See [[/notes/ideas#Tea house]]."),
         ("/journal/c", "See [the list](../notes/ideas.md)."),

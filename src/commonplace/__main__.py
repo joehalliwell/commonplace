@@ -289,10 +289,9 @@ def show(
 @app.command(group=ANALYZING_SECTION)
 def resolve(spec: NoteSpec, *, repo: Repo) -> None:
     """Print the path of the note a name refers to, one per line for a glob: $EDITOR $(commonplace resolve ideas)."""
-    from commonplace._links import resolve as resolve_spec
 
     try:
-        notes = resolve_spec(spec, list(repo.paths()))
+        notes = repo.tree().resolve(spec)
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
@@ -436,12 +435,10 @@ def sync(
 def doctor(
     *,
     scaffold: Annotated[bool, Parameter(help="Restore missing scaffolding and report template drift.")] = True,
-    links: Annotated[bool, Parameter(help="Report broken links.")] = True,
+    links: Annotated[bool, Parameter(help="Report broken links, in notes and their marginalia.")] = True,
     marginalia: Annotated[
         bool,
-        Parameter(
-            help="Re-attach marginalia to moved notes; report marginalia whose note is gone, and dead links in marginalia."
-        ),
+        Parameter(help="Re-attach marginalia to moved notes; report marginalia whose note is gone."),
     ] = True,
     render: Annotated[
         bool, Parameter(help="Re-render chats from the stored archives, newest capture winning; takes minutes.")

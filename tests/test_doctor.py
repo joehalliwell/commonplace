@@ -351,13 +351,14 @@ def test_doctor_keeps_marginalia_whose_note_is_gone_and_says_so(test_repo, make_
     assert any("notes/ideas.md" in warning for warning in report.warnings)
 
 
-def test_doctor_reports_marginalia_links_that_no_longer_resolve(test_repo, make_note):
+def test_doctor_reports_marginalia_links_that_no_longer_resolve_with_the_notes_own(test_repo, make_note):
+    """A note and its marginalia are one document, so one link check covers both."""
     _annotated(test_repo, make_note, "notes/other.md")
     body = "- 2026-11-02 [[/notes/other#Heading]]\n- 2026-11-02 [[/notes/gone]]\n- 2026-11-02 [[/notes/other#Lost]]\n"
     _annotated(test_repo, make_note, "notes/ideas.md", body)
 
-    warnings = "\n".join(_marginalia_only(test_repo).warnings)
+    warnings = "\n".join(doctor(test_repo, scaffold=False, marginalia=False).warnings)
 
-    assert "[[/notes/gone]]" in warnings
-    assert "[[/notes/other#Lost]]" in warnings
-    assert "[[/notes/other#Heading]]" not in warnings
+    assert "/notes/gone (no note with that name)" in warnings
+    assert "/notes/other#Lost (no such heading or phrase)" in warnings
+    assert "/notes/other#Heading" not in warnings

@@ -12,7 +12,7 @@ from datetime import date
 from pathlib import Path
 
 from commonplace._config import MARGINALIA
-from commonplace._links import Target, UnresolvedNote, resolve, resolve_target
+from commonplace._links import Target, UnresolvedNote
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
@@ -90,16 +90,15 @@ def notes_named(repo: Commonplace, spec: str) -> list[Path]:
     """The whole notes `spec` names; a span is refused, since marginalia speak for a whole note."""
     if "#" in spec:
         raise UnresolvedNote(f"'{spec}' names a span; marginalia belong to whole notes")
-    return resolve(spec, list(repo.paths()))
+    return repo.tree().resolve(spec)
 
 
 def link(repo: Commonplace, from_spec: str, to_spec: str, why: str, on: date | None = None) -> Target:
     """Add a link from a whole note to a note or a span in one, committing as the user; returns the target."""
-    files = list(repo.paths())
     if "#" in from_spec:
         raise UnresolvedNote(f"'{from_spec}' names a span; marginalia belong to whole notes")
-    source = resolve_target(from_spec, repo.root, files).note
-    target = resolve_target(to_spec, repo.root, files)
+    tree = repo.tree()
+    source, target = tree.resolve_target(from_spec).note, tree.resolve_target(to_spec)
     today = date.today()  # noqa: DTZ011 - the user's local day, as the journal's
     marginalia = read_marginalia(repo.root, source).linked(target, why, on or today)
     write_marginalia(repo, replace(marginalia, ref=repo.make_repo_path(source).ref))
