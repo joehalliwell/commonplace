@@ -70,7 +70,7 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
         actions.append(f"{'Would re-render' if check else 'Re-rendered'} {len(writes)} chats ({new} new)")
     if writes and not check:
         for note in writes:
-            repo.save(note)
+            repo.put(note)
         repo.commit(RENDER_MESSAGE)
 
     warnings: list[str] = []

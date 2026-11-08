@@ -20,7 +20,7 @@ def open_index(repo: Commonplace) -> SQLiteSearchIndex:
         # Blind to which version: an edited note is still there to open, so a chunk of its previous text is
         # worth returning until indexing catches up. A deleted one is not, and quoting it back would be a lie.
         note_exists=lambda path: (repo.root / path).exists(),
-        is_hidden=lambda path: repo.load(path).hidden,
+        is_hidden=lambda path: repo.get(path).hidden,
     )
 
 
@@ -54,7 +54,7 @@ def index(
     live = {Version(path, ids[path]) for path in repo.note_paths() if path in ids}
     indexed = set(store.get_indexed_paths())
 
-    # The index holds committed versions only, but `load` reads the file on disk, so a note with
+    # The index holds committed versions only, but `get` reads the file on disk, so a note with
     # uncommitted changes waits for them to be committed. Its committed version, already indexed, stays live.
     uncommitted = repo.uncommitted(".")
     to_index = {version for version in live - indexed if version.path.as_posix() not in uncommitted}
@@ -64,7 +64,7 @@ def index(
     # Stream chunks from all notes and batch them for efficient embedding
     def chunk_stream():
         for version in track(to_index, "Indexing notes"):
-            yield from chunker.chunk(repo.load(version.path), version.oid)
+            yield from chunker.chunk(repo.get(version.path), version.oid)
 
     # Process chunks in batches
     for chunk_batch in batched(chunk_stream(), batch_size):

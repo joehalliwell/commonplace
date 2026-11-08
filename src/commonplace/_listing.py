@@ -22,9 +22,9 @@ def listing(repo: Commonplace, folder: Path, fields: list[str], include_hidden: 
     for path in repo.paths(folder):
         rest = path.relative_to(folder)
         if len(rest.parts) > 1:
-            if rest.parts[0] not in subfolders and shown(repo.load(path)):
+            if rest.parts[0] not in subfolders and shown(repo.get(path)):
                 subfolders.add(rest.parts[0])
-        elif path.suffix == ".md" and shown(note := repo.load(path)):
+        elif path.suffix == ".md" and shown(note := repo.get(path)):
             notes.append(note)
     if not notes and not subfolders:
         raise ValueError(f"Nothing to list in '{folder}'")

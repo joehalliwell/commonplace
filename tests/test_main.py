@@ -126,7 +126,7 @@ def test_names_retired_before_1_0_are_refused(argv):
 
 
 def test_tag_without_tags_is_refused_now_that_show_shows_them(test_app, test_repo, make_note):
-    test_repo.save(make_note(path="notes/ideas.md", content="# Ideas\n"))
+    test_repo.put(make_note(path="notes/ideas.md", content="# Ideas\n"))
     test_repo.commit("Add")
 
     with pytest.raises(SystemExit):

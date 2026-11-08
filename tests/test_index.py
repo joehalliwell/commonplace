@@ -45,8 +45,8 @@ Baking bread requires flour, water, and yeast.
 """,
     )
 
-    test_repo.save(note1)
-    test_repo.save(note2)
+    test_repo.put(note1)
+    test_repo.put(note2)
     test_repo.commit("Add test notes")
 
     # Index the notes
@@ -71,7 +71,7 @@ def test_search_with_limit(test_repo, make_note):
 Content for note {i}.
 """,
         )
-        test_repo.save(note)
+        test_repo.put(note)
 
     # Index
     _commands.index(test_repo)
@@ -87,7 +87,7 @@ def test_search_with_punctuation(test_repo, make_note):
         path="test.md",
         content="# Test\n\nThinking about life, the universe, and everything.\n",
     )
-    test_repo.save(note)
+    test_repo.put(note)
     test_repo.commit("Add test note")
     _commands.index(test_repo)
 
@@ -114,7 +114,7 @@ def test_index_incremental(test_repo, make_note):
 Initial content.
 """,
     )
-    test_repo.save(note1)
+    test_repo.put(note1)
     test_repo.commit("Add first note")
 
     # Index
@@ -131,7 +131,7 @@ Initial content.
 More content.
 """,
     )
-    test_repo.save(note2)
+    test_repo.put(note2)
     test_repo.commit("Add second note")
 
     # Index
@@ -149,13 +149,13 @@ More content.
 
 def test_index_visits_a_note_with_no_chunks_once(test_repo, make_note, monkeypatch):
     """As seen 2026-11-01: 28 empty journal days and text-less chats were reloaded by every index run."""
-    test_repo.save(make_note(path="journal/empty.md", content="# 2021-05-11\n"))
+    test_repo.put(make_note(path="journal/empty.md", content="# 2021-05-11\n"))
     test_repo.commit("Add an empty day")
     _commands.index(test_repo)
 
     loaded: list[Path] = []
-    load = test_repo.load
-    monkeypatch.setattr(test_repo, "load", lambda path: loaded.append(path) or load(path))
+    get = test_repo.get
+    monkeypatch.setattr(test_repo, "get", lambda path: loaded.append(path) or get(path))
     _commands.index(test_repo)
 
     assert _version(test_repo, "journal/empty.md") in set(_commands.open_index(test_repo).get_indexed_paths())
@@ -163,11 +163,11 @@ def test_index_visits_a_note_with_no_chunks_once(test_repo, make_note, monkeypat
 
 
 def test_index_gives_a_once_empty_note_its_chunks_when_it_gains_text(test_repo, make_note):
-    test_repo.save(make_note(path="journal/day.md", content="# 2021-05-11\n"))
+    test_repo.put(make_note(path="journal/day.md", content="# 2021-05-11\n"))
     test_repo.commit("Add an empty day")
     _commands.index(test_repo)
 
-    test_repo.save(make_note(path="journal/day.md", content="# 2021-05-11\n\nWalked along the river.\n"))
+    test_repo.put(make_note(path="journal/day.md", content="# 2021-05-11\n\nWalked along the river.\n"))
     test_repo.commit("Write the day up")
     _commands.index(test_repo)
 
@@ -200,8 +200,8 @@ def test_index_rebuild_drops_another_models_notes(test_repo, other_model_index, 
 
 def test_search_leaves_out_a_note_tagged_hidden(test_repo, make_note):
     """What makes capturing everything safe: a hidden note stays captured but isn't offered."""
-    test_repo.save(make_note(path="kept.md", content="# Kept\n\nOzymandias king of kings.\n"))
-    test_repo.save(make_note(path="mood.md", content="# Mood\n\nOzymandias, and a bad day.\n"))
+    test_repo.put(make_note(path="kept.md", content="# Kept\n\nOzymandias king of kings.\n"))
+    test_repo.put(make_note(path="mood.md", content="# Mood\n\nOzymandias, and a bad day.\n"))
     test_repo.commit("Add notes")
     _commands.index(test_repo)
 
@@ -218,7 +218,7 @@ def test_search_leaves_out_a_note_tagged_hidden(test_repo, make_note):
 
 def test_search_hides_deleted_notes(test_repo, make_note):
     """A note deleted since the last index run is gone from results, index not yet pruned."""
-    test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nOzymandias king of kings.\n"))
+    test_repo.put(make_note(path="doomed.md", content="# Doomed\n\nOzymandias king of kings.\n"))
     test_repo.commit("Add note")
     _commands.index(test_repo)
     assert _commands.open_index(test_repo).search_keyword("Ozymandias", limit=10)
@@ -235,7 +235,7 @@ def test_search_hides_deleted_notes(test_repo, make_note):
 
 def test_search_include_deleted_shows_them(test_repo, make_note):
     """The index still holds the chunks, so --include-deleted can reach them."""
-    test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nOzymandias king of kings.\n"))
+    test_repo.put(make_note(path="doomed.md", content="# Doomed\n\nOzymandias king of kings.\n"))
     test_repo.commit("Add note")
     _commands.index(test_repo)
 
@@ -252,11 +252,11 @@ def test_search_keeps_finding_an_edited_note(test_repo, make_note):
     the note vanishing from search between the edit and the next index run. Only
     deletion hides a hit.
     """
-    test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
+    test_repo.put(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
     test_repo.commit("Add note")
     _commands.index(test_repo)
 
-    test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are crimson.\n"))
+    test_repo.put(make_note(path="draft.md", content="# Draft\n\nHerrings are crimson.\n"))
     test_repo.commit("Edit note")
 
     hits = _commands.open_index(test_repo).search_keyword("silver", limit=10)
@@ -266,7 +266,7 @@ def test_search_keeps_finding_an_edited_note(test_repo, make_note):
 def test_search_fills_the_limit_around_deleted_notes(test_repo, make_note):
     """Filtering happens while walking the ranking, so hidden hits don't eat the limit."""
     for i in range(5):
-        test_repo.save(make_note(path=f"note{i}.md", content=f"# Note {i}\n\nHerrings are silver, number {i}.\n"))
+        test_repo.put(make_note(path=f"note{i}.md", content=f"# Note {i}\n\nHerrings are silver, number {i}.\n"))
     test_repo.commit("Add notes")
     _commands.index(test_repo)
 
@@ -279,8 +279,8 @@ def test_search_fills_the_limit_around_deleted_notes(test_repo, make_note):
 
 def test_index_rebuild_reindexes_everything(test_repo, make_note):
     """A rebuild clears first, so every live note has to come back on the same run."""
-    test_repo.save(make_note(path="one.md", content="# One\n\nFirst note.\n"))
-    test_repo.save(make_note(path="two.md", content="# Two\n\nSecond note.\n"))
+    test_repo.put(make_note(path="one.md", content="# One\n\nFirst note.\n"))
+    test_repo.put(make_note(path="two.md", content="# Two\n\nSecond note.\n"))
     test_repo.commit("Add notes")
     _commands.index(test_repo)
     indexed = set(_commands.open_index(test_repo).get_indexed_paths())
@@ -293,7 +293,7 @@ def test_index_rebuild_reindexes_everything(test_repo, make_note):
 
 def test_index_prunes_deleted_notes(test_repo, make_note):
     """A note deleted from the repo leaves the index on the next run."""
-    test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nNot long for this world.\n"))
+    test_repo.put(make_note(path="doomed.md", content="# Doomed\n\nNot long for this world.\n"))
     test_repo.commit("Add note")
     _commands.index(test_repo)
     assert set(_commands.open_index(test_repo).get_indexed_paths())
@@ -306,7 +306,7 @@ def test_index_prunes_deleted_notes(test_repo, make_note):
 
 def test_index_commonplace_dir_pruned(test_repo, make_note):
     """A chunk indexed from .commonplace/ before it was excluded leaves on the next run."""
-    test_repo.save(make_note(path=".commonplace/skills/rake/chaff.md", content="# Chaff\n\nDropped in triage.\n"))
+    test_repo.put(make_note(path=".commonplace/skills/rake/chaff.md", content="# Chaff\n\nDropped in triage.\n"))
     test_repo.commit("Add chaff")
     stale = _version(test_repo, ".commonplace/skills/rake/chaff.md")
     chunk = Chunk(version=stale, section="Chaff", text="Dropped in triage.", offset=0)
@@ -320,7 +320,7 @@ def test_index_commonplace_dir_pruned(test_repo, make_note):
 def test_index_reembeds_only_the_chunks_an_edit_changed(test_repo, make_note, monkeypatch):
     """A new commit makes the whole note new to the index; unchanged chunks keep their embeddings."""
     body = "# Draft\n\n## Herrings\n\nHerrings are silver.\n\n## Sprats\n\nSprats are small.\n"
-    test_repo.save(make_note(path="draft.md", content=body))
+    test_repo.put(make_note(path="draft.md", content=body))
     test_repo.commit("Add note")
     _commands.index(test_repo)
     embedded: list[str] = []
@@ -331,7 +331,7 @@ def test_index_reembeds_only_the_chunks_an_edit_changed(test_repo, make_note, mo
         lambda texts: embedded.extend(texts) or embed_docs(texts),
     )
 
-    test_repo.save(make_note(path="draft.md", content=body.replace("small", "tiny")))
+    test_repo.put(make_note(path="draft.md", content=body.replace("small", "tiny")))
     test_repo.commit("Edit one section")
     _commands.index(test_repo)
 
@@ -341,11 +341,11 @@ def test_index_reembeds_only_the_chunks_an_edit_changed(test_repo, make_note, mo
 
 def test_index_prunes_superseded_versions(test_repo, make_note):
     """Editing a note replaces its chunks rather than accumulating a version per edit."""
-    test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
+    test_repo.put(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
     test_repo.commit("Add note")
     _commands.index(test_repo)
 
-    test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are crimson.\n"))
+    test_repo.put(make_note(path="draft.md", content="# Draft\n\nHerrings are crimson.\n"))
     test_repo.commit("Edit note")
     _commands.index(test_repo)
 
@@ -357,9 +357,9 @@ def test_index_prunes_superseded_versions(test_repo, make_note):
 
 def test_index_keeps_an_edited_notes_committed_text_until_the_edit_is_committed(test_repo, make_note):
     """The index holds committed versions only, so an edit on disk waits for its commit."""
-    test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
+    test_repo.put(make_note(path="draft.md", content="# Draft\n\nHerrings are silver.\n"))
     test_repo.commit("Add note")
-    test_repo.save(make_note(path="other.md", content="# Other\n\nSomething else.\n"))
+    test_repo.put(make_note(path="other.md", content="# Other\n\nSomething else.\n"))
     test_repo.commit("Move HEAD past the note")
     _commands.index(test_repo)
 
@@ -387,7 +387,7 @@ def test_index_leaves_an_untracked_note_until_its_first_commit(test_repo):
 
 def test_index_no_prune_keeps_deleted_notes(test_repo, make_note):
     """`--no-prune` leaves the index alone, for when re-embedding would cost more than the noise."""
-    test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nNot long for this world.\n"))
+    test_repo.put(make_note(path="doomed.md", content="# Doomed\n\nNot long for this world.\n"))
     test_repo.commit("Add note")
     _commands.index(test_repo)
     indexed = set(_commands.open_index(test_repo).get_indexed_paths())

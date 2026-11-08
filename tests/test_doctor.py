@@ -303,7 +303,7 @@ def test_doctor_cli_no_links_skips_the_link_check(test_app, test_repo, caplog):
 
 def _annotated(repo, make_note, path: str, body: str = "") -> None:
     """A committed note with committed marginalia, tagged."""
-    repo.save(make_note(path=path, content="# Note\n\n## Heading\n\nSome text.\n"))
+    repo.put(make_note(path=path, content="# Note\n\n## Heading\n\nSome text.\n"))
     repo.commit(f"Add {path}")
     write_marginalia(repo, Marginalia(note=Path(path), body=body).tagged("tea"))
     repo.commit(f"Annotate {path}")

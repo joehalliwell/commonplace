@@ -182,7 +182,7 @@ def journal(
     path = journal_path.relative_to(repo.root)
 
     # Load existing content or use default (but don't create file yet)
-    note = repo.load(path) if journal_path.exists() else Note(path, default_content)
+    note = repo.get(path) if journal_path.exists() else Note(path, default_content)
     original_content = dump_frontmatter(note.metadata, note.body)
 
     # Open in editor
@@ -201,7 +201,7 @@ def journal(
 
     # Save the edited content (creates file if it doesn't exist)
     metadata, body = load_frontmatter(edited_content)
-    repo.save(Note(path, body, metadata))
+    repo.put(Note(path, body, metadata))
     logger.info(f"Saved journal entry to {journal_path.relative_to(repo.root)}")
 
     # Commit the journal entry

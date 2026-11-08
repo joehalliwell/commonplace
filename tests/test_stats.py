@@ -18,9 +18,9 @@ def plain(output: str) -> str:
 def test_generate_stats_basic(test_repo, any_terminal):
     """Test basic stats generation."""
     # Add some test notes
-    test_repo.save(Note(Path("journal/2024/01/2024-01-15.md"), "# Test journal\n\nSome content"))
-    test_repo.save(Note(Path("journal/2024/01/2024-01-16.md"), "# Another journal\n\nMore content"))
-    test_repo.save(Note(Path("notes/general.md"), "# General note\n\nStuff"))
+    test_repo.put(Note(Path("journal/2024/01/2024-01-15.md"), "# Test journal\n\nSome content"))
+    test_repo.put(Note(Path("journal/2024/01/2024-01-16.md"), "# Another journal\n\nMore content"))
+    test_repo.put(Note(Path("notes/general.md"), "# General note\n\nStuff"))
 
     # Generate stats
     heatmap_output, table_output = generate_stats(test_repo, sources=None, all_time=False, console=any_terminal)
@@ -36,8 +36,8 @@ def test_generate_stats_basic(test_repo, any_terminal):
 
 def test_generate_stats_ties_are_ordered_by_name(test_repo, any_terminal):
     """Sources with equal counts sort by name, not by set iteration order."""
-    test_repo.save(Note(Path("notes/general.md"), "# General note\n\nStuff"))
-    test_repo.save(Note(Path("journal/2024/01/2024-01-15.md"), "# Journal\n\nContent"))
+    test_repo.put(Note(Path("notes/general.md"), "# General note\n\nStuff"))
+    test_repo.put(Note(Path("journal/2024/01/2024-01-15.md"), "# Journal\n\nContent"))
 
     _, table_output = generate_stats(test_repo, sources=None, all_time=True, console=any_terminal)
 
@@ -61,8 +61,8 @@ def test_source_is_a_mirrors_tree_a_chats_agent_or_the_top_folder(path, expected
 
 
 def test_generate_stats_counts_a_mirror_apart_but_its_parent_folder_still_matches_it(test_repo, any_terminal):
-    test_repo.save(Note(Path("notes/keep/shopping.md"), "# Shopping\n\nEggs"))
-    test_repo.save(Note(Path("notes/general.md"), "# Note\n\nContent"))
+    test_repo.put(Note(Path("notes/keep/shopping.md"), "# Shopping\n\nEggs"))
+    test_repo.put(Note(Path("notes/general.md"), "# Note\n\nContent"))
 
     _, table_output = generate_stats(test_repo, sources=["notes"], all_time=True, console=any_terminal)
 
@@ -73,8 +73,8 @@ def test_generate_stats_counts_a_mirror_apart_but_its_parent_folder_still_matche
 def test_generate_stats_with_source_filter(test_repo, any_terminal):
     """Test stats generation with source filtering."""
     # Add notes in different sources
-    test_repo.save(Note(Path("journal/2024/01/2024-01-15.md"), "# Journal\n\nContent"))
-    test_repo.save(Note(Path("notes/general.md"), "# Note\n\nContent"))
+    test_repo.put(Note(Path("journal/2024/01/2024-01-15.md"), "# Journal\n\nContent"))
+    test_repo.put(Note(Path("notes/general.md"), "# Note\n\nContent"))
 
     # Filter by journal source
     heatmap_output, table_output = generate_stats(test_repo, sources=["journal"], all_time=False, console=any_terminal)
@@ -87,9 +87,9 @@ def test_generate_stats_with_source_filter(test_repo, any_terminal):
 def test_generate_stats_with_multiple_sources(test_repo, any_terminal):
     """Test stats generation with multiple source filters."""
     # Add notes in different sources
-    test_repo.save(Note(Path("journal/2024/01/2024-01-15.md"), "# Journal\n\nContent"))
-    test_repo.save(Note(Path("chats/claude/2024/01/2024-01-16.md"), "# Chat\n\nContent"))
-    test_repo.save(Note(Path("notes/general.md"), "# Note\n\nContent"))
+    test_repo.put(Note(Path("journal/2024/01/2024-01-15.md"), "# Journal\n\nContent"))
+    test_repo.put(Note(Path("chats/claude/2024/01/2024-01-16.md"), "# Chat\n\nContent"))
+    test_repo.put(Note(Path("notes/general.md"), "# Note\n\nContent"))
 
     # Filter by journal and chats/claude sources (chats source includes provider)
     heatmap_output, table_output = generate_stats(
@@ -105,9 +105,9 @@ def test_generate_stats_with_multiple_sources(test_repo, any_terminal):
 def test_generate_stats_with_prefix_matching(test_repo, any_terminal):
     """Test stats generation with prefix matching (e.g., 'chats' matches 'chats/claude')."""
     # Add notes in different chat sources
-    test_repo.save(Note(Path("chats/claude/2024/01/2024-01-15.md"), "# Claude chat\n\nContent"))
-    test_repo.save(Note(Path("chats/gemini/2024/01/2024-01-16.md"), "# Gemini chat\n\nContent"))
-    test_repo.save(Note(Path("journal/2024/01/2024-01-17.md"), "# Journal\n\nContent"))
+    test_repo.put(Note(Path("chats/claude/2024/01/2024-01-15.md"), "# Claude chat\n\nContent"))
+    test_repo.put(Note(Path("chats/gemini/2024/01/2024-01-16.md"), "# Gemini chat\n\nContent"))
+    test_repo.put(Note(Path("journal/2024/01/2024-01-17.md"), "# Journal\n\nContent"))
 
     # Filter by "chats" prefix - should match both chat sources
     heatmap_output, table_output = generate_stats(test_repo, sources=["chats"], all_time=False, console=any_terminal)
@@ -123,8 +123,8 @@ def test_generate_stats_with_prefix_matching(test_repo, any_terminal):
 def test_generate_stats_all_time(test_repo, any_terminal):
     """Test stats generation with all-time view."""
     # Add notes from different years
-    test_repo.save(Note(Path("journal/2023/01/2023-01-15.md"), "# Old journal\n\nContent"))
-    test_repo.save(Note(Path("journal/2024/01/2024-01-15.md"), "# New journal\n\nContent"))
+    test_repo.put(Note(Path("journal/2023/01/2023-01-15.md"), "# Old journal\n\nContent"))
+    test_repo.put(Note(Path("journal/2024/01/2024-01-15.md"), "# New journal\n\nContent"))
 
     # Generate all-time stats
     heatmap_output, table_output = generate_stats(test_repo, sources=None, all_time=True, console=any_terminal)
@@ -147,8 +147,8 @@ def test_generate_stats_renders_per_terminal(test_repo, sample_activity, any_ter
     for day, count in sorted(sample_activity.items()):
         for n in range(count):
             path = Path(f"journal/{day.year}/{day.month:02}/{day}-{n}.md")
-            test_repo.save(Note(path, f"# Journal {day} #{n}\n\nContent"))
-    test_repo.save(Note(Path("notes/general.md"), "# General note\n\nContent"))
+            test_repo.put(Note(path, f"# Journal {day} #{n}\n\nContent"))
+    test_repo.put(Note(Path("notes/general.md"), "# General note\n\nContent"))
 
     heatmap_output, table_output = generate_stats(test_repo, sources=None, all_time=True, console=any_terminal)
 
@@ -159,7 +159,7 @@ def test_generate_stats_renders_per_terminal(test_repo, sample_activity, any_ter
 def test_generate_stats_invalid_source(test_repo):
     """Test stats generation with invalid source filter."""
     # Add a note
-    test_repo.save(Note(Path("journal/2024/01/2024-01-15.md"), "# Journal\n\nContent"))
+    test_repo.put(Note(Path("journal/2024/01/2024-01-15.md"), "# Journal\n\nContent"))
 
     # Try to filter by non-existent source
     with pytest.raises(ValueError, match="No notes found for sources: invalid"):
@@ -169,7 +169,7 @@ def test_generate_stats_invalid_source(test_repo):
 def test_generate_stats_no_dated_notes(test_repo, any_terminal):
     """Test stats generation when there are no dated notes."""
     # Add only notes without dates
-    test_repo.save(Note(Path("notes/general.md"), "# Note\n\nContent"))
+    test_repo.put(Note(Path("notes/general.md"), "# Note\n\nContent"))
 
     # Generate stats
     heatmap_output, table_output = generate_stats(test_repo, sources=None, all_time=False, console=any_terminal)
@@ -194,7 +194,7 @@ def test_generate_stats_empty_repo(test_repo, any_terminal):
 def test_generate_stats_with_indexed_content(test_repo, any_terminal):
     """Test stats generation includes indexed chunks."""
     # Add and index a note
-    test_repo.save(
+    test_repo.put(
         Note(
             Path("notes/test.md"),
             "# Test\n\n## Section 1\n\nContent here.\n\n## Section 2\n\nMore content.",

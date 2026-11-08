@@ -25,7 +25,7 @@ SECTIONS = ("tags", "links", "commentary", "index")
 def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str, Any]:
     """The record of the note `spec` names; a hidden note is shown when asked for by name, and says so."""
     [note] = repo.notes_named(spec)
-    node = repo.load(note)
+    node = repo.get(note)
     metadata = node.metadata
     # A field the note lacks is left out rather than shown as null.
     header = {field: metadata[field] for field in ("title", "type", "description") if metadata.get(field)}
@@ -80,9 +80,9 @@ def links(repo: Commonplace, note: Path, include_hidden: bool = False) -> list[N
     """A note's edges, out then in; those whose other end is labelled `hidden` left out unless asked for."""
 
     def shown(other: Path) -> bool:
-        return include_hidden or not repo.load(other).hidden
+        return include_hidden or not repo.get(other).hidden
 
-    node, found = repo.load(note), []
+    node, found = repo.get(note), []
     for edge in node.edges:
         match repo.files.lands(edge):
             case [other] if not shown(other):

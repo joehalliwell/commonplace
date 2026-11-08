@@ -24,7 +24,7 @@ def local_repo_with_remote(tmp_path, remote_repo, make_note):
     # Configure remote
     git(repo.root, "remote", "add", "origin", remote_repo.as_posix())
 
-    repo.save(make_note("initial.md", "# Initial\nFirst note"))
+    repo.put(make_note("initial.md", "# Initial\nFirst note"))
     repo.commit("Initial commit")
 
     yield repo
@@ -123,7 +123,7 @@ def test_sync_fast_forward(tmp_path, remote_repo, make_note):
     repo1 = Commonplace.open(local1_path)
     git(repo1.root, "remote", "add", "origin", remote_repo.as_posix())
 
-    repo1.save(make_note("test.md", "# Test"))
+    repo1.put(make_note("test.md", "# Test"))
     repo1.commit("Initial commit")
     repo1.sync()
     commit1_id = git(repo1.root, "rev-parse", "HEAD")
@@ -140,7 +140,7 @@ def test_sync_fast_forward(tmp_path, remote_repo, make_note):
 
     # Make a change in repo1 and push
     repo1 = Commonplace.open(local1_path)
-    repo1.save(make_note("test2.md", "# Test 2"))
+    repo1.put(make_note("test2.md", "# Test 2"))
     repo1.commit("Second commit")
     repo1.sync()
     commit2_id = git(repo1.root, "rev-parse", "HEAD")
@@ -174,7 +174,7 @@ def test_sync_with_custom_remote_name(tmp_path, make_note):
     repo = Commonplace.open(local_path)
     git(repo.root, "remote", "add", "upstream", remote_path.as_posix())
 
-    repo.save(make_note("test.md", "# Test"))
+    repo.put(make_note("test.md", "# Test"))
     repo.commit("Initial commit")
 
     # Sync with custom remote
@@ -191,7 +191,7 @@ def test_sync_merge_strategy(tmp_path, remote_repo, make_note):
     repo = Commonplace.open(local_path)
     git(repo.root, "remote", "add", "origin", remote_repo.as_posix())
 
-    repo.save(make_note("test.md", "# Test"))
+    repo.put(make_note("test.md", "# Test"))
     repo.commit("Initial commit")
     repo.sync(strategy="merge")
 

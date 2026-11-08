@@ -1,7 +1,7 @@
 """The commonplace's git repository, and the one way anything reaches it.
 
 Every git operation goes through the git CLI via `_run_git`, never a library: re-implementing the porcelain cost
-a silent revert (#102). Every operation that writes commits what it wrote: `save`, `remove` and `store_blob`
+a silent revert (#102). Every operation that writes commits what it wrote: `put`, `remove` and `store_blob`
 record their paths, `commit` stages and commits exactly those, and nothing else touches the index. Commits run
 the user's hooks.
 """
@@ -216,7 +216,7 @@ class Commonplace:
         """Every note `paths` gives."""
         return (path for path in self.paths() if path.suffix == ".md")
 
-    def load(self, path: Pathlike) -> Note:
+    def get(self, path: Pathlike) -> Note:
         """The note at `path`, as the working tree has it, with its marginalia; one that's gone reads as empty."""
         logger.debug(f"Fetching note at {path}")
         path = node_id(path)
@@ -230,7 +230,7 @@ class Commonplace:
         source = source_named(metadata.get("source")) or source_holding(path)
         return Note(path, body, metadata, marginalia=marginalia, text=text, source=source)
 
-    def save(self, note: Note) -> None:
+    def put(self, note: Note) -> None:
         """Write a note to the working tree for the next commit, over whatever is there."""
         abs_path = self.root / note.path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
@@ -252,14 +252,14 @@ class Commonplace:
     def holds(self, note: Note, aside: Collection[str] = ()) -> bool:
         """Whether the working tree holds `note` already: its frontmatter, keys `aside` aside, and its words, since a
         formatting hook may rewrap or reindent what was written."""
-        held = self.load(note.path)
+        held = self.get(note.path)
         kept = {key: value for key, value in held.metadata.items() if key not in aside}
         return bool(held.text) and (kept, held.body.split()) == (note.metadata, note.body.split())
 
     def notes(self, within: Path = Path()) -> list[Note]:
         """Every note under `within`, as read back: each one there, then each one gone whose marginalia remain."""
-        present = [self.load(path) for path in self.note_paths() if path.is_relative_to(within)]
-        return present + [self.load(path) for path in self.gone(within)]
+        present = [self.get(path) for path in self.note_paths() if path.is_relative_to(within)]
+        return present + [self.get(path) for path in self.gone(within)]
 
     def gone(self, within: Path = Path()) -> list[Path]:
         """Every note under `within` that is gone but whose marginalia remain, in order."""
@@ -305,7 +305,7 @@ class Commonplace:
 
     def unlink(self, from_spec: str, to_spec: str) -> int:
         """Remove a note's edges to exactly `to_spec`'s target from its marginalia, committing as the user."""
-        note = self.load(self.files.resolve_target(from_spec).note)
+        note = self.get(self.files.resolve_target(from_spec).note)
         try:
             target = str(self.files.resolve_target(to_spec))
         except UnresolvedNote as e:

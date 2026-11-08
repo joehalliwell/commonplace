@@ -19,7 +19,7 @@ from tests.porcelain import git
 
 def test_commit_initial_changes(test_repo, make_note):
     """Test committing the first change to a new repository."""
-    test_repo.save(make_note("test.md", "# Test\nHello world"))
+    test_repo.put(make_note("test.md", "# Test\nHello world"))
     test_repo.commit("Initial commit")
 
     assert _git(test_repo, "log", "-1", "--format=%s") == "Initial commit\n"
@@ -27,7 +27,7 @@ def test_commit_initial_changes(test_repo, make_note):
 
 def test_commit_no_changes(test_repo, make_note):
     """Test that committing with no changes does nothing."""
-    test_repo.save(make_note("test.md", "# Test\nHello world"))
+    test_repo.put(make_note("test.md", "# Test\nHello world"))
     test_repo.commit("Initial commit")
 
     first_commit_id = _head(test_repo)
@@ -38,7 +38,7 @@ def test_commit_no_changes(test_repo, make_note):
 
 def test_remove_committed_note_is_gone_from_head(test_repo, make_note):
     note = make_note("memory/claude/gone.md", "# Gone\n")
-    test_repo.save(note)
+    test_repo.put(note)
     test_repo.commit("Add")
 
     test_repo.remove(note.path)
@@ -50,11 +50,11 @@ def test_remove_committed_note_is_gone_from_head(test_repo, make_note):
 
 def test_commit_subsequent_changes(test_repo, make_note):
     """Test committing changes after initial commit."""
-    test_repo.save(make_note("test1.md", "# Test 1\nFirst note"))
+    test_repo.put(make_note("test1.md", "# Test 1\nFirst note"))
     test_repo.commit("Initial commit")
     first_commit_id = _head(test_repo)
 
-    test_repo.save(make_note("test2.md", "# Test 2\nSecond note"))
+    test_repo.put(make_note("test2.md", "# Test 2\nSecond note"))
     test_repo.commit("Add second note")
 
     assert _head(test_repo) != first_commit_id
@@ -63,11 +63,11 @@ def test_commit_subsequent_changes(test_repo, make_note):
 
 def test_commit_modified_file(test_repo, make_note):
     """Test committing modifications to an existing file."""
-    test_repo.save(make_note("test.md", "# Test\nOriginal content"))
+    test_repo.put(make_note("test.md", "# Test\nOriginal content"))
     test_repo.commit("Initial commit")
     first_commit_id = _head(test_repo)
 
-    test_repo.save(make_note("test.md", "# Test\nModified content"))
+    test_repo.put(make_note("test.md", "# Test\nModified content"))
     test_repo.commit("Update note")
 
     assert _head(test_repo) != first_commit_id
@@ -77,15 +77,15 @@ def test_commit_modified_file(test_repo, make_note):
 def test_save_note_with_metadata_loads_back_unchanged(test_repo):
     note = Note(Path("test.md"), body="# Test\n\nHello: world\n", metadata={"gem": "Research: notes #1"})
 
-    test_repo.save(note)
+    test_repo.put(note)
 
-    assert test_repo.load(Path("test.md")) == note
+    assert test_repo.get(Path("test.md")) == note
 
 
 def test_load_file_with_frontmatter_separates_metadata_from_body(test_repo):
     (test_repo.root / "test.md").write_text("---\ntags: [a, b]\n---\n\n# Test\n")
 
-    note = test_repo.load(Path("test.md"))
+    note = test_repo.get(Path("test.md"))
 
     assert (note.metadata, note.body) == ({"tags": ["a", "b"]}, "# Test\n")
 
@@ -94,8 +94,8 @@ def test_load_file_opening_with_a_rule_is_all_body(test_repo):
     text = "---\n\nSome prose.\n\n---\n\nMore prose.\n"
     (test_repo.root / "test.md").write_text(text)
 
-    note = test_repo.load(Path("test.md"))
-    test_repo.save(note)
+    note = test_repo.get(Path("test.md"))
+    test_repo.put(note)
 
     assert (note.metadata, note.body) == ({}, text)
     assert (test_repo.root / "test.md").read_text() == text
@@ -108,11 +108,11 @@ def test_a_notes_version_follows_later_commits(test_repo, make_note):
     on HEAD: everything downstream (incremental indexing, pruning, hiding deleted hits
     from search) decides what is current by comparing versions.
     """
-    test_repo.save(make_note("test.md", "# Test\nOriginal content"))
+    test_repo.put(make_note("test.md", "# Test\nOriginal content"))
     test_repo.commit("Add note")
     original = test_repo.content_ids()[Path("test.md")]
 
-    test_repo.save(make_note("test.md", "# Test\nModified content"))
+    test_repo.put(make_note("test.md", "# Test\nModified content"))
     test_repo.commit("Update note")
     modified = test_repo.content_ids()[Path("test.md")]
 
@@ -122,7 +122,7 @@ def test_a_notes_version_follows_later_commits(test_repo, make_note):
 
 def test_a_notes_version_after_a_merge_is_the_side_branchs_content(test_repo, make_note):
     """A file last changed on a merged side branch has that branch's content, not the mainline's before it."""
-    test_repo.save(make_note("topic.md", "# Topic\n"))
+    test_repo.put(make_note("topic.md", "# Topic\n"))
     test_repo.commit("Add topic")
     _git(test_repo, "switch", "-q", "-c", "side")
     (test_repo.root / "topic.md").write_text("# Topic, revised\n")
@@ -139,8 +139,8 @@ def test_a_notes_version_after_a_merge_is_the_side_branchs_content(test_repo, ma
 
 def test_note_paths_commonplace_dir_excluded(test_repo, make_note):
     """Skill-managed state under .commonplace/ is never a note."""
-    test_repo.save(make_note("notes/idea.md", "# Idea\n"))
-    test_repo.save(make_note(".commonplace/skills/rake/chaff.md", "# Chaff\n"))
+    test_repo.put(make_note("notes/idea.md", "# Idea\n"))
+    test_repo.put(make_note(".commonplace/skills/rake/chaff.md", "# Chaff\n"))
     test_repo.commit("Add notes")
 
     assert list(test_repo.note_paths()) == [Path("index.md"), Path("notes/idea.md")]
@@ -164,9 +164,9 @@ def test_paths_gitignored_files_excluded(test_repo):
 
 def test_note_paths_dot_dirs_excluded(test_repo, make_note):
     """No dot-directory is descended, at any depth."""
-    test_repo.save(make_note("notes/idea.md", "# Idea\n"))
-    test_repo.save(make_note(".claude/copy.md", "# Copy\n"))
-    test_repo.save(make_note("notes/.hidden/draft.md", "# Draft\n"))
+    test_repo.put(make_note("notes/idea.md", "# Idea\n"))
+    test_repo.put(make_note(".claude/copy.md", "# Copy\n"))
+    test_repo.put(make_note("notes/.hidden/draft.md", "# Draft\n"))
     test_repo.commit("Add notes")
 
     assert list(test_repo.note_paths()) == [Path("index.md"), Path("notes/idea.md")]
@@ -190,10 +190,10 @@ def test_config_reads_repo_file(tmp_path, monkeypatch):
 
 def test_index_matches_head_after_commit(test_repo, make_note):
     """Test that index tree matches HEAD tree after commit (not previous HEAD)."""
-    test_repo.save(make_note("test.md", "# Test\nOriginal content"))
+    test_repo.put(make_note("test.md", "# Test\nOriginal content"))
     test_repo.commit("Initial commit")
 
-    test_repo.save(make_note("test.md", "# Test\nModified content"))
+    test_repo.put(make_note("test.md", "# Test\nModified content"))
     test_repo.commit("Update note")
 
     # Staged differences from HEAD would look like a revert.
@@ -202,7 +202,7 @@ def test_index_matches_head_after_commit(test_repo, make_note):
 
 def test_commit_never_indexes(test_repo, index_spy, make_note):
     """Indexing reads what was committed, so it runs after a command, never inside the storage layer."""
-    test_repo.save(make_note("test.md", "# Test\nHello world"))
+    test_repo.put(make_note("test.md", "# Test\nHello world"))
     test_repo.commit("Test commit")
 
     assert index_spy == []
@@ -263,7 +263,7 @@ def test_commit_concurrent_writer_keeps_their_commit(test_repo, make_note):
     _git(test_repo, "add", "x.md")
     _git(test_repo, "commit", "-m", "Concurrent writer")
 
-    test_repo.save(Note(journal, "# Journal\n"))
+    test_repo.put(Note(journal, "# Journal\n"))
     test_repo.commit("Update journal entry")
 
     assert "x.md" in _git(test_repo, "ls-tree", "--name-only", "HEAD").split()
@@ -281,7 +281,7 @@ def test_commit_unrelated_changes_left_uncommitted(test_repo, make_note):
     (test_repo.root / "staged.md").write_text("# Half-written\n")
     _git(test_repo, "add", "staged.md")
 
-    test_repo.save(make_note("journal.md", "# Journal\n"))
+    test_repo.put(make_note("journal.md", "# Journal\n"))
     test_repo.commit("Update journal entry")
 
     assert _git(test_repo, "diff", "--name-only", "HEAD~1", "HEAD").split() == ["journal.md"]
@@ -292,7 +292,7 @@ def test_commit_awkward_filenames_committed_verbatim(test_repo, make_note):
     """Spaces, non-ASCII and glob characters are names, not syntax."""
     names = ["chats/gemini/2026/10/2026-10-01-مرحبا بالعالم.md", "notes/[draft] *.md"]
     for name in names:
-        test_repo.save(make_note(name, "# Note\n"))
+        test_repo.put(make_note(name, "# Note\n"))
     test_repo.commit("Add notes")
 
     changed = _git(test_repo, "-c", "core.quotePath=false", "diff", "--name-only", "HEAD~1", "HEAD")
@@ -304,7 +304,7 @@ def test_commit_hook_reformats_retries_with_hook_output(test_repo, make_note):
     """A pre-commit hook that rewrites our file and fails is a formatter: re-stage and go again."""
     _hook(test_repo, "grep -q messy note.md || exit 0\nsed -i s/messy/tidy/ note.md\nexit 1\n")
 
-    test_repo.save(make_note("note.md", "# messy\n"))
+    test_repo.put(make_note("note.md", "# messy\n"))
     test_repo.commit("Add note")
 
     assert _git(test_repo, "show", "HEAD:note.md") == "# tidy\n"
@@ -314,11 +314,11 @@ def test_commit_hook_reformats_retries_with_hook_output(test_repo, make_note):
 def test_commit_hook_reformats_back_to_head_is_nothing_to_commit(test_repo, make_note):
     """Re-importing a note the hook already formatted changes nothing once the hook has had its say."""
     _hook(test_repo, "grep -q messy note.md || exit 0\nsed -i s/messy/tidy/ note.md\nexit 1\n")
-    test_repo.save(make_note("note.md", "# messy\n"))
+    test_repo.put(make_note("note.md", "# messy\n"))
     test_repo.commit("Add note")
     head = _head(test_repo)
 
-    test_repo.save(make_note("note.md", "# messy\n"))
+    test_repo.put(make_note("note.md", "# messy\n"))
     test_repo.commit("Re-import note")
 
     assert _head(test_repo) == head
@@ -330,7 +330,7 @@ def test_commit_hook_rejects_raises_with_hook_output(test_repo, make_note):
     _hook(test_repo, "echo 'lint says no' >&2\nexit 1\n")
     head = _git(test_repo, "rev-parse", "HEAD")
 
-    test_repo.save(make_note("note.md", "# Note\n"))
+    test_repo.put(make_note("note.md", "# Note\n"))
     with pytest.raises(GitError, match="lint says no"):
         test_repo.commit("Add note")
 
@@ -343,7 +343,7 @@ def test_commit_index_briefly_locked_waits_and_succeeds(test_repo, make_note):
     lock.touch()
     threading.Timer(0.3, lock.unlink).start()
 
-    test_repo.save(make_note("note.md", "# Note\n"))
+    test_repo.put(make_note("note.md", "# Note\n"))
     test_repo.commit("Add note")
 
     assert _git(test_repo, "log", "-1", "--format=%s") == "Add note\n"
@@ -355,7 +355,7 @@ def test_commit_index_locked_too_long_raises_and_leaves_index(test_repo, make_no
     before = index.read_bytes()
     (test_repo.root / ".git" / "index.lock").touch()
 
-    test_repo.save(make_note("note.md", "# Note\n"))
+    test_repo.put(make_note("note.md", "# Note\n"))
     with pytest.raises(GitError, match=r"index\.lock"):
         test_repo.commit("Add note")
 
@@ -382,7 +382,7 @@ def test_a_notes_labels_are_its_own_tags_then_its_marginalias(test_repo):
         },
     )
 
-    assert test_repo.load(IDEAS).labels == ["tea", "hidden"]
+    assert test_repo.get(IDEAS).labels == ["tea", "hidden"]
 
 
 def test_an_edge_in_marginalia_is_written_in_their_file_and_lands_from_the_note(test_repo):
@@ -396,7 +396,7 @@ def test_an_edge_in_marginalia_is_written_in_their_file_and_lands_from_the_note(
         },
     )
 
-    [edge] = test_repo.load(IDEAS).edges
+    [edge] = test_repo.get(IDEAS).edges
 
     assert (edge.link.source, edge.link.line) == (marginalia_path(IDEAS), 5)
     assert test_repo.files.lands(edge) == [OTHER]
@@ -435,7 +435,7 @@ def test_blobs_committed_in_storage_order_then_uncommitted_by_path(test_repo, tm
     for name in ("b.json", "a.json"):
         committed.append(test_repo.store_blob(tmp_path / name).path)
         test_repo.commit(f"Store {name}")
-        test_repo.save(Note(Path(f"{name}.md"), "# Note\n"))
+        test_repo.put(Note(Path(f"{name}.md"), "# Note\n"))
         test_repo.commit(f"Note {name}")
     pending = sorted((test_repo.store_blob(tmp_path / name).path for name in ("d.json", "c.json")), key=Path.as_posix)
 

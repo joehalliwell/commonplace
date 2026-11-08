@@ -80,7 +80,7 @@ def import_one(path: Path, repo: Commonplace, user: str, commit: bool = True) ->
 
     placement = Placement.of(repo, importer.source.tree, importer.id_key)
     for note in render_chats(path, importer, user, blob.path.as_posix(), placement):
-        repo.save(note)
+        repo.put(note)
         logger.info(f"Stored log '{note.metadata['title']}' at '{note.path}'")
 
     if commit:
