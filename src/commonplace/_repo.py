@@ -6,30 +6,24 @@ record their paths, `commit` stages and commits exactly those, and nothing else 
 the user's hooks.
 """
 
-import difflib
 import hashlib
 import os
 import shutil
 import subprocess
 import time
-from collections.abc import Callable, Collection, Iterator
+from collections.abc import Callable, Collection, Iterable, Iterator
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from functools import cached_property, lru_cache
 from pathlib import Path
 
-from commonplace._config import BLOBS, CACHE, CONFIG, MARGINALIA
+from commonplace._config import BLOBS, CACHE, MARGINALIA
 from commonplace._links import BrokenLink, Edge, Files, Target, UnresolvedNote
 from commonplace._logging import logger
 from commonplace._marginalia import read_marginalia, write_marginalia
+from commonplace._scaffold import TEMPLATES, lay_down
 from commonplace._types import Blob, Marginalia, Note, Pathlike, RepoPath
 from commonplace._utils import dump_frontmatter, load_frontmatter
-
-# What `init` lays down, as it lands in a repo. Its dotfiles match nothing here, so they are inert.
-_SCAFFOLD_ROOT = Path(__file__).parent / "resources" / "scaffold"
-
-# Seeded once and then the user's; everything else in the scaffold is commonplace's to maintain.
-_USER_OWNED = frozenset({CONFIG.as_posix(), "index.md"})
 
 _BOT_USERNAME = "Commonplace Bot"
 _BOT_EMAIL = "commonplace@joehalliwell.com"
@@ -39,69 +33,6 @@ _LOCK_RETRY_DELAYS = (0.05, 0.1, 0.2, 0.4, 0.8, 1.6)
 
 # Imports touch thousands of paths, more than argv holds.
 _PATHSPEC_STDIN = ("--pathspec-from-file=-", "--pathspec-file-nul")
-
-
-@dataclass(frozen=True)
-class ConfigFile:
-    """A config file `init` writes from a template and `doctor` checks is still there."""
-
-    path: str
-    template: str
-
-    def divergence(self, existing: str) -> list[str]:
-        """Report how `existing` differs from the template, if that is our business."""
-        return []
-
-
-@dataclass(frozen=True)
-class UnmanagedConfig(ConfigFile):
-    """Seeded once and then the user's own: we only care that it exists."""
-
-
-@dataclass(frozen=True)
-class ManagedLineConfig(ConfigFile):
-    """
-    Commonplace maintains the contents, so `doctor` reports any difference.
-
-    This is how existing repos keep up as `init`'s templates evolve: print the
-    diff and let the reader decide what to do about it. Deliberately no
-    cleverer than that — no merging, no rewriting, no guessing which side is
-    right.
-    """
-
-    def divergence(self, existing: str) -> list[str]:
-        return list(
-            difflib.unified_diff(
-                self.template.splitlines(),
-                existing.splitlines(),
-                fromfile="template",
-                tofile=self.path,
-                lineterm="",
-            )
-        )
-
-
-def _scaffold(path: str) -> ConfigFile:
-    """The scaffold file at `path`, managed unless it becomes the user's."""
-    kind = UnmanagedConfig if path in _USER_OWNED else ManagedLineConfig
-    return kind(path, (_SCAFFOLD_ROOT / path).read_text())
-
-
-_SCAFFOLDING: tuple[ConfigFile, ...] = tuple(
-    _scaffold(file.relative_to(_SCAFFOLD_ROOT).as_posix())
-    for file in sorted(_SCAFFOLD_ROOT.rglob("*"))
-    if file.is_file()
-)
-
-
-def _create_missing(root: Path, config: ConfigFile) -> bool:
-    """Write the config file if it is absent. Returns True if it was created."""
-    target = root / config.path
-    if target.exists():
-        return False
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(config.template)
-    return True
 
 
 def _run_git(root: Path, *args: str, input: str | None = None, as_user: bool = False) -> str:
@@ -234,27 +165,6 @@ class Commonplace:
 
         return self.make_repo_path(rel_path)
 
-    def missing_scaffolding(self) -> list[str]:
-        """The scaffolding `init` lays down that is no longer there."""
-        return [config.path for config in _SCAFFOLDING if not (self.root / config.path).exists()]
-
-    def restore_scaffolding(self) -> list[str]:
-        """Recreate and commit the missing scaffolding; returns what was restored."""
-        restored = [config.path for config in _SCAFFOLDING if _create_missing(self.root, config)]
-        if restored:
-            self._pending.update(restored)
-            self.commit("Restore scaffolding", auto_index=False)
-        return restored
-
-    def scaffolding_drift(self) -> dict[str, list[str]]:
-        """The diff, by path, of each managed file present but behind the template `init` now writes."""
-        drift = {}
-        for config in _SCAFFOLDING:
-            target = self.root / config.path
-            if target.exists() and (divergence := config.divergence(target.read_text())):
-                drift[config.path] = divergence
-        return drift
-
     @cached_property
     def index(self):
         """Get the search index."""
@@ -282,11 +192,8 @@ class Commonplace:
         root.mkdir(parents=True, exist_ok=True)
         _run_git(root, "init", "-q", "--initial-branch=main")
 
-        # `doctor` checks the same list, so the two can't drift apart.
-        for scaffold in _SCAFFOLDING:
-            _create_missing(root, scaffold)
-
-        _commit(root, {scaffold.path for scaffold in _SCAFFOLDING}, "Initial commit")
+        lay_down(root)
+        _commit(root, set(TEMPLATES), "Initial commit")
 
     def make_repo_path(self, path: Pathlike) -> RepoPath:
         """A committed file's RepoPath, at the commit that last changed it; a note being written needs no ref."""
@@ -524,15 +431,18 @@ class Commonplace:
         paths = dict.fromkeys([*committed.splitlines(), *sorted(pending.split("\0"))])
         return [Blob(Path(p)) for p in paths if p and (self.root / p).exists() and (not names or Path(p).name in names)]
 
-    def commit(self, message: str, auto_index: bool | None = None, *, as_user: bool = False) -> None:
+    def commit(
+        self, message: str, auto_index: bool | None = None, *, as_user: bool = False, written: Iterable[str] = ()
+    ) -> None:
         """Commit what this repo has saved, removed or stored since the last commit, and nothing else.
 
         Args:
             message: Commit message
             auto_index: Whether to index after committing (default: from config)
             as_user: Commit as the user's own git identity rather than the bot, for something they did themselves
+            written: Paths written by other means, to commit with them
         """
-        committed = _commit(self.root, self._pending, message, as_user=as_user)
+        committed = _commit(self.root, self._pending | set(written), message, as_user=as_user)
         self._pending.clear()
         if not committed:
             logger.info("No changes to commit")
