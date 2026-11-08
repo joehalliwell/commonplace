@@ -26,7 +26,6 @@ RENDER_MESSAGE = "Re-render chats from stored archives"
 #: included, carries a hand edit, which a re-render would overwrite.
 _RENDERING = ("Import from ", "Fetch ", RENDER_MESSAGE)
 
-_CHATS = "chats"
 _UNDATED = datetime.min.replace(tzinfo=UTC)
 
 
@@ -40,7 +39,7 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
     for blob, importer in track(archives, "Replaying archives"):
         if importer.source.name not in placements:
             tree = importer.source.tree
-            placements[importer.source.name] = Placement.of(repo.root, tree, importer.id_key)
+            placements[importer.source.name] = Placement.of(repo, tree, importer.id_key)
         placement = placements[importer.source.name]
         rendered = {
             note.repo_path.path: note
@@ -49,7 +48,8 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
         final.update(rendered)
         winner.update(dict.fromkeys(rendered, blob))
 
-    subjects, dirty = repo.last_subjects(_CHATS), repo.uncommitted(_CHATS)
+    chats = ChatSource.ROOT.as_posix()
+    subjects, dirty = repo.last_subjects(chats), repo.uncommitted(chats)
     writes: list[Note] = []
     hand_edited: list[str] = []
     for path, note in final.items():
@@ -81,7 +81,7 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
         warnings.append(
             f"{len(hand_edited)} hand-edited chats left alone:\n" + "\n".join(f"  {p}" for p in hand_edited)
         )
-    unrendered = [p for p in (repo.root / _CHATS).glob("**/*.md") if p.relative_to(repo.root) not in final]
+    unrendered = [p for p in repo.paths() if p.is_relative_to(ChatSource.ROOT) and p.suffix == ".md" and p not in final]
     if unrendered:
         warnings.append(f"{len(unrendered)} chats no stored archive renders; left as they are")
     return actions, warnings

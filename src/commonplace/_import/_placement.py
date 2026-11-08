@@ -7,9 +7,10 @@ whose proposed path is held takes the next free `-2`, `-3`.
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from commonplace._marginalia import annotated_notes
-from commonplace._utils import load_frontmatter
+if TYPE_CHECKING:
+    from commonplace._repo import Commonplace
 
 
 @dataclass
@@ -20,17 +21,15 @@ class Placement:
     held: set[Path] = field(default_factory=set)
 
     @classmethod
-    def of(cls, root: Path, tree: Path, id_key: str | None) -> "Placement":
+    def of(cls, repo: "Commonplace", tree: Path, id_key: str | None) -> "Placement":
         """What `tree` holds now: each note by the id under `id_key`, and each gone note's marginalia."""
         landed: dict[str, Path] = {}
         if id_key is not None:
-            for file in sorted((root / tree).rglob("*.md")):
-                metadata, _ = load_frontmatter(file.read_text())
-                if (note_id := metadata.get(id_key)) is not None:
-                    landed[str(note_id)] = file.relative_to(root)
+            for note in repo.notes(tree):
+                if (note_id := note.metadata.get(id_key)) is not None:
+                    landed[str(note_id)] = note.repo_path.path
         # Marginalia outlive their note: a new note at a gone note's path would silently inherit them.
-        gone = {note for note in annotated_notes(root) if note.is_relative_to(tree) and not (root / note).exists()}
-        return cls(landed, set(landed.values()) | gone)
+        return cls(landed, set(landed.values()) | set(repo.gone(tree)))
 
     def place(self, proposed: Path, note_id: str | None) -> Path:
         """The path the note holds already, else `proposed` or the next free `-N` beside it, held from now on."""

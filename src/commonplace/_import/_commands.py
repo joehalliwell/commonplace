@@ -80,7 +80,7 @@ def import_one(
     else:
         blob = repo.store_blob(path)
 
-    placement = Placement.of(repo.root, importer.source.tree, importer.id_key)
+    placement = Placement.of(repo, importer.source.tree, importer.id_key)
     for note in render_chats(path, importer, user, blob.path.as_posix(), placement):
         repo.save(note)
         logger.info(f"Stored log '{note.metadata['title']}' at '{note.repo_path}'")
