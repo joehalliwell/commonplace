@@ -31,7 +31,7 @@ def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str
     return {
         "note": str(Target(note)),
         **header,
-        "hidden": "hidden" in node.labels,
+        "hidden": node.hidden,
         "tags": {
             "own": list(metadata.get("tags") or []),
             "marginalia": node.marginalia.tags,
@@ -80,7 +80,7 @@ def links(repo: Commonplace, note: Path, include_hidden: bool = False) -> list[N
     """A note's edges, out then in; those whose other end is labelled `hidden` left out unless asked for."""
 
     def shown(other: Path) -> bool:
-        return include_hidden or "hidden" not in repo.load(RepoPath(other)).labels
+        return include_hidden or not repo.load(RepoPath(other)).hidden
 
     node, found = repo.load(RepoPath(note)), []
     for edge in node.edges:
@@ -91,5 +91,5 @@ def links(repo: Commonplace, note: Path, include_hidden: bool = False) -> list[N
                 found.append(Neighbour("out", str(Target(other, edge.link.target.partition("#")[2])), node.line(edge)))
             case _:
                 found.append(Neighbour("out", edge.link.target, node.line(edge)))
-    into = [(source, edge) for source, edge in repo.into(note) if include_hidden or "hidden" not in source.labels]
+    into = [(source, edge) for source, edge in repo.into(note) if include_hidden or not source.hidden]
     return found + [Neighbour("in", str(Target(edge.node)), source.line(edge)) for source, edge in into]

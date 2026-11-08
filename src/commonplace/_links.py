@@ -112,9 +112,8 @@ def _strings(value: object) -> Iterator[str]:
             yield from _strings(item)
 
 
-def _frontmatter_citations(text: str, lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
+def _frontmatter_citations(metadata: dict, lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
     """The notes and archives an artefact's frontmatter cites under any `source*` key."""
-    metadata, _ = load_frontmatter(text)
     for key, value in metadata.items():
         if str(key).startswith("source"):
             for target in _strings(value):
@@ -161,11 +160,11 @@ def _is_repo_reference(target: str) -> bool:
     return not _EXTERNAL_SCHEME.match(target)
 
 
-def extract_links(text: str, *, source: Path, body: bool = True) -> list[Link]:
+def extract_links(text: str, *, source: Path, body: bool = True, metadata: dict | None = None) -> list[Link]:
     """Every reference in `text` that could point into the repository, in document order; without `body`, only
-    those its frontmatter cites."""
-    lines = text.split("\n")
-    found = [*_frontmatter_citations(text, lines), *(_references(_MARKDOWN.parse(text)) if body else [])]
+    those its frontmatter, parsed already as `metadata` or else here, cites."""
+    lines, metadata = text.split("\n"), load_frontmatter(text)[0] if metadata is None else metadata
+    found = [*_frontmatter_citations(metadata, lines), *(_references(_MARKDOWN.parse(text)) if body else [])]
     links = []
     for line, target, kind in sorted(found, key=lambda item: item[0]):
         if _is_repo_reference(target := target.strip()):

@@ -69,6 +69,10 @@ class Source(Node):
         """Its importers, in the order a capture is offered to them."""
         return tuple(importer(self) for importer in self.importer_types)
 
+    def provenance(self, archive: str) -> dict[str, str]:
+        """What a note it lands records of where it came from: this source, and the archive it was read from."""
+        return {"source": self.name, "source_export": archive}
+
     def fetcher(self, config: "Config") -> "Fetcher":
         """Its fetcher, built per run so that the configured User-Agent, a repo's own included, reaches it."""
         assert self.fetcher_type is not None, f"{self.name} has no fetcher"
@@ -155,6 +159,11 @@ class Note(Node):
         return list(dict.fromkeys([*(self.metadata.get("tags") or []), *self.marginalia.tags]))
 
     @property
+    def hidden(self) -> bool:
+        """Whether it's labelled `hidden`: kept, but left out of search, listings and links unless asked for."""
+        return "hidden" in self.labels
+
+    @property
     def edges(self) -> list[Edge]:
         """Every link it makes: its own body's, then its marginalia's."""
         return self._own + self.said
@@ -163,7 +172,7 @@ class Note(Node):
     def said(self) -> list[Edge]:
         """The edges its marginalia add, at their lines in the marginalia's file."""
         path, offset = self.repo_path.path, self.marginalia.offset
-        said = extract_links(self.marginalia.body, source=MARGINALIA / path)
+        said = extract_links(self.marginalia.body, source=MARGINALIA / path, metadata={})
         return [Edge(path, replace(link, line=link.line + offset)) for link in said]
 
     def line(self, edge: Edge) -> str:
@@ -189,7 +198,8 @@ class Note(Node):
         path = self.repo_path.path
         # Text that only quotes links makes none, but what the frontmatter cites, its provenance, is still the note's.
         quotes = self.source is not None and self.source.quotes
-        return [Edge(path, link) for link in extract_links(self.text, source=path, body=not quotes)]
+        found = extract_links(self.text, source=path, body=not quotes, metadata=self.metadata)
+        return [Edge(path, link) for link in found]
 
     def _said_lines(self) -> Iterator[tuple[int, str]]:
         return enumerate(self.marginalia.body.split("\n"), self.marginalia.offset + 1)

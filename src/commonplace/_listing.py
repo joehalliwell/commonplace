@@ -15,7 +15,7 @@ def listing(repo: Commonplace, folder: Path, fields: list[str], include_hidden: 
     """
 
     def shown(note: Note) -> bool:
-        return include_hidden or "hidden" not in note.labels
+        return include_hidden or not note.hidden
 
     notes: list[Note] = []
     subfolders: set[str] = set()

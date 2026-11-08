@@ -295,7 +295,7 @@ def test_a_second_fetch_stores_only_what_changed(test_repo):
 
     fetch(test_repo, sources=fetching(FakeKeep({**PAGES, "v2": CHANGES}).fetcher()), auto_index=False)
 
-    archives = test_repo.stored_archives(*archive_names("keep"))
+    archives = [blob.path for blob in test_repo.blobs(*archive_names("keep"))]
     assert len(archives) == 2
     [entry] = read_entries(test_repo.root / archives[-1])
     assert len(json.loads(entry["response"])["nodes"]) == len(CHANGES["nodes"])
@@ -312,7 +312,7 @@ def test_a_capture_after_the_switch_to_xz_builds_on_a_gzip_one(test_repo, tmp_pa
 
     fetch(test_repo, sources=fetching(FakeKeep({**PAGES, "v2": CHANGES}).fetcher()), auto_index=False)
 
-    archives = test_repo.stored_archives(*archive_names("keep"))
+    archives = [blob.path for blob in test_repo.blobs(*archive_names("keep"))]
     assert [a.name for a in archives] == ["keep-wire.jsonl.gz", "keep-wire.jsonl.xz"]
     [entry] = read_entries(test_repo.root / archives[-1])
     assert len(json.loads(entry["response"])["nodes"]) == len(CHANGES["nodes"])

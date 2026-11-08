@@ -109,8 +109,7 @@ def render_chats(
                 "by": f"commonplace/{__version__}",
                 "at": max((e.created for e in log.events), default=log.created).isoformat(timespec="seconds"),
             },
-            "source": importer.source.name,
-            "source_export": source_export,
+            **importer.source.provenance(source_export),
         }
         rendered.append(Note.compose(RepoPath(rel_path), "Chat", log.title, serializer.serialize(log), metadata))
 

@@ -264,7 +264,7 @@ class Commonplace:
         return SQLiteSearchIndex(
             index_path,
             note_exists=self.note_exists,
-            is_hidden=lambda path: "hidden" in self.load(RepoPath(path)).labels,
+            is_hidden=lambda path: self.load(RepoPath(path)).hidden,
         )
 
     def note_exists(self, repo_path: RepoPath) -> bool:
@@ -359,11 +359,6 @@ class Commonplace:
         # %aI carries the committer's local offset; fetchers work in UTC.
         return datetime.fromisoformat(raw).astimezone(UTC)
 
-    def first_added(self, pathspec: str) -> list[str]:
-        """Committed paths under `pathspec` in the order history first added them, oldest first."""
-        out = self._git("log", "--reverse", "--diff-filter=A", "--format=", "--name-only", "--", pathspec)
-        return list(dict.fromkeys(line for line in out.splitlines() if line))
-
     def last_subjects(self, pathspec: str) -> dict[str, str]:
         """Each committed path under `pathspec`, with the subject of the last commit that changed it."""
         subjects: dict[str, str] = {}
@@ -389,11 +384,6 @@ class Commonplace:
         """The commits that changed `path`, newest first, following renames, as (date, subject)."""
         out = self._git("log", "--follow", "--format=%as%x00%s", "--", path.as_posix())
         return [tuple(line.split("\0", 1)) for line in out.splitlines() if "\0" in line]  # type: ignore[misc]
-
-    def stored_archives(self, *names: str) -> list[Path]:
-        """The archives called any of `names` this repo has stored, oldest first, relative to the root."""
-        out = self._git("log", "--reverse", "--diff-filter=A", "--name-only", "--format=", "--", BLOBS.as_posix())
-        return [Path(line) for line in out.splitlines() if line.endswith(tuple(f"/{name}" for name in names))]
 
     def renamed_since(self, ref: str) -> dict[Path, Path]:
         """Where each file `ref` had has moved to by HEAD, as git's rename detection sees it."""
@@ -470,9 +460,7 @@ class Commonplace:
 
     def notes_named(self, spec: str) -> list[Path]:
         """The whole notes `spec` names; a span is refused, since marginalia speak for a whole note."""
-        if "#" in spec:
-            raise UnresolvedNote(f"'{spec}' names a span; marginalia belong to whole notes")
-        return self.files.resolve(spec)
+        return self.files.resolve(_whole(spec))
 
     def tag(self, spec: str, tags: list[str]) -> list[Path]:
         """Label the notes `spec` names in their marginalia, committing as the user; returns the notes."""
@@ -484,9 +472,7 @@ class Commonplace:
 
     def link(self, from_spec: str, to_spec: str, why: str, on: date | None = None) -> Target:
         """Add an edge from a whole note to a note or a span in one, in its marginalia, committing as the user."""
-        if "#" in from_spec:
-            raise UnresolvedNote(f"'{from_spec}' names a span; marginalia belong to whole notes")
-        source, target = self.files.resolve_target(from_spec).note, self.files.resolve_target(to_spec)
+        source, target = self.files.resolve_target(_whole(from_spec)).note, self.files.resolve_target(to_spec)
         today = date.today()  # noqa: DTZ011 - the user's local day, as the journal's
         marginalia = read_marginalia(self.root, source).linked(target, why, on or today)
         write_marginalia(self, replace(marginalia, ref=self.make_repo_path(source).ref))
@@ -524,10 +510,12 @@ class Commonplace:
         """The files `paths` gives, indexed for landing edges and resolving specs; dropped on any write."""
         return Files(self.root, [*self.paths(), *(blob.path for blob in self.blobs())])
 
-    def blobs(self) -> list[Blob]:
-        """Every archive stored, whether or not committed yet, in path order."""
-        out = self._git("ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", BLOBS.as_posix())
-        return [Blob(Path(path)) for path in sorted(set(out.split("\0")) - {""})]
+    def blobs(self, *names: str) -> list[Blob]:
+        """Every archive stored, or those called any of `names`, in the order stored: committed, then not yet."""
+        committed = self._git("log", "--reverse", "--diff-filter=A", "--name-only", "--format=", "--", BLOBS.as_posix())
+        pending = self._git("ls-files", "--others", "--exclude-standard", "-z", "--", BLOBS.as_posix())
+        paths = dict.fromkeys([*committed.splitlines(), *sorted(pending.split("\0"))])
+        return [Blob(Path(p)) for p in paths if p and (self.root / p).exists() and (not names or Path(p).name in names)]
 
     def commit(self, message: str, auto_index: bool | None = None, *, as_user: bool = False) -> None:
         """Commit what this repo has saved, removed or stored since the last commit, and nothing else.
@@ -652,3 +640,10 @@ class Commonplace:
             subprocess.CalledProcessError: If git command fails
         """
         return _run_git(self.root, *args)
+
+
+def _whole(spec: str) -> str:
+    """`spec`, unless it names a span, which marginalia can't speak for: they belong to whole notes."""
+    if "#" in spec:
+        raise UnresolvedNote(f"'{spec}' names a span; marginalia belong to whole notes")
+    return spec
