@@ -1,8 +1,8 @@
 """Where a note lands: the readable path its date and title propose, unless it already holds one.
 
-Paths are for people: a commonplace is a graph projected onto a tree they browse, so a path is never an id.
-An id only finds the path a note first landed at, which it keeps, since marginalia and links are keyed by
-path; and a new note whose proposed path is held takes the next free `-2`, `-3`.
+A note's path is its id in the graph, chosen readable because people browse the tree. The id a vendor gives it
+only finds the path it first landed at, which it keeps, since marginalia and links hang off it; and a new note
+whose proposed path is held takes the next free `-2`, `-3`.
 """
 
 from dataclasses import dataclass, field
