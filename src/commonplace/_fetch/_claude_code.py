@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Self
 
 from commonplace._logging import logger
 from commonplace._progress import track
-from commonplace._wire import archive_name, file_entry, read_header, write_archive
+from commonplace._wire import archive_name, file_entry, write_archive
 
 if TYPE_CHECKING:
     from commonplace._config import Config
@@ -49,11 +49,8 @@ class ClaudeCodeFetcher(_ClaudeHome):
     """Records each main session transcript changed since the cursor, verbatim, one entry per session."""
 
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
-        # Git's cursor is when the last capture was committed, after it read; a session written in between
-        # would wait for its next change. Each capture is stamped before it lists anything, so start from that.
+        # Stamped before anything is listed, so a session written while this runs is read by the next fetch.
         started = datetime.now(UTC)
-        if stamps := [stamp for p in previous if (stamp := read_header(p).fetched_at)]:
-            since = max(stamps)
         projects = self.root / "projects"
         # A session is its transcript and everything under `<session>/`, like its subagents and spilled tool results,
         # orphaned copies included. All of it is captured: what makes a note is the importer's call, and whatever a

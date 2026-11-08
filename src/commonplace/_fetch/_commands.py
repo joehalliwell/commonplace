@@ -10,7 +10,7 @@ from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._sources import SOURCES
 from commonplace._types import Source
-from commonplace._wire import archive_names
+from commonplace._wire import archive_names, last_fetched
 
 
 def fetch(
@@ -22,7 +22,7 @@ def fetch(
 ) -> None:
     """Fetch what is new from each source with a fetcher, or those `names` names, and import it.
 
-    If `all_` is True, the git-derived cursor is bypassed and everything the
+    If `all_` is True, the cursor is bypassed and everything the
     remote has is fetched. Useful for recovery when the cursor is wrong,
     or for a first-time bulk import."""
     active = [source for source in sources if source.fetcher_type is not None and (not names or source.name in names)]
@@ -51,13 +51,10 @@ def fetch(
 def _fetch_one(repo: Commonplace, source: Source, auto_index: bool | None, all_: bool) -> None:
     """Fetch what is new from one source and import it."""
     fetcher = source.fetcher(repo.config)
-    # `diff_filter="AM"` excludes rename-source / pure-deletion commits so
-    # a `git mv chats/{source}/ elsewhere` doesn't poison the cursor — nor,
-    # for a mirrored tree, does a commit that only pruned.
-    tree = source.tree.as_posix()
-    since = None if all_ else repo.last_commit_time(f"{tree}/", diff_filter="AM")
-    # What this source has landed, for a fetcher that asks only for what changed since; --full asks for it all.
+    # What this source has landed, for a fetcher that asks only for what changed since; --all asks for it all.
     previous = [] if all_ else [repo.root / blob.path for blob in repo.blobs(*archive_names(source.name))]
+    # Each capture is stamped before it reads anything, so nothing changed while it ran is missed.
+    since = last_fetched(previous)
     with tempfile.TemporaryDirectory() as tmp:
         archives = fetcher.fetch(Path(tmp), since, previous=previous)
         if not archives:

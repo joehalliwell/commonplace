@@ -13,7 +13,7 @@ from commonplace._import._types import MirrorImporter
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath, Source
-from commonplace._wire import archive_names, read_header
+from commonplace._wire import archive_names, last_fetched, read_header
 
 
 def mirror_one(
@@ -21,14 +21,13 @@ def mirror_one(
 ) -> RepoPath | None:
     """Land the files the capture read and prune the paths its listing no longer names; returns the blob stored."""
     tree = importer.source.tree
-    fetched_at = read_header(path).fetched_at
-    landed_at = repo.last_commit_time(f"{tree.as_posix()}/")
-    if fetched_at and landed_at and fetched_at < landed_at:
-        logger.error(f"Not mirroring '{path}': captured {fetched_at}, but '{tree}' was last changed {landed_at}")
-        return None
-
     # Captures of this source already landed, for an importer whose captures are changes on earlier ones.
     earlier = [repo.root / blob.path for blob in repo.blobs(*archive_names(importer.source.name))]
+    fetched_at, newest = read_header(path).fetched_at, last_fetched(earlier)
+    if fetched_at and newest and fetched_at < newest:
+        logger.error(f"Not mirroring '{path}': captured {fetched_at}, but a capture from {newest} has landed")
+        return None
+
     snapshot = importer.snapshot(path, earlier=earlier)
     if importer.id_key is not None:
         snapshot = replace(snapshot, notes=_placed(repo, tree, importer.id_key, snapshot.notes))

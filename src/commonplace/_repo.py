@@ -201,17 +201,6 @@ class Commonplace:
     def _head(self) -> str:
         return self._git("rev-parse", "HEAD").strip()
 
-    def last_commit_time(self, pathspec: str, diff_filter: str | None = None) -> datetime | None:
-        """The author date, stable across rebases, of the last commit to change `pathspec`, of `diff_filter`'s kinds if given."""
-        args = ["log", "-1", "--format=%aI"]
-        if diff_filter:
-            args.append(f"--diff-filter={diff_filter}")
-        raw = self._git(*args, "--", pathspec).strip()
-        if not raw:
-            return None
-        # %aI carries the committer's local offset; fetchers work in UTC.
-        return datetime.fromisoformat(raw).astimezone(UTC)
-
     def last_subjects(self, pathspec: str) -> dict[str, str]:
         """Each committed path under `pathspec`, with the subject of the last commit that changed it."""
         return dict(_last_changed(self.root, self._head(), pathspec, "%s"))

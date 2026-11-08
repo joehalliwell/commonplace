@@ -3,10 +3,13 @@
 Its path through a real fetcher and importer is covered beside each provider's fake.
 """
 
+from datetime import UTC, datetime
+
 import pytest
 
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._helpers import FetchBlocked, NoSession
+from commonplace._wire import archive_name, write_archive
 from tests.fetching import fetching
 
 
@@ -70,25 +73,45 @@ def test_fetch_command_filters_by_source(test_repo):
     assert called == ["stub"]
 
 
-def test_fetch_command_all_flag_bypasses_cursor(test_repo, make_note):
-    """With all_=True, the fetcher is called with since=None regardless of
-    what the repo's git history would otherwise say."""
-    calls: list[str | None] = []
+class _Recording:
+    """A fetcher that records the cursor it is given and fetches nothing."""
 
-    class RecordingStub:
-        source = "recording"
+    source = "recording"
 
-        def fetch(self, destination, since, previous=()):
-            calls.append(since)
-            return []
+    def __init__(self) -> None:
+        self.since: list[datetime | None] = []
 
-    # Seed the repo with a chats/recording/ commit so last_commit_time would
-    # return a non-None cursor without --all.
+    def fetch(self, destination, since, previous=()):
+        self.since.append(since)
+        return []
+
+
+def _store_capture(repo, tmp_path, source: str, fetched_at: datetime) -> None:
+    folder = tmp_path / fetched_at.isoformat()
+    folder.mkdir()
+    repo.store_blob(write_archive(folder / archive_name(source), source, [], fetched_at=fetched_at))
+
+
+def test_fetch_cursor_is_when_the_newest_stored_capture_of_the_source_was_fetched(test_repo, tmp_path):
+    newest = datetime(2026, 3, 2, tzinfo=UTC)
+    for source, fetched_at in [("recording", datetime(2026, 3, 1, tzinfo=UTC)), ("recording", newest)]:
+        _store_capture(test_repo, tmp_path, source, fetched_at)
+    _store_capture(test_repo, tmp_path, "other", datetime(2026, 4, 1, tzinfo=UTC))
+    test_repo.commit("Seed captures", auto_index=False)
+    recording = _Recording()
+
+    fetch(test_repo, sources=fetching(recording), auto_index=False)
+    fetch(test_repo, sources=fetching(recording), auto_index=False, all_=True)
+
+    assert recording.since == [newest, None]
+
+
+def test_fetch_without_a_stamped_capture_fetches_everything(test_repo, make_note):
+    """Notes in the source's tree, from an export, say nothing about when the vendor was last read."""
     test_repo.save(make_note("chats/recording/seed.md", "# seed\n"))
     test_repo.commit("Seed recording", auto_index=False)
+    recording = _Recording()
 
-    fetch(test_repo, sources=fetching(RecordingStub()), auto_index=False)
-    assert calls[-1] is not None, "without --all, cursor should reflect the seed commit"
+    fetch(test_repo, sources=fetching(recording), auto_index=False)
 
-    fetch(test_repo, sources=fetching(RecordingStub()), auto_index=False, all_=True)
-    assert calls[-1] is None, "with --all, cursor is bypassed"
+    assert recording.since == [None]

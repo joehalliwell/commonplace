@@ -4,7 +4,6 @@ import re
 import subprocess
 import sys
 import threading
-from datetime import UTC
 from pathlib import Path
 
 import pytest
@@ -272,47 +271,6 @@ def test_init_scaffolds_mdformat_hook_with_wikilink_that_skips_blobs(test_repo):
     assert "mdformat-wikilink" in hook["additional_dependencies"]
     assert re.search(hook["exclude"], ".commonplace/blobs/ab/cd/note.md")
     assert not re.search(hook["exclude"], "notes/ideas.md")
-
-
-def test_last_commit_time_returns_none_on_missing_pathspec(test_repo):
-    """A pathspec with no history in the repo yields None."""
-    assert test_repo.last_commit_time("chats/claude/") is None
-
-
-def test_last_commit_time_returns_utc_datetime_after_commit(test_repo, make_note):
-    """The cursor is UTC whatever offset git reports the author date in."""
-    test_repo.save(make_note("chats/claude/2026/07/test.md", "# test\n"))
-    test_repo.commit("Import test", auto_index=False)
-
-    ts = test_repo.last_commit_time("chats/claude/")
-    assert ts is not None
-    assert ts.tzinfo is not None
-    assert ts.utcoffset() == UTC.utcoffset(None)
-
-
-def test_last_commit_time_ignores_rename_source_with_diff_filter(test_repo, make_note):
-    """`git mv chats/foo chats/bar` should not poison the fetch cursor for
-    chats/foo/ — with diff_filter='AM' we only see adds/modifications."""
-    test_repo.save(make_note("chats/claude/2026/07/test.md", "# test\n"))
-    test_repo.commit("Import test", auto_index=False)
-
-    ts_before = test_repo.last_commit_time("chats/claude/", diff_filter="AM")
-    assert ts_before is not None
-
-    # Simulate a rename: mv all of chats/claude/ to chats/claude-old/
-    _git(test_repo, "mv", "chats/claude", "chats/claude-old")
-    _git(test_repo, "commit", "-m", "Rename claude → claude-old")
-
-    # Without diff_filter, the rename commit *is* the last one touching
-    # chats/claude/ — that's the bug we're guarding against.
-    ts_touched = test_repo.last_commit_time("chats/claude/")
-    assert ts_touched is not None
-    assert ts_touched >= ts_before  # rename is newer
-
-    # With diff_filter='AM', the rename commit is skipped (it deletes from
-    # chats/claude/) so we see the earlier import commit.
-    ts_am = test_repo.last_commit_time("chats/claude/", diff_filter="AM")
-    assert ts_am == ts_before
 
 
 def _git(repo: Commonplace, *args: str) -> str:

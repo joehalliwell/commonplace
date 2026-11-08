@@ -175,6 +175,11 @@ def read_header(path: Path) -> WireHeader:
     )
 
 
+def last_fetched(archives: Iterable[Path]) -> datetime | None:
+    """When the newest of `archives` was fetched, or None if none says."""
+    return max((stamp for path in archives if (stamp := read_header(path).fetched_at)), default=None)
+
+
 def read_entries(path: Path) -> Iterator[dict[str, Any]]:
     """Yield the recorded exchanges, skipping the header if there is one."""
     with _open(path, "rt") as f:
