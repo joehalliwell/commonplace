@@ -363,19 +363,17 @@ class Commonplace:
 
     def tag(self, spec: str, tags: list[str]) -> list[Path]:
         """Label the notes `spec` names in their marginalia, committing as the user; returns the notes."""
-        return self._retag(spec, lambda marginalia: marginalia.tagged(*tags), f"Tag {spec}: {', '.join(tags)}")
+        return self._annotate(self.notes_named(spec), lambda m: m.tagged(*tags), f"Tag {spec}: {', '.join(tags)}")
 
     def untag(self, spec: str, tags: list[str]) -> list[Path]:
         """Remove labels from the marginalia of the notes `spec` names, committing as the user; returns the notes."""
-        return self._retag(spec, lambda marginalia: marginalia.untagged(*tags), f"Untag {spec}: {', '.join(tags)}")
+        return self._annotate(self.notes_named(spec), lambda m: m.untagged(*tags), f"Untag {spec}: {', '.join(tags)}")
 
     def link(self, from_spec: str, to_spec: str, why: str, on: date | None = None) -> Target:
         """Add an edge from a whole note to a note or a span in one, in its marginalia, committing as the user."""
         source, target = self.files.resolve_target(_whole(from_spec)).note, self.files.resolve_target(to_spec)
-        today = date.today()  # noqa: DTZ011 - the user's local day, as the journal's
-        marginalia = read_marginalia(self.root, source).linked(target, why, on or today)
-        write_marginalia(self, replace(marginalia, ref=self.make_repo_path(source).ref))
-        self.commit(f"Link {from_spec} to {target}", auto_index=False, as_user=True)
+        on = on or date.today()  # noqa: DTZ011 - the user's local day, as the journal's
+        self._annotate([source], lambda marginalia: marginalia.linked(target, why, on), f"Link {from_spec} to {target}")
         return target
 
     def unlink(self, from_spec: str, to_spec: str) -> int:
@@ -397,10 +395,10 @@ class Commonplace:
         self.commit(f"Unlink {from_spec} from {target}", auto_index=False, as_user=True)
         return removed
 
-    def _retag(self, spec: str, change: Callable[[Marginalia], Marginalia], message: str) -> list[Path]:
-        notes = self.notes_named(spec)
-        for note in notes:
-            write_marginalia(self, replace(change(read_marginalia(self.root, note)), ref=self.make_repo_path(note).ref))
+    def _annotate(self, notes: list[Path], change: Callable[[Marginalia], Marginalia], message: str) -> list[Path]:
+        """Rewrite the marginalia of `notes` by `change`, each at its note's commit, committing as the user."""
+        for at in self._repo_paths(notes):
+            write_marginalia(self, replace(change(read_marginalia(self.root, at.path)), ref=at.ref))
         self.commit(message, auto_index=False, as_user=True)
         return notes
 
