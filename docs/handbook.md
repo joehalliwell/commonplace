@@ -154,7 +154,8 @@ Export links are temporary and typically expire after 7 days.
 
 ## Search and the index
 
-Notes are indexed as they are committed, so the index is usually current.
+`import`, `fetch` and `journal` index what they commit, once each run, so the
+index is usually current.
 Search is hybrid by default, combining semantic and keyword matching.
 
 Results only ever point at notes the repository still holds: one deleted since
@@ -331,14 +332,14 @@ can't silently do nothing.
 as TOML you can paste into a config file; `commonplace config user` prints just
 that one value.
 
-| Setting      | Default                     | Purpose                                    |
-| ------------ | --------------------------- | ------------------------------------------ |
-| `root`       | platform data dir           | where your commonplace lives               |
-| `user`       | your login name, titlecased | how you're named in imported conversations |
-| `editor`     | `$EDITOR`, else `vim`       | editor used by `commonplace journal`       |
-| `wrap`       | `80`                        | target line length for written markdown    |
-| `auto_index` | `true`                      | index new notes as they're committed       |
-| `ua`         | a current Chrome UA         | User-Agent sent by fetchers                |
+| Setting      | Default                     | Purpose                                           |
+| ------------ | --------------------------- | ------------------------------------------------- |
+| `root`       | platform data dir           | where your commonplace lives                      |
+| `user`       | your login name, titlecased | how you're named in imported conversations        |
+| `editor`     | `$EDITOR`, else `vim`       | editor used by `commonplace journal`              |
+| `wrap`       | `80`                        | target line length for written markdown           |
+| `auto_index` | `true`                      | index what `import`, `fetch` and `journal` commit |
+| `ua`         | a current Chrome UA         | User-Agent sent by fetchers                       |
 
 `ua` is the one worth knowing about: every vendor fronts its internal API with a
 bot check that a stale User-Agent fails, so if fetches start getting blocked,

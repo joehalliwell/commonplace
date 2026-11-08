@@ -31,7 +31,7 @@ def test_a_blocked_source_does_not_stop_the_others(test_repo):
             return []
 
     with pytest.raises(FetchBlocked, match="blocked"):
-        fetch(test_repo, sources=fetching(Blocked(), Stub()), auto_index=False)
+        fetch(test_repo, sources=fetching(Blocked(), Stub()))
     assert called == ["stub"]
 
 
@@ -52,7 +52,7 @@ def test_a_source_with_no_session_is_skipped_without_failing_the_run(test_repo):
             called.append("stub")
             return []
 
-    fetch(test_repo, sources=fetching(Unused(), Stub()), auto_index=False)
+    fetch(test_repo, sources=fetching(Unused(), Stub()))
     assert called == ["stub"]
 
 
@@ -66,10 +66,10 @@ def test_fetch_command_filters_by_source(test_repo):
             called.append("stub")
             return []
 
-    fetch(test_repo, names=["nonexistent"], sources=fetching(Stub()), auto_index=False)
+    fetch(test_repo, names=["nonexistent"], sources=fetching(Stub()))
     assert called == []
 
-    fetch(test_repo, names=["stub"], sources=fetching(Stub()), auto_index=False)
+    fetch(test_repo, names=["stub"], sources=fetching(Stub()))
     assert called == ["stub"]
 
 
@@ -97,11 +97,11 @@ def test_fetch_cursor_is_when_the_newest_stored_capture_of_the_source_was_fetche
     for source, fetched_at in [("recording", datetime(2026, 3, 1, tzinfo=UTC)), ("recording", newest)]:
         _store_capture(test_repo, tmp_path, source, fetched_at)
     _store_capture(test_repo, tmp_path, "other", datetime(2026, 4, 1, tzinfo=UTC))
-    test_repo.commit("Seed captures", auto_index=False)
+    test_repo.commit("Seed captures")
     recording = _Recording()
 
-    fetch(test_repo, sources=fetching(recording), auto_index=False)
-    fetch(test_repo, sources=fetching(recording), auto_index=False, all_=True)
+    fetch(test_repo, sources=fetching(recording))
+    fetch(test_repo, sources=fetching(recording), all_=True)
 
     assert recording.since == [newest, None]
 
@@ -109,9 +109,9 @@ def test_fetch_cursor_is_when_the_newest_stored_capture_of_the_source_was_fetche
 def test_fetch_without_a_stamped_capture_fetches_everything(test_repo, make_note):
     """Notes in the source's tree, from an export, say nothing about when the vendor was last read."""
     test_repo.save(make_note("chats/recording/seed.md", "# seed\n"))
-    test_repo.commit("Seed recording", auto_index=False)
+    test_repo.commit("Seed recording")
     recording = _Recording()
 
-    fetch(test_repo, sources=fetching(recording), auto_index=False)
+    fetch(test_repo, sources=fetching(recording))
 
     assert recording.since == [None]

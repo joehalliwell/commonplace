@@ -135,7 +135,7 @@ def test_fetch_null_body_raises(tmp_path):
 
 
 def test_fetch_command_mirrors_into_memory_gemini(test_repo):
-    fetch(test_repo, sources=fetching(FakeGemini().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeGemini().fetcher()))
 
     metadata, body = load_frontmatter((test_repo.root / "memory/gemini/saved-info.md").read_text())
     assert body == "# Saved info\n\n- Writes in British English.\n- Prefers tea to coffee.\n"
@@ -144,10 +144,10 @@ def test_fetch_command_mirrors_into_memory_gemini(test_repo):
 
 def test_fetch_command_unchanged_upstream_leaves_no_trace(test_repo):
     """Every capture carries every item; one that matches the tree stores no blob and makes no commit."""
-    fetch(test_repo, sources=fetching(FakeGemini().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeGemini().fetcher()))
     head, blobs = git(test_repo.root, "rev-parse", "HEAD"), _blobs(test_repo)
 
-    fetch(test_repo, sources=fetching(FakeGemini().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeGemini().fetcher()))
 
     assert git(test_repo.root, "rev-parse", "HEAD") == head
     assert _blobs(test_repo) == blobs
@@ -155,13 +155,13 @@ def test_fetch_command_unchanged_upstream_leaves_no_trace(test_repo):
 
 def test_fetch_command_unchanged_upstream_rewrapped_by_a_hook_leaves_no_trace(test_repo):
     """As seen 2026-11-01: an mdformat hook wraps long items at commit, which must not read as an upstream change."""
-    fetch(test_repo, sources=fetching(FakeGemini().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeGemini().fetcher()))
     note = test_repo.root / "memory/gemini/saved-info.md"
     note.write_text(note.read_text().replace("- Prefers tea to coffee.", "- Prefers tea\n  to coffee."))
     git(test_repo.root, "commit", "-qam", "Rewrap, as a formatting hook would")
     head = git(test_repo.root, "rev-parse", "HEAD")
 
-    fetch(test_repo, sources=fetching(FakeGemini().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeGemini().fetcher()))
 
     assert git(test_repo.root, "rev-parse", "HEAD") == head
 
@@ -170,10 +170,9 @@ def test_fetch_command_upstream_deletion_rewrites_the_file(test_repo):
     fetch(
         test_repo,
         sources=fetching(FakeGemini([_item("Kept.", 1, 1), _item("Dropped.", 2, 2)]).fetcher()),
-        auto_index=False,
     )
 
-    fetch(test_repo, sources=fetching(FakeGemini([_item("Kept.", 1, 1)]).fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeGemini([_item("Kept.", 1, 1)]).fetcher()))
 
     _, body = load_frontmatter((test_repo.root / "memory/gemini/saved-info.md").read_text())
     assert body == "# Saved info\n\n- Kept.\n"

@@ -2,6 +2,8 @@ import datetime as dt
 import logging
 import os
 import subprocess
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Literal, TypeAlias
 
@@ -41,7 +43,7 @@ Sources: TypeAlias = Annotated[  # noqa: UP040
 ]
 Index: TypeAlias = Annotated[  # noqa: UP040
     bool | None,
-    Parameter(help="Index notes after commit (default: from config)"),
+    Parameter(help="Index what this run commits (default: from config)"),
 ]
 
 
@@ -98,6 +100,21 @@ def _open_repo(root: Path) -> Commonplace:
     return repo
 
 
+@contextmanager
+def _indexing(repo: Commonplace, index: bool | None) -> Iterator[None]:
+    """Index once what the body commits, even if it fails part way, when `index` or else the config says to."""
+    before = repo.head()
+    try:
+        yield
+    finally:
+        # Opening the index loads the embedding model, so a command that committed nothing doesn't.
+        if (repo.config.auto_index if index is None else index) and repo.head() != before:
+            from commonplace._search._commands import index as index_notes
+
+            logger.info("Indexing committed notes")
+            index_notes(repo, rebuild=False)
+
+
 ################################################################################
 # Commands that create notes
 ################################################################################
@@ -115,13 +132,14 @@ def import_(
 
     from commonplace._import._commands import import_
 
-    import_(path, repo, user=repo.config.user, auto_index=index)
+    with _indexing(repo, index):
+        import_(path, repo, user=repo.config.user)
 
 
 @app.command(alias="f", group=CREATING_SECTION)
 def fetch(
     *,
-    full: Annotated[bool, Parameter(help="Ignore the git-derived cursor and fetch everything the remote has.")] = False,
+    full: Annotated[bool, Parameter(help="Ignore the cursor and fetch everything the remote has.")] = False,
     index: Index = None,
     sources: Sources = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
     repo: Repo,
@@ -130,7 +148,8 @@ def fetch(
 
     from commonplace._fetch._commands import fetch
 
-    fetch(repo, names=sources or None, auto_index=index, all_=full)
+    with _indexing(repo, index):
+        fetch(repo, names=sources or None, all_=full)
 
 
 @app.command(alias="j", group=CREATING_SECTION)
@@ -186,7 +205,8 @@ def journal(
     logger.info(f"Saved journal entry to {journal_path.relative_to(repo.root)}")
 
     # Commit the journal entry
-    repo.commit(f"Update journal entry for {day.strftime('%Y-%m-%d')}", auto_index=index)
+    with _indexing(repo, index):
+        repo.commit(f"Update journal entry for {day.strftime('%Y-%m-%d')}")
 
 
 ################################################################################

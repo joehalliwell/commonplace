@@ -41,7 +41,7 @@ def test_store_blob_copies_file(test_repo, sample_file):
     assert abs_path.exists()
     assert abs_path.read_text() == "hello world"
 
-    test_repo.commit("Store blob", auto_index=False)
+    test_repo.commit("Store blob")
     tracked = subprocess.run(
         ["git", "-C", test_repo.root, "ls-files"], capture_output=True, text=True, check=True
     ).stdout

@@ -151,7 +151,7 @@ def test_fetch_command_lands_sessions_under_claude_code_in_one_commit(test_repo,
     """One fetch is one commit, however many sessions it captured, as it is for every source."""
     before = len(git(test_repo.root, "log", "--oneline").splitlines())
 
-    fetch(test_repo, sources=fetching(owned(ClaudeCodeFetcher, root=_claude_home(tmp_path))), auto_index=False)
+    fetch(test_repo, sources=fetching(owned(ClaudeCodeFetcher, root=_claude_home(tmp_path))))
 
     landed = sorted(p.relative_to(test_repo.root).as_posix() for p in (test_repo.root / "chats").rglob("*.md"))
     assert landed == [
@@ -172,7 +172,7 @@ def _paths(captured: list[Path]) -> list[str]:
 
 def test_fetch_command_commit_names_each_stored_archive(test_repo, tmp_path):
     """The temporary directory is gone once the commit lands; the blobs it added are the provenance."""
-    fetch(test_repo, sources=fetching(owned(ClaudeCodeFetcher, root=_claude_home(tmp_path))), auto_index=False)
+    fetch(test_repo, sources=fetching(owned(ClaudeCodeFetcher, root=_claude_home(tmp_path))))
 
     message = git(test_repo.root, "log", "-1", "--format=%B")
     stored = [blob.path for blob in test_repo.blobs(*archive_names("claude-code"))]

@@ -23,7 +23,7 @@ def notes(test_repo, make_note):
     (test_repo.root / "notes/ideas.md").write_text(IDEAS)
     for path in ("journal/2026-11-01.md", "journal/2026-11-02.md"):
         test_repo.save(make_note(path=path, content="# Day\n\nThought about [[ideas]].\n"))
-    test_repo.commit("Add notes", auto_index=False)
+    test_repo.commit("Add notes")
     return test_repo
 
 
@@ -70,7 +70,7 @@ def test_show_index_says_whether_the_current_version_is_indexed(notes):
 def test_show_index_is_current_while_an_uncommitted_edit_waits_for_its_commit(notes, make_note):
     """The index holds committed versions only, so current means the note's last commit is indexed."""
     notes.save(make_note(path="notes/other.md", content="# Other\n"))
-    notes.commit("Move HEAD past the note", auto_index=False)
+    notes.commit("Move HEAD past the note")
     _commands.index(notes)
 
     (notes.root / "notes/ideas.md").write_text(IDEAS + "\nMore.\n")
@@ -130,7 +130,7 @@ def test_resolve_cli_prints_a_line_per_match_of_a_glob(notes, test_app, capsys):
 
 def test_resolve_cli_an_ambiguous_name_fails_listing_candidates(notes, make_note, test_app, caplog):
     notes.save(make_note(path="notes/2026-11-01.md", content="# Also a day\n"))
-    notes.commit("Add", auto_index=False)
+    notes.commit("Add")
 
     with pytest.raises(SystemExit):
         test_app(["resolve", "2026-11-01"])

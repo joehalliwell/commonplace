@@ -64,7 +64,7 @@ def _scaffold(repo: Commonplace, check: bool) -> DoctorReport:
     """Restore and commit missing scaffolding, and diff whatever has fallen behind `init`'s templates."""
     missing = scaffold.install(repo.root, check)
     if missing and not check:
-        repo.commit("Restore scaffolding", auto_index=False, written=missing)
+        repo.commit("Restore scaffolding", written=missing)
     actions = [f"Would create {path}" if check else _restored(path) for path in missing]
     warnings = [
         f"{path} differs from the template init now writes:\n" + "\n".join(diff)

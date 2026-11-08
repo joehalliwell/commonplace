@@ -96,7 +96,7 @@ def test_fetch_incremental_with_nothing_newer_still_records_the_listing(tmp_path
 
 
 def test_fetch_command_mirrors_into_memory_tree(test_repo):
-    fetch(test_repo, sources=fetching(FakeMemory().fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(FakeMemory().fetcher()))
 
     landed = {p.name for p in (test_repo.root / "memory" / "claude" / "topics").iterdir()}
     assert landed == {"old.md", "new.md"}
@@ -106,11 +106,11 @@ def test_fetch_command_mirrors_into_memory_tree(test_repo):
 def test_fetch_command_cursor_comes_from_the_memory_tree(test_repo):
     """A second run finds nothing newer than the commit the first one made under memory/claude/."""
     memory = FakeMemory()
-    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()))
     head = git(test_repo.root, "rev-parse", "HEAD")
     memory.requests.clear()
 
-    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()))
 
     assert [path.rsplit("/", 1)[-1] for _, path, _ in memory.requests] == ["list"]
     assert git(test_repo.root, "rev-parse", "HEAD") == head
@@ -118,10 +118,10 @@ def test_fetch_command_cursor_comes_from_the_memory_tree(test_repo):
 
 def test_fetch_command_upstream_deletion_alone_is_pruned(test_repo):
     memory = FakeMemory()
-    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()))
 
     memory.listing = LISTING[1:]
-    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()))
 
     landed = {p.name for p in (test_repo.root / "memory" / "claude" / "topics").iterdir()}
     assert landed == {"new.md"}

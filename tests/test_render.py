@@ -40,7 +40,7 @@ def store(test_repo, tmp_path, write_jsonl_gz):
         archive = tmp_path / reply
         archive.mkdir()
         blob = test_repo.store_blob(write_jsonl_gz(archive / "claude-wire.jsonl.gz", [header, *entries]))
-        test_repo.commit(f"Store {reply}", auto_index=False)
+        test_repo.commit(f"Store {reply}")
         return blob.path.as_posix()
 
     return _store

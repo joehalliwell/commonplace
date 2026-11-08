@@ -304,9 +304,9 @@ def test_doctor_cli_no_links_skips_the_link_check(test_app, test_repo, caplog):
 def _annotated(repo, make_note, path: str, body: str = "") -> None:
     """A committed note with committed marginalia, tagged."""
     repo.save(make_note(path=path, content="# Note\n\n## Heading\n\nSome text.\n"))
-    repo.commit(f"Add {path}", auto_index=False)
+    repo.commit(f"Add {path}")
     write_marginalia(repo, Marginalia(note=Path(path), body=body).tagged("tea"))
-    repo.commit(f"Annotate {path}", auto_index=False)
+    repo.commit(f"Annotate {path}")
 
 
 def _marginalia_only(repo, check: bool = False):
@@ -355,7 +355,7 @@ def test_doctor_keeps_marginalia_whose_note_is_gone_and_says_so(test_repo, make_
     """Mirrors delete notes upstream; the marginalia are the record of what was made of them."""
     _annotated(test_repo, make_note, "notes/ideas.md")
     test_repo.remove(Path("notes/ideas.md"))
-    test_repo.commit("Delete", auto_index=False)
+    test_repo.commit("Delete")
 
     report = _marginalia_only(test_repo)
 

@@ -190,23 +190,34 @@ def test_import_speaker_headings_use_the_agent_name(sample_export, test_repo):
     assert speakers == {"Human", AGENTS[sample_export.name]}
 
 
-def test_import_no_index_skips_indexing(test_repo, index_spy, claude_export):
-    """Test that import with auto_index=False does not trigger indexing."""
-    import_(claude_export, test_repo, user="Human", auto_index=False)
-    assert len(index_spy) == 0
+def test_import_cli_indexes_once_after_committing_as_configured(test_app, index_spy, claude_export):
+    assert test_app(["import", str(claude_export)]) == 0
 
-
-def test_import_with_index_triggers_indexing(test_repo, index_spy, claude_export):
-    """Test that import with auto_index=True does trigger indexing."""
-    import_(claude_export, test_repo, user="Human", auto_index=True)
     assert len(index_spy) == 1
 
 
+def test_import_cli_that_commits_nothing_does_not_index(test_app, index_spy, claude_export):
+    """Opening the index loads the embedding model, which a command that changed nothing shouldn't wait for."""
+    test_app(["import", str(claude_export)])
+    index_spy.clear()
+
+    assert test_app(["import", str(claude_export)]) == 0
+
+    assert index_spy == []
+
+
 def test_import_cli_no_index_flag(test_app, index_spy, claude_export):
-    """Test that 'import --no-index' CLI flag prevents indexing."""
-    result = test_app(["import", "--no-index", str(claude_export)])
-    assert result == 0
-    assert len(index_spy) == 0
+    assert test_app(["import", "--no-index", str(claude_export)]) == 0
+
+    assert index_spy == []
+
+
+def test_import_cli_index_flag_overrides_config(test_app, test_repo, index_spy, claude_export, monkeypatch):
+    monkeypatch.setattr(test_repo.config, "auto_index", False)
+
+    assert test_app(["import", "--index", str(claude_export)]) == 0
+
+    assert len(index_spy) == 1
 
 
 CLAUDE_CONVERSATIONS = SAMPLE_EXPORTS_DIR / "claude.zip" / "conversations.json"
@@ -751,7 +762,7 @@ def test_import_a_directory_of_stored_blobs_creates_notes(test_repo, tmp_path):
 def test_import_refuses_the_repos_own_blob_store(test_repo, target):
     """Importing the store again is order-dependent; `doctor --render` replays it in capture order."""
     blob = test_repo.root / test_repo.store_blob(CLAUDE_CONVERSATIONS).path
-    test_repo.commit("Store an export", auto_index=False)
+    test_repo.commit("Store an export")
     path = {"blob": blob, "store": test_repo.root / ".commonplace" / "blobs", "root": test_repo.root}[target]
 
     with pytest.raises(ValueError, match="doctor --render"):
@@ -804,18 +815,18 @@ def _uuids(repo) -> dict[Path, str]:
 
 
 def test_import_a_later_capture_of_another_same_day_same_title_chat_takes_the_next_free_path(test_repo, tmp_path):
-    import_(_capture(tmp_path, "c1"), test_repo, user="Human", auto_index=False)
-    import_(_capture(tmp_path, "c2"), test_repo, user="Human", auto_index=False)
+    import_(_capture(tmp_path, "c1"), test_repo, user="Human")
+    import_(_capture(tmp_path, "c2"), test_repo, user="Human")
 
     assert _uuids(test_repo) == {HELLO: "c1", HELLO.with_stem(f"{HELLO.stem}-2"): "c2"}
 
 
 def test_import_a_recapture_of_a_suffixed_chat_keeps_it_at_its_own_path(test_repo, tmp_path):
     """Only the id says which chat a capture holds; the path its title proposes is the first chat's."""
-    import_(_capture(tmp_path, "c1"), test_repo, user="Human", auto_index=False)
-    import_(_capture(tmp_path, "c2"), test_repo, user="Human", auto_index=False)
+    import_(_capture(tmp_path, "c1"), test_repo, user="Human")
+    import_(_capture(tmp_path, "c2"), test_repo, user="Human")
 
-    import_(_capture(tmp_path, "c2", reply="more"), test_repo, user="Human", auto_index=False)
+    import_(_capture(tmp_path, "c2", reply="more"), test_repo, user="Human")
 
     assert _uuids(test_repo) == {HELLO: "c1", HELLO.with_stem(f"{HELLO.stem}-2"): "c2"}
     assert "more" in (test_repo.root / HELLO.with_stem(f"{HELLO.stem}-2")).read_text()
@@ -823,9 +834,9 @@ def test_import_a_recapture_of_a_suffixed_chat_keeps_it_at_its_own_path(test_rep
 
 def test_import_a_retitled_chat_stays_at_its_first_path(test_repo, tmp_path):
     """Marginalia and links are keyed by path, so a new title changes the note, not where it lives."""
-    import_(_capture(tmp_path, "c1"), test_repo, user="Human", auto_index=False)
+    import_(_capture(tmp_path, "c1"), test_repo, user="Human")
 
-    import_(_capture(tmp_path, "c1", title="Goodbye"), test_repo, user="Human", auto_index=False)
+    import_(_capture(tmp_path, "c1", title="Goodbye"), test_repo, user="Human")
 
     assert _uuids(test_repo) == {HELLO: "c1"}
     assert load_frontmatter((test_repo.root / HELLO).read_text())[0]["title"] == "Goodbye"
