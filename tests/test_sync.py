@@ -196,3 +196,17 @@ def test_sync_merge_strategy(tmp_path, remote_repo, make_note):
     repo.sync(strategy="merge")
 
     assert _pushed(repo)
+
+
+def test_sync_cli_unknown_strategy_refused_before_any_git(local_repo_with_remote):
+    """A misspelt strategy once meant merge; now nothing runs, not even the auto-commit."""
+    from commonplace.__main__ import app
+
+    repo = local_repo_with_remote
+    (repo.root / "draft.md").write_text("# Draft\n")
+    head = git(repo.root, "rev-parse", "HEAD")
+
+    with pytest.raises(SystemExit):
+        app.meta([f"--root={repo.root}", "sync", "--strategy", "squash"])
+
+    assert git(repo.root, "rev-parse", "HEAD") == head

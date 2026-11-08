@@ -78,7 +78,7 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
         warnings.append(
             f"{len(hand_edited)} hand-edited chats left alone:\n" + "\n".join(f"  {p}" for p in hand_edited)
         )
-    unrendered = [p for p in repo.paths() if p.is_relative_to(ChatSource.ROOT) and p.suffix == ".md" and p not in final]
+    unrendered = [p for p in repo.paths(ChatSource.ROOT) if p.suffix == ".md" and p not in final]
     if unrendered:
         warnings.append(f"{len(unrendered)} chats no stored archive renders; left as they are")
     return actions, warnings
