@@ -52,7 +52,7 @@ def mirror_one(path: Path, repo: Commonplace, importer: MirrorImporter) -> Blob 
     blob = repo.store_blob(path)
     provenance = importer.source.provenance(blob.path.as_posix())
     for note in notes:
-        repo.save(replace(note, metadata=note.metadata | provenance))
+        repo.put(replace(note, metadata=note.metadata | provenance))
         logger.info(f"Mirrored '{note.path}'")
     for target in stale:
         repo.remove(target)

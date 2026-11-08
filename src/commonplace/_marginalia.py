@@ -3,7 +3,7 @@
 A note's marginalia sit at its path under `.commonplace/marginalia/`. Notes owned by another system of record
 are rewritten on every fetch, and primitives are immutable, so this is the one place to say anything about any note.
 Frontmatter holds current state (`tags`, labels on the node); the body is the node's second body, a log of dated
-lines appended to and never rewritten by tag changes. `Commonplace.load` reads them into the note.
+lines appended to and never rewritten by tag changes. `Commonplace.get` reads them into the note.
 """
 
 from dataclasses import replace
@@ -46,7 +46,7 @@ def parse_marginalia(note: Path, text: str) -> Marginalia:
 def write_marginalia(repo: "Commonplace", marginalia: Marginalia) -> None:
     """Save the marginalia for the repo's next commit."""
     metadata = {"marginalia": MARGINALIA_VERSION, "tags": marginalia.tags}
-    repo.save(Note(marginalia_path(marginalia.note), marginalia.body, metadata))
+    repo.put(Note(marginalia_path(marginalia.note), marginalia.body, metadata))
 
 
 def check_marginalia(repo: "Commonplace", check: bool) -> tuple[list[str], list[str]]:

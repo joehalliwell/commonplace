@@ -108,7 +108,7 @@ def test_fetch_cursor_is_when_the_newest_stored_capture_of_the_source_was_fetche
 
 def test_fetch_without_a_stamped_capture_fetches_everything(test_repo, make_note):
     """Notes in the source's tree, from an export, say nothing about when the vendor was last read."""
-    test_repo.save(make_note("chats/recording/seed.md", "# seed\n"))
+    test_repo.put(make_note("chats/recording/seed.md", "# seed\n"))
     test_repo.commit("Seed recording")
     recording = _Recording()
 

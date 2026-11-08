@@ -28,7 +28,7 @@ NOTE = Path("notes/ideas.md")
 def notes(test_repo, make_note):
     """A repo with a few committed notes."""
     for path in ("notes/ideas.md", "chats/claude-tasks/2026/10/log.md", "chats/claude-tasks/2026/11/log.md"):
-        test_repo.save(make_note(path=path, content=f"# {path}\n\nSome text.\n"))
+        test_repo.put(make_note(path=path, content=f"# {path}\n\nSome text.\n"))
     test_repo.commit("Add notes")
     return test_repo
 
@@ -211,7 +211,7 @@ def _found(neighbours, direction: str) -> set[tuple[str, str, str]]:
 
 
 def test_links_incoming_gathers_marginalia_edges_and_links_in_notes(notes, as_joe, make_note):
-    notes.save(make_note(path="journal/2026-11-02.md", content="# Day\n\nAdded to [[ideas]].\n"))
+    notes.put(make_note(path="journal/2026-11-02.md", content="# Day\n\nAdded to [[ideas]].\n"))
     notes.commit("Journal")
     notes.link("2026/10/log", 'ideas#"Some text."', "the same thought", on=date(2026, 11, 2))
 
@@ -223,7 +223,7 @@ def test_links_incoming_gathers_marginalia_edges_and_links_in_notes(notes, as_jo
 
 def test_links_outgoing_gathers_marginalia_edges_and_links_in_the_notes_own_text(notes, as_joe, make_note):
     """For a foreign note, marginalia are its only outgoing links; for your own, both count."""
-    notes.save(make_note(path="notes/ideas.md", content="# Ideas\n\nSee [[2026/11/log]].\n"))
+    notes.put(make_note(path="notes/ideas.md", content="# Ideas\n\nSee [[2026/11/log]].\n"))
     notes.commit("Edit")
     notes.link("ideas", "2026/10/log", "scheduled", on=date(2026, 11, 2))
 
