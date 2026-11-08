@@ -46,9 +46,10 @@ vendor, no export request or download to wait for.
 
 `fetch` reads your logged-in session cookies from Chrome — log in once in the
 browser and the session lasts several weeks (Claude) or a few days (Gemini,
-with auto-refresh). The incremental cursor is derived from git history (last
-commit touching the source's directory), so subsequent runs only pull what was
-updated since the previous fetch.
+with auto-refresh). The incremental cursor is when the source's newest stored
+capture was fetched, so subsequent runs only pull what was updated since the
+previous fetch. A source with no fetched capture yet, such as one only ever
+imported from an export, is fetched in full; `--all` does the same on demand.
 
 The three chat sources — `claude`, `gemini`, `chatgpt` — land in
 `chats/claude/`, `chats/gemini/` and `chats/chatgpt/`. Gemini's fetcher gets

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from commonplace._fetch._claude_code import ClaudeCodeFetcher
 from commonplace._fetch._commands import fetch
-from commonplace._wire import archive_names, entry_body, read_entries, read_header, write_archive
+from commonplace._wire import archive_names, entry_body, read_entries, read_header
 from tests.fetching import fetching, owned
 from tests.porcelain import git
 
@@ -107,20 +107,6 @@ def test_fetch_session_whose_folder_changed_is_read_again(tmp_path):
     captured = owned(ClaudeCodeFetcher, root=home).fetch(tmp_path, since=datetime(2025, 9, 15, tzinfo=UTC))
 
     assert {"-work/s-old.jsonl", "-work/s-old/subagents/agent-a3.jsonl"} <= set(_paths(captured))
-
-
-def test_fetch_session_changed_during_the_previous_fetch_is_read_again(tmp_path):
-    """Git's cursor is the previous fetch's commit, made after it read; its archive is stamped before."""
-    home = _claude_home(tmp_path)
-    previous = write_archive(
-        tmp_path / "previous.jsonl.gz", "claude-code", [], fetched_at=datetime(2025, 9, 30, tzinfo=UTC)
-    )
-
-    captured = owned(ClaudeCodeFetcher, root=home).fetch(
-        tmp_path, since=datetime(2025, 10, 2, tzinfo=UTC), previous=[previous]
-    )
-
-    assert _paths(captured) == sorted(EVERYTHING[:-1])
 
 
 def test_fetch_stamps_the_archive_before_listing_sessions(tmp_path, monkeypatch):
