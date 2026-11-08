@@ -13,8 +13,9 @@ from typing import Any
 
 import yaml
 
+from commonplace._document import Document, links
 from commonplace._links import Target
-from commonplace._marginalia import links, notes_named, read_marginalia
+from commonplace._marginalia import notes_named
 from commonplace._repo import Commonplace
 from commonplace._utils import load_frontmatter
 
@@ -25,8 +26,9 @@ SECTIONS = ("tags", "links", "commentary", "history", "index")
 def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str, Any]:
     """The record of the note `spec` names; a hidden note is shown when asked for by name, and says so."""
     [note] = notes_named(repo, spec)
-    metadata, _ = load_frontmatter((repo.root / note).read_text(errors="replace"))
-    marginalia = read_marginalia(repo.root, note)
+    document = Document(repo.root, note)
+    metadata, _ = load_frontmatter(document.text)
+    marginalia = document.marginalia
     # A field the note lacks is left out rather than shown as null.
     header = {field: metadata[field] for field in ("title", "type", "description") if metadata.get(field)}
     return {
@@ -35,7 +37,7 @@ def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str
         "hidden": "hidden" in marginalia.tags,
         "tags": {"own": list(metadata.get("tags") or []), "marginalia": marginalia.tags},
         "links": [asdict(neighbour) for neighbour in links(repo, spec, include_hidden)],
-        "commentary": marginalia.commentary,
+        "commentary": document.commentary,
         "history": [{"date": day, "subject": subject} for day, subject in repo.history(note)],
         "index": _index_state(repo, note),
     }

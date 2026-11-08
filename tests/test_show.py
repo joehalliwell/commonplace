@@ -116,7 +116,7 @@ def test_show_cli_lists_each_link_with_its_direction(notes, as_joe, test_app, ca
         "other": "/journal/2026-11-01",
         "context": "- 2026-11-02 [[/journal/2026-11-01]] and on",
     } in found
-    assert {"direction": "in", "other": "/journal/2026-11-02", "context": "line 3"} in found
+    assert {"direction": "in", "other": "/journal/2026-11-02", "context": "Thought about [[ideas]]."} in found
 
 
 def test_resolve_cli_prints_the_notes_absolute_path(notes, test_app, capsys):

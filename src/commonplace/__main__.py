@@ -348,7 +348,7 @@ def link(
 @app.command(group=ANNOTATING_SECTION)
 def unlink(note: NoteSpec, target: NoteSpec, *, repo: Repo) -> None:
     """Remove a note's links to a target from its marginalia."""
-    from commonplace._marginalia import unlink as remove_link
+    from commonplace._document import unlink as remove_link
 
     try:
         remove_link(repo, note, target)
