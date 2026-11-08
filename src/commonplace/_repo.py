@@ -12,7 +12,7 @@ import os
 import shutil
 import subprocess
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Collection, Iterator
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from functools import cached_property, lru_cache
@@ -428,6 +428,13 @@ class Commonplace:
         self.__dict__.pop("files", None)
 
     # --- The repository as a graph: each file a node, its path its id, each link a note makes an edge ---
+
+    def holds(self, note: Note, aside: Collection[str] = ()) -> bool:
+        """Whether the working tree holds `note` already: its frontmatter, keys `aside` aside, and its words, since a
+        formatting hook may rewrap or reindent what was written."""
+        held = self.load(note.repo_path)
+        kept = {key: value for key, value in held.metadata.items() if key not in aside}
+        return bool(held.text) and (kept, held.body.split()) == (note.metadata, note.body.split())
 
     def notes(self, within: Path = Path()) -> list[Note]:
         """Every note under `within`, as read back: each one there, then each one gone whose marginalia remain."""

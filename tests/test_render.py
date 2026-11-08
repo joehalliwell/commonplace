@@ -199,6 +199,19 @@ def test_render_is_idempotent(test_repo, store):
     assert git(test_repo.root, "rev-parse", "HEAD") == head
 
 
+def test_render_leaves_a_chat_its_formatting_hook_reindented_and_rewrapped(test_repo, store):
+    """The hook that ran on the render's commit reformats what render wrote; that's the same note (#246)."""
+    store("hi back", fetched_at="2026-08-01T00:00:00+00:00")
+    _render(test_repo)
+    written = (test_repo.root / NOTE).read_text()
+    formatted = written.replace("\n  by:", "\n    by:").replace("\n  at:", "\n    at:").replace("hi back", "hi\nback")
+    assert formatted != written
+    (test_repo.root / NOTE).write_text(formatted)
+    git(test_repo.root, "commit", "-qa", "--amend", "--no-edit")
+
+    assert _render(test_repo).actions == []
+
+
 def test_render_counts_chats_no_stored_archive_renders(test_repo, store):
     store("hi back", fetched_at="2026-08-01T00:00:00+00:00")
     orphan = test_repo.root / "chats" / "claude" / "2025" / "01" / "2025-01-01-gone.md"

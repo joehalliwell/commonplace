@@ -16,7 +16,6 @@ from commonplace._progress import track
 from commonplace._repo import Commonplace
 from commonplace._sources import importers
 from commonplace._types import ChatSource, Note
-from commonplace._utils import dump_frontmatter
 from commonplace._wire import GZ, XZ, read_header
 
 RENDER_MESSAGE = "Re-render chats from stored archives"
@@ -52,10 +51,9 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
     writes: list[Note] = []
     hand_edited: list[str] = []
     for path, note in final.items():
-        target = repo.root / path
-        if target.exists() and target.read_text() == dump_frontmatter(note.metadata, note.body):
+        if repo.holds(note):
             continue
-        if target.exists() and (
+        if (repo.root / path).exists() and (
             path.as_posix() in dirty or not subjects.get(path.as_posix(), "").startswith(_RENDERING)
         ):
             hand_edited.append(path.as_posix())
