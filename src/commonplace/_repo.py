@@ -17,11 +17,11 @@ from datetime import UTC, date, datetime
 from functools import cached_property, lru_cache
 from pathlib import Path
 
+from commonplace import _scaffold as scaffold
 from commonplace._config import BLOBS, CACHE, MARGINALIA
 from commonplace._links import BrokenLink, Edge, Files, Target, UnresolvedNote
 from commonplace._logging import logger
 from commonplace._marginalia import read_marginalia, write_marginalia
-from commonplace._scaffold import TEMPLATES, lay_down
 from commonplace._types import Blob, Marginalia, Note, Pathlike, RepoPath
 from commonplace._utils import dump_frontmatter, load_frontmatter
 
@@ -177,8 +177,8 @@ class Commonplace:
         root.mkdir(parents=True, exist_ok=True)
         _run_git(root, "init", "-q", "--initial-branch=main")
 
-        lay_down(root)
-        _commit(root, set(TEMPLATES), "Initial commit")
+        scaffold.install(root)
+        _commit(root, set(scaffold.TEMPLATES), "Initial commit")
 
     def make_repo_path(self, path: Pathlike) -> RepoPath:
         """A committed file's RepoPath, at the commit that last changed it; a note being written needs no ref."""

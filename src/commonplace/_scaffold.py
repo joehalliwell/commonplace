@@ -21,7 +21,7 @@ TEMPLATES = {
 }
 
 
-def lay_down(root: Path, check: bool = False) -> list[str]:
+def install(root: Path, check: bool = False) -> list[str]:
     """The scaffolding missing from `root`, written there unless `check`."""
     missing = [path for path in TEMPLATES if not (root / path).exists()]
     if not check:
@@ -31,12 +31,12 @@ def lay_down(root: Path, check: bool = False) -> list[str]:
     return missing
 
 
-def drift(root: Path) -> dict[str, list[str]]:
+def diff(root: Path) -> dict[str, list[str]]:
     """The diff, by path, of each file commonplace maintains that is present but behind its template."""
     found = {}
     for path, template in TEMPLATES.items():
         if path not in _USER_OWNED and (root / path).exists():
             existing = (root / path).read_text().splitlines()
-            if diff := list(difflib.unified_diff(template.splitlines(), existing, "template", path, lineterm="")):
-                found[path] = diff
+            if lines := list(difflib.unified_diff(template.splitlines(), existing, "template", path, lineterm="")):
+                found[path] = lines
     return found
