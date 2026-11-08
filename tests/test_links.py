@@ -10,7 +10,6 @@ from commonplace._links import (
     UnresolvedNote,
     check_links,
     extract_links,
-    links_to,
     resolve,
     resolve_target,
 )
@@ -108,8 +107,14 @@ def test_extract_wikilink_with_pipe_is_taken_literally():
     assert targets("See [[other note|that thing]].") == ["other note|that thing"]
 
 
-def test_extract_wikilink_with_heading_yields_page_name():
-    assert targets("See [[other note#Section]].") == ["other note"]
+def test_extract_wikilink_with_heading_keeps_the_span_beside_the_page_name():
+    """Marginalia link to spans, so the fragment is part of what was written."""
+    [link] = extract_links("See [[other note#Section]].", source=SOURCE)
+    assert (link.target, link.page) == ("other note#Section", "other note")
+
+
+def test_extract_wikilink_to_a_heading_in_this_note_is_not_a_link():
+    assert targets("See [[#Section]].") == []
 
 
 def test_extract_wikilink_embed_yields_page_name():
@@ -565,32 +570,3 @@ def test_resolve_target_refuses_a_glob(ideas_root):
     """An edge joins two notes; tagging is what takes globs."""
     with pytest.raises(UnresolvedNote, match="one note"):
         resolve_target("/notes/*", ideas_root, [Path("notes/ideas.md")])
-
-
-# ---------------------------------------------------------------------------
-# What links to a note, from the notes' own text.
-# ---------------------------------------------------------------------------
-
-
-def test_links_to_finds_every_kind_of_link_to_the_note(tmp_path):
-    files = {
-        "notes/ideas.md": "# Ideas\n",
-        "notes/other.md": "# Other\n",
-        "journal/a.md": "See [[ideas]].\n",
-        "journal/b.md": "See [[/notes/ideas#Tea house]].\n",
-        "journal/c.md": "See [the list](../notes/ideas.md).\n",
-        "journal/d.md": "See [[other]] and [elsewhere](../notes/other.md).\n",
-        "chats/claude/x.md": "Quoted: [[ideas]].\n",
-    }
-    for path, text in files.items():
-        (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / path).write_text(text)
-
-    found = links_to(Path("notes/ideas.md"), tmp_path, [Path(p) for p in files])
-
-    # Chats quote links rather than make them, as for the link check.
-    assert [(link.source.as_posix(), link.line) for link in found] == [
-        ("journal/a.md", 1),
-        ("journal/b.md", 1),
-        ("journal/c.md", 1),
-    ]

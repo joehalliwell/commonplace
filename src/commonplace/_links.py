@@ -37,6 +37,11 @@ class Link:
     target: str  # Raw, as written: still percent-encoded, may carry a fragment
     kind: LinkKind
 
+    @property
+    def page(self) -> str:
+        """The target without its fragment: for a wikilink, the note it names."""
+        return self.target.split("#")[0]
+
 
 @dataclass(frozen=True)
 class BrokenLink:
@@ -138,8 +143,9 @@ def _inline_references(child: Token, block: Token) -> Iterator[tuple[int, str, L
     """The references in one inline token, whichever syntax carried it."""
     start = child.meta.get("pos", 0)
     if child.type == "wikilink":
-        # `page#section` names `page`.
-        if target := child.content.strip("[]").split("#")[0].strip():
+        # `page#section` names a span in `page`; `#section` alone is this note's own.
+        target = child.content.strip("[]").strip()
+        if target.split("#")[0].strip():
             yield _line(block, start), target, LinkKind.WIKILINK
     elif child.type == "html_inline":
         for offset, target in _html_targets(child.content):
@@ -269,7 +275,7 @@ def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]], present
     """Why `link` lands nowhere — empty if it lands somewhere."""
     if link.kind is LinkKind.WIKILINK:
         # A wikilink names a note, not a location: any note with that name will do.
-        found = any(is_named(path, link.target) for path in index.get(Path(link.target).name, []))
+        found = any(is_named(path, link.page) for path in index.get(Path(link.page).name, []))
         return "" if found else "no note with that name"
 
     if not unquote(link.target.split("#")[0].split("?")[0]):
@@ -290,38 +296,21 @@ def _landing(link: Link, root: Path) -> Path:
     return Path(os.path.normpath(base / target.lstrip("/")))
 
 
-def links_from(note: Path, root: Path, files: Collection[Path]) -> list[tuple[Link, Path]]:
-    """Each link in `note`'s own text that lands on exactly one note among `files`, with where it lands."""
-    notes = [path for path in files if path.suffix == ".md"]
-    present = set(files)
-    found = []
-    for link in extract_links((root / note).read_text(errors="replace"), source=note):
-        if link.kind is LinkKind.WIKILINK:
-            named = [path for path in notes if is_named(path, link.target)]
-            lands = named[0] if len(named) == 1 else None
-        else:
-            candidate = _landing(link, root)
-            inside = candidate.is_relative_to(root) and candidate.relative_to(root) in present
-            lands = candidate.relative_to(root) if inside else None
-        if lands is not None:
-            found.append((link, lands))
-    return found
+def lands(link: Link, root: Path, notes: Collection[Path], present: Collection[Path]) -> Path | None:
+    """The one note among `notes` a wikilink names, or the file in `present` a path lands on; None otherwise."""
+    if link.kind is LinkKind.WIKILINK:
+        named = [path for path in notes if is_named(path, link.page)]
+        return named[0] if len(named) == 1 else None
+    candidate = _landing(link, root)
+    inside = candidate.is_relative_to(root) and candidate.relative_to(root) in present
+    return candidate.relative_to(root) if inside else None
 
 
-def links_to(note: Path, root: Path, files: Collection[Path], *, skip: Collection[str] = SKIPPED_ROOTS) -> list[Link]:
-    """Every link in the markdown among `files` that lands on `note`, in file order; chats quote, so are skipped."""
-    found = []
-    for path in sorted(files):
-        if path.suffix != ".md" or path.parts[0] in tuple(skip) or path == note:
-            continue
-        for link in extract_links((root / path).read_text(errors="replace"), source=path):
-            if link.kind is LinkKind.WIKILINK:
-                lands = is_named(note, link.target)
-            else:
-                lands = unquote(link.target.split("#")[0]) != "" and _landing(link, root) == root / note
-            if lands:
-                found.append(link)
-    return found
+def lands_on(link: Link, note: Path, root: Path) -> bool:
+    """Whether `link` could mean `note`: a wikilink any note of its name, a path exactly that file."""
+    if link.kind is LinkKind.WIKILINK:
+        return is_named(note, link.page)
+    return unquote(link.page) != "" and _landing(link, root) == root / note
 
 
 def check_links(
