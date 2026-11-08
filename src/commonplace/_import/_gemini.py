@@ -32,7 +32,6 @@ BATCH_PREAMBLE = ")]}'\n"
 class GeminiImporter(BaseWireImporter):
     """Consumes gemini-wire.jsonl emitted by the fetcher."""
 
-    source: str = "gemini"
     name: str = "Gemini"
     id_key: str | None = "uuid"
 
@@ -141,7 +140,6 @@ def _to_log(summary: dict[str, Any], body: list | None) -> EventLog:
     metadata.update(models_field(models))
 
     return EventLog(
-        source="gemini",
         title=summary["title"],
         created=created,
         events=events,

@@ -252,7 +252,7 @@ def test_into_finds_every_kind_of_link_to_the_note_in_text_and_marginalia(test_r
     found = test_repo.into(Path("notes/ideas.md"))
 
     # Chats quote links rather than make them, as for the link check.
-    assert [(str(Target(edge.node)), test_repo.load(RepoPath(edge.node)).line(edge)) for edge in found] == [
+    assert [(str(Target(edge.node)), source.line(edge)) for source, edge in found] == [
         ("/journal/a", "See [[ideas]]."),
         ("/journal/b", "See [[/notes/ideas#Tea house]]."),
         ("/journal/c", "See [the list](../notes/ideas.md)."),

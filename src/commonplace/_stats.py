@@ -7,19 +7,15 @@ from rich.console import Console
 from rich.table import Table
 
 from commonplace._heatmap import ActivityHeatmap, build_activity_data, render_all_time_heatmap
-from commonplace._import._commands import MIRROR_IMPORTERS
 from commonplace._repo import Commonplace
-
-_MIRRORS = [importer.tree for importer in MIRROR_IMPORTERS]
+from commonplace._sources import source_holding
 
 
 def source(path: Path) -> str:
-    """The folder a note counts under: its mirror's tree, its agent's folder of chats, or its top-level folder."""
-    if mirror := next((tree for tree in _MIRRORS if path.is_relative_to(tree)), None):
-        return mirror.as_posix()
-    if len(path.parts) < 2:
-        return "misc"
-    return "/".join(path.parts[:2]) if path.parts[0] == "chats" else path.parts[0]
+    """The folder a note counts under: the tree of the source that holds it, or its top-level folder."""
+    if held := source_holding(path):
+        return held.tree.as_posix()
+    return path.parts[0] if len(path.parts) > 1 else "misc"
 
 
 def generate_stats(

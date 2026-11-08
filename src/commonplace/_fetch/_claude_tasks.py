@@ -11,8 +11,6 @@ from commonplace._fetch._claude import ClaudeSessionFetcher
 class ClaudeTasksFetcher(ClaudeSessionFetcher):
     """Records the complete run listing plus every page of events for each run active since the cursor."""
 
-    source = "claude-tasks"
-
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         with self._signed_in():
             # The server returns no runs at all without `exclude_tags`.

@@ -40,7 +40,6 @@ CHECKPOINT_EVERY = 30
 class KeepFetcher(BaseFetcher):
     """Records every page of one sync of Keep: all of it, or what changed since the last capture."""
 
-    source = "keep"
     cookie_domain = ".google.com"
     service_name = "Google Keep"
     login_url = ORIGIN

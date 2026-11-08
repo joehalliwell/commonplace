@@ -10,12 +10,14 @@ import pytest
 from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._claude_memory import ClaudeMemoryImporter
-from commonplace._import._commands import MIRROR_IMPORTERS, autodetect_importer, import_, landing_tree
+from commonplace._import._commands import autodetect_importer, import_
 from commonplace._import._types import Snapshot
+from commonplace._sources import importers, source_named
 from commonplace._stats import source
-from commonplace._types import Note, RepoPath
+from commonplace._types import ChatSource, MirrorSource, Note, RepoPath
 from commonplace._utils import load_frontmatter
 from commonplace._wire import write_archive
+from tests.fetching import owned
 from tests.porcelain import git
 from tests.test_fetch_chatgpt_memory import SECTIONS, summary_stream
 
@@ -63,15 +65,13 @@ def _blobs(repo) -> set[Path]:
 
 
 def test_import_chat_importer_shaped_like_a_mirror_still_lands_chats(test_repo, monkeypatch):
-    """Kind is the registry an importer is in, not the members it happens to have."""
+    """Kind is the type of the source an importer belongs to, not the members it happens to have."""
 
     class Shaped(ClaudeImporter):
-        tree = Path("memory") / "claude"
-
         def snapshot(self, path, earlier=()):
             raise AssertionError("mirrored a chat importer")
 
-    monkeypatch.setattr("commonplace._import._commands.CHAT_IMPORTERS", [Shaped()])
+    monkeypatch.setattr("commonplace._sources.SOURCES", (ChatSource("claude", (Shaped,), None),))
 
     import_(CLAUDE_CHATS, test_repo, user="Human", auto_index=False)
 
@@ -79,11 +79,11 @@ def test_import_chat_importer_shaped_like_a_mirror_still_lands_chats(test_repo, 
 
 
 def test_autodetect_example_archive_finds_the_memory_importer():
-    assert isinstance(autodetect_importer(EXAMPLE, MIRROR_IMPORTERS), ClaudeMemoryImporter)
+    assert isinstance(autodetect_importer(EXAMPLE, importers(MirrorSource)), ClaudeMemoryImporter)
 
 
 def test_snapshot_example_archive_interprets_without_a_repo():
-    snapshot = ClaudeMemoryImporter().snapshot(EXAMPLE)
+    snapshot = owned(ClaudeMemoryImporter).snapshot(EXAMPLE)
 
     assert snapshot.unread == set()
     [note] = snapshot.notes
@@ -103,7 +103,7 @@ def test_snapshot_example_archive_interprets_without_a_repo():
 
 
 def test_snapshot_file_without_frontmatter_is_titled_all_the_same(tmp_path):
-    [note] = ClaudeMemoryImporter().snapshot(_archive(tmp_path, {"/plain.md": "Just a line.\n"})).notes
+    [note] = owned(ClaudeMemoryImporter).snapshot(_archive(tmp_path, {"/plain.md": "Just a line.\n"})).notes
 
     assert note.body == "# Title\n\nJust a line.\n"
     assert note.metadata == {
@@ -118,26 +118,26 @@ def test_snapshot_file_without_frontmatter_is_titled_all_the_same(tmp_path):
 def test_snapshot_archive_without_listing_does_not_know_what_is_unread(tmp_path):
     archive = write_archive(tmp_path / "claude-memory-wire.jsonl.gz", "claude-memory", _entries({"/b.md": "b\n"})[1:])
 
-    assert ClaudeMemoryImporter().snapshot(archive).unread is None
+    assert owned(ClaudeMemoryImporter).snapshot(archive).unread is None
 
 
 def test_snapshot_listed_but_unread_path_is_unread(tmp_path):
-    snapshot = ClaudeMemoryImporter().snapshot(_archive(tmp_path, {"/a.md": "a\n"}, listed=["/a.md", "/b.md"]))
+    snapshot = owned(ClaudeMemoryImporter).snapshot(_archive(tmp_path, {"/a.md": "a\n"}, listed=["/a.md", "/b.md"]))
 
     assert snapshot.unread == {Path("memory/claude/b.md")}
 
 
 def test_landing_tree_memory_source_lands_in_its_own_tree():
-    assert landing_tree("claude-memory") == Path("memory/claude")
+    assert source_named("claude-memory").tree == Path("memory/claude")
 
 
 def test_autodetect_chatgpt_example_archive_finds_its_memory_importer():
-    assert isinstance(autodetect_importer(CHATGPT_EXAMPLE, MIRROR_IMPORTERS), ChatGptMemoryImporter)
+    assert isinstance(autodetect_importer(CHATGPT_EXAMPLE, importers(MirrorSource)), ChatGptMemoryImporter)
 
 
 def test_snapshot_chatgpt_example_archive_lands_the_summary_as_one_file():
     """The example's `dive-deeper` section is only follow-up prompts, so it has nothing to land."""
-    snapshot = ChatGptMemoryImporter().snapshot(CHATGPT_EXAMPLE)
+    snapshot = owned(ChatGptMemoryImporter).snapshot(CHATGPT_EXAMPLE)
 
     assert snapshot.unread == set()
     [note] = snapshot.notes
@@ -151,7 +151,7 @@ def test_snapshot_chatgpt_summary_sections_are_headings_in_upstream_order(tmp_pa
         tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", [_summary(summary_stream(SECTIONS))]
     )
 
-    [note] = ChatGptMemoryImporter().snapshot(archive).notes
+    [note] = owned(ChatGptMemoryImporter).snapshot(archive).notes
     assert note.body == "# About you\n\n## Overview\n\nPrefers tea.\n\n## Work\n\nWrites software.\n"
 
 
@@ -160,13 +160,13 @@ def test_snapshot_chatgpt_stream_cut_short_has_no_listed_set(tmp_path):
     stream = summary_stream(SECTIONS).split("event: done")[0]
     archive = write_archive(tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", [_summary(stream)])
 
-    assert ChatGptMemoryImporter().snapshot(archive) == Snapshot([], None)
+    assert owned(ChatGptMemoryImporter).snapshot(archive) == Snapshot([], None)
 
 
 def test_snapshot_chatgpt_summary_with_no_sections_lists_nothing(tmp_path):
     archive = write_archive(tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", [_summary(summary_stream([]))])
 
-    assert ChatGptMemoryImporter().snapshot(archive) == Snapshot([])
+    assert owned(ChatGptMemoryImporter).snapshot(archive) == Snapshot([])
 
 
 def _memories(*items: tuple[str, float]) -> dict:
@@ -182,7 +182,7 @@ def test_snapshot_chatgpt_saved_memories_land_as_one_file_bulleted_by_creation(t
     ]
     archive = write_archive(tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", entries)
 
-    [note] = ChatGptMemoryImporter().snapshot(archive).notes
+    [note] = owned(ChatGptMemoryImporter).snapshot(archive).notes
     assert note.repo_path == RepoPath(Path("memory/chatgpt/saved-memories.md"))
     assert note.body == "# Saved memories\n\n- Prefers coffee\n  to tea.\n- Writes British English.\n"
 
@@ -192,7 +192,7 @@ def test_snapshot_chatgpt_saved_memories_land_though_the_summary_stopped_short(t
     entries = [_memories(("Prefers coffee.", 1.0)), _summary(stream)]
     archive = write_archive(tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", entries)
 
-    snapshot = ChatGptMemoryImporter().snapshot(archive)
+    snapshot = owned(ChatGptMemoryImporter).snapshot(archive)
     assert [n.repo_path.path.name for n in snapshot.notes] == ["saved-memories.md"]
     assert snapshot.unread is None
 
@@ -202,15 +202,15 @@ def test_snapshot_chatgpt_no_saved_memories_lands_no_file(tmp_path):
         tmp_path / "chatgpt-memory-wire.jsonl.gz", "chatgpt-memory", [_memories(), _summary(summary_stream([]))]
     )
 
-    assert ChatGptMemoryImporter().snapshot(archive) == Snapshot([])
+    assert owned(ChatGptMemoryImporter).snapshot(archive) == Snapshot([])
 
 
 def test_landing_tree_chatgpt_memory_lands_in_its_own_tree():
-    assert landing_tree("chatgpt-memory") == Path("memory/chatgpt")
+    assert source_named("chatgpt-memory").tree == Path("memory/chatgpt")
 
 
 def test_landing_tree_chat_source_lands_under_chats():
-    assert landing_tree("claude") == Path("chats/claude")
+    assert source_named("claude").tree == Path("chats/claude")
 
 
 # ---------------------------------------------------------------------------

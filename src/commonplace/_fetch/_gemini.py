@@ -98,8 +98,6 @@ class GeminiSessionFetcher(BaseFetcher):
 class GeminiFetcher(GeminiSessionFetcher):
     """Records every `list_chats` page across both buckets plus a `read_chat` per fresh conversation."""
 
-    source = "gemini"
-
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         with self._signed_in():
             # Walk list_chats pages to find fresh cids. Full parse of each chat

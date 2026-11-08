@@ -15,13 +15,12 @@ from pathlib import Path
 from zipfile import ZipFile
 
 from commonplace._import._claude import _to_log
-from commonplace._import._types import EventLog
+from commonplace._import._types import EventLog, Part
 from commonplace._import._zip import head_contains, zip_contains
 from commonplace._progress import track
 
 
-class ClaudeExportImporter:
-    source: str = "claude"
+class ClaudeExportImporter(Part):
     name: str = "Claude"
     member: str | None = "conversations.json"
     id_key: str | None = "uuid"
@@ -42,4 +41,4 @@ class ClaudeExportImporter:
         else:
             with closing(ZipFile(path)) as zf:
                 threads = json.loads(zf.read("conversations.json"))
-        return [_to_log(thread, self.source) for thread in track(threads)]
+        return [_to_log(thread) for thread in track(threads)]

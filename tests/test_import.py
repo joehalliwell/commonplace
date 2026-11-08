@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from zipfile import BadZipFile, ZipFile
@@ -12,14 +12,17 @@ import pytest
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._claude_code import ClaudeCodeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
-from commonplace._import._commands import CHAT_IMPORTERS, autodetect_importer, import_, render_chats
+from commonplace._import._commands import autodetect_importer, import_, render_chats
 from commonplace._import._gemini import _to_log as _gemini_to_log
 from commonplace._import._gemini_takeout import GeminiTakeoutImporter
 from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._import._zip import zip_contains
+from commonplace._sources import importers, source_named
+from commonplace._types import ChatSource, Source
 from commonplace._utils import dump_frontmatter, load_frontmatter
 from commonplace._wire import write_archive
+from tests.fetching import owned
 from tests.porcelain import git
 
 SAMPLE_EXPORTS_DIR = Path(__file__).parent / "resources" / "sample-exports"
@@ -86,7 +89,6 @@ def test_serialize_log(snapshot):
     ]
 
     log = EventLog(
-        source="test",
         title="Test Chat",
         created=datetime(2024, 1, 1, 12, 0, 0),  # noqa: DTZ001 - naive on purpose; snapshots pin the rendering
         events=messages,
@@ -212,12 +214,12 @@ CLAUDE_CONVERSATIONS = SAMPLE_EXPORTS_DIR / "claude.zip" / "conversations.json"
 
 def test_can_import_a_stored_conversations_blob():
     """A blob the repo stored must be readable back — provenance that can't be re-read isn't provenance."""
-    assert ClaudeExportImporter().can_import(CLAUDE_CONVERSATIONS)
+    assert owned(ClaudeExportImporter).can_import(CLAUDE_CONVERSATIONS)
 
 
 def test_import_a_stored_conversations_blob_yields_logs():
     """The conversations file holds all the importer reads; the zip around it was only packaging."""
-    assert ClaudeExportImporter().import_(CLAUDE_CONVERSATIONS)
+    assert owned(ClaudeExportImporter).import_(CLAUDE_CONVERSATIONS)
 
 
 ZIP_IMPORTERS = {
@@ -232,7 +234,7 @@ ZIP_IMPORTERS = {
 def test_zip_importer_claims_only_its_own_export(importer_class, claimed, tmp_path, claims):
     export = _prepare_export(SAMPLE_EXPORTS_DIR / claimed, tmp_path)
 
-    assert claims(importer_class(), export) == (ZIP_IMPORTERS[claimed] is importer_class)
+    assert claims(owned(importer_class), export) == (ZIP_IMPORTERS[claimed] is importer_class)
 
 
 #: What `import` stores of each export: the bare member its importer reads.
@@ -246,7 +248,7 @@ STORED_MEMBERS = {
 @pytest.mark.parametrize("stored", STORED_MEMBERS)
 @pytest.mark.parametrize("importer_class", STORED_MEMBERS.values(), ids=lambda c: c.__name__)
 def test_stored_member_is_claimed_only_by_its_own_importer(importer_class, stored, claims):
-    assert claims(importer_class(), SAMPLE_EXPORTS_DIR / stored) == (STORED_MEMBERS[stored] is importer_class)
+    assert claims(owned(importer_class), SAMPLE_EXPORTS_DIR / stored) == (STORED_MEMBERS[stored] is importer_class)
 
 
 def test_import_stored_blob_is_claimed_by_the_same_importer_and_yields_the_same_logs(sample_export, test_repo):
@@ -258,8 +260,8 @@ def test_import_stored_blob_is_claimed_by_the_same_importer_and_yields_the_same_
     blob = test_repo.root / stored
 
     importer, blob_importer = (
-        autodetect_importer(sample_export.path, CHAT_IMPORTERS),
-        autodetect_importer(blob, CHAT_IMPORTERS),
+        autodetect_importer(sample_export.path, importers(ChatSource)),
+        autodetect_importer(blob, importers(ChatSource)),
     )
     assert type(blob_importer) is type(importer)
     assert blob_importer.import_(blob) == importer.import_(sample_export.path)
@@ -274,7 +276,7 @@ def test_render_chats_of_a_stored_blob_reproduces_what_import_wrote_without_writ
     [stored] = {load_frontmatter(text)[0]["source_export"] for text in written.values()}
     blob = test_repo.root / stored
 
-    rendered = render_chats(blob, autodetect_importer(blob, CHAT_IMPORTERS), user="Human", source_export=stored)
+    rendered = render_chats(blob, autodetect_importer(blob, importers(ChatSource)), user="Human", source_export=stored)
 
     assert {note.repo_path.path: dump_frontmatter(note.metadata, note.body) for note in rendered} == written
     assert all(note.repo_path.ref is None for note in rendered)
@@ -286,13 +288,13 @@ class _StubImporter:
     """Yields one log whose importer-side metadata claims OKF keys of its own."""
 
     name: str = "Stub"
-    source: str = "claude"
+    source: Source = field(default_factory=lambda: source_named("claude"))
     id_key: str | None = None
 
     def import_(self, path: Path):
         created = datetime(2026, 10, 31, tzinfo=UTC)
         message = Message(sender=Role.USER, content="Hi", created=created)
-        yield EventLog(source="claude", title="Ours", events=[message], created=created, metadata={"type": "Thread"})
+        yield EventLog(title="Ours", events=[message], created=created, metadata={"type": "Thread"})
 
 
 def test_render_chats_log_metadata_with_its_own_type_is_presented_with_ours(tmp_path, caplog):
@@ -308,7 +310,7 @@ def test_takeout_importer_declines_another_products_activity_page(tmp_path):
     page = tmp_path / "My Activity.html"
     page.write_text('<html><body><p class="mdl-typography--title">YouTube</p></body></html>')
 
-    assert not GeminiTakeoutImporter().can_import(page)
+    assert not owned(GeminiTakeoutImporter).can_import(page)
 
 
 def test_zip_contains_file_that_is_not_a_zip_raises(tmp_path):
@@ -325,7 +327,7 @@ def _takeout(tmp_path: Path, *cells: str) -> Path:
     html = "".join(f'<div class="content-cell">{cell}</div>' for cell in cells)
     path = tmp_path / "takeout.zip"
     with ZipFile(path, "w") as zf:
-        zf.writestr(GeminiTakeoutImporter().member, f"<html><body>{html}</body></html>")
+        zf.writestr(owned(GeminiTakeoutImporter).member, f"<html><body>{html}</body></html>")
     return path
 
 
@@ -337,7 +339,7 @@ def test_takeout_import_groups_exchanges_into_day_logs_in_time_order(tmp_path):
         "Prompted first<br>8 Jun 2025, 13:37:50 BST<br><p>one</p>",
     )
 
-    logs = GeminiTakeoutImporter().import_(export)
+    logs = owned(GeminiTakeoutImporter).import_(export)
 
     assert [[(e.sender, e.content) for e in log.events] for log in logs] == [
         [(Role.USER, "first"), (Role.AGENT, "one"), (Role.USER, "second"), (Role.AGENT, "two")],
@@ -353,7 +355,7 @@ def test_takeout_import_skips_a_cell_that_is_not_a_prompt(tmp_path):
         "Prompted hello<br>8 Jun 2025, 13:37:50 BST<br><p>hi</p>",
     )
 
-    [log] = GeminiTakeoutImporter().import_(export)
+    [log] = owned(GeminiTakeoutImporter).import_(export)
 
     assert [e.content for e in log.events] == ["hello", "hi"]
 
@@ -399,7 +401,7 @@ def test_claude_code_import_tool_call_is_a_line_in_the_agents_turn_without_its_o
         _claude_code_line("assistant", "One file.", "2025-10-01T10:00:03Z"),
     )
 
-    [log] = ClaudeCodeImporter().import_(session)
+    [log] = owned(ClaudeCodeImporter).import_(session)
 
     assert [(e.sender, e.content) for e in log.events] == [
         (Role.USER, "list the files"),
@@ -417,7 +419,7 @@ def test_claude_code_import_consecutive_tool_calls_are_one_list(tmp_path):
         _claude_code_line("assistant", [_tool_use("TodoWrite", {"todos": []}, "t3")], "2025-10-01T10:00:03Z"),
     )
 
-    [log] = ClaudeCodeImporter().import_(session)
+    [log] = owned(ClaudeCodeImporter).import_(session)
 
     assert [e.content for e in log.events] == ["- Read: `a.py`\n- Read: `b.py`\n- TodoWrite"]
 
@@ -435,7 +437,7 @@ def test_claude_code_import_tool_line_is_its_first_text_argument_on_one_short_li
         tmp_path, _claude_code_line("assistant", [_tool_use("Bash", {"command": argument})], "2025-10-01T10:00:00Z")
     )
 
-    [log] = ClaudeCodeImporter().import_(session)
+    [log] = owned(ClaudeCodeImporter).import_(session)
 
     assert [e.content for e in log.events] == [line]
 
@@ -447,7 +449,7 @@ def test_claude_code_import_thinking_is_left_out(tmp_path):
         _claude_code_line("assistant", [thinking, {"type": "text", "text": "Fixed."}], "2025-10-01T10:00:00Z"),
     )
 
-    [log] = ClaudeCodeImporter().import_(session)
+    [log] = owned(ClaudeCodeImporter).import_(session)
 
     assert [e.content for e in log.events] == ["Fixed."]
 
@@ -473,7 +475,7 @@ def test_claude_code_import_answers_to_the_agents_questions_are_the_users(tmp_pa
         answered,
     )
 
-    [log] = ClaudeCodeImporter().import_(session)
+    [log] = owned(ClaudeCodeImporter).import_(session)
 
     assert [(e.sender, e.content) for e in log.events] == [
         (Role.AGENT, "- AskUserQuestion"),
@@ -486,7 +488,7 @@ def test_claude_code_detection_session_log_is_left_to_fetch(tmp_path):
     session = tmp_path / "session-1.jsonl"
     session.write_text(_claude_code_text(_claude_code_line("user", "hi", "2025-10-01T10:00:00Z")))
 
-    assert autodetect_importer(session, CHAT_IMPORTERS) is None
+    assert autodetect_importer(session, importers(ChatSource)) is None
 
 
 def test_claude_code_import_a_half_written_last_line_is_dropped(tmp_path):
@@ -495,7 +497,7 @@ def test_claude_code_import_a_half_written_last_line_is_dropped(tmp_path):
     entry = {"endpoint": "file", "path": "-work/session-1.jsonl", "response": text}
     archive = write_archive(tmp_path / "claude-code-wire.jsonl.gz", "claude-code", [entry])
 
-    [log] = ClaudeCodeImporter().import_(archive)
+    [log] = owned(ClaudeCodeImporter).import_(archive)
 
     assert [e.content for e in log.events] == ["hi"]
 
@@ -513,7 +515,7 @@ def test_claude_code_import_each_session_in_an_archive_is_a_chat(tmp_path):
     ]
     archive = write_archive(tmp_path / "claude-code-wire.jsonl.gz", "claude-code", entries)
 
-    logs = ClaudeCodeImporter().import_(archive)
+    logs = owned(ClaudeCodeImporter).import_(archive)
 
     assert [(log.metadata["sessionId"], log.title) for log in logs] == [("s1", "hi from s1"), ("s2", "hi from s2")]
 
@@ -530,7 +532,7 @@ def test_claude_code_import_notes_come_from_main_transcripts_only(tmp_path):
     ]
     archive = write_archive(tmp_path / "claude-code-wire.jsonl.gz", "claude-code", entries)
 
-    [log] = ClaudeCodeImporter().import_(archive)
+    [log] = owned(ClaudeCodeImporter).import_(archive)
 
     assert [e.content for e in log.events] == ["hi"]
 
@@ -545,7 +547,7 @@ def test_claude_code_import_session_continued_in_another_is_left_to_it(tmp_path)
         continued,
     )
 
-    assert ClaudeCodeImporter().import_(session) == []
+    assert owned(ClaudeCodeImporter).import_(session) == []
 
 
 def test_claude_code_import_harness_lines_log_no_warnings(tmp_path, caplog):
@@ -553,7 +555,7 @@ def test_claude_code_import_harness_lines_log_no_warnings(tmp_path, caplog):
     session = _claude_code_session(tmp_path, *harness, _claude_code_line("user", "hi", "2025-10-01T10:00:00Z"))
 
     with caplog.at_level(logging.WARNING):
-        ClaudeCodeImporter().import_(session)
+        owned(ClaudeCodeImporter).import_(session)
 
     assert not caplog.records
 
@@ -563,9 +565,9 @@ def test_claude_code_import_titles_a_session_by_its_latest_ai_title_else_summary
     summary = {"type": "summary", "summary": "A greeting"}
     drafts = [{"type": "ai-title", "aiTitle": title, "sessionId": "session-1"} for title in ("Hello", "Greeting")]
 
-    [untitled] = ClaudeCodeImporter().import_(_claude_code_session(tmp_path, message))
-    [summarised] = ClaudeCodeImporter().import_(_claude_code_session(tmp_path, summary, message))
-    [titled] = ClaudeCodeImporter().import_(_claude_code_session(tmp_path, drafts[0], summary, message, drafts[1]))
+    [untitled] = owned(ClaudeCodeImporter).import_(_claude_code_session(tmp_path, message))
+    [summarised] = owned(ClaudeCodeImporter).import_(_claude_code_session(tmp_path, summary, message))
+    [titled] = owned(ClaudeCodeImporter).import_(_claude_code_session(tmp_path, drafts[0], summary, message, drafts[1]))
 
     assert (untitled.title, summarised.title, titled.title) == ("session-1", "A greeting", "Greeting")
     assert titled.metadata == {"sessionId": "session-1", "cwd": "/work"}
@@ -585,7 +587,7 @@ def test_claude_code_import_a_prompt_queued_mid_turn_is_the_users(tmp_path):
         _claude_code_queued("<task-notification>done</task-notification>", "task-notification", "2025-10-01T10:00:03Z"),
     )
 
-    [log] = ClaudeCodeImporter().import_(session)
+    [log] = owned(ClaudeCodeImporter).import_(session)
 
     assert [(e.sender, e.content) for e in log.events] == [(Role.USER, "start"), (Role.USER, "wait, stop")]
 
@@ -606,7 +608,7 @@ def test_claude_code_import_harness_turns_are_left_out_and_commands_are_the_user
         _claude_code_line("user", text, f"2025-10-01T10:00:0{i}Z") | flags for i, (text, flags) in enumerate(turns)
     ]
 
-    [log] = ClaudeCodeImporter().import_(_claude_code_session(tmp_path, *lines))
+    [log] = owned(ClaudeCodeImporter).import_(_claude_code_session(tmp_path, *lines))
 
     assert [(e.sender, e.content) for e in log.events] == [
         (Role.USER, "/rake quick"),
@@ -623,7 +625,7 @@ def test_claude_code_import_untitled_session_is_titled_by_the_users_first_prompt
         _claude_code_line("user", prompt, "2025-10-01T10:00:01Z"),
     )
 
-    [log] = ClaudeCodeImporter().import_(session)
+    [log] = owned(ClaudeCodeImporter).import_(session)
 
     assert log.title == "Why is the build red after the dependency bump that landed…"
 
@@ -638,7 +640,7 @@ def test_claude_code_import_records_each_model_once_in_order(tmp_path):
         _claude_code_line("assistant", "three", "2025-10-01T10:00:04Z", model="claude-opus-5"),
     )
 
-    [log] = ClaudeCodeImporter().import_(session)
+    [log] = owned(ClaudeCodeImporter).import_(session)
     assert log.metadata["models"] == ["claude-opus-5", "claude-sonnet-5"]
     assert "model" not in log.metadata
 
@@ -681,14 +683,14 @@ def test_chatgpt_import_records_the_resolved_agent_models_in_order(tmp_path):
         _chatgpt_message("a4", "assistant", resolved_model_slug="gpt-5-5-mini"),
     )
 
-    [log] = ChatGptWireImporter().import_(archive)
+    [log] = owned(ChatGptWireImporter).import_(archive)
     assert log.metadata["models"] == ["gpt-5-5-mini", "gpt-4o"]
 
 
 def test_chatgpt_import_without_a_model_records_no_models(tmp_path):
     archive = _chatgpt_archive(tmp_path, _chatgpt_message("u1", "user"), _chatgpt_message("a1", "assistant"))
 
-    [log] = ChatGptWireImporter().import_(archive)
+    [log] = owned(ChatGptWireImporter).import_(archive)
     assert "models" not in log.metadata
 
 
@@ -721,7 +723,7 @@ def test_claude_importer_declines_a_chatgpt_conversations_file(tmp_path):
     path = tmp_path / "conversations.json"
     path.write_text(json.dumps([{"title": "x", "mapping": {}}]))
 
-    assert not ClaudeExportImporter().can_import(path)
+    assert not owned(ClaudeExportImporter).can_import(path)
 
 
 def test_import_a_directory_of_wire_archives_creates_notes(test_repo, tmp_path):
@@ -848,7 +850,6 @@ That's it.
 def _serialize_message(content: str, sender: Role = Role.AGENT) -> str:
     serializer = MarkdownSerializer(human="Human", agent="Agent")
     log = EventLog(
-        source="test",
         title="Artifacts",
         created=datetime(2024, 1, 1, 12, 0, 0),  # noqa: DTZ001 - naive on purpose
         events=[

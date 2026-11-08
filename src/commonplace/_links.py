@@ -208,12 +208,13 @@ class BrokenLink:
     suggestion: Path | None = None
 
 
-class Names:
-    """Files indexed by name and by stem, with every directory holding one: what links land on."""
+class Files:
+    """A repository's files, indexed by name, with every directory holding one: what links land on, and specs name."""
 
-    def __init__(self, files: Iterable[Path]) -> None:
+    def __init__(self, root: Path, files: Iterable[Path]) -> None:
+        self.root = root
         self.files = set(files)
-        self.present = self.files | {parent for path in self.files for parent in path.parents}
+        self._present = self.files | {parent for path in self.files for parent in path.parents}
         self._by_name: dict[str, list[Path]] = {}
         for path in sorted(self.files):
             for key in {path.name, path.stem}:
@@ -223,9 +224,51 @@ class Names:
         """The files `name` writes as a wikilink would, in order."""
         return [path for path in self._by_name.get(Path(name).name, []) if is_named(path, name)]
 
-    def called(self, name: str) -> list[Path]:
-        """The files whose name or stem is `name`."""
-        return self._by_name.get(name, [])
+    def lands(self, edge: Edge) -> list[Path]:
+        """Every file `edge` could mean: each one a wikilink names, or the file or directory a path is at."""
+        if edge.link.kind is LinkKind.WIKILINK:
+            return self.named(edge.link.target.split("#")[0])
+        landing = _landing(edge, self.root)
+        if landing is None or not landing.is_relative_to(self.root):
+            return []
+        return [path] if (path := landing.relative_to(self.root)) in self._present else []
+
+    def broken(self, edge: Edge) -> BrokenLink | None:
+        """Why `edge` lands on nothing, or on no span it names, and the one file of its name it probably meant."""
+        page, _, span = edge.link.target.partition("#")
+        if landed := self.lands(edge):
+            wikilink = edge.link.kind is LinkKind.WIKILINK
+            if not wikilink or not span or any(_has_span(self.root / path, span) for path in landed):
+                return None
+            return BrokenLink(edge.link, "no such heading or phrase")
+        called = self._by_name.get(Path(unquote(page)).name, [])
+        return BrokenLink(edge.link, _why_broken(edge, self.root), called[0] if len(called) == 1 else None)
+
+    def resolve(self, spec: str) -> list[Path]:
+        """The notes a spec names: exactly one, or every match of a glob, else `UnresolvedNote`; a link may mean several."""
+        name = spec.removeprefix("[[").removesuffix("]]").split("#")[0].strip()
+        if "*" in name:
+            notes = sorted(path for path in self.files if path.suffix == ".md")
+            if not (matched := [path for path in notes if fnmatch.fnmatchcase(path.as_posix(), name.lstrip("/"))]):
+                raise UnresolvedNote(f"'{spec}' matches no note")
+            return matched
+        found = [path for path in self.named(name) if path.suffix == ".md"]
+        if not found:
+            raise UnresolvedNote(f"'{spec}' names no note")
+        if len(found) > 1:
+            candidates = "\n".join(f"  /{path.with_suffix('').as_posix()}" for path in found)
+            raise UnresolvedNote(f"'{spec}' names {len(found)} notes; say which:\n{candidates}")
+        return found
+
+    def resolve_target(self, spec: str) -> Target:
+        """The one note `spec` names, with its span checked against the note: `#Heading` or `#"exact phrase"`."""
+        if "*" in spec:
+            raise UnresolvedNote(f"'{spec}' is a glob; a link joins one note to one note")
+        [note] = self.resolve(spec)
+        _, _, fragment = spec.removeprefix("[[").removesuffix("]]").partition("#")
+        if fragment and not _has_span(self.root / note, fragment):
+            raise UnresolvedNote(f"'{spec}': no such heading or phrase in /{note.with_suffix('').as_posix()}")
+        return Target(note, fragment)
 
 
 def is_named(path: Path, name: str) -> bool:
@@ -234,55 +277,6 @@ def is_named(path: Path, name: str) -> bool:
         f"/{written}" == name or written == name or written.endswith(f"/{name}")
         for written in (path.as_posix(), path.with_suffix("").as_posix())
     )
-
-
-def lands(edge: Edge, root: Path, names: Names) -> list[Path]:
-    """Every file `edge` could mean: each one a wikilink names, or the file or directory a path is at."""
-    if edge.link.kind is LinkKind.WIKILINK:
-        return names.named(edge.link.target.split("#")[0])
-    landing = _landing(edge, root)
-    if landing is None or not landing.is_relative_to(root):
-        return []
-    return [path] if (path := landing.relative_to(root)) in names.present else []
-
-
-def broken(edge: Edge, root: Path, names: Names) -> BrokenLink | None:
-    """Why `edge` lands on nothing, or on no span it names, and the one file of its name it probably meant."""
-    page, _, span = edge.link.target.partition("#")
-    if landed := lands(edge, root, names):
-        if edge.link.kind is not LinkKind.WIKILINK or not span or any(_has_span(root / p, span) for p in landed):
-            return None
-        return BrokenLink(edge.link, "no such heading or phrase")
-    called = names.called(Path(unquote(page)).name)
-    return BrokenLink(edge.link, _why_broken(edge, root), called[0] if len(called) == 1 else None)
-
-
-def resolve(spec: str, names: Names) -> list[Path]:
-    """The notes a spec names: exactly one, or every match of a glob, else `UnresolvedNote`; a link may mean several."""
-    name = spec.removeprefix("[[").removesuffix("]]").split("#")[0].strip()
-    if "*" in name:
-        notes = sorted(path for path in names.files if path.suffix == ".md")
-        if not (matched := [path for path in notes if fnmatch.fnmatchcase(path.as_posix(), name.lstrip("/"))]):
-            raise UnresolvedNote(f"'{spec}' matches no note")
-        return matched
-    found = [path for path in names.named(name) if path.suffix == ".md"]
-    if not found:
-        raise UnresolvedNote(f"'{spec}' names no note")
-    if len(found) > 1:
-        candidates = "\n".join(f"  /{path.with_suffix('').as_posix()}" for path in found)
-        raise UnresolvedNote(f"'{spec}' names {len(found)} notes; say which:\n{candidates}")
-    return found
-
-
-def resolve_target(spec: str, root: Path, names: Names) -> Target:
-    """The one note `spec` names, with its span checked against the note: `#Heading` or `#"exact phrase"`."""
-    if "*" in spec:
-        raise UnresolvedNote(f"'{spec}' is a glob; a link joins one note to one note")
-    [note] = resolve(spec, names)
-    _, _, fragment = spec.removeprefix("[[").removesuffix("]]").partition("#")
-    if fragment and not _has_span(root / note, fragment):
-        raise UnresolvedNote(f"'{spec}': no such heading or phrase in /{note.with_suffix('').as_posix()}")
-    return Target(note, fragment)
 
 
 def summarize(found: Collection[BrokenLink]) -> list[str]:

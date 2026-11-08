@@ -21,7 +21,6 @@ HEADLINE = re.compile(r"^\[[^\]\n]+\] \S[^\n]*", re.MULTILINE)
 
 
 class ClaudeTasksImporter(BaseWireImporter):
-    source: str = "claude-tasks"
     name: str = "Claude"
     id_key: str | None = "session_id"
 
@@ -34,11 +33,11 @@ class ClaudeTasksImporter(BaseWireImporter):
                 runs.update((run["id"], run) for run in page)
             elif entry["endpoint"] == "events":
                 events[entry["sid"]].extend(page)
-        logs = [_to_log(runs[sid], run_events, self.source) for sid, run_events in events.items()]
+        logs = [_to_log(runs[sid], run_events) for sid, run_events in events.items()]
         return [log for log in logs if log is not None]
 
 
-def _to_log(run: dict[str, Any], run_events: list[dict[str, Any]], source: str) -> EventLog | None:
+def _to_log(run: dict[str, Any], run_events: list[dict[str, Any]]) -> EventLog | None:
     """One run as a chat from what its scheduled turn said on, filed by task and start time; None until that ends."""
     ordered = sorted(run_events, key=lambda e: int(e["sequence_num"]))
     end = next((i for i, e in enumerate(ordered) if e["event_type"] == "result"), None)
@@ -66,7 +65,6 @@ def _to_log(run: dict[str, Any], run_events: list[dict[str, Any]], source: str) 
     # Without one, the time keeps twice-daily runs of a task from sharing a path.
     headline = HEADLINE.search("\n".join(m.content for m in output))
     return EventLog(
-        source=source,
         title=headline[0] if headline else f"{task} {created:%H:%M}",
         created=created,
         events=events,

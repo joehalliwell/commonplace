@@ -79,8 +79,6 @@ class ClaudeSessionFetcher(BaseFetcher):
 class ClaudeFetcher(ClaudeSessionFetcher):
     """Records one list call plus N conversation details."""
 
-    source = "claude"
-
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         with self._signed_in():
             fresh = self._list_fresh(since)

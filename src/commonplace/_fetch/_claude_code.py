@@ -5,10 +5,15 @@ import os
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Self
 
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._wire import archive_name, file_entry, read_header, write_archive
+
+if TYPE_CHECKING:
+    from commonplace._config import Config
+    from commonplace._types import Source
 
 
 def _folder(transcript: Path) -> list[Path]:
@@ -27,13 +32,21 @@ def _claude_home(root: Path | None) -> Path:
     return root or Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
 
 
-class ClaudeCodeFetcher:
-    """Records each main session transcript changed since the cursor, verbatim, one entry per session."""
+class _ClaudeHome:
+    """A fetcher of a source that reads this machine's Claude Code home rather than browsing."""
 
-    source = "claude-code"
-
-    def __init__(self, root: Path | None = None):
+    def __init__(self, source: "Source", root: Path | None = None):
+        self.source = source
         self.root = _claude_home(root)
+
+    @classmethod
+    def configured(cls, source: "Source", config: "Config") -> Self:
+        """One for `source`, reading this machine's Claude Code home; it browses nothing, so needs no User-Agent."""
+        return cls(source)
+
+
+class ClaudeCodeFetcher(_ClaudeHome):
+    """Records each main session transcript changed since the cursor, verbatim, one entry per session."""
 
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         # Git's cursor is when the last capture was committed, after it read; a session written in between
@@ -49,21 +62,16 @@ class ClaudeCodeFetcher:
         # One archive per session, so no file outgrows its session and a newer capture of one supersedes it whole.
         logger.info(f"{len(fresh)} sessions changed since {since or 'beginning'}")
         archives = []
-        for transcript in track(fresh, f"Fetching {self.source}"):
+        for transcript in track(fresh, f"Fetching {self.source.name}"):
             entries = (file_entry(f, f.relative_to(projects).as_posix()) for f in (transcript, *_folder(transcript)))
-            archive = destination / transcript.relative_to(projects).with_suffix("") / archive_name(self.source)
+            archive = destination / transcript.relative_to(projects).with_suffix("") / archive_name(self.source.name)
             archive.parent.mkdir(parents=True)
-            archives.append(write_archive(archive, self.source, entries, fetched_at=started))
+            archives.append(write_archive(archive, self.source.name, entries, fetched_at=started))
         return archives
 
 
-class ClaudeCodeMemoryFetcher:
+class ClaudeCodeMemoryFetcher(_ClaudeHome):
     """Records every project's memory files, and the paths of the projects they belong to, on every run."""
-
-    source = "claude-code-memory"
-
-    def __init__(self, root: Path | None = None):
-        self.root = _claude_home(root)
 
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         if not self.root.is_dir():
@@ -75,7 +83,7 @@ class ClaudeCodeMemoryFetcher:
             {"endpoint": "projects", "response": json.dumps(self._project_paths())},
             *(file_entry(p, p.relative_to(projects).as_posix()) for p in memory),
         ]
-        return [write_archive(destination / archive_name(self.source), self.source, entries)]
+        return [write_archive(destination / archive_name(self.source.name), self.source.name, entries)]
 
     def _project_paths(self) -> list[str]:
         """The real paths behind `projects/`' directory names, which encode them lossily (`/` and `.` both as `-`).

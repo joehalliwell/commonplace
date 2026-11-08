@@ -7,6 +7,7 @@ import pytest
 
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._helpers import FetchBlocked, NoSession
+from tests.fetching import fetching
 
 
 def test_a_blocked_source_does_not_stop_the_others(test_repo):
@@ -27,7 +28,7 @@ def test_a_blocked_source_does_not_stop_the_others(test_repo):
             return []
 
     with pytest.raises(FetchBlocked, match="blocked"):
-        fetch(test_repo, fetchers=[Blocked(), Stub()], auto_index=False)
+        fetch(test_repo, sources=fetching(Blocked(), Stub()), auto_index=False)
     assert called == ["stub"]
 
 
@@ -48,7 +49,7 @@ def test_a_source_with_no_session_is_skipped_without_failing_the_run(test_repo):
             called.append("stub")
             return []
 
-    fetch(test_repo, fetchers=[Unused(), Stub()], auto_index=False)
+    fetch(test_repo, sources=fetching(Unused(), Stub()), auto_index=False)
     assert called == ["stub"]
 
 
@@ -62,10 +63,10 @@ def test_fetch_command_filters_by_source(test_repo):
             called.append("stub")
             return []
 
-    fetch(test_repo, sources=["nonexistent"], fetchers=[Stub()], auto_index=False)
+    fetch(test_repo, names=["nonexistent"], sources=fetching(Stub()), auto_index=False)
     assert called == []
 
-    fetch(test_repo, sources=["stub"], fetchers=[Stub()], auto_index=False)
+    fetch(test_repo, names=["stub"], sources=fetching(Stub()), auto_index=False)
     assert called == ["stub"]
 
 
@@ -86,8 +87,8 @@ def test_fetch_command_all_flag_bypasses_cursor(test_repo, make_note):
     test_repo.save(make_note("chats/recording/seed.md", "# seed\n"))
     test_repo.commit("Seed recording", auto_index=False)
 
-    fetch(test_repo, fetchers=[RecordingStub()], auto_index=False)
+    fetch(test_repo, sources=fetching(RecordingStub()), auto_index=False)
     assert calls[-1] is not None, "without --all, cursor should reflect the seed commit"
 
-    fetch(test_repo, fetchers=[RecordingStub()], auto_index=False, all_=True)
+    fetch(test_repo, sources=fetching(RecordingStub()), auto_index=False, all_=True)
     assert calls[-1] is None, "with --all, cursor is bypassed"

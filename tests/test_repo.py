@@ -494,7 +494,7 @@ def test_an_edge_in_marginalia_is_written_in_their_file_and_lands_from_the_note(
     [edge] = test_repo.load(RepoPath(IDEAS)).edges
 
     assert (edge.link.source, edge.link.line) == (marginalia_path(IDEAS), 5)
-    assert test_repo.lands(edge) == [OTHER]
+    assert test_repo.files.lands(edge) == [OTHER]
 
 
 def test_a_note_labelled_hidden_in_its_own_frontmatter_is_left_out_of_links(test_repo):

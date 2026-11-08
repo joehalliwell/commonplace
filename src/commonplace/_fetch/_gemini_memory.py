@@ -11,8 +11,6 @@ from commonplace._import._gemini_memory import RPC_LIST_SAVED_INFO
 class GeminiMemoryFetcher(GeminiSessionFetcher):
     """Records the one call that returns every saved item; there is nothing per item to read."""
 
-    source = "gemini-memory"
-
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         # `since` goes unused: the listing is the whole state, and it is how a deletion is seen.
         with self._signed_in():

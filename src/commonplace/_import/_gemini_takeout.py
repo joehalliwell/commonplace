@@ -11,7 +11,7 @@ from dateutil import parser
 from dateutil.tz import gettz
 from html_to_markdown import convert_to_markdown
 
-from commonplace._import._types import EventLog, Message, Role
+from commonplace._import._types import EventLog, Message, Part, Role
 from commonplace._import._zip import head_contains, zip_contains
 from commonplace._logging import logger
 from commonplace._progress import track
@@ -21,7 +21,7 @@ _HTML_PATH = "Takeout/My Activity/Gemini Apps/My Activity.html"
 _GEMINI_HEADING = '<p class="mdl-typography--title">Gemini Apps'
 
 
-class GeminiTakeoutImporter:
+class GeminiTakeoutImporter(Part):
     """
     Importer for Gemini activity logs from Google Takeout.
 
@@ -33,7 +33,6 @@ class GeminiTakeoutImporter:
     structured around day files, rather than threads.
     """
 
-    source: str = "gemini-takeout"
     name: str = "Gemini"
     member: str | None = _HTML_PATH
     id_key: str | None = None  # A day's exchanges, with nothing to name them by
@@ -76,7 +75,6 @@ class GeminiTakeoutImporter:
         results = []
         for date, messages in logs_by_date.items():
             log = EventLog(
-                source=self.source,
                 title=f"Gemini conversations from {date.isoformat()}",
                 created=messages[0].created,
                 events=messages,

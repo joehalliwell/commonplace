@@ -17,9 +17,6 @@ PROVENANCE_KEYS = ("category_id", "version", "updated_at")
 
 
 class ClaudeMemoryImporter(BaseWireImporter):
-    source: str = "claude-memory"
-    tree: Path = Path("memory") / "claude"
-
     def snapshot(self, path: Path, earlier: Sequence[Path] = ()) -> Snapshot:
         notes: list[Note] = []
         listed: set[Path] | None = None
@@ -41,4 +38,4 @@ class ClaudeMemoryImporter(BaseWireImporter):
 
     def _path(self, provider_path: str) -> RepoPath:
         """Provider paths are rooted at `/`; ours sit under the tree."""
-        return RepoPath(self.tree / provider_path.lstrip("/"))
+        return RepoPath(self.source.tree / provider_path.lstrip("/"))

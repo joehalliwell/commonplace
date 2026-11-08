@@ -16,8 +16,6 @@ SUMMARY_READ_TIMEOUT = 180.0
 class ChatGptMemoryFetcher(ChatGptSessionFetcher):
     """Records the saved-memories list and the streamed about-you summary, whole, on every run."""
 
-    source = "chatgpt-memory"
-
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         # Neither endpoint can be asked for changes only, so `since` has nothing to narrow.
         with self._signed_in():

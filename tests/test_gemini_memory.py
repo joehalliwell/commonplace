@@ -10,11 +10,13 @@ import pytest
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
 from commonplace._fetch._helpers import FetchBlocked
-from commonplace._import._commands import MIRROR_IMPORTERS, autodetect_importer, landing_tree
+from commonplace._import._commands import autodetect_importer
 from commonplace._import._gemini_memory import GeminiMemoryImporter
-from commonplace._types import Note, RepoPath
+from commonplace._sources import importers, source_named
+from commonplace._types import MirrorSource, Note, RepoPath
 from commonplace._utils import load_frontmatter
 from commonplace._wire import read_entries, read_header, write_archive
+from tests.fetching import fetching, owned
 from tests.porcelain import git
 
 EXAMPLE = Path(__file__).parent / "resources" / "wire" / "gemini-memory-v3.jsonl.gz"
@@ -54,7 +56,7 @@ class FakeGemini:
         return httpx.Response(404)
 
     def fetcher(self, cookies=TEST_COOKIES) -> GeminiMemoryFetcher:
-        return GeminiMemoryFetcher(cookies=cookies, transport=httpx.MockTransport(self))
+        return owned(GeminiMemoryFetcher, cookies=cookies, transport=httpx.MockTransport(self))
 
 
 def _blobs(repo) -> set[Path]:
@@ -68,7 +70,7 @@ def _blobs(repo) -> set[Path]:
 
 def test_snapshot_example_archive_lists_items_oldest_first():
     """Ordered by creation, so an edit changes its own line rather than moving it to the top."""
-    snapshot = GeminiMemoryImporter().snapshot(EXAMPLE)
+    snapshot = owned(GeminiMemoryImporter).snapshot(EXAMPLE)
 
     assert snapshot.unread == set()
     assert snapshot.notes == [
@@ -83,22 +85,22 @@ def test_snapshot_example_archive_lists_items_oldest_first():
 def test_snapshot_multiline_item_stays_one_bullet(tmp_path):
     archive = _archive(tmp_path, [_item("First line.\nSecond line.", 1, 1)])
 
-    [note] = GeminiMemoryImporter().snapshot(archive).notes
+    [note] = owned(GeminiMemoryImporter).snapshot(archive).notes
 
     assert note.body == "# Saved info\n\n- First line.\n  Second line.\n"
 
 
 def test_snapshot_null_body_raises(tmp_path):
     with pytest.raises(RuntimeError, match="ZKcapf"):
-        GeminiMemoryImporter().snapshot(_archive(tmp_path, None))
+        owned(GeminiMemoryImporter).snapshot(_archive(tmp_path, None))
 
 
 def test_autodetect_example_archive_finds_the_gemini_memory_importer():
-    assert isinstance(autodetect_importer(EXAMPLE, MIRROR_IMPORTERS), GeminiMemoryImporter)
+    assert isinstance(autodetect_importer(EXAMPLE, importers(MirrorSource)), GeminiMemoryImporter)
 
 
 def test_landing_tree_gemini_memory_lands_in_memory_gemini():
-    assert landing_tree("gemini-memory") == Path("memory/gemini")
+    assert source_named("gemini-memory").tree == Path("memory/gemini")
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +145,7 @@ def test_fetch_null_body_raises(tmp_path):
 
 
 def test_fetch_command_mirrors_into_memory_gemini(test_repo):
-    fetch(test_repo, fetchers=[FakeGemini().fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(FakeGemini().fetcher()), auto_index=False)
 
     metadata, body = load_frontmatter((test_repo.root / "memory/gemini/saved-info.md").read_text())
     assert body == "# Saved info\n\n- Writes in British English.\n- Prefers tea to coffee.\n"
@@ -152,10 +154,10 @@ def test_fetch_command_mirrors_into_memory_gemini(test_repo):
 
 def test_fetch_command_unchanged_upstream_leaves_no_trace(test_repo):
     """Every capture carries every item; one that matches the tree stores no blob and makes no commit."""
-    fetch(test_repo, fetchers=[FakeGemini().fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(FakeGemini().fetcher()), auto_index=False)
     head, blobs = git(test_repo.root, "rev-parse", "HEAD"), _blobs(test_repo)
 
-    fetch(test_repo, fetchers=[FakeGemini().fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(FakeGemini().fetcher()), auto_index=False)
 
     assert git(test_repo.root, "rev-parse", "HEAD") == head
     assert _blobs(test_repo) == blobs
@@ -163,21 +165,25 @@ def test_fetch_command_unchanged_upstream_leaves_no_trace(test_repo):
 
 def test_fetch_command_unchanged_upstream_rewrapped_by_a_hook_leaves_no_trace(test_repo):
     """As seen 2026-11-01: an mdformat hook wraps long items at commit, which must not read as an upstream change."""
-    fetch(test_repo, fetchers=[FakeGemini().fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(FakeGemini().fetcher()), auto_index=False)
     note = test_repo.root / "memory/gemini/saved-info.md"
     note.write_text(note.read_text().replace("- Prefers tea to coffee.", "- Prefers tea\n  to coffee."))
     git(test_repo.root, "commit", "-qam", "Rewrap, as a formatting hook would")
     head = git(test_repo.root, "rev-parse", "HEAD")
 
-    fetch(test_repo, fetchers=[FakeGemini().fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(FakeGemini().fetcher()), auto_index=False)
 
     assert git(test_repo.root, "rev-parse", "HEAD") == head
 
 
 def test_fetch_command_upstream_deletion_rewrites_the_file(test_repo):
-    fetch(test_repo, fetchers=[FakeGemini([_item("Kept.", 1, 1), _item("Dropped.", 2, 2)]).fetcher()], auto_index=False)
+    fetch(
+        test_repo,
+        sources=fetching(FakeGemini([_item("Kept.", 1, 1), _item("Dropped.", 2, 2)]).fetcher()),
+        auto_index=False,
+    )
 
-    fetch(test_repo, fetchers=[FakeGemini([_item("Kept.", 1, 1)]).fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(FakeGemini([_item("Kept.", 1, 1)]).fetcher()), auto_index=False)
 
     _, body = load_frontmatter((test_repo.root / "memory/gemini/saved-info.md").read_text())
     assert body == "# Saved info\n\n- Kept.\n"

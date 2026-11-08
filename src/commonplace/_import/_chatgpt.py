@@ -14,14 +14,13 @@ from typing import Any
 from zipfile import ZipFile
 
 from commonplace._import._base import BaseWireImporter
-from commonplace._import._types import EventLog, Message, Role, models_field
+from commonplace._import._types import EventLog, Message, Part, Role, models_field
 from commonplace._import._zip import head_contains, zip_contains
 from commonplace._logging import logger
 from commonplace._wire import read_entries
 
 DEFAULT_TIME = datetime.fromtimestamp(0, tz=UTC)  # Default time if not provided
 
-SOURCE = "chatgpt"
 NAME = "ChatGPT"
 
 
@@ -29,7 +28,6 @@ class ChatGptWireImporter(BaseWireImporter):
     """Consumes the fetcher's wire archive. Born at wire version 2, so there is
     no headerless archive to recognise — hence no `_claims_legacy` override."""
 
-    source: str = SOURCE
     name: str = NAME
     id_key: str | None = "id"
 
@@ -41,10 +39,9 @@ class ChatGptWireImporter(BaseWireImporter):
         ]
 
 
-class ChatGptImporter:
+class ChatGptImporter(Part):
     """Consumes the ChatGPT export ZIP."""
 
-    source: str = SOURCE
     name: str = NAME
     member: str | None = "conversations.json"
     id_key: str | None = "id"
@@ -75,7 +72,6 @@ def _to_log(conversation: dict[str, Any]) -> EventLog:
     metadata = {"id": id_, "resource": f"https://chatgpt.com/c/{id_}", **models_field(_models(conversation))}
 
     return EventLog(
-        source=SOURCE,
         created=_timestamp(conversation.get("create_time")),
         events=list(_messages(conversation)),
         title=conversation["title"],

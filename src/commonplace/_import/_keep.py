@@ -33,8 +33,6 @@ _SLUG_CHARS = 50
 
 
 class KeepImporter(BaseWireImporter):
-    source: str = "keep"
-    tree: Path = Path("notes") / "keep"
     #: A note keeps the path it was first captured at, found by its `id`: retitling in Keep changes its text,
     #: not where it lives, so its marginalia stay attached.
     id_key: str | None = "id"
@@ -86,7 +84,7 @@ class KeepImporter(BaseWireImporter):
             slug = slug[:_SLUG_CHARS].rsplit("-", 1)[0]
         slug = slug.strip("-") or "note"
         stem = f"{created[:10]}-{slug}"
-        path = self.tree / created[:4] / created[5:7] / f"{stem}.md"
+        path = self.source.tree / created[:4] / created[5:7] / f"{stem}.md"
 
         # Keep's labels are what the note is, so frontmatter, under OKF's `tags`, the word marginalia use too.
         tags = [labels[ref["labelId"]] for ref in root.get("labelIds", []) if not _gone(ref)]

@@ -8,18 +8,6 @@ from zipfile import ZipFile, is_zipfile
 
 from commonplace import __version__
 from commonplace._config import BLOBS
-from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
-from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
-from commonplace._import._claude import ClaudeImporter
-from commonplace._import._claude_code import ClaudeCodeImporter
-from commonplace._import._claude_code_memory import ClaudeCodeMemoryImporter
-from commonplace._import._claude_export import ClaudeExportImporter
-from commonplace._import._claude_memory import ClaudeMemoryImporter
-from commonplace._import._claude_tasks import ClaudeTasksImporter
-from commonplace._import._gemini import GeminiImporter
-from commonplace._import._gemini_memory import GeminiMemoryImporter
-from commonplace._import._gemini_takeout import GeminiTakeoutImporter
-from commonplace._import._keep import KeepImporter
 from commonplace._import._mirror import mirror_one
 from commonplace._import._placement import Placement
 from commonplace._import._serializer import MarkdownSerializer
@@ -27,30 +15,10 @@ from commonplace._import._types import ChatImporter, MirrorImporter
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
-from commonplace._types import Note, RepoPath
+from commonplace._sources import importers
+from commonplace._types import ChatSource, MirrorSource, Note, RepoPath
 from commonplace._utils import slugify
 from commonplace._wire import NewerWireVersion
-
-#: Importers that accumulate conversations under `chats/`, probed in order.
-CHAT_IMPORTERS: list[ChatImporter] = [
-    GeminiTakeoutImporter(),
-    GeminiImporter(),
-    ClaudeExportImporter(),
-    ClaudeImporter(),
-    ClaudeTasksImporter(),
-    ClaudeCodeImporter(),
-    ChatGptWireImporter(),
-    ChatGptImporter(),
-]
-
-#: Importers that mirror live upstream state into a tree they own; an importer's kind is the list it is in.
-MIRROR_IMPORTERS: list[MirrorImporter] = [
-    GeminiMemoryImporter(),
-    ClaudeMemoryImporter(),
-    ClaudeCodeMemoryImporter(),
-    ChatGptMemoryImporter(),
-    KeepImporter(),
-]
 
 
 def import_(path: Path, repo: Commonplace, user: str, auto_index: bool | None = None):
@@ -72,27 +40,19 @@ def import_(path: Path, repo: Commonplace, user: str, auto_index: bool | None = 
             import_one(filepath, repo, user, auto_index=auto_index)
 
 
-def landing_tree(source: str) -> Path:
-    """Where `source` lands, which is also the pathspec its fetch cursor is read from."""
-    for importer in MIRROR_IMPORTERS:
-        if importer.source == source:
-            return importer.tree
-    return Path("chats") / source
-
-
 def autodetect_importer[I: (ChatImporter, MirrorImporter)](path: Path, importers: Sequence[I]) -> I | None:
     """The first of `importers` to claim the file at `path`."""
     assert path.is_file()
     for importer in importers:
         try:
             if importer.can_import(path):
-                logger.info(f"Using {importer.source} importer for {path}")
+                logger.info(f"Using {importer.source.name} importer for {path}")
                 return importer
         except NewerWireVersion:
             # Ours, but from a newer commonplace: skipping it as not ours would lose it quietly.
             raise
         except Exception:  # noqa: BLE001 - probing an arbitrary file; any failure means "not ours"
-            logger.debug(f"{importer.source} cannot handle {path}", exc_info=True)
+            logger.debug(f"{importer.source.name} cannot handle {path}", exc_info=True)
     logger.debug(f"No importer claimed '{path}'")
     return None
 
@@ -107,9 +67,9 @@ def import_one(
     path: Path, repo: Commonplace, user: str, auto_index: bool | None = None, commit: bool = True
 ) -> RepoPath | None:
     """Import chats, or hand a mirrored source to `mirror_one`; returns the blob stored, if any."""
-    if mirror := autodetect_importer(path, MIRROR_IMPORTERS):
+    if mirror := autodetect_importer(path, importers(MirrorSource)):
         return mirror_one(path, repo, mirror, auto_index=auto_index)
-    importer = autodetect_importer(path, CHAT_IMPORTERS)
+    importer = autodetect_importer(path, importers(ChatSource))
     if not importer:
         logger.debug(f"Skipping {path}")
         return None
@@ -120,13 +80,13 @@ def import_one(
     else:
         blob = repo.store_blob(path)
 
-    placement = Placement.of(repo.root, landing_tree(importer.source), importer.id_key)
+    placement = Placement.of(repo.root, importer.source.tree, importer.id_key)
     for note in render_chats(path, importer, user, blob.path.as_posix(), placement):
         repo.save(note)
         logger.info(f"Stored log '{note.metadata['title']}' at '{note.repo_path}'")
 
     if commit:
-        repo.commit(f"Import from '{path}' using '{importer.source}' importer", auto_index=auto_index)
+        repo.commit(f"Import from '{path}' using '{importer.source.name}' importer", auto_index=auto_index)
     return blob
 
 
@@ -139,7 +99,7 @@ def render_chats(
     placement = placement or Placement()
 
     for log in importer.import_(path):
-        proposed = make_chat_path(source=log.source, date=log.created, title=log.title)
+        proposed = make_chat_path(importer.source.tree, date=log.created, title=log.title)
         rel_path = placement.place(proposed, log.metadata.get(importer.id_key) if importer.id_key else None)
 
         # `generated` is the importer's rendition, current as of the last event.
@@ -149,7 +109,7 @@ def render_chats(
                 "by": f"commonplace/{__version__}",
                 "at": max((e.created for e in log.events), default=log.created).isoformat(timespec="seconds"),
             },
-            "source": log.source,
+            "source": importer.source.name,
             "source_export": source_export,
         }
         rendered.append(Note.compose(RepoPath(rel_path), "Chat", log.title, serializer.serialize(log), metadata))
@@ -157,14 +117,9 @@ def render_chats(
     return rendered
 
 
-def make_chat_path(source: str, date: datetime, title: str | None) -> Path:
+def make_chat_path(tree: Path, date: datetime, title: str | None) -> Path:
     """Where a chat lands: `{tree}/{yyyy}/{mm}/{date}-{slug}.md`, the slug from its title."""
     slug = ""
     if title:
         slug = "-" + slugify(title)
-    return (
-        landing_tree(source)
-        / f"{date.year:02}"
-        / f"{date.month:02}"
-        / f"{date.year:02}-{date.month:02}-{date.day:02}{slug}.md"
-    )
+    return tree / f"{date.year:02}" / f"{date.month:02}" / f"{date.year:02}-{date.month:02}-{date.day:02}{slug}.md"

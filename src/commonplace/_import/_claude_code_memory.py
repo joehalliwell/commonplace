@@ -16,9 +16,6 @@ from commonplace._wire import entry_body, read_entries
 
 
 class ClaudeCodeMemoryImporter(BaseWireImporter):
-    source: str = "claude-code-memory"
-    tree: Path = Path("memory") / "claude-code"
-
     def snapshot(self, path: Path, earlier: Sequence[Path] = ()) -> Snapshot:
         entries = list(read_entries(path))
         projects: list[str] = next((json.loads(e["response"]) for e in entries if e["endpoint"] == "projects"), [])
@@ -38,7 +35,7 @@ class ClaudeCodeMemoryImporter(BaseWireImporter):
             if kind := metadata.pop("type", None):
                 metadata["metadata"] = {"type": kind} | (metadata.get("metadata") or {})
             title = metadata.get("name") or PurePosixPath(name).stem
-            repo_path = RepoPath(self.tree / folders.get(encoded, encoded.lstrip("-")) / name)
+            repo_path = RepoPath(self.source.tree / folders.get(encoded, encoded.lstrip("-")) / name)
             notes.append(Note.compose(repo_path, "Memory", title, f"# {title}\n\n{body}", metadata))
         # Every capture reads every file, so the listing is complete and nothing goes unread.
         return Snapshot(notes, frozenset())
