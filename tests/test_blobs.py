@@ -20,6 +20,15 @@ def sample_file(tmp_path):
     return p
 
 
+def test_store_blob_after_files_read_lands_links_to_it(test_repo, sample_file):
+    """The graph read before a blob was stored learns of it, as it does of a saved note."""
+    assert not test_repo.files.named("sample.txt")
+
+    stored = test_repo.store_blob(sample_file)
+
+    assert test_repo.files.named("sample.txt") == [stored.path]
+
+
 def test_store_blob_copies_file(test_repo, sample_file):
     """File appears at .commonplace/blobs/<hash>/<name> and the next commit includes it."""
     repo_path = test_repo.store_blob(sample_file)

@@ -180,7 +180,7 @@ class Commonplace:
         if not abs_path.exists():
             abs_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source_path, abs_path)
-            self._pending.add(rel_path.as_posix())
+            self._wrote(rel_path)
 
         return self.make_repo_path(rel_path)
 
@@ -230,22 +230,6 @@ class Commonplace:
     def _head(self) -> str:
         return self._git("rev-parse", "HEAD").strip()
 
-    def _status(self, *pathspec: str, untracked: bool = False) -> tuple[str, set[str]]:
-        """HEAD, and which files under `pathspec` differ from it (untracked ones only if asked), from one `git status`."""
-        untracked_files = "--untracked-files=all" if untracked else "--untracked-files=no"
-        out = self._git("status", "--porcelain=v2", "-z", "--branch", untracked_files, "--no-renames", "--", *pathspec)
-        head, dirty = "", set()
-        for entry in out.split("\0"):
-            if entry.startswith("# branch.oid "):
-                head = entry.removeprefix("# branch.oid ")
-            elif entry.startswith("1 "):
-                dirty.add(entry.split(" ", 8)[8])
-            elif entry.startswith("u "):
-                dirty.add(entry.split(" ", 10)[10])
-            elif entry.startswith("? "):
-                dirty.add(entry.removeprefix("? "))
-        return head, dirty
-
     def last_commit_time(self, pathspec: str, diff_filter: str | None = None) -> datetime | None:
         """UTC timestamp of the most recent commit touching `pathspec`, or
         None if no commit in history has touched it.
@@ -274,7 +258,9 @@ class Commonplace:
 
     def uncommitted(self, pathspec: str) -> set[str]:
         """Paths under `pathspec` that differ from HEAD, untracked ones included."""
-        return self._status(pathspec, untracked=True)[1]
+        tracked = self._git("diff", "--name-only", "--no-renames", "-z", "HEAD", "--", pathspec)
+        untracked = self._git("ls-files", "--others", "--exclude-standard", "-z", "--", pathspec)
+        return set(f"{tracked}\0{untracked}".split("\0")) - {""}
 
     def paths(self) -> Iterator[Path]:
         """Every file in the working tree that git would share, relative to the root, skipping dot-directories."""
@@ -322,12 +308,15 @@ class Commonplace:
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         with open(abs_path, "w") as fd:
             fd.write(dump_frontmatter(note.metadata, note.body))
-        self._pending.add(note.repo_path.path.as_posix())
-        self.__dict__.pop("files", None)
+        self._wrote(note.repo_path.path)
 
     def remove(self, path: Path) -> None:
         """Delete a file from the working directory, for the next commit."""
         (self.root / path).unlink()
+        self._wrote(path)
+
+    def _wrote(self, path: Path) -> None:
+        """Hold `path` for the next commit, and drop the graph read before it changed."""
         self._pending.add(path.as_posix())
         self.__dict__.pop("files", None)
 
@@ -511,7 +500,7 @@ class Commonplace:
         # 2. Auto-commit if there are changes
         if auto_commit:
             # The one commit of work commonplace didn't write: the user's own edits, whatever they are.
-            _, changed = self._status(untracked=True)
+            changed = self.uncommitted(".")
             if changed:
                 logger.info("Adding and committing changes...")
                 try:
