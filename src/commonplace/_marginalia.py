@@ -53,6 +53,8 @@ class Marginalia:
     @cached_property
     def wikilinks(self) -> list[Link]:
         """Every wikilink in the body, at its line in the body: each is a link from this note, prose or not."""
+        if "[[" not in self.body:
+            return []  # Tags alone, so not worth a parse
         found = extract_links(self.body, source=marginalia_path(self.note))
         return [link for link in found if link.kind is LinkKind.WIKILINK]
 
@@ -223,6 +225,8 @@ def links_to(
     """Every link that could mean `note`, from marginalia then notes' text, with its source; chats quote, so skip them."""
     found = []
     for source in annotated_notes(root):
+        if note.stem not in (root / marginalia_path(source)).read_text(errors="replace"):
+            continue  # Marginalia link only by wikilink, and a wikilink to a note spells its stem
         marginalia = read_marginalia(root, source)
         for written in marginalia.wikilinks:
             if lands_on(written, note, root):
