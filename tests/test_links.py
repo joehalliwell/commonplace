@@ -110,7 +110,7 @@ def test_extract_wikilink_with_pipe_is_taken_literally():
 def test_extract_wikilink_with_heading_keeps_the_span_beside_the_page_name():
     """Marginalia link to spans, so the fragment is part of what was written."""
     [link] = extract_links("See [[other note#Section]].", source=SOURCE)
-    assert (link.target, link.page) == ("other note#Section", "other note")
+    assert link.target == "other note#Section"
 
 
 def test_extract_wikilink_to_a_heading_in_this_note_is_not_a_link():

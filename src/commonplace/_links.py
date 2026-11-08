@@ -37,11 +37,6 @@ class Link:
     target: str  # Raw, as written: still percent-encoded, may carry a fragment
     kind: LinkKind
 
-    @property
-    def page(self) -> str:
-        """The target without its fragment: for a wikilink, the note it names."""
-        return self.target.split("#")[0]
-
 
 @dataclass(frozen=True)
 class BrokenLink:
@@ -275,7 +270,8 @@ def _reason_broken(link: Link, root: Path, index: dict[str, list[Path]], present
     """Why `link` lands nowhere — empty if it lands somewhere."""
     if link.kind is LinkKind.WIKILINK:
         # A wikilink names a note, not a location: any note with that name will do.
-        found = any(is_named(path, link.page) for path in index.get(Path(link.page).name, []))
+        page = link.target.split("#")[0]
+        found = any(is_named(path, page) for path in index.get(Path(page).name, []))
         return "" if found else "no note with that name"
 
     if not unquote(link.target.split("#")[0].split("?")[0]):
@@ -299,18 +295,11 @@ def _landing(link: Link, root: Path) -> Path:
 def lands(link: Link, root: Path, notes: Collection[Path], present: Collection[Path]) -> Path | None:
     """The one note among `notes` a wikilink names, or the file in `present` a path lands on; None otherwise."""
     if link.kind is LinkKind.WIKILINK:
-        named = [path for path in notes if is_named(path, link.page)]
+        named = [path for path in notes if is_named(path, link.target.split("#")[0])]
         return named[0] if len(named) == 1 else None
     candidate = _landing(link, root)
     inside = candidate.is_relative_to(root) and candidate.relative_to(root) in present
     return candidate.relative_to(root) if inside else None
-
-
-def lands_on(link: Link, note: Path, root: Path) -> bool:
-    """Whether `link` could mean `note`: a wikilink any note of its name, a path exactly that file."""
-    if link.kind is LinkKind.WIKILINK:
-        return is_named(note, link.page)
-    return unquote(link.page) != "" and _landing(link, root) == root / note
 
 
 def check_links(
