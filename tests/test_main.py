@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import tomllib
 
 import pytest
@@ -6,12 +8,28 @@ from cyclopts.exceptions import CycloptsError
 from commonplace.__main__ import app
 from commonplace._config import Config
 from commonplace._repo import Commonplace
+from tests.porcelain import git
 
 
 def test_init(tmp_path):
     root = tmp_path / "new_repo"
     assert app.meta(["init", str(root)], result_action="return_int_as_exit_code_else_zero") == 0
     Commonplace.open(root)
+
+
+def test_git_in_a_linked_worktree_runs_there(test_repo, tmp_path):
+    """A linked worktree's `.git` is a file pointing at the main repository's, not a directory."""
+    worktree = tmp_path / "worktree"
+    git(test_repo.root, "worktree", "add", "-q", "-b", "side", str(worktree))
+
+    done = subprocess.run(
+        [sys.executable, "-m", "commonplace", f"--root={worktree}", "git", "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert (done.returncode, done.stdout.splitlines()[-1]) == (0, "side"), done.stderr
 
 
 def test_search_empty_index_exits_cleanly(test_app):
