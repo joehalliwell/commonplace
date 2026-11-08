@@ -117,13 +117,9 @@ def _last_changed(root: Path, head: str, pathspec: str, field: str) -> dict[str,
     return last
 
 
-def _hash_file(path: Path, buf_size: int = 65536) -> str:
-    """SHA-256 hash a file, streaming in chunks."""
-    h = hashlib.sha256()
+def _hash_file(path: Path) -> str:
     with open(path, "rb") as f:
-        while chunk := f.read(buf_size):
-            h.update(chunk)
-    return h.hexdigest()
+        return hashlib.file_digest(f, "sha256").hexdigest()
 
 
 @dataclass
@@ -151,53 +147,30 @@ class Commonplace:
 
     @cached_property
     def config(self):
-        """Get the commonplace configuration."""
         from commonplace._config import Config
 
         return Config.load(self.root)
 
-    @cached_property
-    def cache(self) -> Path:
-        """Get the cache directory."""
-        return self.root / CACHE
-
     def store_blob(self, source_path: Path) -> RepoPath:
-        """Store a file in .commonplace/blobs/ addressed by its SHA-256 hash.
-
-        Returns the existing path if the blob already exists (idempotent).
-        """
-        digest = _hash_file(source_path)
-        rel_path = BLOBS / digest / source_path.name
-        abs_path = self.root / rel_path
-
-        if not abs_path.exists():
-            abs_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source_path, abs_path)
+        """Store a file under its SHA-256 in .commonplace/blobs/, once."""
+        rel_path = BLOBS / _hash_file(source_path) / source_path.name
+        if not (self.root / rel_path).exists():
+            (self.root / rel_path).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_path, self.root / rel_path)
             self._wrote(rel_path)
-
         return self.make_repo_path(rel_path)
 
     @cached_property
     def index(self):
-        """Get the search index."""
         from commonplace._search._sqlite import SQLiteSearchIndex
 
-        index_path = self.cache / "index.db"
         return SQLiteSearchIndex(
-            index_path,
-            note_exists=self.note_exists,
+            self.root / CACHE / "index.db",
+            # Blind to which version: an edited note is still there to open, so a chunk of its previous text is
+            # worth returning until indexing catches up. A deleted one is not, and quoting it back would be a lie.
+            note_exists=lambda repo_path: (self.root / repo_path.path).exists(),
             is_hidden=lambda path: self.load(RepoPath(path)).hidden,
         )
-
-    def note_exists(self, repo_path: RepoPath) -> bool:
-        """
-        Whether the note a chunk came from is still in the repository.
-
-        Deliberately blind to which version: an edited note is still there to
-        open, so a chunk of its previous text is worth returning until indexing
-        catches up. A deleted one is not, and quoting it back would be a lie.
-        """
-        return (self.root / repo_path.path).exists()
 
     @staticmethod
     def init(root: Path):
@@ -224,18 +197,7 @@ class Commonplace:
         return self._git("rev-parse", "HEAD").strip()
 
     def last_commit_time(self, pathspec: str, diff_filter: str | None = None) -> datetime | None:
-        """UTC timestamp of the most recent commit touching `pathspec`, or
-        None if no commit in history has touched it.
-
-        Uses git author date (`%aI`) so timestamps are stable across
-        rebases. Callers should be aware that this is commit time — always ≥
-        the effective content timestamp of whatever was written.
-
-        `diff_filter` maps directly to `git log --diff-filter=...` — pass e.g.
-        `"AM"` to consider only commits that *added or modified* files under the
-        pathspec, ignoring pure deletions or rename-source commits (important
-        for fetch-cursor use, where `git mv chats/foo chats/bar` would
-        otherwise poison the cursor for `chats/foo/`)."""
+        """The author date, stable across rebases, of the last commit to change `pathspec`, of `diff_filter`'s kinds if given."""
         args = ["log", "-1", "--format=%aI"]
         if diff_filter:
             args.append(f"--diff-filter={diff_filter}")
@@ -278,7 +240,7 @@ class Commonplace:
         return {Path(fields[i + 1]): Path(fields[i + 2]) for i in range(0, len(fields) - 2, 3)}
 
     def note_paths(self) -> Iterator[RepoPath]:
-        """Get an iterator over all note paths at current HEAD, skipping dot-directories."""
+        """Every note `paths` gives, at the commit that last changed it."""
         return iter(self._repo_paths([path for path in self.paths() if path.suffix == ".md"]))
 
     def load(self, repo_path: RepoPath) -> Note:
@@ -295,12 +257,10 @@ class Commonplace:
         return Note(repo_path, body, metadata, marginalia=marginalia, text=text, source=source)
 
     def save(self, note: Note) -> None:
-        """Save a note to working directory for the next commit. Beware! This will overwrite
-        existing content."""
+        """Write a note to the working tree for the next commit, over whatever is there."""
         abs_path = self.root / note.repo_path.path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(abs_path, "w") as fd:
-            fd.write(dump_frontmatter(note.metadata, note.body))
+        abs_path.write_text(dump_frontmatter(note.metadata, note.body))
         self._wrote(note.repo_path.path)
 
     def remove(self, path: Path) -> None:
