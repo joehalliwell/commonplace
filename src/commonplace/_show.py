@@ -24,7 +24,7 @@ SECTIONS = ("tags", "links", "commentary", "index")
 
 def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str, Any]:
     """The record of the note `spec` names; a hidden note is shown when asked for by name, and says so."""
-    [note] = repo.notes_named(spec)
+    [note] = repo.files.resolve(spec)
     node = repo.get(note)
     metadata = node.metadata
     # A field the note lacks is left out rather than shown as null.
