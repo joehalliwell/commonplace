@@ -15,6 +15,7 @@ import yaml
 
 from commonplace._links import Target
 from commonplace._repo import Commonplace
+from commonplace._search._commands import open_index
 from commonplace._search._types import Version
 
 #: The sections after the header, in the order they render.
@@ -45,7 +46,7 @@ def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str
 def _index_state(repo: Commonplace, note: Path) -> dict[str, Any]:
     """How many chunks the current version has in the index, and whether it's current, stale or not indexed."""
     current = Version(note, repo.content_ids().get(note, ""))
-    index = repo.index
+    index = open_index(repo)
     versions = [version for version in index.get_indexed_paths() if version.path == note]
     if current in versions:
         chunks = sum(stat.num_chunks for stat in index.stats() if stat.version == current)

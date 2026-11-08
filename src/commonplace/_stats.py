@@ -8,6 +8,7 @@ from rich.table import Table
 
 from commonplace._heatmap import ActivityHeatmap, build_activity_data, render_all_time_heatmap
 from commonplace._repo import Commonplace
+from commonplace._search._commands import open_index
 from commonplace._sources import source_holding
 
 
@@ -85,7 +86,7 @@ def generate_stats(
     repo_counts.update(source(path) for path in note_paths)
 
     index_chunks_by_source: Counter[str] = Counter()
-    all_stats = list(repo.index.stats())
+    all_stats = list(open_index(repo).stats())
 
     # Filter index stats by sources if specified
     if sources:

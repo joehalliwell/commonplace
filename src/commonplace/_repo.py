@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Literal
 
 from commonplace import _scaffold as scaffold
-from commonplace._config import BLOBS, CACHE, MARGINALIA, Config
+from commonplace._config import BLOBS, MARGINALIA, Config
 from commonplace._links import BrokenLink, Edge, Files, Target, UnresolvedNote
 from commonplace._logging import logger
 from commonplace._marginalia import read_marginalia, write_marginalia
@@ -171,18 +171,6 @@ class Commonplace:
             shutil.copy2(source_path, self.root / rel_path)
             self._wrote(rel_path)
         return Blob(rel_path)
-
-    @cached_property
-    def index(self):
-        from commonplace._search._sqlite import SQLiteSearchIndex
-
-        return SQLiteSearchIndex(
-            self.root / CACHE / "index.db",
-            # Blind to which version: an edited note is still there to open, so a chunk of its previous text is
-            # worth returning until indexing catches up. A deleted one is not, and quoting it back would be a lie.
-            note_exists=lambda path: (self.root / path).exists(),
-            is_hidden=lambda path: self.load(path).hidden,
-        )
 
     @staticmethod
     def init(root: Path) -> "Commonplace":
