@@ -57,7 +57,7 @@ def _fetch_one(repo: Commonplace, source: Source, auto_index: bool | None, all_:
     tree = source.tree.as_posix()
     since = None if all_ else repo.last_commit_time(f"{tree}/", diff_filter="AM")
     # What this source has landed, for a fetcher that asks only for what changed since; --full asks for it all.
-    previous = [] if all_ else [repo.root / p for p in repo.stored_archives(*archive_names(source.name))]
+    previous = [] if all_ else [repo.root / blob.path for blob in repo.blobs(*archive_names(source.name))]
     with tempfile.TemporaryDirectory() as tmp:
         archives = fetcher.fetch(Path(tmp), since, previous=previous)
         if not archives:

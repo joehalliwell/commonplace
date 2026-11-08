@@ -139,5 +139,5 @@ def test_fetch_command_section_dropped_upstream_leaves_the_file(test_repo):
 def test_fetch_command_mirror_commit_names_the_stored_archive(test_repo):
     fetch(test_repo, sources=fetching(FakeMemory().fetcher()), auto_index=False)
 
-    [stored] = test_repo.stored_archives(*archive_names("chatgpt-memory"))
+    [stored] = [blob.path for blob in test_repo.blobs(*archive_names("chatgpt-memory"))]
     assert git(test_repo.root, "log", "-1", "--format=%s").strip() == f"Mirror chatgpt-memory: {stored.as_posix()}"

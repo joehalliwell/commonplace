@@ -173,7 +173,7 @@ def test_fetch_command_lands_sessions_under_claude_code_in_one_commit(test_repo,
         "chats/claude-code/2025/10/2025-10-01-new-work.md",
     ]
     assert len(git(test_repo.root, "log", "--oneline").splitlines()) == before + 1
-    assert len(test_repo.stored_archives(*archive_names("claude-code"))) == 3
+    assert len([blob.path for blob in test_repo.blobs(*archive_names("claude-code"))]) == 3
 
 
 def _entries(captured: list[Path]) -> list[dict]:
@@ -189,7 +189,7 @@ def test_fetch_command_commit_names_each_stored_archive(test_repo, tmp_path):
     fetch(test_repo, sources=fetching(owned(ClaudeCodeFetcher, root=_claude_home(tmp_path))), auto_index=False)
 
     message = git(test_repo.root, "log", "-1", "--format=%B")
-    stored = test_repo.stored_archives(*archive_names("claude-code"))
+    stored = [blob.path for blob in test_repo.blobs(*archive_names("claude-code"))]
     assert message.startswith("Fetch claude-code: 3 archives")
     assert all(path.as_posix() in message for path in stored)
     assert "/tmp" not in message

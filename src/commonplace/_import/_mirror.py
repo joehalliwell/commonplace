@@ -12,7 +12,7 @@ from commonplace._import._placement import Placement
 from commonplace._import._types import MirrorImporter
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
-from commonplace._types import Note, RepoPath
+from commonplace._types import Note, RepoPath, Source
 from commonplace._wire import archive_names, read_header
 
 
@@ -28,7 +28,7 @@ def mirror_one(
         return None
 
     # Captures of this source already landed, for an importer whose captures are changes on earlier ones.
-    earlier = [repo.root / stored for stored in repo.stored_archives(*archive_names(importer.source.name))]
+    earlier = [repo.root / blob.path for blob in repo.blobs(*archive_names(importer.source.name))]
     snapshot = importer.snapshot(path, earlier=earlier)
     if importer.id_key is not None:
         snapshot = replace(snapshot, notes=_placed(repo, tree, importer.id_key, snapshot.notes))
@@ -37,7 +37,7 @@ def mirror_one(
         if not note.repo_path.path.is_relative_to(tree) or note.repo_path.path == tree:
             raise ValueError(f"'{path}' names '{note.repo_path}', outside '{tree}'")
     # A re-read is a new blob, so rewriting what is already there would change only its provenance.
-    notes = [note for note in snapshot.notes if not _landed(repo, note)]
+    notes = [note for note in snapshot.notes if not _landed(repo, importer.source, note)]
 
     stale: list[Path] = []
     if snapshot.unread is None:
@@ -53,7 +53,7 @@ def mirror_one(
         return None
 
     blob = repo.store_blob(path)
-    provenance = {"source": importer.source.name, "source_export": blob.path.as_posix()}
+    provenance = importer.source.provenance(blob.path.as_posix())
     for note in notes:
         repo.save(replace(note, metadata=note.metadata | provenance))
         logger.info(f"Mirrored '{note.repo_path}'")
@@ -76,14 +76,9 @@ def _placed(repo: Commonplace, tree: Path, id_key: str, notes: list[Note]) -> li
     ]
 
 
-def _landed(repo: Commonplace, note: Note) -> bool:
+def _landed(repo: Commonplace, source: Source, note: Note) -> bool:
     """Whether the working tree already holds this note, whichever capture it was landed from."""
     held = repo.load(note.repo_path)
-    if not held.text:
-        return False
+    landed = note.metadata | source.provenance(held.metadata.get("source_export", ""))
     # Whitespace aside, since a formatting hook may rewrap what was landed.
-    metadata = {k: v for k, v in held.metadata.items() if k not in ("source", "source_export")}
-    return (metadata, held.body.split()) == (
-        note.metadata,
-        note.body.split(),
-    )
+    return bool(held.text) and (held.metadata, held.body.split()) == (landed, note.body.split())

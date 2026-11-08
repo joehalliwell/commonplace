@@ -8,7 +8,6 @@ themselves in the order they were stored: never hash order, which is chance.
 from datetime import UTC, datetime
 from pathlib import Path
 
-from commonplace._config import BLOBS
 from commonplace._import._commands import autodetect_importer, render_chats
 from commonplace._import._placement import Placement
 from commonplace._import._types import ChatImporter
@@ -88,17 +87,15 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
 
 
 def _in_capture_order(repo: Commonplace) -> list[tuple[Path, ChatImporter]]:
-    """Every stored archive a chat importer reads, oldest capture first."""
-    stored = {path: i for i, path in enumerate(repo.first_added(BLOBS.as_posix()))}
+    """Every stored archive a chat importer reads, oldest capture first, and of undated ones, the first stored."""
     archives: list[tuple[Path, ChatImporter]] = []
     for blob in repo.blobs():
         if importer := autodetect_importer(repo.root / blob.path, importers(ChatSource)):
             archives.append((blob.path, importer))
 
-    def capture(archive: tuple[Path, ChatImporter]) -> tuple[bool, datetime, int]:
+    def capture(archive: tuple[Path, ChatImporter]) -> tuple[bool, datetime]:
         blob = archive[0]
         fetched_at = read_header(repo.root / blob).fetched_at if blob.name.endswith((GZ, XZ)) else None
-        # An uncommitted blob was stored last.
-        return fetched_at is not None, fetched_at or _UNDATED, stored.get(blob.as_posix(), len(stored))
+        return fetched_at is not None, fetched_at or _UNDATED
 
     return sorted(archives, key=capture)
