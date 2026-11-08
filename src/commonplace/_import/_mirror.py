@@ -45,7 +45,7 @@ def mirror_one(
         logger.warning(f"'{path}' has no listing; nothing pruned")
     else:
         kept = snapshot.unread | {note.repo_path.path for note in snapshot.notes}
-        stale = [p for p in repo.paths() if p.is_relative_to(tree) and p not in kept]
+        stale = [p for p in repo.paths(tree) if p not in kept]
 
     # Decided before the blob is stored, so a capture that changes nothing leaves no trace.
     if not notes and not stale:

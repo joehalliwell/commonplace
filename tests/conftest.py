@@ -99,8 +99,7 @@ def no_global_config(tmp_path, monkeypatch):
 def test_repo(tmp_path):
     repo_path = tmp_path / "repo"
     repo_path.mkdir(parents=True)
-    Commonplace.init(repo_path)
-    yield Commonplace.open(repo_path)
+    yield Commonplace.init(repo_path)
 
 
 @pytest.fixture

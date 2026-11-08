@@ -19,11 +19,8 @@ def listing(repo: Commonplace, folder: Path, fields: list[str], include_hidden: 
 
     notes: list[Note] = []
     subfolders: set[str] = set()
-    for path in repo.paths():
-        try:
-            rest = path.relative_to(folder)
-        except ValueError:
-            continue
+    for path in repo.paths(folder):
+        rest = path.relative_to(folder)
         if len(rest.parts) > 1:
             if rest.parts[0] not in subfolders and shown(repo.load(RepoPath(path))):
                 subfolders.add(rest.parts[0])

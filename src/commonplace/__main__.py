@@ -3,7 +3,7 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Annotated, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
 from cyclopts import App, Parameter
 from platformdirs import user_data_dir
@@ -407,7 +407,7 @@ def sync(
     auto_commit: Annotated[bool, Parameter(help="Auto-commit uncommitted changes")] = True,
     branch: Annotated[str | None, Parameter(help="Branch name (default: current)")] = None,
     remote: Annotated[str, Parameter(help="Remote name")] = "origin",
-    strategy: Annotated[str, Parameter(help="Sync strategy: rebase or merge")] = "rebase",
+    strategy: Annotated[Literal["rebase", "merge"], Parameter(help="Sync strategy")] = "rebase",
     repo: Repo,
 ) -> None:
     """Synchronize with remote repository (add changes, pull, push)."""

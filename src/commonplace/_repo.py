@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import cached_property, lru_cache
 from pathlib import Path
+from typing import Literal
 
 from commonplace import _scaffold as scaffold
 from commonplace._config import BLOBS, CACHE, MARGINALIA
@@ -173,12 +174,12 @@ class Commonplace:
         )
 
     @staticmethod
-    def init(root: Path):
+    def init(root: Path) -> "Commonplace":
         root.mkdir(parents=True, exist_ok=True)
         _run_git(root, "init", "-q", "--initial-branch=main")
-
         scaffold.install(root)
         _commit(root, set(scaffold.TEMPLATES), "Initial commit")
+        return Commonplace.open(root)
 
     def make_repo_path(self, path: Pathlike) -> RepoPath:
         """A committed file's RepoPath, at the commit that last changed it; a note being written needs no ref."""
@@ -217,9 +218,9 @@ class Commonplace:
         untracked = self._git("ls-files", "--others", "--exclude-standard", "-z", "--", pathspec)
         return set(f"{tracked}\0{untracked}".split("\0")) - {""}
 
-    def paths(self) -> Iterator[Path]:
-        """Every file in the working tree that git would share, relative to the root, skipping dot-directories."""
-        for path in sorted(map(Path, self._ls("."))):
+    def paths(self, within: Path = Path()) -> Iterator[Path]:
+        """Every file under `within` that git would share, relative to the root, skipping dot-directories."""
+        for path in sorted(map(Path, self._ls(within.as_posix()))):
             if not any(part.startswith(".") for part in path.parts[:-1]):
                 yield path
 
@@ -289,7 +290,7 @@ class Commonplace:
 
     def gone(self, within: Path = Path()) -> list[Path]:
         """Every note under `within` that is gone but whose marginalia remain, in order."""
-        present = set(self.paths())
+        present = set(self.paths(within))
         return [path for path in self.annotated() if path.is_relative_to(within) and path not in present]
 
     def annotated(self) -> list[Path]:
@@ -353,7 +354,11 @@ class Commonplace:
             index(self, rebuild=False)
 
     def sync(
-        self, remote_name: str = "origin", branch: str | None = None, strategy: str = "rebase", auto_commit: bool = True
+        self,
+        remote_name: str = "origin",
+        branch: str | None = None,
+        strategy: Literal["rebase", "merge"] = "rebase",
+        auto_commit: bool = True,
     ) -> None:
         """Commit the user's own edits if `auto_commit`, then pull `branch` (default: the current one) and push it."""
         if remote_name not in self._git("remote").split():
