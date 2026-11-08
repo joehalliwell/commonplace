@@ -501,3 +501,42 @@ def test_a_notes_provenance_is_an_edge_to_its_archive_and_a_missing_one_is_broke
 
     assert [(found.link.source, found.link.target) for found in test_repo.check()] == [(lost, gone)]
     assert [note.repo_path.path for note, _ in test_repo.into(archive)] == [kept]
+
+
+def test_blobs_committed_in_storage_order_then_uncommitted_by_path(test_repo, tmp_path):
+    for name in ("b.json", "a.json", "d.json", "c.json"):
+        (tmp_path / name).write_text(name)
+    committed = []
+    for name in ("b.json", "a.json"):
+        committed.append(test_repo.store_blob(tmp_path / name).path)
+        test_repo.commit(f"Store {name}", auto_index=False)
+        test_repo.save(Note(repo_path=RepoPath(Path(f"{name}.md")), body="# Note\n"))
+        test_repo.commit(f"Note {name}", auto_index=False)
+    pending = sorted((test_repo.store_blob(tmp_path / name).path for name in ("d.json", "c.json")), key=Path.as_posix)
+
+    assert [blob.path for blob in test_repo.blobs()] == [*committed, *pending]
+    assert [blob.path.name for blob in test_repo.blobs("a.json", "c.json")] == ["a.json", "c.json"]
+
+
+def test_uncommitted_reports_edited_deleted_and_untracked_under_pathspec(test_repo):
+    _write(test_repo, {Path(name): "# Seed\n" for name in ("notes/edited.md", "notes/deleted.md", "other.md")})
+    _git(test_repo, "add", ".")
+    _git(test_repo, "commit", "-m", "Seed")
+    (test_repo.root / "notes/edited.md").write_text("# Edited\n")
+    (test_repo.root / "notes/deleted.md").unlink()
+    (test_repo.root / "notes/new.md").write_text("# New\n")
+    (test_repo.root / "other.md").write_text("# Elsewhere\n")
+
+    assert test_repo.uncommitted("notes") == {"notes/edited.md", "notes/deleted.md", "notes/new.md"}
+
+
+def test_renamed_since_maps_each_moved_file_to_its_new_path(test_repo):
+    _write(test_repo, {Path(name): f"# {name}\nenough words to be recognised as the same file\n" for name in "abc"})
+    _git(test_repo, "add", ".")
+    _git(test_repo, "commit", "-m", "Seed")
+    ref = _head(test_repo)
+    _git(test_repo, "mv", "a", "x")
+    _git(test_repo, "mv", "c", "y")
+    _git(test_repo, "commit", "-m", "Move")
+
+    assert test_repo.renamed_since(ref) == {Path("a"): Path("x"), Path("c"): Path("y")}
