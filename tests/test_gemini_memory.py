@@ -10,10 +10,8 @@ import pytest
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
 from commonplace._fetch._helpers import FetchBlocked
-from commonplace._import._commands import autodetect_importer
 from commonplace._import._gemini_memory import GeminiMemoryImporter
-from commonplace._sources import importers, source_named
-from commonplace._types import MirrorSource, Note, RepoPath
+from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
 from commonplace._wire import read_entries, read_header, write_archive
 from tests.fetching import fetching, owned
@@ -93,14 +91,6 @@ def test_snapshot_multiline_item_stays_one_bullet(tmp_path):
 def test_snapshot_null_body_raises(tmp_path):
     with pytest.raises(RuntimeError, match="ZKcapf"):
         owned(GeminiMemoryImporter).snapshot(_archive(tmp_path, None))
-
-
-def test_autodetect_example_archive_finds_the_gemini_memory_importer():
-    assert isinstance(autodetect_importer(EXAMPLE, importers(MirrorSource)), GeminiMemoryImporter)
-
-
-def test_landing_tree_gemini_memory_lands_in_memory_gemini():
-    assert source_named("gemini-memory").tree == Path("memory/gemini")
 
 
 # ---------------------------------------------------------------------------

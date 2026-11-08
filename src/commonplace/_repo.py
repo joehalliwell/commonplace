@@ -22,7 +22,7 @@ from commonplace._config import BLOBS, CACHE, CONFIG
 from commonplace._links import BrokenLink, Edge, Files, Target, UnresolvedNote
 from commonplace._logging import logger
 from commonplace._marginalia import annotated_notes, read_marginalia, write_marginalia
-from commonplace._types import Marginalia, Note, Pathlike, RepoPath
+from commonplace._types import Blob, Marginalia, Note, Pathlike, RepoPath
 from commonplace._utils import dump_frontmatter, load_frontmatter
 
 # What `init` lays down, as it lands in a repo. Its dotfiles match nothing here, so they are inert.
@@ -514,7 +514,12 @@ class Commonplace:
     @cached_property
     def files(self) -> Files:
         """The files `paths` gives, indexed for landing edges and resolving specs; dropped on any write."""
-        return Files(self.root, self.paths())
+        return Files(self.root, [*self.paths(), *(blob.path for blob in self.blobs())])
+
+    def blobs(self) -> list[Blob]:
+        """Every archive stored, whether or not committed yet, in path order."""
+        out = self._git("ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", BLOBS.as_posix())
+        return [Blob(Path(path)) for path in sorted(set(out.split("\0")) - {""})]
 
     def commit(self, message: str, auto_index: bool | None = None, *, as_user: bool = False) -> None:
         """Commit what this repo has saved, removed or stored since the last commit, and nothing else.

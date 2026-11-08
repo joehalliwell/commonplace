@@ -14,6 +14,7 @@ from markdown_it.rules_inline import StateInline
 from markdown_it.token import Token
 from mdit_py_plugins.front_matter import front_matter_plugin
 
+from commonplace._config import BLOBS
 from commonplace._utils import load_frontmatter
 
 
@@ -112,12 +113,12 @@ def _strings(value: object) -> Iterator[str]:
 
 
 def _frontmatter_citations(text: str, lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
-    """The paths an artefact's frontmatter cites under any `source*` key."""
+    """The notes and archives an artefact's frontmatter cites under any `source*` key."""
     metadata, _ = load_frontmatter(text)
     for key, value in metadata.items():
         if str(key).startswith("source"):
             for target in _strings(value):
-                if target.endswith(".md"):
+                if target.endswith(".md") or target.startswith(f"{BLOBS.as_posix()}/"):
                     # Frontmatter comes first, so the first line to mention a path is the one that cites it.
                     yield _locate(lines, target), target, LinkKind.CITATION
 
@@ -160,10 +161,11 @@ def _is_repo_reference(target: str) -> bool:
     return not _EXTERNAL_SCHEME.match(target)
 
 
-def extract_links(text: str, *, source: Path) -> list[Link]:
-    """Every reference in `text` that could point into the repository, in document order."""
+def extract_links(text: str, *, source: Path, body: bool = True) -> list[Link]:
+    """Every reference in `text` that could point into the repository, in document order; without `body`, only
+    those its frontmatter cites."""
     lines = text.split("\n")
-    found = [*_frontmatter_citations(text, lines), *_references(_MARKDOWN.parse(text))]
+    found = [*_frontmatter_citations(text, lines), *(_references(_MARKDOWN.parse(text)) if body else [])]
     links = []
     for line, target, kind in sorted(found, key=lambda item: item[0]):
         if _is_repo_reference(target := target.strip()):
@@ -180,7 +182,7 @@ class Target:
 
     def __str__(self) -> str:
         """Rooted and without `.md`, so a later note of the same name can't make it ambiguous."""
-        rooted = "/" + self.note.with_suffix("").as_posix()
+        rooted = "/" + (self.note.with_suffix("") if self.note.suffix == ".md" else self.note).as_posix()
         return f"{rooted}#{self.fragment}" if self.fragment else rooted
 
 

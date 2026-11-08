@@ -502,3 +502,22 @@ def test_a_note_labelled_hidden_in_its_own_frontmatter_is_left_out_of_links(test
 
     assert links(test_repo, IDEAS) == []
     assert [neighbour.other for neighbour in links(test_repo, IDEAS, include_hidden=True)] == ["/notes/other"]
+
+
+def test_a_notes_provenance_is_an_edge_to_its_archive_and_a_missing_one_is_broken(test_repo, tmp_path):
+    """What a chat's text quotes makes no edge, but the archive it was rendered from does."""
+    capture = tmp_path / "claude-wire.jsonl.gz"
+    capture.write_bytes(b"captured")
+    archive = test_repo.store_blob(capture).path
+    kept, lost = Path("chats/claude/2026/01/kept.md"), Path("chats/claude/2026/01/lost.md")
+    gone = ".commonplace/blobs/0000/gone-wire.jsonl.gz"
+    _write(
+        test_repo,
+        {
+            kept: f"---\nsource: claude\nsource_export: {archive.as_posix()}\n---\n\nQuoted: [[nothing]].\n",
+            lost: f"---\nsource: claude\nsource_export: {gone}\n---\n",
+        },
+    )
+
+    assert [(found.link.source, found.link.target) for found in test_repo.check()] == [(lost, gone)]
+    assert [note.repo_path.path for note, _ in test_repo.into(archive)] == [kept]

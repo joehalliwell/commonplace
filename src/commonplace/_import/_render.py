@@ -91,9 +91,9 @@ def _in_capture_order(repo: Commonplace) -> list[tuple[Path, ChatImporter]]:
     """Every stored archive a chat importer reads, oldest capture first."""
     stored = {path: i for i, path in enumerate(repo.first_added(BLOBS.as_posix()))}
     archives: list[tuple[Path, ChatImporter]] = []
-    for path in sorted((repo.root / BLOBS).glob("*/*")):
-        if importer := autodetect_importer(path, importers(ChatSource)):
-            archives.append((path.relative_to(repo.root), importer))
+    for blob in repo.blobs():
+        if importer := autodetect_importer(repo.root / blob.path, importers(ChatSource)):
+            archives.append((blob.path, importer))
 
     def capture(archive: tuple[Path, ChatImporter]) -> tuple[bool, datetime, int]:
         blob = archive[0]

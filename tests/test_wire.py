@@ -27,6 +27,7 @@ from commonplace._wire import (
     read_header,
     write_archive,
 )
+from tests.conftest import WIRE_EXAMPLES
 from tests.fetching import owned
 
 ENTRIES = [
@@ -250,6 +251,16 @@ def test_every_fetchers_archive_reaches_its_own_sources_importer(tmp_path):
         reached[source.name] = importer and importer.source.name
 
     assert reached == {name: name for name in reached}
+
+
+@pytest.mark.parametrize(
+    "example", sorted(WIRE_EXAMPLES.glob("*-v*.jsonl.*")), ids=lambda path: path.name.split(".")[0]
+)
+def test_every_example_archive_is_claimed_by_its_own_sources_importer(example):
+    """Real captures, where the synthetic archives above are minimal: each names its source, as `<source>-v<N>`."""
+    importer = autodetect_importer(example, IMPORTERS)
+
+    assert importer is not None and importer.source.name == example.name.rsplit("-v", 1)[0]
 
 
 def test_exactly_one_importer_claims_each_fetchers_archive(tmp_path, claims):
