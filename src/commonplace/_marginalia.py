@@ -6,14 +6,25 @@ Frontmatter holds current state (`tags`); the body is a log of dated lines, appe
 changes. Every wikilink in the body is a link from the note.
 """
 
-import re
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, field, replace
 from datetime import date
+from functools import cached_property
 from pathlib import Path
 
 from commonplace._config import MARGINALIA
-from commonplace._links import Target, UnresolvedNote, is_named, links_from, links_to, resolve, resolve_target
+from commonplace._links import (
+    SKIPPED_ROOTS,
+    Link,
+    LinkKind,
+    Target,
+    UnresolvedNote,
+    extract_links,
+    lands,
+    lands_on,
+    resolve,
+    resolve_target,
+)
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
@@ -39,15 +50,26 @@ class Marginalia:
         """These marginalia without `tags`."""
         return replace(self, tags=[tag for tag in self.tags if tag not in tags])
 
+    @cached_property
+    def wikilinks(self) -> list[Link]:
+        """Every wikilink in the body, at its line in the body: each is a link from this note, prose or not."""
+        found = extract_links(self.body, source=marginalia_path(self.note))
+        return [link for link in found if link.kind is LinkKind.WIKILINK]
+
     @property
     def commentary(self) -> list[str]:
         """The body's lines that link nowhere: what's been said about the note, rather than what it's linked to."""
-        return [line for line in self.body.splitlines() if line.strip() and not _WIKILINK_TARGET.search(line)]
+        linked = {link.line for link in self.wikilinks}
+        return [line for n, line in enumerate(self.body.split("\n"), 1) if line.strip() and n not in linked]
 
     @property
     def links(self) -> list[str]:
-        """Every wikilink target in the body, in order: each is a link from this note, prose or not."""
-        return _WIKILINK_TARGET.findall(self.body)
+        """Every wikilink target in the body, in order."""
+        return [link.target for link in self.wikilinks]
+
+    def line(self, link: Link) -> str:
+        """The body line `link` is written on."""
+        return self.body.split("\n")[link.line - 1]
 
     def linked(self, target: Target, why: str, on: date) -> "Marginalia":
         """These marginalia with a link to `target` appended as a dated line."""
@@ -57,13 +79,9 @@ class Marginalia:
 
     def unlinked(self, target: Target | str) -> tuple["Marginalia", int]:
         """These marginalia without the body lines that link to exactly `target`, and how many went."""
-        marker = f"[[{target}]]"
-        kept = [line for line in self.body.splitlines(keepends=True) if marker not in line]
-        removed = len(self.body.splitlines(keepends=True)) - len(kept)
-        return replace(self, body="".join(kept)), removed
-
-
-_WIKILINK_TARGET = re.compile(r"\[\[([^[\]\n]+)]]")
+        dropped = {link.line for link in self.wikilinks if link.target == str(target)}
+        kept = [line for n, line in enumerate(self.body.split("\n"), 1) if n not in dropped]
+        return replace(self, body="\n".join(kept)), len(dropped)
 
 
 def marginalia_path(note: Path) -> Path:
@@ -176,32 +194,46 @@ def links(
     """A note's links, out then in, from marginalia and from notes' own text; hidden notes at the other end left out."""
     [note] = notes_named(repo, spec)
     files = list(repo.paths())
-    found: list[tuple[Neighbour, Path | None]] = []  # With the other end's note, to check it isn't hidden
-    if outgoing:
-        for line in read_marginalia(repo.root, note).body.splitlines():
-            for target in _WIKILINK_TARGET.findall(line):
-                found.append((Neighbour("out", target, line), _note_named(target, files)))
-        for written, lands in links_from(note, repo.root, files):
-            found.append((Neighbour("out", str(Target(lands)), f"line {written.line}"), lands))
-    if incoming:
-        for source in annotated_notes(repo.root):
-            for line in read_marginalia(repo.root, source).body.splitlines():
-                names = (target.split("#")[0] for target in _WIKILINK_TARGET.findall(line))
-                if any(is_named(note, name) for name in names):
-                    found.append((Neighbour("in", str(Target(source)), line), source))
-        for written in links_to(note, repo.root, files):
-            found.append((Neighbour("in", str(Target(written.source)), f"line {written.line}"), written.source))
+    found = [
+        *(links_from(repo.root, note, files) if outgoing else []),
+        *(links_to(repo.root, note, files) if incoming else []),
+    ]
     hidden = set() if include_hidden else tagged(repo.root, "hidden")
     return [neighbour for neighbour, other in found if other not in hidden]
 
 
-def _note_named(target: str, files: list[Path]) -> Path | None:
-    """The one note a link target names, or None if it names none or several."""
-    try:
-        [note] = resolve(target.split("#")[0], files)
-    except ValueError:  # Unresolved, or a glob naming several
-        return None
-    return note
+def links_from(root: Path, note: Path, files: Collection[Path]) -> list[tuple[Neighbour, Path | None]]:
+    """Every link from `note`, its marginalia's then its own text's, with the note at the other end if it has one."""
+    # A marginalia link was written on purpose, so it shows landing or not; one in the note's text once it lands.
+    notes, present = [path for path in files if path.suffix == ".md"], set(files)
+    marginalia = read_marginalia(root, note)
+    found: list[tuple[Neighbour, Path | None]] = [
+        (Neighbour("out", written.target, marginalia.line(written)), lands(written, root, notes, present))
+        for written in marginalia.wikilinks
+    ]
+    for written in extract_links((root / note).read_text(errors="replace"), source=note):
+        if (other := lands(written, root, notes, present)) is not None:
+            found.append((Neighbour("out", str(Target(other)), f"line {written.line}"), other))
+    return found
+
+
+def links_to(
+    root: Path, note: Path, files: Collection[Path], *, skip: Collection[str] = SKIPPED_ROOTS
+) -> list[tuple[Neighbour, Path]]:
+    """Every link that could mean `note`, from marginalia then notes' text, with its source; chats quote, so skip them."""
+    found = []
+    for source in annotated_notes(root):
+        marginalia = read_marginalia(root, source)
+        for written in marginalia.wikilinks:
+            if lands_on(written, note, root):
+                found.append((Neighbour("in", str(Target(source)), marginalia.line(written)), source))
+    for source in sorted(files):
+        if source.suffix != ".md" or source.parts[0] in tuple(skip) or source == note:
+            continue
+        for written in extract_links((root / source).read_text(errors="replace"), source=source):
+            if lands_on(written, note, root):
+                found.append((Neighbour("in", str(Target(source)), f"line {written.line}"), source))
+    return found
 
 
 def check_marginalia(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:

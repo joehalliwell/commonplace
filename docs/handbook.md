@@ -215,7 +215,7 @@ commonplace link ideas '2026-11-02#"by the river"'
 A link is a dated line in the first note's marginalia, with the target written
 from the root (`- 2026-11-02 [[/notes/ideas#Tea house]] filed as …`), so a later
 note of the same name can't make it ambiguous. Any wikilink you write in
-marginalia by hand counts as a link too.
+marginalia by hand counts as a link too, unless it is quoted as code.
 
 `show` gathers what other commands record about a note: its title and type, its
 own tags and its marginalia tags, its links both ways (from marginalia and from

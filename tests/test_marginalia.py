@@ -1,6 +1,7 @@
 """Tests for marginalia: what's been said about a note since, kept in a shadow tree beside it."""
 
 import shutil
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from commonplace._marginalia import (
     Marginalia,
     link,
     links,
+    links_to,
     marginalia_path,
     read_marginalia,
     tag,
@@ -225,6 +227,54 @@ def test_links_outgoing_gathers_marginalia_edges_and_links_in_the_notes_own_text
         ("out", "/chats/claude-tasks/2026/10/log", "- 2026-11-02 [[/chats/claude-tasks/2026/10/log]] scheduled"),
         ("out", "/chats/claude-tasks/2026/11/log", "line 3"),
     }
+
+
+def test_links_to_finds_every_kind_of_link_to_the_note_in_text_and_marginalia(tmp_path):
+    files = {
+        "notes/ideas.md": "# Ideas\n",
+        "notes/other.md": "# Other\n",
+        "journal/a.md": "See [[ideas]].\n",
+        "journal/b.md": "See [[/notes/ideas#Tea house]].\n",
+        "journal/c.md": "See [the list](../notes/ideas.md).\n",
+        "journal/d.md": "See [[other]] and [elsewhere](../notes/other.md).\n",
+        "journal/e.md": "See [the list](../notes/ide%61s.md).\n",
+        "chats/claude/x.md": "Quoted: [[ideas]].\n",
+        str(marginalia_path(Path("notes/other.md"))): "---\nmarginalia: 1\n---\n\n- 2026-11-02 [[/notes/ideas]] why\n",
+    }
+    for path, text in files.items():
+        (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / path).write_text(text)
+    notes = [Path(p) for p in files if not p.startswith(".")]
+
+    found = links_to(tmp_path, Path("notes/ideas.md"), notes)
+
+    # Chats quote links rather than make them, as for the link check.
+    assert [(neighbour.other, neighbour.context) for neighbour, _ in found] == [
+        ("/notes/other", "- 2026-11-02 [[/notes/ideas]] why"),
+        ("/journal/a", "line 1"),
+        ("/journal/b", "line 1"),
+        ("/journal/c", "line 1"),
+        ("/journal/e", "line 1"),
+    ]
+
+
+def test_a_wikilink_quoted_as_code_in_marginalia_is_commentary_not_a_link():
+    """Marginalia are markdown, read as the link check reads any note."""
+    marginalia = Marginalia(note=NOTE, body="- write one as `[[/notes/todo]]`\n- 2026-11-02 [[/notes/done]]\n")
+
+    assert marginalia.links == ["/notes/done"]
+    assert marginalia.commentary == ["- write one as `[[/notes/todo]]`"]
+
+
+def test_unlink_leaves_a_line_that_only_quotes_the_link(notes, as_joe):
+    link(notes, "ideas", "2026/10/log", "", on=date(2026, 11, 2))
+    marginalia = read_marginalia(notes.root, NOTE)
+    quoted = "- unlink with `[[/chats/claude-tasks/2026/10/log]]`\n"
+    write_marginalia(notes, replace(marginalia, body=marginalia.body + quoted))
+
+    assert unlink(notes, "ideas", "2026/10/log") == 1
+
+    assert read_marginalia(notes.root, NOTE).body == quoted
 
 
 def test_links_leave_out_hidden_notes_at_the_other_end_unless_asked(notes, as_joe):
