@@ -226,7 +226,9 @@ def search(
 ) -> None:
     """Search for semantically similar content in your commonplace."""
 
-    results = repo.index.search(
+    from commonplace._search._commands import open_index
+
+    results = open_index(repo).search(
         " ".join(query), limit=limit, method=method, include_deleted=deleted, include_hidden=hidden
     )
 

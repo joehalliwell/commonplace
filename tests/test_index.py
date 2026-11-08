@@ -53,7 +53,7 @@ Baking bread requires flour, water, and yeast.
     _commands.index(test_repo)
 
     # Search for ML-related content
-    results = test_repo.index.search("artificial intelligence", limit=10)
+    results = _commands.open_index(test_repo).search("artificial intelligence", limit=10)
 
     assert len(results) > 0
     # Should find the ML note
@@ -77,7 +77,7 @@ Content for note {i}.
     _commands.index(test_repo)
 
     # Search with limit
-    results = test_repo.index.search("content", limit=3)
+    results = _commands.open_index(test_repo).search("content", limit=3)
     assert len(results) <= 3
 
 
@@ -92,10 +92,10 @@ def test_search_with_punctuation(test_repo, make_note):
     _commands.index(test_repo)
 
     # These queries contain FTS5 syntax characters (commas, parentheses)
-    results = test_repo.index.search("life, the universe, and everything", limit=5)
+    results = _commands.open_index(test_repo).search("life, the universe, and everything", limit=5)
     assert isinstance(results, list)
 
-    results = test_repo.index.search("thinking (about) things", limit=5)
+    results = _commands.open_index(test_repo).search("thinking (about) things", limit=5)
     assert isinstance(results, list)
 
 
@@ -103,7 +103,7 @@ def test_index_incremental(test_repo, make_note):
     """Test that index only indexes new notes when not rebuilding."""
 
     # Initially empty
-    indexed_paths = set(test_repo.index.get_indexed_paths())
+    indexed_paths = set(_commands.open_index(test_repo).get_indexed_paths())
     assert len(indexed_paths) == 0
 
     # Add first note
@@ -120,7 +120,7 @@ Initial content.
     # Index
     _commands.index(test_repo)
 
-    indexed_paths = set(test_repo.index.get_indexed_paths())
+    indexed_paths = set(_commands.open_index(test_repo).get_indexed_paths())
     assert _version(test_repo, "first.md") in indexed_paths
 
     # Add second note
@@ -138,13 +138,13 @@ More content.
     _commands.index(test_repo)
 
     # Verify both notes are indexed
-    indexed_paths = set(test_repo.index.get_indexed_paths())
+    indexed_paths = set(_commands.open_index(test_repo).get_indexed_paths())
     assert _version(test_repo, "first.md") in indexed_paths
     assert _version(test_repo, "second.md") in indexed_paths
 
     # Index again without changes - should not add duplicates
     _commands.index(test_repo)
-    assert set(test_repo.index.get_indexed_paths()) == indexed_paths
+    assert set(_commands.open_index(test_repo).get_indexed_paths()) == indexed_paths
 
 
 def test_index_visits_a_note_with_no_chunks_once(test_repo, make_note, monkeypatch):
@@ -158,7 +158,7 @@ def test_index_visits_a_note_with_no_chunks_once(test_repo, make_note, monkeypat
     monkeypatch.setattr(test_repo, "load", lambda path: loaded.append(path) or load(path))
     _commands.index(test_repo)
 
-    assert _version(test_repo, "journal/empty.md") in set(test_repo.index.get_indexed_paths())
+    assert _version(test_repo, "journal/empty.md") in set(_commands.open_index(test_repo).get_indexed_paths())
     assert loaded == []
 
 
@@ -171,9 +171,9 @@ def test_index_gives_a_once_empty_note_its_chunks_when_it_gains_text(test_repo, 
     test_repo.commit("Write the day up")
     _commands.index(test_repo)
 
-    [hit] = test_repo.index.search_keyword("river")
+    [hit] = _commands.open_index(test_repo).search_keyword("river")
     assert hit.chunk.version == _version(test_repo, "journal/day.md")
-    versions = {p for p in test_repo.index.get_indexed_paths() if p.path == Path("journal/day.md")}
+    versions = {p for p in _commands.open_index(test_repo).get_indexed_paths() if p.path == Path("journal/day.md")}
     assert versions == {_version(test_repo, "journal/day.md")}
 
 
@@ -208,9 +208,11 @@ def test_search_leaves_out_a_note_tagged_hidden(test_repo, make_note):
     write_marginalia(test_repo, Marginalia(note=Path("mood.md")).tagged("hidden"))
 
     for method in SearchMethod:
-        found = {hit.chunk.version.path.name for hit in test_repo.index.search("Ozymandias", method=method)}
+        found = {
+            hit.chunk.version.path.name for hit in _commands.open_index(test_repo).search("Ozymandias", method=method)
+        }
         assert "mood.md" not in found, method
-    shown = test_repo.index.search_keyword("Ozymandias", include_hidden=True)
+    shown = _commands.open_index(test_repo).search_keyword("Ozymandias", include_hidden=True)
     assert {hit.chunk.version.path.name for hit in shown} == {"kept.md", "mood.md"}
 
 
@@ -219,13 +221,15 @@ def test_search_hides_deleted_notes(test_repo, make_note):
     test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nOzymandias king of kings.\n"))
     test_repo.commit("Add note")
     _commands.index(test_repo)
-    assert test_repo.index.search_keyword("Ozymandias", limit=10)
+    assert _commands.open_index(test_repo).search_keyword("Ozymandias", limit=10)
 
     _delete(test_repo, "doomed.md")
 
-    assert test_repo.index.search_keyword("Ozymandias", limit=10) == []
+    assert _commands.open_index(test_repo).search_keyword("Ozymandias", limit=10) == []
     assert [
-        hit for hit in test_repo.index.search("Ozymandias", limit=10) if hit.chunk.version.path.name == "doomed.md"
+        hit
+        for hit in _commands.open_index(test_repo).search("Ozymandias", limit=10)
+        if hit.chunk.version.path.name == "doomed.md"
     ] == []
 
 
@@ -237,7 +241,7 @@ def test_search_include_deleted_shows_them(test_repo, make_note):
 
     _delete(test_repo, "doomed.md")
 
-    hits = test_repo.index.search_keyword("Ozymandias", limit=10, include_deleted=True)
+    hits = _commands.open_index(test_repo).search_keyword("Ozymandias", limit=10, include_deleted=True)
     assert [str(hit.chunk.version.path) for hit in hits] == ["doomed.md"]
 
 
@@ -255,7 +259,7 @@ def test_search_keeps_finding_an_edited_note(test_repo, make_note):
     test_repo.save(make_note(path="draft.md", content="# Draft\n\nHerrings are crimson.\n"))
     test_repo.commit("Edit note")
 
-    hits = test_repo.index.search_keyword("silver", limit=10)
+    hits = _commands.open_index(test_repo).search_keyword("silver", limit=10)
     assert [str(hit.chunk.version.path) for hit in hits] == ["draft.md"]
 
 
@@ -269,8 +273,8 @@ def test_search_fills_the_limit_around_deleted_notes(test_repo, make_note):
     _delete(test_repo, "note0.md")
     _delete(test_repo, "note1.md")
 
-    assert len(test_repo.index.search_keyword("herrings", limit=3)) == 3
-    assert len(test_repo.index.search_semantic("herrings", limit=3)) == 3
+    assert len(_commands.open_index(test_repo).search_keyword("herrings", limit=3)) == 3
+    assert len(_commands.open_index(test_repo).search_semantic("herrings", limit=3)) == 3
 
 
 def test_index_rebuild_reindexes_everything(test_repo, make_note):
@@ -279,12 +283,12 @@ def test_index_rebuild_reindexes_everything(test_repo, make_note):
     test_repo.save(make_note(path="two.md", content="# Two\n\nSecond note.\n"))
     test_repo.commit("Add notes")
     _commands.index(test_repo)
-    indexed = set(test_repo.index.get_indexed_paths())
+    indexed = set(_commands.open_index(test_repo).get_indexed_paths())
     assert {Path("one.md"), Path("two.md")} <= {p.path for p in indexed}
 
     _commands.index(test_repo, rebuild=True)
 
-    assert set(test_repo.index.get_indexed_paths()) == indexed
+    assert set(_commands.open_index(test_repo).get_indexed_paths()) == indexed
 
 
 def test_index_prunes_deleted_notes(test_repo, make_note):
@@ -292,12 +296,12 @@ def test_index_prunes_deleted_notes(test_repo, make_note):
     test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nNot long for this world.\n"))
     test_repo.commit("Add note")
     _commands.index(test_repo)
-    assert set(test_repo.index.get_indexed_paths())
+    assert set(_commands.open_index(test_repo).get_indexed_paths())
 
     _delete(test_repo, "doomed.md")
     _commands.index(test_repo)
 
-    assert Path("doomed.md") not in {p.path for p in test_repo.index.get_indexed_paths()}
+    assert Path("doomed.md") not in {p.path for p in _commands.open_index(test_repo).get_indexed_paths()}
 
 
 def test_index_commonplace_dir_pruned(test_repo, make_note):
@@ -306,11 +310,11 @@ def test_index_commonplace_dir_pruned(test_repo, make_note):
     test_repo.commit("Add chaff")
     stale = _version(test_repo, ".commonplace/skills/rake/chaff.md")
     chunk = Chunk(version=stale, section="Chaff", text="Dropped in triage.", offset=0)
-    test_repo.index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
+    _commands.open_index(test_repo)._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
 
     _commands.index(test_repo)
 
-    assert stale not in set(test_repo.index.get_indexed_paths())
+    assert stale not in set(_commands.open_index(test_repo).get_indexed_paths())
 
 
 def test_index_reembeds_only_the_chunks_an_edit_changed(test_repo, make_note, monkeypatch):
@@ -320,9 +324,11 @@ def test_index_reembeds_only_the_chunks_an_edit_changed(test_repo, make_note, mo
     test_repo.commit("Add note")
     _commands.index(test_repo)
     embedded: list[str] = []
-    embed_docs = test_repo.index._embedder.embed_docs
+    embed_docs = _commands.open_index(test_repo)._embedder.embed_docs
     monkeypatch.setattr(
-        test_repo.index._embedder, "embed_docs", lambda texts: embedded.extend(texts) or embed_docs(texts)
+        _commands.open_index(test_repo)._embedder,
+        "embed_docs",
+        lambda texts: embedded.extend(texts) or embed_docs(texts),
     )
 
     test_repo.save(make_note(path="draft.md", content=body.replace("small", "tiny")))
@@ -330,7 +336,7 @@ def test_index_reembeds_only_the_chunks_an_edit_changed(test_repo, make_note, mo
     _commands.index(test_repo)
 
     assert len(embedded) == 1 and "tiny" in embedded[0]
-    assert test_repo.index.search_keyword("silver", limit=10)
+    assert _commands.open_index(test_repo).search_keyword("silver", limit=10)
 
 
 def test_index_prunes_superseded_versions(test_repo, make_note):
@@ -343,10 +349,10 @@ def test_index_prunes_superseded_versions(test_repo, make_note):
     test_repo.commit("Edit note")
     _commands.index(test_repo)
 
-    drafts = [p for p in test_repo.index.get_indexed_paths() if p.path == Path("draft.md")]
+    drafts = [p for p in _commands.open_index(test_repo).get_indexed_paths() if p.path == Path("draft.md")]
     assert drafts == [_version(test_repo, "draft.md")]
-    assert test_repo.index.search_keyword("crimson", limit=10)
-    assert test_repo.index.search_keyword("silver", limit=10) == []
+    assert _commands.open_index(test_repo).search_keyword("crimson", limit=10)
+    assert _commands.open_index(test_repo).search_keyword("silver", limit=10) == []
 
 
 def test_index_keeps_an_edited_notes_committed_text_until_the_edit_is_committed(test_repo, make_note):
@@ -359,24 +365,24 @@ def test_index_keeps_an_edited_notes_committed_text_until_the_edit_is_committed(
 
     (test_repo.root / "draft.md").write_text("# Draft\n\nHerrings are crimson.\n")
     _commands.index(test_repo)
-    assert test_repo.index.search_keyword("silver", limit=10)
-    assert test_repo.index.search_keyword("crimson", limit=10) == []
+    assert _commands.open_index(test_repo).search_keyword("silver", limit=10)
+    assert _commands.open_index(test_repo).search_keyword("crimson", limit=10) == []
 
     git(test_repo.root, "commit", "-qam", "Edit note")
     _commands.index(test_repo)
-    assert test_repo.index.search_keyword("crimson", limit=10)
-    assert test_repo.index.search_keyword("silver", limit=10) == []
+    assert _commands.open_index(test_repo).search_keyword("crimson", limit=10)
+    assert _commands.open_index(test_repo).search_keyword("silver", limit=10) == []
 
 
 def test_index_leaves_an_untracked_note_until_its_first_commit(test_repo):
     (test_repo.root / "draft.md").write_text("# Draft\n\nHerrings are crimson.\n")
     _commands.index(test_repo)
-    assert test_repo.index.search_keyword("crimson", limit=10) == []
+    assert _commands.open_index(test_repo).search_keyword("crimson", limit=10) == []
 
     git(test_repo.root, "add", "draft.md")
     git(test_repo.root, "commit", "-qm", "Add note")
     _commands.index(test_repo)
-    assert test_repo.index.search_keyword("crimson", limit=10)
+    assert _commands.open_index(test_repo).search_keyword("crimson", limit=10)
 
 
 def test_index_no_prune_keeps_deleted_notes(test_repo, make_note):
@@ -384,9 +390,9 @@ def test_index_no_prune_keeps_deleted_notes(test_repo, make_note):
     test_repo.save(make_note(path="doomed.md", content="# Doomed\n\nNot long for this world.\n"))
     test_repo.commit("Add note")
     _commands.index(test_repo)
-    indexed = set(test_repo.index.get_indexed_paths())
+    indexed = set(_commands.open_index(test_repo).get_indexed_paths())
 
     _delete(test_repo, "doomed.md")
     _commands.index(test_repo, prune=False)
 
-    assert set(test_repo.index.get_indexed_paths()) == indexed
+    assert set(_commands.open_index(test_repo).get_indexed_paths()) == indexed

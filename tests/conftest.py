@@ -105,7 +105,7 @@ def test_index(test_repo):
     """A bare store, with no repository to ask which chunks are still live.
 
     Store-level tests work with synthetic paths that were never on disk, so
-    liveness filtering belongs to the tests that go through `test_repo.index`.
+    liveness filtering belongs to the tests that go through `open_index(test_repo)`.
     """
     from commonplace._search._sqlite import SQLiteSearchIndex
 
