@@ -227,11 +227,6 @@ class Commonplace:
         listed = _z(self.root, "ls-files", *(which or ("--cached", "--others")), "--exclude-standard", "--", pathspec)
         return {path for path in listed if (self.root / path).exists()}
 
-    def history(self, path: Path) -> list[tuple[str, str]]:
-        """The commits that changed `path`, newest first, following renames, as (date, subject)."""
-        out = self._git("log", "--follow", "--format=%as%x00%s", "--", path.as_posix())
-        return [tuple(line.split("\0", 1)) for line in out.splitlines() if "\0" in line]  # type: ignore[misc]
-
     def moved(self) -> dict[Path, Path]:
         """Where each path git ever saw renamed is now: a chain of moves to its end, a reused path by its latest."""
         # Newest first, so where a file moved to next is already known: `then` holds where what was at a path then is now.
