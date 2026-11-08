@@ -35,6 +35,10 @@ _LOCK_RETRY_DELAYS = (0.05, 0.1, 0.2, 0.4, 0.8, 1.6)
 _PATHSPEC_STDIN = ("--pathspec-from-file=-", "--pathspec-file-nul")
 
 
+class GitError(ValueError):
+    """A git command that failed, with what it printed."""
+
+
 def _run_git(root: Path, *args: str, input: str | None = None, as_user: bool = False) -> str:
     """Run git in `root` as the bot, or as the user's own git identity, waiting out another process's lock."""
     env = os.environ | {"LC_ALL": "C", "GIT_LITERAL_PATHSPECS": "1"}
@@ -46,21 +50,16 @@ def _run_git(root: Path, *args: str, input: str | None = None, as_user: bool = F
             "GIT_COMMITTER_EMAIL": _BOT_EMAIL,
         }
     cmd = ["git", "-C", str(root), "-c", "commit.gpgsign=false", *args]
-
-    def run() -> str:
-        return subprocess.run(
-            cmd, input=input, capture_output=True, text=True, encoding="utf-8", check=True, env=env
-        ).stdout
-
-    for delay in _LOCK_RETRY_DELAYS:
-        try:
-            return run()
-        except subprocess.CalledProcessError as e:
-            if ".lock': File exists" not in e.stderr:
-                raise
-            logger.debug(f"Waiting {delay}s for a git lock: {e.stderr.strip()}")
-            time.sleep(delay)
-    return run()
+    delays = iter(_LOCK_RETRY_DELAYS)
+    while True:
+        done = subprocess.run(cmd, input=input, capture_output=True, text=True, encoding="utf-8", env=env, check=False)
+        if done.returncode == 0:
+            return done.stdout
+        delay = next(delays, None)
+        if delay is None or ".lock': File exists" not in done.stderr:
+            raise GitError(f"git {args[0]} failed:\n{done.stdout}{done.stderr}".strip())
+        logger.debug(f"Waiting {delay}s for a git lock: {done.stderr.strip()}")
+        time.sleep(delay)
 
 
 def _changed(root: Path, paths: set[str], *diff_args: str) -> set[str]:
@@ -79,26 +78,23 @@ def _stage(root: Path, paths: set[str]) -> None:
 
 def _commit(root: Path, paths: set[str], message: str, as_user: bool = False) -> bool:
     """Commit exactly `paths`, re-staging once if a hook reformats them; False if there was nothing to commit."""
+    _stage(root, paths)
     try:
-        _stage(root, paths)
-        changed = _changed(root, paths, "--cached")
-        if not changed:
-            return False
-        try:
-            _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input="\0".join(changed), as_user=as_user)
-        except subprocess.CalledProcessError:
-            reformatted = _changed(root, changed)
-            if not reformatted:
-                raise
-            logger.info(f"A hook rewrote {len(reformatted)} file(s); committing its version")
-            _stage(root, reformatted)
-            # The hook's version may be exactly what HEAD already has, as on a re-import.
-            changed = _changed(root, changed, "--cached")
-            if not changed:
-                return False
-            _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input="\0".join(changed), as_user=as_user)
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Commit failed:\n{e.stdout}{e.stderr}".strip()) from e
+        return _commit_staged(root, paths, message, as_user)
+    except GitError:
+        if not (reformatted := _changed(root, paths)):
+            raise
+        logger.info(f"A hook rewrote {len(reformatted)} file(s); committing its version")
+        _stage(root, reformatted)
+        # The hook's version may be exactly what HEAD already has, as on a re-import.
+        return _commit_staged(root, paths, message, as_user)
+
+
+def _commit_staged(root: Path, paths: set[str], message: str, as_user: bool) -> bool:
+    """Commit those of `paths` staged unlike HEAD; False if none are."""
+    if not (changed := _changed(root, paths, "--cached")):
+        return False
+    _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input="\0".join(changed), as_user=as_user)
     return True
 
 
@@ -143,18 +139,15 @@ class Commonplace:
         logger.debug(f"Opening commonplace repository at {root}")
         try:
             toplevel = Path(_run_git(root, "rev-parse", "--show-toplevel").strip())
-        except subprocess.CalledProcessError as e:
+        except GitError as e:
             raise ValueError(f"{root} is not in a git repository") from e
         if toplevel != root.resolve():
             raise ValueError(f"{root} is not the root of its git repository, {toplevel}")
         try:
             _run_git(toplevel, "rev-parse", "--verify", "-q", "HEAD")
-        except subprocess.CalledProcessError as e:
+        except GitError as e:
             raise ValueError("Repository has no commits yet") from e
         return Commonplace(root=toplevel)
-
-    def close(self):
-        """Close this repo. Does nothing."""
 
     @cached_property
     def config(self):
@@ -444,105 +437,27 @@ class Commonplace:
             logger.info("Auto-indexing committed notes")
             index(self, rebuild=False)
 
-    def has_remote(self, remote_name: str = "origin") -> bool:
-        """
-        Check if a remote exists.
-
-        Args:
-            remote_name: Name of the remote to check
-
-        Returns:
-            True if remote exists, False otherwise
-        """
-        return remote_name in self._git("remote").split()
-
     def sync(
-        self,
-        remote_name: str = "origin",
-        branch: str | None = None,
-        strategy: str = "rebase",
-        auto_commit: bool = True,
+        self, remote_name: str = "origin", branch: str | None = None, strategy: str = "rebase", auto_commit: bool = True
     ) -> None:
-        """
-        Synchronize repository with remote using git commands.
-
-        Steps:
-        1. Check for remote
-        2. Add and commit all changes (if auto_commit=True)
-        3. Pull from remote (rebase or merge)
-        4. Push to remote
-
-        Args:
-            remote_name: Name of remote (default: "origin")
-            branch: Branch name (default: current branch)
-            strategy: "rebase" or "merge" (default: "rebase")
-            auto_commit: Auto-commit uncommitted changes (default: True)
-
-        Raises:
-            ValueError: If sync operation fails
-        """
-        # 1. Check for remote (helpful error message)
-        if not self.has_remote(remote_name):
+        """Commit the user's own edits if `auto_commit`, then pull `branch` (default: the current one) and push it."""
+        if remote_name not in self._git("remote").split():
             raise ValueError(f"Remote '{remote_name}' not found. Add remote first.")
-
-        # Get current branch if not specified
-        if branch is None:
-            try:
-                result = self._git("rev-parse", "--abbrev-ref", "HEAD")
-                branch = result.strip()
-            except subprocess.CalledProcessError:
-                raise ValueError("Could not determine current branch.")
-
+        branch = branch or self._git("rev-parse", "--abbrev-ref", "HEAD").strip()
         logger.info(f"Syncing branch '{branch}' with '{remote_name}'")
-
-        # 2. Auto-commit if there are changes
-        if auto_commit:
-            # The one commit of work commonplace didn't write: the user's own edits, whatever they are.
-            changed = self.uncommitted(".")
-            if changed:
-                logger.info("Adding and committing changes...")
-                try:
-                    _commit(self.root, changed, f"Auto-commit before sync at {datetime.now(UTC).isoformat()}")
-                except RuntimeError as e:
-                    raise ValueError(f"Failed to commit changes. {e}") from e
-
-        # 3. Pull from remote (skip if remote branch doesn't exist yet)
-        logger.info(f"Pulling from {remote_name}/{branch}...")
-        pull_args = ["pull", remote_name, branch]
-        if strategy == "rebase":
-            pull_args.append("--rebase")
+        # The one commit of work commonplace didn't write: the user's own edits, whatever they are.
+        if auto_commit and (changed := self.uncommitted(".")):
+            _commit(self.root, changed, f"Auto-commit before sync at {datetime.now(UTC).isoformat()}")
         try:
-            self._git(*pull_args)
-        except subprocess.CalledProcessError as e:
-            # If remote branch doesn't exist, this is a first push - skip pull
-            if "couldn't find remote ref" in (e.stderr or ""):
-                logger.info(f"Remote branch {remote_name}/{branch} doesn't exist yet (first push)")
-            else:
-                stderr = e.stderr.strip() if e.stderr else ""
-                raise ValueError(f"Failed to pull from {remote_name}/{branch}. {stderr}") from e
-
-        # 4. Push to remote
-        logger.info(f"Pushing to {remote_name}/{branch}...")
-        try:
-            self._git("push", remote_name, branch)
-            logger.info(f"Successfully synced with {remote_name}/{branch}")
-        except subprocess.CalledProcessError as e:
-            stderr = e.stderr.strip() if e.stderr else ""
-            raise ValueError(f"Failed to push to {remote_name}/{branch}. {stderr}") from e
+            self._git("pull", remote_name, branch, *(["--rebase"] if strategy == "rebase" else []))
+        except GitError as e:
+            if "couldn't find remote ref" not in str(e):
+                raise
+            logger.info(f"Remote branch {remote_name}/{branch} doesn't exist yet (first push)")
+        self._git("push", remote_name, branch)
+        logger.info(f"Synced with {remote_name}/{branch}")
 
     def _git(self, *args: str) -> str:
-        """
-        Run a git command in the repository.
-
-        Args:
-            *args: Git command arguments
-
-        Returns:
-            Command output (stdout)
-
-        Raises:
-            subprocess.CalledProcessError: If git command fails
-        """
         return _run_git(self.root, *args)
 
 

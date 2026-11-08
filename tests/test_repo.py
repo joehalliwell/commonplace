@@ -4,7 +4,6 @@ import re
 import subprocess
 import sys
 import threading
-from contextlib import closing
 from datetime import UTC
 from pathlib import Path
 
@@ -12,7 +11,7 @@ import pytest
 import yaml
 
 from commonplace._marginalia import marginalia_path
-from commonplace._repo import Commonplace
+from commonplace._repo import Commonplace, GitError
 from commonplace._show import links
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
@@ -189,8 +188,7 @@ def test_config_reads_repo_file(tmp_path, monkeypatch):
     Commonplace.init(tmp_path)
     (tmp_path / ".commonplace" / "config.toml").write_text('user = "Ada"\n')
 
-    with closing(Commonplace.open(tmp_path)) as repo:
-        assert repo.config.user == "Ada"
+    assert Commonplace.open(tmp_path).config.user == "Ada"
 
 
 def test_index_matches_head_after_commit(test_repo, make_note):
@@ -203,24 +201,6 @@ def test_index_matches_head_after_commit(test_repo, make_note):
 
     # Staged differences from HEAD would look like a revert.
     assert _git(test_repo, "diff", "--cached", "--name-only") == ""
-
-
-def test_has_remote_exists(test_repo):
-    """Test has_remote returns True when remote exists."""
-    _git(test_repo, "remote", "add", "origin", "https://github.com/test/repo.git")
-    assert test_repo.has_remote("origin")
-
-
-def test_has_remote_not_exists(test_repo):
-    """Test has_remote returns False when remote doesn't exist."""
-    assert not test_repo.has_remote("origin")
-
-
-def test_has_remote_custom_name(test_repo):
-    """Test has_remote works with custom remote names."""
-    _git(test_repo, "remote", "add", "upstream", "https://github.com/test/repo.git")
-    assert test_repo.has_remote("upstream")
-    assert not test_repo.has_remote("origin")
 
 
 def test_commit_auto_indexes_by_default(test_repo, index_spy, make_note):
@@ -426,7 +406,7 @@ def test_commit_hook_rejects_raises_with_hook_output(test_repo, make_note):
     head = _git(test_repo, "rev-parse", "HEAD")
 
     test_repo.save(make_note("note.md", "# Note\n"))
-    with pytest.raises(RuntimeError, match="lint says no"):
+    with pytest.raises(GitError, match="lint says no"):
         test_repo.commit("Add note", auto_index=False)
 
     assert _git(test_repo, "rev-parse", "HEAD") == head
@@ -451,7 +431,7 @@ def test_commit_index_locked_too_long_raises_and_leaves_index(test_repo, make_no
     (test_repo.root / ".git" / "index.lock").touch()
 
     test_repo.save(make_note("note.md", "# Note\n"))
-    with pytest.raises(RuntimeError, match=r"index\.lock"):
+    with pytest.raises(GitError, match=r"index\.lock"):
         test_repo.commit("Add note", auto_index=False)
 
     assert index.read_bytes() == before
