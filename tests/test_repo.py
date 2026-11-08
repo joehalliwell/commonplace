@@ -488,13 +488,18 @@ def test_uncommitted_reports_edited_deleted_and_untracked_under_pathspec(test_re
     assert test_repo.uncommitted("notes") == {"notes/edited.md", "notes/deleted.md", "notes/new.md"}
 
 
-def test_renamed_since_maps_each_moved_file_to_its_new_path(test_repo):
-    _write(test_repo, {Path(name): f"# {name}\nenough words to be recognised as the same file\n" for name in "abc"})
+def test_moved_maps_each_renamed_path_to_where_its_last_occupant_is_now(test_repo):
+    """A chain of moves ends where the file is now; a path reused after a move follows its latest occupant."""
+    _write(test_repo, {Path(name): f"# {name}\nenough words to be recognised as the same file\n" for name in "ab"})
     _git(test_repo, "add", ".")
     _git(test_repo, "commit", "-m", "Seed")
-    ref = _head(test_repo)
-    _git(test_repo, "mv", "a", "x")
-    _git(test_repo, "mv", "c", "y")
-    _git(test_repo, "commit", "-m", "Move")
+    for old, new in [("a", "x"), ("x", "y"), ("b", "z")]:
+        _git(test_repo, "mv", old, new)
+        _git(test_repo, "commit", "-m", f"Move {old}")
+    _write(test_repo, {Path("a"): "# a again\nan unrelated file that reuses the name of the first\n"})
+    _git(test_repo, "add", "a")
+    _git(test_repo, "commit", "-m", "Reuse a")
+    _git(test_repo, "mv", "a", "w")
+    _git(test_repo, "commit", "-m", "Move a again")
 
-    assert test_repo.renamed_since(ref) == {Path("a"): Path("x"), Path("c"): Path("y")}
+    assert test_repo.moved() == {Path("a"): Path("w"), Path("x"): Path("y"), Path("b"): Path("z")}

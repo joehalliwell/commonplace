@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import time
 from collections.abc import Callable, Collection, Iterable, Iterator
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from functools import cached_property, lru_cache
 from itertools import batched
@@ -226,11 +226,15 @@ class Commonplace:
         out = self._git("log", "--follow", "--format=%as%x00%s", "--", path.as_posix())
         return [tuple(line.split("\0", 1)) for line in out.splitlines() if "\0" in line]  # type: ignore[misc]
 
-    def renamed_since(self, ref: str) -> dict[Path, Path]:
-        """Where each file `ref` had has moved to by HEAD, as git's rename detection sees it."""
-        fields = _z(self.root, "diff", "-M", "--name-status", "--diff-filter=R", ref, "HEAD")
-        # -z gives status, old path, new path for each rename.
-        return {Path(old): Path(new) for _, old, new in batched(fields, 3)}
+    def moved(self) -> dict[Path, Path]:
+        """Where each path git ever saw renamed is now: a chain of moves to its end, a reused path by its latest."""
+        # Newest first, so where a file moved to next is already known: `then` holds where what was at a path then is now.
+        moved: dict[Path, Path] = {}
+        then: dict[str, str] = {}
+        for _, old, new in batched(_z(self.root, "log", "-M", "--diff-filter=R", "--name-status", "--format="), 3):
+            then[old] = then.get(new, new)
+            moved.setdefault(Path(old), Path(then[old]))
+        return moved
 
     def note_paths(self) -> Iterator[RepoPath]:
         """Every note `paths` gives, at the commit that last changed it."""
@@ -342,9 +346,9 @@ class Commonplace:
         return removed
 
     def _annotate(self, notes: list[Path], change: Callable[[Marginalia], Marginalia], message: str) -> list[Path]:
-        """Rewrite the marginalia of `notes` by `change`, each at its note's commit, committing as the user."""
-        for at in self._repo_paths(notes):
-            write_marginalia(self, replace(change(read_marginalia(self.root, at.path)), ref=at.ref))
+        """Rewrite the marginalia of `notes` by `change`, committing as the user."""
+        for note in notes:
+            write_marginalia(self, change(read_marginalia(self.root, note)))
         self.commit(message, auto_index=False, as_user=True)
         return notes
 
