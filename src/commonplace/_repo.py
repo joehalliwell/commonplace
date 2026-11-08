@@ -102,6 +102,25 @@ def _commit(root: Path, paths: set[str], message: str, as_user: bool = False) ->
     return True
 
 
+@lru_cache(maxsize=4)
+def _last_changed(root: Path, head: str, pathspec: str, field: str) -> dict[str, str]:
+    """Each path under `pathspec` in `head`'s history, newest first, with `field` of the last commit to change it.
+
+    Keyed by `head`, since a commit moves it and a map built before would go on reporting the superseded commit.
+    """
+    out = _run_git(root, "log", f"--format=%x00>{field}", "--name-only", "-z", "--no-renames", head, "--", pathspec)
+    # Each commit is an empty token, its field after a `>` so it is never empty, then the paths it changed.
+    last: dict[str, str] = {}
+    tokens = iter(out.split("\0"))
+    value = ""
+    for token in tokens:
+        if not token:
+            value = next(tokens, "")[1:]
+        else:
+            last.setdefault(token.lstrip("\n"), value)
+    return last
+
+
 def _hash_file(path: Path, buf_size: int = 65536) -> str:
     """SHA-256 hash a file, streaming in chunks."""
     h = hashlib.sha256()
@@ -200,7 +219,16 @@ class Commonplace:
         path = Path(path)
         if path.is_absolute():
             path = path.relative_to(self.root, walk_up=False)
-        return self._repo_path(path, self._status(path.as_posix())[0])
+        return self._repo_paths([path])[0]
+
+    def _repo_paths(self, paths: list[Path]) -> list[RepoPath]:
+        """Each of `paths` at the commit that last changed it, uncommitted changes aside, or HEAD if none has."""
+        head = self._head()
+        last = _last_changed(self.root, head, ".", "%H")
+        return [RepoPath(path, last.get(path.as_posix(), head)) for path in paths]
+
+    def _head(self) -> str:
+        return self._git("rev-parse", "HEAD").strip()
 
     def _status(self, *pathspec: str, untracked: bool = False) -> tuple[str, set[str]]:
         """HEAD, and which files under `pathspec` differ from it (untracked ones only if asked), from one `git status`."""
@@ -217,32 +245,6 @@ class Commonplace:
             elif entry.startswith("? "):
                 dirty.add(entry.removeprefix("? "))
         return head, dirty
-
-    def _repo_path(self, path: Path, head: str) -> RepoPath:
-        """The commit that last changed `path`, uncommitted changes aside, or HEAD if no commit has it."""
-        return RepoPath(path=path, ref=self._build_path_commit_map(str(self.root), head).get(path.as_posix(), head))
-
-    @staticmethod
-    @lru_cache(maxsize=1)
-    def _build_path_commit_map(repo_dir: str, head_ref: str) -> dict[str, str]:
-        """
-        Map every path in the history of `head_ref` to the newest commit that changed it.
-
-        One `git log` pass, cached by (repo_dir, head_ref). The ref has to be
-        part of the key: a commit moves HEAD, and a map built before it would
-        go on reporting the superseded commit for every file that commit touched.
-        """
-        out = _run_git(Path(repo_dir), "log", "--format=%x00%H", "--name-only", "-z", "--no-renames", head_ref)
-        # Each commit is an empty token, its hash, then the paths it changed.
-        path_to_commit: dict[str, str] = {}
-        tokens = iter(out.split("\0"))
-        commit = ""
-        for token in tokens:
-            if not token:
-                commit = next(tokens, "")
-            else:
-                path_to_commit.setdefault(token.lstrip("\n"), commit)
-        return path_to_commit
 
     def last_commit_time(self, pathspec: str, diff_filter: str | None = None) -> datetime | None:
         """UTC timestamp of the most recent commit touching `pathspec`, or
@@ -268,13 +270,7 @@ class Commonplace:
 
     def last_subjects(self, pathspec: str) -> dict[str, str]:
         """Each committed path under `pathspec`, with the subject of the last commit that changed it."""
-        subjects: dict[str, str] = {}
-        for commit in self._git("log", "--format=%x00%s", "--name-only", "--", pathspec).split("\0")[1:]:
-            subject, *paths = commit.splitlines()
-            for path in paths:
-                if path:
-                    subjects.setdefault(path, subject)
-        return subjects
+        return dict(_last_changed(self.root, self._head(), pathspec, "%s"))
 
     def uncommitted(self, pathspec: str) -> set[str]:
         """Paths under `pathspec` that differ from HEAD, untracked ones included."""
@@ -282,10 +278,14 @@ class Commonplace:
 
     def paths(self) -> Iterator[Path]:
         """Every file in the working tree that git would share, relative to the root, skipping dot-directories."""
-        out = self._git("ls-files", "--cached", "--others", "--exclude-standard", "-z")
-        for path in sorted({Path(p) for p in out.split("\0") if p}):
-            if not any(part.startswith(".") for part in path.parts[:-1]) and (self.root / path).exists():
+        for path in sorted(map(Path, self._ls("."))):
+            if not any(part.startswith(".") for part in path.parts[:-1]):
                 yield path
+
+    def _ls(self, pathspec: str) -> set[str]:
+        """The files under `pathspec` in the working tree that git would share, tracked or not."""
+        out = self._git("ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", pathspec)
+        return {path for path in out.split("\0") if path and (self.root / path).exists()}
 
     def history(self, path: Path) -> list[tuple[str, str]]:
         """The commits that changed `path`, newest first, following renames, as (date, subject)."""
@@ -300,10 +300,7 @@ class Commonplace:
 
     def note_paths(self) -> Iterator[RepoPath]:
         """Get an iterator over all note paths at current HEAD, skipping dot-directories."""
-        head = self._status()[0]
-        for path in self.paths():
-            if path.suffix == ".md":
-                yield self._repo_path(path, head)
+        return iter(self._repo_paths([path for path in self.paths() if path.suffix == ".md"]))
 
     def load(self, repo_path: RepoPath) -> Note:
         """The note at `repo_path`, as the working tree has it, with its marginalia; one that's gone reads as empty."""
@@ -355,8 +352,7 @@ class Commonplace:
 
     def annotated(self) -> list[Path]:
         """The path of every note that has marginalia, in order, whether or not the note is still there."""
-        out = self._git("ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", MARGINALIA.as_posix())
-        return sorted(Path(path).relative_to(MARGINALIA) for path in set(out.split("\0")) - {""})
+        return sorted(Path(path).relative_to(MARGINALIA) for path in self._ls(MARGINALIA.as_posix()))
 
     def into(self, path: Path) -> list[tuple[Note, Edge]]:
         """Every edge from another note that could mean `path`, with that note."""
@@ -426,10 +422,14 @@ class Commonplace:
 
     def blobs(self, *names: str) -> list[Blob]:
         """Every archive stored, or those called any of `names`, in the order stored: committed, then not yet."""
-        committed = self._git("log", "--reverse", "--diff-filter=A", "--name-only", "--format=", "--", BLOBS.as_posix())
-        pending = self._git("ls-files", "--others", "--exclude-standard", "-z", "--", BLOBS.as_posix())
-        paths = dict.fromkeys([*committed.splitlines(), *sorted(pending.split("\0"))])
-        return [Blob(Path(p)) for p in paths if p and (self.root / p).exists() and (not names or Path(p).name in names)]
+        present, newest_first = (
+            self._ls(BLOBS.as_posix()),
+            _last_changed(self.root, self._head(), BLOBS.as_posix(), "%H"),
+        )
+        # A blob is never rewritten, so the commit that last changed it is the one that stored it.
+        committed = [p for p in reversed(newest_first) if p in present]
+        stored = [*committed, *sorted(present - set(committed))]
+        return [Blob(Path(p)) for p in stored if not names or Path(p).name in names]
 
     def commit(
         self, message: str, auto_index: bool | None = None, *, as_user: bool = False, written: Iterable[str] = ()
