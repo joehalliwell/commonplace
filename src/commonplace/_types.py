@@ -111,7 +111,6 @@ class Marginalia:
     """What's been said about a note since: labels on its node, and a second body, a log of what's been said."""
 
     note: Path  # The annotated note, relative to the root
-    ref: str | None = None  # The commit that last changed the note when it was last annotated
     tags: list[str] = field(default_factory=list)
     body: str = ""
     offset: int = field(default=0, compare=False)  # The lines of their file before the body, as read

@@ -18,7 +18,8 @@ if TYPE_CHECKING:
     from commonplace._repo import Commonplace
 
 #: The marginalia format this release writes. Bump it, with an example in tests/resources/marginalia/, on any change.
-MARGINALIA_VERSION = 1
+#: v2 drops `ref`, the commit the note was at: git's rename history says where a moved note went.
+MARGINALIA_VERSION = 2
 
 
 def marginalia_path(note: Path) -> Path:
@@ -39,27 +40,24 @@ def parse_marginalia(note: Path, text: str) -> Marginalia:
     if version > MARGINALIA_VERSION:
         raise ValueError(f"The marginalia of '{note}' are v{version}, newer than this release's v{MARGINALIA_VERSION}")
     tags = list(metadata.get("tags") or [])
-    return Marginalia(note, metadata.get("ref"), tags, body, offset=text.count("\n") - body.count("\n"))
+    return Marginalia(note, tags, body, offset=text.count("\n") - body.count("\n"))
 
 
 def write_marginalia(repo: "Commonplace", marginalia: Marginalia) -> None:
     """Save the marginalia for the repo's next commit."""
-    metadata: dict = {"marginalia": MARGINALIA_VERSION}
-    if marginalia.ref:
-        metadata["ref"] = marginalia.ref
-    metadata["tags"] = marginalia.tags
+    metadata = {"marginalia": MARGINALIA_VERSION, "tags": marginalia.tags}
     repo.save(Note(RepoPath(marginalia_path(marginalia.note)), marginalia.body, metadata))
 
 
 def check_marginalia(repo: "Commonplace", check: bool) -> tuple[list[str], list[str]]:
     """Re-attach marginalia whose note moved, committing as the bot; report those whose note is gone."""
-    present = set(repo.paths())
+    present, renames = set(repo.paths()), repo.moved()
     actions, gone = [], []
     for note in repo.annotated():
         if note in present:
             continue
         marginalia = read_marginalia(repo.root, note)
-        moved = repo.renamed_since(marginalia.ref).get(note) if marginalia.ref else None
+        moved = renames.get(note)
         if moved is None or moved not in present or (repo.root / marginalia_path(moved)).exists():
             gone.append(f"  {note}")
             continue
@@ -67,7 +65,7 @@ def check_marginalia(repo: "Commonplace", check: bool) -> tuple[list[str], list[
             actions.append(f"Would move the marginalia for {note} to {moved}")
             continue
         repo.remove(marginalia_path(note))
-        write_marginalia(repo, replace(marginalia, note=moved, ref=repo.make_repo_path(moved).ref))
+        write_marginalia(repo, replace(marginalia, note=moved))
         actions.append(f"Moved the marginalia for {note} to {moved}")
     if actions and not check:
         repo.commit("Re-attach marginalia to moved notes", auto_index=False)

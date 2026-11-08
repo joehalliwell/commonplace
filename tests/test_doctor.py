@@ -302,11 +302,10 @@ def test_doctor_cli_no_links_skips_the_link_check(test_app, test_repo, caplog):
 
 
 def _annotated(repo, make_note, path: str, body: str = "") -> None:
-    """A committed note with committed marginalia, tagged and recording the note's ref."""
+    """A committed note with committed marginalia, tagged."""
     repo.save(make_note(path=path, content="# Note\n\n## Heading\n\nSome text.\n"))
     repo.commit(f"Add {path}", auto_index=False)
-    marginalia = Marginalia(note=Path(path), ref=repo.make_repo_path(Path(path)).ref, body=body).tagged("tea")
-    write_marginalia(repo, marginalia)
+    write_marginalia(repo, Marginalia(note=Path(path), body=body).tagged("tea"))
     repo.commit(f"Annotate {path}", auto_index=False)
 
 
@@ -326,6 +325,19 @@ def test_doctor_reattaches_marginalia_after_their_note_is_moved(test_repo, make_
     assert not (test_repo.root / marginalia_path(Path("notes/ideas.md"))).exists()
     assert any("notes/old-ideas.md" in action for action in report.actions)
     assert git(test_repo.root, "status", "--porcelain") == ""
+
+
+def test_doctor_reattaches_marginalia_to_where_a_note_moved_last(test_repo, make_note):
+    """A note moved twice, the second time in a commit of its own, is followed to where it is now."""
+    _annotated(test_repo, make_note, "notes/ideas.md")
+    for old, new in [("notes/ideas.md", "notes/old-ideas.md"), ("notes/old-ideas.md", "archive/ideas.md")]:
+        (test_repo.root / new).parent.mkdir(parents=True, exist_ok=True)
+        git(test_repo.root, "mv", old, new)
+        git(test_repo.root, "commit", "-qm", f"Move to {new}")
+
+    _marginalia_only(test_repo)
+
+    assert read_marginalia(test_repo.root, Path("archive/ideas.md")).tags == ["tea"]
 
 
 def test_doctor_check_only_says_where_marginalia_would_go(test_repo, make_note):

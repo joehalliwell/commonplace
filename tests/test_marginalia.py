@@ -89,12 +89,12 @@ def test_untagging_leaves_the_body_alone():
     assert marginalia.untagged("hidden") == Marginalia(note=NOTE, tags=["tea"], body=marginalia.body)
 
 
-def test_tag_records_the_tags_and_the_notes_ref(notes, as_joe):
+def test_tag_records_only_the_tags_in_the_frontmatter(notes, as_joe):
+    """Where a moved note went is git's to say, so the marginalia record no commit."""
     notes.tag("ideas", ["hidden", "tea"])
 
-    marginalia = read_marginalia(notes.root, NOTE)
-    assert marginalia.tags == ["hidden", "tea"]
-    assert marginalia.ref == notes.make_repo_path(NOTE).ref
+    metadata, _ = load_frontmatter((notes.root / marginalia_path(NOTE)).read_text())
+    assert metadata == {"marginalia": MARGINALIA_VERSION, "tags": ["hidden", "tea"]}
 
 
 def test_tag_commits_as_the_person_not_the_bot(notes, as_joe):
