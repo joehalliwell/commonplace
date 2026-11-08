@@ -7,6 +7,7 @@ loses nothing needs no `--fix`, and `check` stops every step writing.
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from commonplace import _scaffold as scaffold
 from commonplace._import._render import render as replay
 from commonplace._links import summarize
 from commonplace._logging import logger
@@ -62,12 +63,15 @@ def _run(step: Step, selected: bool, repo: Commonplace, check: bool, position: s
 def _scaffold(repo: Commonplace, check: bool) -> DoctorReport:
     """Restore and commit missing scaffolding, and diff whatever has fallen behind `init`'s templates."""
     if check:
-        actions = [f"Would create {path}" for path in repo.missing_scaffolding()]
+        actions = [f"Would create {path}" for path in scaffold.missing(repo.root)]
+    elif restored := scaffold.lay_down(repo.root):
+        repo.commit("Restore scaffolding", auto_index=False, written=restored)
+        actions = [_restored(path) for path in restored]
     else:
-        actions = [_restored(path) for path in repo.restore_scaffolding()]
+        actions = []
     warnings = [
         f"{path} differs from the template init now writes:\n" + "\n".join(diff)
-        for path, diff in repo.scaffolding_drift().items()
+        for path, diff in scaffold.drift(repo.root).items()
     ]
     return DoctorReport(actions=actions, warnings=warnings)
 
