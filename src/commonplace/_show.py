@@ -1,8 +1,8 @@
 """`show`: everything known about one note, gathered from what already records it.
 
 Each section is a view another command owns: frontmatter (as `ls` reads it), marginalia tags, links both ways,
-the commentary in its marginalia, git history, and the search index. Something new to know about a note becomes a
-section here rather than a command of its own. One record, two serializations: YAML to read, JSON for scripts;
+the commentary in its marginalia, and the search index; its git history is `commonplace git log --follow`'s. Something
+new to know about a note becomes a section here rather than a command of its own. One record, two serializations: YAML to read, JSON for scripts;
 either gives skills the whole record in one call. The record is a third thing, neither the note nor its
 marginalia, so it never takes a note's form; the note itself is read at its path, which `resolve` gives.
 """
@@ -18,7 +18,7 @@ from commonplace._repo import Commonplace
 from commonplace._types import RepoPath
 
 #: The sections after the header, in the order they render.
-SECTIONS = ("tags", "links", "commentary", "history", "index")
+SECTIONS = ("tags", "links", "commentary", "index")
 
 
 def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str, Any]:
@@ -38,7 +38,6 @@ def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str
         },
         "links": [asdict(neighbour) for neighbour in links(repo, note, include_hidden)],
         "commentary": node.commentary,
-        "history": [{"date": day, "subject": subject} for day, subject in repo.history(note)],
         "index": _index_state(repo, note),
     }
 

@@ -260,13 +260,13 @@ def show(
     *,
     only: Annotated[
         list[str],
-        Parameter(help="Show just this section: tags, links, commentary, history or index", negative=""),
+        Parameter(help="Show just this section: tags, links, commentary or index", negative=""),
     ] = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
     as_json: Annotated[bool, Parameter(name="--json", help="The record as JSON rather than YAML")] = False,
     hidden: Annotated[bool, Parameter(help="Include links to and from notes tagged hidden")] = False,
     repo: Repo,
 ) -> None:
-    """Everything known about a note, as YAML: tags, links both ways, commentary, history, index."""
+    """Everything known about a note, as YAML: tags, links both ways, commentary, index."""
     import json
 
     from commonplace._show import SECTIONS, render, select

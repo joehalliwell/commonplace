@@ -54,13 +54,6 @@ def test_show_gathers_what_frontmatter_and_marginalia_say(notes, as_joe):
     assert shown["hidden"] is False
 
 
-def test_show_history_lists_the_notes_commits_newest_first(notes):
-    (notes.root / "notes/ideas.md").write_text(IDEAS + "\nMore.\n")
-    git(notes.root, "commit", "-qam", "Add more")
-
-    assert [entry["subject"] for entry in show(notes, "ideas")["history"]] == ["Add more", "Add notes"]
-
-
 def test_show_index_says_whether_the_current_version_is_indexed(notes):
     assert show(notes, "ideas")["index"]["state"] == "not indexed"
 
@@ -100,7 +93,7 @@ def test_render_is_the_record_as_yaml_keeping_the_header_and_the_sections_asked_
 
     assert rendered["note"] == "/notes/ideas"
     assert rendered["tags"] == {"own": ["drink"], "marginalia": ["revisit"]}
-    assert "links" not in rendered and "history" not in rendered
+    assert "links" not in rendered and "index" not in rendered
     assert yaml.safe_load(render(shown)) == shown
 
 
@@ -150,4 +143,4 @@ def test_show_cli_json_is_the_whole_record_for_skills(notes, test_app, capsys):
     assert test_app(["show", "ideas", "--json"]) == 0
 
     shown = json.loads(capsys.readouterr().out)
-    assert set(shown) >= {"note", "title", "tags", "links", "commentary", "history", "index", "hidden"}
+    assert set(shown) >= {"note", "title", "tags", "links", "commentary", "index", "hidden"}
