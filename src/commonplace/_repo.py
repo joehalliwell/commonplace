@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Literal
 
 from commonplace import _scaffold as scaffold
-from commonplace._config import BLOBS, CACHE, MARGINALIA
+from commonplace._config import BLOBS, CACHE, MARGINALIA, Config
 from commonplace._links import BrokenLink, Edge, Files, Target, UnresolvedNote
 from commonplace._logging import logger
 from commonplace._marginalia import read_marginalia, write_marginalia
@@ -153,9 +153,7 @@ class Commonplace:
         return Commonplace(root=toplevel)
 
     @cached_property
-    def config(self):
-        from commonplace._config import Config
-
+    def config(self) -> Config:
         return Config.load(self.root)
 
     def store_blob(self, source_path: Path) -> RepoPath:
