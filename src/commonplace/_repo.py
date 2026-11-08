@@ -124,6 +124,13 @@ def _last_changed(root: Path, head: str, pathspec: str, field: str) -> dict[str,
     return last
 
 
+@lru_cache(maxsize=2)
+def _content_ids(root: Path, head: str) -> dict[str, str]:
+    """Each file in `head`'s tree, with git's id for its content; keyed by `head`, as `_last_changed` is."""
+    # -z gives `<mode> <type> <id>\t<path>` for each file.
+    return {path: meta.split()[2] for meta, path in (e.split("\t", 1) for e in _z(root, "ls-tree", "-r", head))}
+
+
 def _hash_file(path: Path) -> str:
     with open(path, "rb") as f:
         return hashlib.file_digest(f, "sha256").hexdigest()
@@ -186,17 +193,16 @@ class Commonplace:
         return Commonplace.open(root)
 
     def make_repo_path(self, path: Pathlike) -> RepoPath:
-        """A committed file's RepoPath, at the commit that last changed it; a note being written needs no ref."""
+        """A file's RepoPath, versioned by its committed content; one never committed has no version."""
         path = Path(path)
         if path.is_absolute():
             path = path.relative_to(self.root, walk_up=False)
         return self._repo_paths([path])[0]
 
     def _repo_paths(self, paths: list[Path]) -> list[RepoPath]:
-        """Each of `paths` at the commit that last changed it, uncommitted changes aside, or HEAD if none has."""
-        head = self._head()
-        last = _last_changed(self.root, head, ".", "%H")
-        return [RepoPath(path, last.get(path.as_posix(), head)) for path in paths]
+        """Each of `paths`, versioned by its content at HEAD, uncommitted changes aside."""
+        ids = _content_ids(self.root, self._head())
+        return [RepoPath(path, ids.get(path.as_posix())) for path in paths]
 
     def _head(self) -> str:
         return self._git("rev-parse", "HEAD").strip()

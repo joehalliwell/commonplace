@@ -32,7 +32,7 @@ class RepoPath:
 
     Invariants:
     - path is normalised and relative to the repository root, as note links resolve
-    - ref is a git SHA (not branch name), or None for a note not yet committed
+    - ref is git's id for the note's committed content, or None for a note not yet committed
     - instances are hashable and suitable as dict keys
     """
 
