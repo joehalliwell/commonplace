@@ -11,6 +11,7 @@ from commonplace._fetch._chatgpt_memory import ChatGptMemoryFetcher
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._helpers import FetchBlocked
 from commonplace._wire import archive_names, read_entries, read_header
+from tests.fetching import fetching, owned
 from tests.porcelain import git
 
 SESSION_COOKIES = {"__Secure-next-auth.session-token": "tok"}
@@ -57,7 +58,7 @@ class FakeMemory:
         return httpx.Response(405 if path.startswith("/backend-api/memories") else 404)
 
     def fetcher(self, cookies=SESSION_COOKIES) -> ChatGptMemoryFetcher:
-        return ChatGptMemoryFetcher(cookies=cookies, transport=httpx.MockTransport(self))
+        return owned(ChatGptMemoryFetcher, cookies=cookies, transport=httpx.MockTransport(self))
 
 
 @pytest.fixture(autouse=True)
@@ -109,34 +110,34 @@ def test_fetch_with_a_cursor_still_records_everything(tmp_path):
 
 
 def test_fetch_command_mirrors_the_summary_into_one_file(test_repo):
-    fetch(test_repo, fetchers=[FakeMemory().fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(FakeMemory().fetcher()), auto_index=False)
 
     assert {p.name for p in (test_repo.root / "memory" / "chatgpt").iterdir()} == {"about-you.md"}
 
 
 def test_fetch_command_unchanged_summary_makes_no_commit(test_repo):
     memory = FakeMemory()
-    fetch(test_repo, fetchers=[memory.fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
     head = git(test_repo.root, "rev-parse", "HEAD")
 
-    fetch(test_repo, fetchers=[memory.fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
 
     assert git(test_repo.root, "rev-parse", "HEAD") == head
 
 
 def test_fetch_command_section_dropped_upstream_leaves_the_file(test_repo):
     memory = FakeMemory()
-    fetch(test_repo, fetchers=[memory.fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
 
     memory.sections = SECTIONS[1:]
-    fetch(test_repo, fetchers=[memory.fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
 
     text = (test_repo.root / "memory" / "chatgpt" / "about-you.md").read_text()
     assert "## Work" in text and "## Overview" not in text
 
 
 def test_fetch_command_mirror_commit_names_the_stored_archive(test_repo):
-    fetch(test_repo, fetchers=[FakeMemory().fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(FakeMemory().fetcher()), auto_index=False)
 
     [stored] = test_repo.stored_archives(*archive_names("chatgpt-memory"))
     assert git(test_repo.root, "log", "-1", "--format=%s").strip() == f"Mirror chatgpt-memory: {stored.as_posix()}"

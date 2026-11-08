@@ -7,16 +7,17 @@ from zipfile import ZipFile
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
 from commonplace._wire import write_archive
+from tests.fetching import owned
 
 
 def test_wire_importer_accepts_fetcher_output(tmp_path, write_jsonl_gz):
     path = write_jsonl_gz(tmp_path / "claude-wire.jsonl.gz", [{"endpoint": "conversations", "response": []}])
-    assert ClaudeImporter().can_import(path)
+    assert owned(ClaudeImporter).can_import(path)
 
 
 def test_wire_importer_rejects_arbitrary_jsonl_gz(tmp_path, write_jsonl_gz):
     path = write_jsonl_gz(tmp_path / "other.jsonl.gz", [{"not": "ours"}])
-    assert not ClaudeImporter().can_import(path)
+    assert not owned(ClaudeImporter).can_import(path)
 
 
 _THREAD = {
@@ -41,7 +42,7 @@ def test_wire_importer_wraps_flat_text(tmp_path):
     """Fetcher-wire messages have only `text`; the importer wraps into blocks."""
     path = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", _entries(json.dumps(_THREAD)))
 
-    logs = ClaudeImporter().import_(path)
+    logs = owned(ClaudeImporter).import_(path)
     assert len(logs) == 1
     assert [e.content for e in logs[0].events] == ["hello", "hi back"]
 
@@ -51,7 +52,7 @@ def test_wire_importer_reads_legacy_parsed_responses(tmp_path, write_jsonl_gz):
     committed in users' repos, so they must still import."""
     path = write_jsonl_gz(tmp_path / "claude-wire.jsonl.gz", _entries(_THREAD))
 
-    logs = ClaudeImporter().import_(path)
+    logs = owned(ClaudeImporter).import_(path)
     assert len(logs) == 1
     assert [e.content for e in logs[0].events] == ["hello", "hi back"]
 
@@ -59,7 +60,7 @@ def test_wire_importer_reads_legacy_parsed_responses(tmp_path, write_jsonl_gz):
 def test_wire_importer_without_a_model_records_no_models(tmp_path):
     path = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", _entries(json.dumps(_THREAD)))
 
-    [log] = ClaudeImporter().import_(path)
+    [log] = owned(ClaudeImporter).import_(path)
     assert "models" not in log.metadata
 
 
@@ -68,7 +69,7 @@ def test_wire_importer_names_a_fallback_target_once(tmp_path):
     thread = {**_THREAD, "model": "claude-opus-4-8", "settings": {"safeguard_fallback": {"hops": [hop]}}}
     path = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", _entries(json.dumps(thread)))
 
-    [log] = ClaudeImporter().import_(path)
+    [log] = owned(ClaudeImporter).import_(path)
     assert log.metadata["models"] == ["claude-fable-5", "claude-opus-4-8"]
 
 
@@ -86,7 +87,7 @@ def test_wire_importer_flags_a_message_with_no_text_at_all(tmp_path, caplog):
     )
 
     with caplog.at_level(logging.WARNING, logger="commonplace"):
-        logs = ClaudeImporter().import_(path)
+        logs = owned(ClaudeImporter).import_(path)
 
     assert "no recoverable text" in logs[0].events[0].content
     assert any("no content or text" in r.message for r in caplog.records)
@@ -101,7 +102,7 @@ def test_wire_importer_keeps_a_deliberately_empty_message_empty(tmp_path, caplog
     )
 
     with caplog.at_level(logging.WARNING, logger="commonplace"):
-        logs = ClaudeImporter().import_(path)
+        logs = owned(ClaudeImporter).import_(path)
 
     assert logs[0].events[0].content == ""
     assert not [r for r in caplog.records if "no content or text" in r.message]
@@ -112,7 +113,7 @@ def test_export_importer_requires_users_json(tmp_path):
     path = tmp_path / "not-claude.zip"
     with ZipFile(path, "w") as zf:
         zf.writestr("conversations.json", "[]")
-    assert not ClaudeExportImporter().can_import(path)
+    assert not owned(ClaudeExportImporter).can_import(path)
 
 
 def test_export_importer_accepts_full_pair(tmp_path):
@@ -120,7 +121,7 @@ def test_export_importer_accepts_full_pair(tmp_path):
     with ZipFile(path, "w") as zf:
         zf.writestr("conversations.json", "[]")
         zf.writestr("users.json", "[]")
-    assert ClaudeExportImporter().can_import(path)
+    assert owned(ClaudeExportImporter).can_import(path)
 
 
 def test_export_importer_preserves_content_blocks(tmp_path):
@@ -144,5 +145,5 @@ def test_export_importer_preserves_content_blocks(tmp_path):
         zf.writestr("conversations.json", json.dumps([thread]))
         zf.writestr("users.json", "[]")
 
-    logs = ClaudeExportImporter().import_(path)
+    logs = owned(ClaudeExportImporter).import_(path)
     assert logs[0].events[0].content == "real user text"

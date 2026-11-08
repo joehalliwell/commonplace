@@ -30,7 +30,7 @@ from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import httpx
 
@@ -49,6 +49,10 @@ from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._wire import archive_name, write_archive
 
+if TYPE_CHECKING:
+    from commonplace._config import Config
+    from commonplace._types import Source
+
 ACCEPT_LANGUAGE = "en-GB,en;q=0.9"
 
 #: `socket.create_connection` charges its timeout per resolved address, so
@@ -64,8 +68,8 @@ class BaseFetcher:
     fetcher discovers cookies from Chrome and uses the real network. Tests
     inject fakes for both."""
 
-    #: Source key: names the archive and `--source`, and pairs it with an Importer.
-    source: str
+    #: The source it belongs to, which names its archives.
+    source: "Source"
     #: Cookie domain to read from Chrome.
     cookie_domain: str
     #: How the provider is named in messages to the user, and where to log in.
@@ -87,13 +91,20 @@ class BaseFetcher:
     _client: httpx.Client
     _wire_log: list[dict[str, Any]]
 
+    @classmethod
+    def configured(cls, source: "Source", config: "Config") -> Self:
+        """One for `source` that browses as the configured User-Agent."""
+        return cls(source, ua=config.ua)
+
     def __init__(
         self,
+        source: "Source",
         *,
         cookies: dict[str, str] | None = None,
         transport: httpx.BaseTransport | None = None,
         ua: str = DEFAULT_UA,
     ):
+        self.source = source
         self._injected_cookies = cookies
         self._transport = transport
         self._ua = ua
@@ -182,7 +193,7 @@ class BaseFetcher:
         logger.info(f"{len(fresh)} new since {since or 'beginning'}")
         if not fresh:
             return
-        for item in track(fresh, f"Fetching {self.source}"):
+        for item in track(fresh, f"Fetching {self.source.name}"):
             read(item)
 
     def _log(self, **entry: Any) -> None:
@@ -191,4 +202,4 @@ class BaseFetcher:
         self._wire_log.append(entry)
 
     def _write_archive(self, destination: Path) -> Path:
-        return write_archive(destination / archive_name(self.source), self.source, self._wire_log)
+        return write_archive(destination / archive_name(self.source.name), self.source.name, self._wire_log)

@@ -3,11 +3,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from pydantic import BaseModel, Field
 
 from commonplace._types import Note
+
+if TYPE_CHECKING:
+    from commonplace._types import Source
 
 
 class Role(Enum):
@@ -43,7 +46,6 @@ class EventLog(BaseModel):
     interactions, imported from a single source file or session.
     """
 
-    source: str = Field(description="Source of the log (e.g., 'Gemini', 'ChatGPT')")
     title: str = Field(description="A short title for this conversation")
     events: Sequence[Event] = Field(description="A list of events in this log")
     created: datetime = Field(description="When this log was started")
@@ -78,9 +80,8 @@ class MirrorImporter(Protocol):
     upstream, and prunes the paths upstream no longer lists.
     """
 
-    source: str
-    #: Where the files land, and so the fetch cursor's pathspec.
-    tree: Path
+    #: The source it belongs to, which gives its name and the tree its files land in.
+    source: "Source"
     #: The frontmatter key holding a note's id, which keeps it at the path it first landed at rather than the
     #: one proposed now; for sources that name files after something that changes, like a note's title.
     #: `None`: upstream's own paths are authoritative.
@@ -104,7 +105,8 @@ class ChatImporter(Protocol):
     3. Convert the data into standardized ActivityLog objects
     """
 
-    source: str
+    #: The source it belongs to.
+    source: "Source"
     #: The agent's display name, which labels its turns; declared, since no key `.title()`s into "ChatGPT".
     name: str
     #: The one ZIP member `import_` reads, stored in place of the archive; `None` stores the file whole.
@@ -116,3 +118,10 @@ class ChatImporter(Protocol):
     def can_import(self, path: Path) -> bool: ...
 
     def import_(self, path: Path) -> list[EventLog]: ...
+
+
+class Part:
+    """A part of a source, built by it: an importer, which knows its source and so its name and tree."""
+
+    def __init__(self, source: "Source") -> None:
+        self.source = source

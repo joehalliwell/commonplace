@@ -1,75 +1,46 @@
 """Fetch entrypoint: run configured fetchers and hand output to the importer."""
 
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
 
-from commonplace._config import Config
-from commonplace._fetch._chatgpt import ChatGptFetcher
-from commonplace._fetch._chatgpt_memory import ChatGptMemoryFetcher
-from commonplace._fetch._claude import ClaudeFetcher
-from commonplace._fetch._claude_code import ClaudeCodeFetcher, ClaudeCodeMemoryFetcher
-from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
-from commonplace._fetch._claude_tasks import ClaudeTasksFetcher
-from commonplace._fetch._gemini import GeminiFetcher
-from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
 from commonplace._fetch._helpers import FetchBlocked, NoSession
-from commonplace._fetch._keep import KeepFetcher
-from commonplace._fetch._types import Fetcher
-from commonplace._import._commands import import_one, landing_tree
+from commonplace._import._commands import import_one
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
+from commonplace._sources import SOURCES
+from commonplace._types import Source
 from commonplace._wire import archive_names
-
-
-def default_fetchers(config: Config) -> list[Fetcher]:
-    """Built per call rather than as a module constant, so the configured
-    User-Agent reaches them — including a per-repo `.commonplace/config.toml`
-    override, which a constant evaluated at import time could not see."""
-    return [
-        ClaudeFetcher(ua=config.ua),
-        ClaudeMemoryFetcher(ua=config.ua),
-        ClaudeTasksFetcher(ua=config.ua),
-        ClaudeCodeFetcher(),
-        ClaudeCodeMemoryFetcher(),
-        GeminiFetcher(ua=config.ua),
-        GeminiMemoryFetcher(ua=config.ua),
-        KeepFetcher(ua=config.ua),
-        ChatGptFetcher(ua=config.ua),
-        ChatGptMemoryFetcher(ua=config.ua),
-    ]
 
 
 def fetch(
     repo: Commonplace,
-    sources: list[str] | None = None,
+    names: list[str] | None = None,
     auto_index: bool | None = None,
-    fetchers: list[Fetcher] | None = None,
+    sources: Sequence[Source] = SOURCES,
     all_: bool = False,
 ) -> None:
-    """Fetch new content from each configured source and import it.
+    """Fetch what is new from each source with a fetcher, or those `names` names, and import it.
 
     If `all_` is True, the git-derived cursor is bypassed and everything the
     remote has is fetched. Useful for recovery when the cursor is wrong,
     or for a first-time bulk import."""
-    pool = fetchers if fetchers is not None else default_fetchers(repo.config)
-    active = pool
-    if sources:
-        active = [f for f in pool if f.source in sources]
-        if not active:
-            logger.error(f"No fetchers match sources: {sources}")
-            return
+    active = [source for source in sources if source.fetcher_type is not None and (not names or source.name in names)]
+    if names and not active:
+        logger.error(f"No fetchers match sources: {names}")
+        return
 
     blocked: list[str] = []
-    for fetcher in active:
-        logger.info(f"Fetching from {fetcher.source}")
+    for source in active:
+        logger.info(f"Fetching from {source.name}")
         # Each source signs in on its own, so one turned away leaves the rest worth fetching.
         try:
-            _fetch_one(repo, fetcher, auto_index, all_)
+            _fetch_one(repo, source, auto_index, all_)
         except NoSession:
-            logger.info(f"Skipping {fetcher.source}: not signed in")
+            logger.info(f"Skipping {source.name}: not signed in")
         except FetchBlocked as e:
             logger.error(str(e))
-            blocked.append(fetcher.source)
+            blocked.append(source.name)
     if blocked:
         raise FetchBlocked(
             f"Blocked: {', '.join(blocked)}; see above. Nothing from those was imported, "
@@ -77,24 +48,25 @@ def fetch(
         )
 
 
-def _fetch_one(repo: Commonplace, fetcher: Fetcher, auto_index: bool | None, all_: bool) -> None:
+def _fetch_one(repo: Commonplace, source: Source, auto_index: bool | None, all_: bool) -> None:
     """Fetch what is new from one source and import it."""
+    fetcher = source.fetcher(repo.config)
     # `diff_filter="AM"` excludes rename-source / pure-deletion commits so
     # a `git mv chats/{source}/ elsewhere` doesn't poison the cursor — nor,
     # for a mirrored tree, does a commit that only pruned.
-    tree = landing_tree(fetcher.source).as_posix()
+    tree = source.tree.as_posix()
     since = None if all_ else repo.last_commit_time(f"{tree}/", diff_filter="AM")
     # What this source has landed, for a fetcher that asks only for what changed since; --full asks for it all.
-    previous = [] if all_ else [repo.root / p for p in repo.stored_archives(*archive_names(fetcher.source))]
+    previous = [] if all_ else [repo.root / p for p in repo.stored_archives(*archive_names(source.name))]
     with tempfile.TemporaryDirectory() as tmp:
         archives = fetcher.fetch(Path(tmp), since, previous=previous)
         if not archives:
-            logger.info(f"Nothing new from {fetcher.source}")
+            logger.info(f"Nothing new from {source.name}")
             return
         # One fetch is one commit, however many archives it wrote.
         # A mirror commits its own; it still needs to know whether to index.
         stored = [import_one(a, repo, repo.config.user, auto_index=auto_index, commit=False) for a in archives]
-        repo.commit(_message(fetcher.source, [b.path.as_posix() for b in stored if b]), auto_index=auto_index)
+        repo.commit(_message(source.name, [b.path.as_posix() for b in stored if b]), auto_index=auto_index)
 
 
 def _message(source: str, blobs: list[str]) -> str:

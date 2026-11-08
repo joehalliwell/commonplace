@@ -18,9 +18,6 @@ RPC_LIST_SAVED_INFO = "ZKcapf"
 
 
 class GeminiMemoryImporter(BaseWireImporter):
-    source: str = "gemini-memory"
-    tree: Path = Path("memory") / "gemini"
-
     def snapshot(self, path: Path, earlier: Sequence[Path] = ()) -> Snapshot:
         [entry] = read_entries(path)
         body = _extract_rpc_body(entry["response"], RPC_LIST_SAVED_INFO)
@@ -30,5 +27,5 @@ class GeminiMemoryImporter(BaseWireImporter):
         items = sorted(body[0], key=lambda item: item[2])
         bullets = "".join(f"- {item[1].replace('\n', '\n  ')}\n" for item in items)
         title = "Saved info"
-        note = Note.compose(RepoPath(self.tree / "saved-info.md"), "Memory", title, f"# {title}\n\n{bullets}")
+        note = Note.compose(RepoPath(self.source.tree / "saved-info.md"), "Memory", title, f"# {title}\n\n{bullets}")
         return Snapshot([note])

@@ -8,6 +8,7 @@ import httpx
 from commonplace._fetch._claude_tasks import ClaudeTasksFetcher
 from commonplace._fetch._commands import fetch
 from commonplace._wire import read_entries, read_header
+from tests.fetching import fetching, owned
 
 TEST_COOKIES = {"sessionKey": "sk-test", "lastActiveOrg": "org-uuid-1"}
 
@@ -68,7 +69,7 @@ class FakeSessions:
         return httpx.Response(404)
 
     def fetcher(self) -> ClaudeTasksFetcher:
-        return ClaudeTasksFetcher(cookies=TEST_COOKIES, transport=httpx.MockTransport(self))
+        return owned(ClaudeTasksFetcher, cookies=TEST_COOKIES, transport=httpx.MockTransport(self))
 
 
 def test_fetch_records_the_listing_then_each_runs_events(tmp_path):
@@ -118,7 +119,7 @@ def test_fetch_stores_response_bodies_verbatim(tmp_path):
         return httpx.Response(200, text=raw_events if request.url.path.endswith("/events") else raw_list)
 
     transport = httpx.MockTransport(handler)
-    [archive] = ClaudeTasksFetcher(cookies=TEST_COOKIES, transport=transport).fetch(tmp_path, since=None)
+    [archive] = owned(ClaudeTasksFetcher, cookies=TEST_COOKIES, transport=transport).fetch(tmp_path, since=None)
 
     assert [e["response"] for e in read_entries(archive)] == [raw_list, raw_events]
 
@@ -136,7 +137,7 @@ def test_fetch_incremental_reads_runs_with_events_after_the_cursor(tmp_path):
 
 def test_fetch_command_lands_runs_under_their_own_tree(test_repo):
     """Not `chats/claude/`: the fetch cursor is read from the landing tree, and chats would move it."""
-    fetch(test_repo, fetchers=[FakeSessions().fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(FakeSessions().fetcher()), auto_index=False)
 
     landed = sorted(p.relative_to(test_repo.root).as_posix() for p in (Path(test_repo.root) / "chats").rglob("*.md"))
     assert landed == [

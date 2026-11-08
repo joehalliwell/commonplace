@@ -14,9 +14,6 @@ from commonplace._wire import read_entries
 
 
 class ChatGptMemoryImporter(BaseWireImporter):
-    source: str = "chatgpt-memory"
-    tree: Path = Path("memory") / "chatgpt"
-
     def snapshot(self, path: Path, earlier: Sequence[Path] = ()) -> Snapshot:
         notes: list[Note] = []
         summarised = False
@@ -26,7 +23,7 @@ class ChatGptMemoryImporter(BaseWireImporter):
                 items = sorted(memories, key=lambda m: m["created_timestamp"])
                 bullets = "".join(f"- {m['content'].replace('\n', '\n  ')}\n" for m in items)
                 title = "Saved memories"
-                repo_path = RepoPath(self.tree / "saved-memories.md")
+                repo_path = RepoPath(self.source.tree / "saved-memories.md")
                 notes.append(Note.compose(repo_path, "Memory", title, f"# {title}\n\n{bullets}"))
             elif entry.get("endpoint") == "summary" and (done := _done(entry["response"])) is not None:
                 # One file, since every regeneration redraws the sections under new ids. Follow-ups are
@@ -36,7 +33,7 @@ class ChatGptMemoryImporter(BaseWireImporter):
                     f"\n## {s['title']}\n\n{s['description']}\n" for s in done["sections"] if s["description"]
                 ):
                     title = "About you"
-                    repo_path = RepoPath(self.tree / "about-you.md")
+                    repo_path = RepoPath(self.source.tree / "about-you.md")
                     body = f"# {title}\n{sections}"
                     notes.append(Note.compose(repo_path, "Memory", title, body, {"updated_at": done["generatedAtIso"]}))
         # Without the summary's `done` event the sections may be partial, so absence proves nothing.

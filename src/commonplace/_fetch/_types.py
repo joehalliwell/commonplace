@@ -1,7 +1,11 @@
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from commonplace._config import Config
+    from commonplace._types import Source
 
 
 @runtime_checkable
@@ -21,7 +25,13 @@ class Fetcher(Protocol):
     It excludes only what isn't the user's, like account and auth state.
     """
 
-    source: str
+    #: The source it belongs to, which names its archives.
+    source: "Source"
+
+    @classmethod
+    def configured(cls, source: "Source", config: "Config") -> "Fetcher":
+        """One for `source`, as `config` asks."""
+        ...
 
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         """Fetch new content.

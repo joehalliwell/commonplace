@@ -9,13 +9,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from commonplace._config import BLOBS
-from commonplace._import._commands import CHAT_IMPORTERS, autodetect_importer, landing_tree, render_chats
+from commonplace._import._commands import autodetect_importer, render_chats
 from commonplace._import._placement import Placement
 from commonplace._import._types import ChatImporter
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
-from commonplace._types import Note
+from commonplace._sources import importers
+from commonplace._types import ChatSource, Note
 from commonplace._utils import dump_frontmatter
 from commonplace._wire import GZ, XZ, read_header
 
@@ -37,10 +38,10 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
     # One per tree, shared across archives, so a chat lands where the tree or an earlier archive put it.
     placements: dict[str, Placement] = {}
     for blob, importer in track(archives, "Replaying archives"):
-        if importer.source not in placements:
-            tree = landing_tree(importer.source)
-            placements[importer.source] = Placement.of(repo.root, tree, importer.id_key)
-        placement = placements[importer.source]
+        if importer.source.name not in placements:
+            tree = importer.source.tree
+            placements[importer.source.name] = Placement.of(repo.root, tree, importer.id_key)
+        placement = placements[importer.source.name]
         rendered = {
             note.repo_path.path: note
             for note in render_chats(repo.root / blob, importer, repo.config.user, blob.as_posix(), placement)
@@ -91,7 +92,7 @@ def _in_capture_order(repo: Commonplace) -> list[tuple[Path, ChatImporter]]:
     stored = {path: i for i, path in enumerate(repo.first_added(BLOBS.as_posix()))}
     archives: list[tuple[Path, ChatImporter]] = []
     for path in sorted((repo.root / BLOBS).glob("*/*")):
-        if importer := autodetect_importer(path, CHAT_IMPORTERS):
+        if importer := autodetect_importer(path, importers(ChatSource)):
             archives.append((path.relative_to(repo.root), importer))
 
     def capture(archive: tuple[Path, ChatImporter]) -> tuple[bool, datetime, int]:

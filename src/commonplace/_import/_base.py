@@ -15,13 +15,13 @@ themselves by archive contents, and the ZIP ones declare the `member` they read.
 
 from pathlib import Path
 
+from commonplace._import._types import Part
 from commonplace._wire import read_header
 
 
-class BaseWireImporter:
-    """Recognises the wire archive written by the fetcher of the same `source`."""
+class BaseWireImporter(Part):
+    """Recognises the wire archive written by its source's fetcher."""
 
-    source: str
     #: A wire archive is compressed JSONL, not a ZIP, so it is stored whole.
     member: str | None = None
     #: The metadata key holding the vendor's id, which keeps a note at the path it first landed at.
@@ -31,7 +31,7 @@ class BaseWireImporter:
     def can_import(self, path: Path) -> bool:
         source = read_header(path).source
         if source is not None:
-            return source == self.source
+            return source == self.source.name
         return self._claims_legacy(path)
 
     def _claims_legacy(self, path: Path) -> bool:

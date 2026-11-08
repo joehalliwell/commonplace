@@ -68,8 +68,6 @@ class ChatGptSessionFetcher(BaseFetcher):
 class ChatGptFetcher(ChatGptSessionFetcher):
     """Records one listing page per 100 conversations plus N conversation details."""
 
-    source = "chatgpt"
-
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         with self._signed_in():
             fresh = list(self._list_fresh(since))

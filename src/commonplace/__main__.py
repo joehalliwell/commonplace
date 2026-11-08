@@ -130,7 +130,7 @@ def fetch(
 
     from commonplace._fetch._commands import fetch
 
-    fetch(repo, sources=sources if sources else None, auto_index=index, all_=full)
+    fetch(repo, names=sources or None, auto_index=index, all_=full)
 
 
 @app.command(alias="j", group=CREATING_SECTION)
@@ -291,7 +291,7 @@ def resolve(spec: NoteSpec, *, repo: Repo) -> None:
     """Print the path of the note a name refers to, one per line for a glob: $EDITOR $(commonplace resolve ideas)."""
 
     try:
-        notes = repo.resolve(spec)
+        notes = repo.files.resolve(spec)
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e

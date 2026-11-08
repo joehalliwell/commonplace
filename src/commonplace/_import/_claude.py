@@ -21,7 +21,6 @@ NO_TEXT_NOTE = "> [!NOTE]\n> Message had no recoverable text"
 
 
 class ClaudeImporter(BaseWireImporter):
-    source: str = "claude"
     name: str = "Claude"
     id_key: str | None = "uuid"
 
@@ -31,7 +30,7 @@ class ClaudeImporter(BaseWireImporter):
 
     def import_(self, path: Path) -> list[EventLog]:
         threads = list(_read_wire(path))
-        return [_to_log(thread, self.source) for thread in track(threads)]
+        return [_to_log(thread) for thread in track(threads)]
 
 
 def _read_wire(path: Path) -> Iterable[dict[str, Any]]:
@@ -47,10 +46,9 @@ def _read_wire(path: Path) -> Iterable[dict[str, Any]]:
         yield response if version == LEGACY_VERSION else json.loads(response)
 
 
-def _to_log(thread: dict[str, Any], source: str) -> EventLog:
+def _to_log(thread: dict[str, Any]) -> EventLog:
     """Shared parse — used by both this importer and ClaudeExportImporter."""
     return EventLog(
-        source=source,
         title=thread["name"],
         created=thread["created_at"],
         events=[_to_message(msg) for msg in thread["chat_messages"]],

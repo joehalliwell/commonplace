@@ -21,7 +21,7 @@ def mirror_one(
     path: Path, repo: Commonplace, importer: MirrorImporter, auto_index: bool | None = None
 ) -> RepoPath | None:
     """Land the files the capture read and prune the paths its listing no longer names; returns the blob stored."""
-    tree = importer.tree
+    tree = importer.source.tree
     fetched_at = read_header(path).fetched_at
     landed_at = repo.last_commit_time(f"{tree.as_posix()}/")
     if fetched_at and landed_at and fetched_at < landed_at:
@@ -29,7 +29,7 @@ def mirror_one(
         return None
 
     # Captures of this source already landed, for an importer whose captures are changes on earlier ones.
-    earlier = [repo.root / stored for stored in repo.stored_archives(*archive_names(importer.source))]
+    earlier = [repo.root / stored for stored in repo.stored_archives(*archive_names(importer.source.name))]
     snapshot = importer.snapshot(path, earlier=earlier)
     if importer.id_key is not None:
         snapshot = replace(snapshot, notes=_placed(repo.root, tree, importer.id_key, snapshot.notes))
@@ -55,7 +55,7 @@ def mirror_one(
         return None
 
     blob = repo.store_blob(path)
-    provenance = {"source": importer.source, "source_export": blob.path.as_posix()}
+    provenance = {"source": importer.source.name, "source_export": blob.path.as_posix()}
     for note in notes:
         repo.save(replace(note, metadata=note.metadata | provenance))
         logger.info(f"Mirrored '{note.repo_path}'")
@@ -63,7 +63,7 @@ def mirror_one(
         repo.remove(target)
         logger.info(f"Pruned '{target}'")
 
-    repo.commit(f"Mirror {importer.source}: {blob.path.as_posix()}", auto_index=auto_index)
+    repo.commit(f"Mirror {importer.source.name}: {blob.path.as_posix()}", auto_index=auto_index)
     return blob
 
 

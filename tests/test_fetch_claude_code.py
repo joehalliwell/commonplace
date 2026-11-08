@@ -6,6 +6,7 @@ from pathlib import Path
 from commonplace._fetch._claude_code import ClaudeCodeFetcher
 from commonplace._fetch._commands import fetch
 from commonplace._wire import archive_names, entry_body, read_entries, read_header, write_archive
+from tests.fetching import fetching, owned
 from tests.porcelain import git
 
 OLD = datetime(2025, 9, 1, tzinfo=UTC)
@@ -58,7 +59,7 @@ def test_fetch_records_each_session_whole_byte_for_byte(tmp_path):
     """Which of it makes a note is the importer's call; whatever a fetch leaves out is lost once upstream deletes it."""
     home = _claude_home(tmp_path)
 
-    captured = ClaudeCodeFetcher(root=home).fetch(tmp_path, since=None)
+    captured = owned(ClaudeCodeFetcher, root=home).fetch(tmp_path, since=None)
 
     entries = _entries(captured)
     assert sorted((e["endpoint"], e["path"]) for e in entries) == [("file", path) for path in sorted(EVERYTHING)]
@@ -75,14 +76,14 @@ def test_fetch_shows_progress_over_the_sessions_it_reads(tmp_path, monkeypatch):
 
     monkeypatch.setattr("commonplace._fetch._claude_code.track", track)
 
-    ClaudeCodeFetcher(root=_claude_home(tmp_path)).fetch(tmp_path, since=NEW - (NEW - OLD) / 2)
+    owned(ClaudeCodeFetcher, root=_claude_home(tmp_path)).fetch(tmp_path, since=NEW - (NEW - OLD) / 2)
 
     assert [t.name for t in tracked] == ["s-new.jsonl", "s-new.orphaned-1-a2.jsonl"]
 
 
 def test_fetch_writes_one_archive_per_session(tmp_path):
     """Files stay as small as one session, and a newer capture of a session supersedes its older one whole."""
-    captured = ClaudeCodeFetcher(root=_claude_home(tmp_path)).fetch(tmp_path, since=None)
+    captured = owned(ClaudeCodeFetcher, root=_claude_home(tmp_path)).fetch(tmp_path, since=None)
 
     archives = {a.parent.relative_to(tmp_path).as_posix(): a for a in captured}
     assert sorted(archives) == ["-work/s-new", "-work/s-new.orphaned-1-a2", "-work/s-old"]
@@ -91,7 +92,9 @@ def test_fetch_writes_one_archive_per_session(tmp_path):
 
 
 def test_fetch_incremental_reads_sessions_changed_after_the_cursor(tmp_path):
-    captured = ClaudeCodeFetcher(root=_claude_home(tmp_path)).fetch(tmp_path, since=datetime(2025, 9, 15, tzinfo=UTC))
+    captured = owned(ClaudeCodeFetcher, root=_claude_home(tmp_path)).fetch(
+        tmp_path, since=datetime(2025, 9, 15, tzinfo=UTC)
+    )
 
     assert _paths(captured) == sorted(EVERYTHING[:-1])
 
@@ -101,7 +104,7 @@ def test_fetch_session_whose_folder_changed_is_read_again(tmp_path):
     home = _claude_home(tmp_path)
     _write(home / "projects" / "-work" / "s-old" / "subagents" / "agent-a3.jsonl", "{}\n", NEW)
 
-    captured = ClaudeCodeFetcher(root=home).fetch(tmp_path, since=datetime(2025, 9, 15, tzinfo=UTC))
+    captured = owned(ClaudeCodeFetcher, root=home).fetch(tmp_path, since=datetime(2025, 9, 15, tzinfo=UTC))
 
     assert {"-work/s-old.jsonl", "-work/s-old/subagents/agent-a3.jsonl"} <= set(_paths(captured))
 
@@ -113,7 +116,7 @@ def test_fetch_session_changed_during_the_previous_fetch_is_read_again(tmp_path)
         tmp_path / "previous.jsonl.gz", "claude-code", [], fetched_at=datetime(2025, 9, 30, tzinfo=UTC)
     )
 
-    captured = ClaudeCodeFetcher(root=home).fetch(
+    captured = owned(ClaudeCodeFetcher, root=home).fetch(
         tmp_path, since=datetime(2025, 10, 2, tzinfo=UTC), previous=[previous]
     )
 
@@ -123,7 +126,7 @@ def test_fetch_session_changed_during_the_previous_fetch_is_read_again(tmp_path)
 def test_fetch_stamps_the_archive_before_listing_sessions(tmp_path, monkeypatch):
     """A session written between listing and stamping would otherwise fall between two fetches."""
     home = _claude_home(tmp_path)
-    fetcher = ClaudeCodeFetcher(root=home)
+    fetcher = owned(ClaudeCodeFetcher, root=home)
     listed = []
     real_glob = Path.glob
 
@@ -140,20 +143,20 @@ def test_fetch_stamps_the_archive_before_listing_sessions(tmp_path, monkeypatch)
 
 
 def test_fetch_with_nothing_fresh_returns_none(tmp_path):
-    fetcher = ClaudeCodeFetcher(root=_claude_home(tmp_path))
+    fetcher = owned(ClaudeCodeFetcher, root=_claude_home(tmp_path))
 
     assert fetcher.fetch(tmp_path, since=datetime(2025, 11, 1, tzinfo=UTC)) == []
 
 
 def test_fetch_without_claude_code_installed_returns_none(tmp_path):
-    assert ClaudeCodeFetcher(root=tmp_path / "absent").fetch(tmp_path, since=None) == []
+    assert owned(ClaudeCodeFetcher, root=tmp_path / "absent").fetch(tmp_path, since=None) == []
 
 
 def test_fetch_root_follows_claude_config_dir(tmp_path, monkeypatch):
     """Claude Code reads `CLAUDE_CONFIG_DIR` to move `~/.claude`, so the fetcher follows it there."""
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(_claude_home(tmp_path)))
 
-    captured = ClaudeCodeFetcher().fetch(tmp_path, since=None)
+    captured = owned(ClaudeCodeFetcher).fetch(tmp_path, since=None)
 
     assert _paths(captured) == sorted(EVERYTHING)
 
@@ -162,7 +165,7 @@ def test_fetch_command_lands_sessions_under_claude_code_in_one_commit(test_repo,
     """One fetch is one commit, however many sessions it captured, as it is for every source."""
     before = len(git(test_repo.root, "log", "--oneline").splitlines())
 
-    fetch(test_repo, fetchers=[ClaudeCodeFetcher(root=_claude_home(tmp_path))], auto_index=False)
+    fetch(test_repo, sources=fetching(owned(ClaudeCodeFetcher, root=_claude_home(tmp_path))), auto_index=False)
 
     landed = sorted(p.relative_to(test_repo.root).as_posix() for p in (test_repo.root / "chats").rglob("*.md"))
     assert landed == [
@@ -183,7 +186,7 @@ def _paths(captured: list[Path]) -> list[str]:
 
 def test_fetch_command_commit_names_each_stored_archive(test_repo, tmp_path):
     """The temporary directory is gone once the commit lands; the blobs it added are the provenance."""
-    fetch(test_repo, fetchers=[ClaudeCodeFetcher(root=_claude_home(tmp_path))], auto_index=False)
+    fetch(test_repo, sources=fetching(owned(ClaudeCodeFetcher, root=_claude_home(tmp_path))), auto_index=False)
 
     message = git(test_repo.root, "log", "-1", "--format=%B")
     stored = test_repo.stored_archives(*archive_names("claude-code"))

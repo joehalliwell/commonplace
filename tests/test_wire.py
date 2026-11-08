@@ -9,11 +9,12 @@ from pathlib import Path
 import pytest
 
 from commonplace import __version__
-from commonplace._fetch._commands import default_fetchers
 from commonplace._import._chatgpt import ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
-from commonplace._import._commands import CHAT_IMPORTERS, MIRROR_IMPORTERS, autodetect_importer, import_
+from commonplace._import._commands import autodetect_importer, import_
 from commonplace._import._gemini import GeminiImporter
+from commonplace._sources import SOURCES, importers
+from commonplace._types import ChatSource, MirrorSource
 from commonplace._wire import (
     LEGACY_VERSION,
     WIRE_VERSION,
@@ -26,6 +27,7 @@ from commonplace._wire import (
     read_header,
     write_archive,
 )
+from tests.fetching import owned
 
 ENTRIES = [
     {"endpoint": "conversations", "response": "[]"},
@@ -140,21 +142,21 @@ def test_every_wire_version_declares_its_own_version(any_wire_version):
 
 
 def test_every_wire_version_is_claimed_by_the_claude_importer(any_wire_version):
-    assert ClaudeImporter().can_import(any_wire_version.path)
+    assert owned(ClaudeImporter).can_import(any_wire_version.path)
 
 
 def test_every_wire_version_imports_to_the_same_conversation(any_wire_version):
     """The back-compat guarantee itself. Old archives are committed in users'
     repos and referenced from note frontmatter, so a format change that
     quietly stopped reading one would corrupt history already written."""
-    logs = ClaudeImporter().import_(any_wire_version.path)
+    logs = owned(ClaudeImporter).import_(any_wire_version.path)
     assert len(logs) == 1
     assert logs[0].metadata["uuid"] == "c-example"
     assert [e.content for e in logs[0].events] == ["hello", "hi back"]
 
 
 def test_every_wire_version_records_the_conversation_models_in_order(any_wire_version):
-    [log] = ClaudeImporter().import_(any_wire_version.path)
+    [log] = owned(ClaudeImporter).import_(any_wire_version.path)
     assert log.metadata["models"] == ["claude-fable-5", "claude-opus-4-8", "claude-sonnet-4-6"]
 
 
@@ -169,8 +171,8 @@ def test_provenance_is_absent_before_v3_and_present_from_v3(any_wire_version):
 
 def test_every_gemini_wire_version_imports_to_the_same_conversation(any_gemini_wire_version):
     """Bodies are Google's as fetched, redacted, so a fix for a new upstream shape must still read these."""
-    assert GeminiImporter().can_import(any_gemini_wire_version.path)
-    [log] = GeminiImporter().import_(any_gemini_wire_version.path)
+    assert owned(GeminiImporter).can_import(any_gemini_wire_version.path)
+    [log] = owned(GeminiImporter).import_(any_gemini_wire_version.path)
     assert (log.metadata["uuid"], log.title, log.metadata["is_pinned"]) == ("c_60772b6269b693f9", "CHAT_TITLE_0", True)
     assert [e.content for e in log.events] == [
         "USER_TEXT_2",
@@ -188,10 +190,10 @@ def test_importers_do_not_claim_each_others_archives(tmp_path):
     claude = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", ENTRIES)
     gemini = write_archive(tmp_path / "gemini-wire.jsonl.gz", "gemini", [{"rpc": "MaZiqc", "response": ""}])
 
-    assert ClaudeImporter().can_import(claude)
-    assert not ClaudeImporter().can_import(gemini)
-    assert GeminiImporter().can_import(gemini)
-    assert not GeminiImporter().can_import(claude)
+    assert owned(ClaudeImporter).can_import(claude)
+    assert not owned(ClaudeImporter).can_import(gemini)
+    assert owned(GeminiImporter).can_import(gemini)
+    assert not owned(GeminiImporter).can_import(claude)
 
 
 def test_importers_still_claim_legacy_archives(tmp_path, write_jsonl_gz):
@@ -199,10 +201,10 @@ def test_importers_still_claim_legacy_archives(tmp_path, write_jsonl_gz):
     claude = write_jsonl_gz(tmp_path / "claude-wire.jsonl.gz", ENTRIES)
     gemini = write_jsonl_gz(tmp_path / "gemini-wire.jsonl.gz", [{"rpc": "MaZiqc", "response": ""}])
 
-    assert ClaudeImporter().can_import(claude)
-    assert GeminiImporter().can_import(gemini)
-    assert not ClaudeImporter().can_import(gemini)
-    assert not GeminiImporter().can_import(claude)
+    assert owned(ClaudeImporter).can_import(claude)
+    assert owned(GeminiImporter).can_import(gemini)
+    assert not owned(ClaudeImporter).can_import(gemini)
+    assert not owned(GeminiImporter).can_import(claude)
 
 
 def test_an_importer_added_after_versioning_claims_no_headerless_archive(tmp_path, write_jsonl_gz):
@@ -213,56 +215,52 @@ def test_an_importer_added_after_versioning_claims_no_headerless_archive(tmp_pat
     claude = write_jsonl_gz(tmp_path / "claude-wire.jsonl.gz", ENTRIES)
     gemini = write_jsonl_gz(tmp_path / "gemini-wire.jsonl.gz", [{"rpc": "MaZiqc", "response": ""}])
 
-    assert not ChatGptWireImporter().can_import(claude)
-    assert not ChatGptWireImporter().can_import(gemini)
+    assert not owned(ChatGptWireImporter).can_import(claude)
+    assert not owned(ChatGptWireImporter).can_import(gemini)
 
 
 @pytest.mark.parametrize("importer_class", [ClaudeImporter, GeminiImporter, ChatGptWireImporter])
 def test_wire_importers_extract_nothing(importer_class):
     """A wire archive is gzipped JSONL, not a ZIP, so it is stored whole."""
-    assert importer_class().member is None
+    assert owned(importer_class).member is None
 
 
 # ---------------------------------------------------------------------------
-# The seam itself: every fetcher's archive must reach its paired importer.
+# The seam itself: every fetcher's archive must reach its own source's importer.
 #
-# `source` binds the two halves, but it is declared twice — once on the
-# Fetcher, once on the Importer — and the registries carrying them
-# (`default_fetchers()`, `CHAT_IMPORTERS` and `MIRROR_IMPORTERS`) are maintained by hand, in different
-# modules. A provider misspelt on one side, or an importer left out of
-# either importer registry, fetches perfectly and imports nothing: the archive is written,
-# no importer claims it, and the run reports no error. These tests are derived
-# from the registries rather than from a list of their own, so a fourth
-# provider is covered without anyone remembering to add it.
+# A source names its fetcher's archives and its importers' claims alike, so they can't disagree on the name. What
+# can still go wrong is a claim: an importer that turns down its own source's archive, or one that also claims
+# another's, fetches perfectly and imports nothing, or the wrong thing, and the run reports no error. These tests
+# are derived from the sources, so a new one is covered without anyone remembering to add it.
 # ---------------------------------------------------------------------------
 
 
-IMPORTERS = [*MIRROR_IMPORTERS, *CHAT_IMPORTERS]
+FETCHING = [source for source in SOURCES if source.fetcher_type is not None]
+IMPORTERS = [*importers(MirrorSource), *importers(ChatSource)]
 
 
-def _archive_for(fetcher, tmp_path: Path) -> Path:
-    return write_archive(tmp_path / f"{fetcher.source}-wire.jsonl.gz", fetcher.source, ENTRIES)
+def _archive_for(source, tmp_path: Path) -> Path:
+    return write_archive(tmp_path / f"{source.name}-wire.jsonl.gz", source.name, ENTRIES)
 
 
-def test_every_fetchers_archive_reaches_an_importer(tmp_path, test_repo):
+def test_every_fetchers_archive_reaches_its_own_sources_importer(tmp_path):
     reached = {}
-    for fetcher in default_fetchers(test_repo.config):
-        importer = autodetect_importer(_archive_for(fetcher, tmp_path), IMPORTERS)
-        reached[fetcher.source] = importer and importer.source
+    for source in FETCHING:
+        importer = autodetect_importer(_archive_for(source, tmp_path), IMPORTERS)
+        reached[source.name] = importer and importer.source.name
 
-    assert reached == {source: source for source in reached}
+    assert reached == {name: name for name in reached}
 
 
-def test_exactly_one_importer_claims_each_fetchers_archive(tmp_path, test_repo, claims):
-    """Two claimants would make the seam depend on registry order, so
-    reordering the list for an unrelated reason could silently reroute a
-    provider."""
+def test_exactly_one_importer_claims_each_fetchers_archive(tmp_path, claims):
+    """Two claimants would make the seam depend on the order of the sources, so reordering them for an unrelated
+    reason could silently reroute one."""
     claimants = {
-        fetcher.source: [i.source for i in IMPORTERS if claims(i, _archive_for(fetcher, tmp_path))]
-        for fetcher in default_fetchers(test_repo.config)
+        source.name: [i.source.name for i in IMPORTERS if claims(i, _archive_for(source, tmp_path))]
+        for source in FETCHING
     }
 
-    assert claimants == {source: [source] for source in claimants}
+    assert claimants == {name: [name] for name in claimants}
 
 
 @pytest.mark.parametrize(

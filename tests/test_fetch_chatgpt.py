@@ -13,6 +13,7 @@ from commonplace._fetch._helpers import FetchBlocked
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._wire import WIRE_VERSION, read_entries, read_header, write_archive
+from tests.fetching import owned
 
 
 def _msg(node_id: str, role: str, text: str, **overrides) -> dict:
@@ -61,7 +62,7 @@ def _zip(tmp_path: Path, conversations: list[dict]) -> Path:
 
 
 def _import(tmp_path: Path, conversation: dict):
-    return ChatGptImporter().import_(_zip(tmp_path, [conversation]))[0]
+    return owned(ChatGptImporter).import_(_zip(tmp_path, [conversation]))[0]
 
 
 def test_import_reads_a_linear_thread(tmp_path):
@@ -196,12 +197,12 @@ def no_request_pacing(monkeypatch):
 
 
 def _make_fetcher(handler=_handler, cookies=SESSION_COOKIES) -> ChatGptFetcher:
-    return ChatGptFetcher(cookies=cookies, transport=httpx.MockTransport(handler))
+    return owned(ChatGptFetcher, cookies=cookies, transport=httpx.MockTransport(handler))
 
 
 def test_fetch_without_session_cookie_is_blocked(tmp_path):
     with pytest.raises(FetchBlocked):
-        ChatGptFetcher(cookies={"cf_clearance": "cf"}).fetch(tmp_path, since=None)
+        owned(ChatGptFetcher, cookies={"cf_clearance": "cf"}).fetch(tmp_path, since=None)
 
 
 def test_fetch_accepts_chunked_session_cookie(tmp_path):
@@ -328,19 +329,18 @@ def test_wire_importer_claims_only_its_own_archives(tmp_path):
     chatgpt = write_archive(tmp_path / "chatgpt-wire.jsonl.gz", "chatgpt", [])
     claude = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", [])
 
-    assert ChatGptWireImporter().can_import(chatgpt)
-    assert not ChatGptWireImporter().can_import(claude)
-    assert not ClaudeImporter().can_import(chatgpt)
+    assert owned(ChatGptWireImporter).can_import(chatgpt)
+    assert not owned(ChatGptWireImporter).can_import(claude)
+    assert not owned(ClaudeImporter).can_import(chatgpt)
 
 
 def test_wire_importer_reads_fetched_conversations(tmp_path):
     [archive] = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
 
-    logs = ChatGptWireImporter().import_(archive)
+    logs = owned(ChatGptWireImporter).import_(archive)
     assert {log.metadata["id"] for log in logs} == {"c-new", "c-old"}
     assert [e.content for e in logs[0].events] == ["hello c-new", "hi from c-new"]
-    assert all(log.source == "chatgpt" for log in logs)
 
 
 def test_wire_importer_reads_epoch_timestamps(tmp_path):
@@ -348,7 +348,7 @@ def test_wire_importer_reads_epoch_timestamps(tmp_path):
     [archive] = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
 
-    log = ChatGptWireImporter().import_(archive)[0]
+    log = owned(ChatGptWireImporter).import_(archive)[0]
     assert log.created == datetime.fromtimestamp(1785132346.0, tz=UTC)
 
 
@@ -418,7 +418,7 @@ def test_fetch_uses_the_configured_user_agent(tmp_path):
         seen.append(request.headers.get("user-agent"))
         return _handler(request)
 
-    ChatGptFetcher(cookies=SESSION_COOKIES, transport=httpx.MockTransport(handler), ua="Custom/1.0").fetch(
+    owned(ChatGptFetcher, cookies=SESSION_COOKIES, transport=httpx.MockTransport(handler), ua="Custom/1.0").fetch(
         tmp_path, since=None
     )
 

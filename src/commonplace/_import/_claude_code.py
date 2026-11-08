@@ -19,7 +19,6 @@ class ClaudeCodeImporter(BaseWireImporter):
     transcript verbatim: JSONL in the Anthropic Messages API format.
     """
 
-    source: str = "claude-code"
     name: str = "Claude Code"
     id_key: str | None = "sessionId"
 
@@ -82,7 +81,6 @@ class ClaudeCodeImporter(BaseWireImporter):
 
         return [
             EventLog(
-                source=self.source,
                 created=created,
                 events=events,
                 title=title,

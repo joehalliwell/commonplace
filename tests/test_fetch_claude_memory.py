@@ -10,6 +10,7 @@ from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._helpers import FetchBlocked
 from commonplace._wire import read_entries, read_header
+from tests.fetching import fetching, owned
 from tests.porcelain import git
 
 ORG = "org-uuid-1"
@@ -40,7 +41,7 @@ class FakeMemory:
         return httpx.Response(404)
 
     def fetcher(self, cookies=TEST_COOKIES) -> ClaudeMemoryFetcher:
-        return ClaudeMemoryFetcher(cookies=cookies, transport=httpx.MockTransport(self))
+        return owned(ClaudeMemoryFetcher, cookies=cookies, transport=httpx.MockTransport(self))
 
 
 def test_fetch_without_org_is_blocked(tmp_path):
@@ -76,7 +77,7 @@ def test_fetch_posts_strict_bodies(tmp_path):
 def test_fetch_stores_response_bodies_verbatim(tmp_path):
     raw = '{"data": [], "categories": [], "n": 1e5, "u": "\\/x"}'
     transport = httpx.MockTransport(lambda request: httpx.Response(200, text=raw))
-    [archive] = ClaudeMemoryFetcher(cookies=TEST_COOKIES, transport=transport).fetch(tmp_path, since=None)
+    [archive] = owned(ClaudeMemoryFetcher, cookies=TEST_COOKIES, transport=transport).fetch(tmp_path, since=None)
 
     assert [e["response"] for e in read_entries(archive)] == [raw]
 
@@ -95,7 +96,7 @@ def test_fetch_incremental_with_nothing_newer_still_records_the_listing(tmp_path
 
 
 def test_fetch_command_mirrors_into_memory_tree(test_repo):
-    fetch(test_repo, fetchers=[FakeMemory().fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(FakeMemory().fetcher()), auto_index=False)
 
     landed = {p.name for p in (test_repo.root / "memory" / "claude" / "topics").iterdir()}
     assert landed == {"old.md", "new.md"}
@@ -105,11 +106,11 @@ def test_fetch_command_mirrors_into_memory_tree(test_repo):
 def test_fetch_command_cursor_comes_from_the_memory_tree(test_repo):
     """A second run finds nothing newer than the commit the first one made under memory/claude/."""
     memory = FakeMemory()
-    fetch(test_repo, fetchers=[memory.fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
     head = git(test_repo.root, "rev-parse", "HEAD")
     memory.requests.clear()
 
-    fetch(test_repo, fetchers=[memory.fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
 
     assert [path.rsplit("/", 1)[-1] for _, path, _ in memory.requests] == ["list"]
     assert git(test_repo.root, "rev-parse", "HEAD") == head
@@ -117,10 +118,10 @@ def test_fetch_command_cursor_comes_from_the_memory_tree(test_repo):
 
 def test_fetch_command_upstream_deletion_alone_is_pruned(test_repo):
     memory = FakeMemory()
-    fetch(test_repo, fetchers=[memory.fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
 
     memory.listing = LISTING[1:]
-    fetch(test_repo, fetchers=[memory.fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(memory.fetcher()), auto_index=False)
 
     landed = {p.name for p in (test_repo.root / "memory" / "claude" / "topics").iterdir()}
     assert landed == {"new.md"}

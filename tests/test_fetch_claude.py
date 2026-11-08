@@ -12,6 +12,7 @@ from commonplace._fetch._commands import fetch
 from commonplace._fetch._helpers import FetchBlocked, NoSession
 from commonplace._import._claude import ClaudeImporter
 from commonplace._wire import read_entries
+from tests.fetching import fetching, owned
 
 ORG = "org-uuid-1"
 
@@ -62,7 +63,7 @@ def _handler(request: httpx.Request) -> httpx.Response:
 
 
 def _make_fetcher(handler=_handler, cookies=TEST_COOKIES) -> ClaudeFetcher:
-    return ClaudeFetcher(cookies=cookies, transport=httpx.MockTransport(handler))
+    return owned(ClaudeFetcher, cookies=cookies, transport=httpx.MockTransport(handler))
 
 
 def _read_wire(archive: Path) -> list[dict]:
@@ -77,7 +78,7 @@ def _read_wire(archive: Path) -> list[dict]:
 def test_fetch_without_org_is_blocked(tmp_path):
     """Signed in but not set up: Claude is in use, so this fails the run rather than skipping it."""
     with pytest.raises(FetchBlocked, match="lastActiveOrg") as excinfo:
-        ClaudeFetcher(cookies={"sessionKey": "sk"}).fetch(tmp_path, since=None)
+        owned(ClaudeFetcher, cookies={"sessionKey": "sk"}).fetch(tmp_path, since=None)
     assert not isinstance(excinfo.value, NoSession)
 
 
@@ -143,8 +144,8 @@ def test_fetch_omits_request_id_when_the_response_has_none(tmp_path):
 def test_fetch_end_to_end(tmp_path):
     [archive] = _make_fetcher().fetch(tmp_path, since=None)
     assert archive is not None
-    assert ClaudeImporter().can_import(archive)
-    assert len(ClaudeImporter().import_(archive)) == 2
+    assert owned(ClaudeImporter).can_import(archive)
+    assert len(owned(ClaudeImporter).import_(archive)) == 2
 
 
 def test_fetch_incremental_skips_seen(tmp_path):
@@ -156,7 +157,7 @@ def test_fetch_incremental_picks_up_newer(tmp_path):
     """Cursor between the two summaries → only the newer one."""
     [archive] = _make_fetcher().fetch(tmp_path, since=_utc(2026, 6, 15))
     assert archive is not None
-    logs = ClaudeImporter().import_(archive)
+    logs = owned(ClaudeImporter).import_(archive)
     assert len(logs) == 1
     assert logs[0].metadata["uuid"] == "c-new"
 
@@ -167,7 +168,7 @@ def test_fetch_cursor_honours_offset(tmp_path):
     cursor = datetime(2026, 6, 1, 0, 30, tzinfo=timezone(timedelta(hours=1)))
     [archive] = _make_fetcher().fetch(tmp_path, since=cursor)
     assert archive is not None
-    uuids = {log.metadata["uuid"] for log in ClaudeImporter().import_(archive)}
+    uuids = {log.metadata["uuid"] for log in owned(ClaudeImporter).import_(archive)}
     assert uuids == {"c-old", "c-new"}
 
 
@@ -181,12 +182,12 @@ def test_fetch_cursor_honours_subsecond_precision(tmp_path):
 
     [archive] = _make_fetcher(handler=handler).fetch(tmp_path, since=_utc(2026, 7, 15))
     assert archive is not None
-    assert len(ClaudeImporter().import_(archive)) == 1
+    assert len(owned(ClaudeImporter).import_(archive)) == 1
 
 
 def test_fetch_command_dispatches(test_repo):
     """`commonplace fetch` runs configured fetchers and imports the result."""
-    fetch(test_repo, fetchers=[_make_fetcher()], auto_index=False)
+    fetch(test_repo, sources=fetching(_make_fetcher()), auto_index=False)
 
     chats = list((Path(test_repo.root) / "chats" / "claude").rglob("*.md"))
     assert len(chats) == 2

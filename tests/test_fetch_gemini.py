@@ -13,6 +13,7 @@ from commonplace._fetch._gemini import GeminiFetcher
 from commonplace._fetch._helpers import FetchBlocked
 from commonplace._import._gemini import GeminiImporter, _extract_rpc_body, _ts_to_iso
 from commonplace._wire import read_entries
+from tests.fetching import owned
 
 FIXTURES = Path(__file__).parent / "resources" / "gemini-samples"
 LIST_CHATS_RAW = (FIXTURES / "list_chats.txt").read_text()
@@ -57,7 +58,7 @@ def _handler(request: httpx.Request) -> httpx.Response:
 
 
 def _make_fetcher(handler=_handler, cookies=TEST_COOKIES) -> GeminiFetcher:
-    return GeminiFetcher(cookies=cookies, transport=httpx.MockTransport(handler))
+    return owned(GeminiFetcher, cookies=cookies, transport=httpx.MockTransport(handler))
 
 
 def _read_wire(archive: Path) -> list[dict]:
@@ -164,36 +165,35 @@ def test_fetch_app_page_without_tokens_raises(tmp_path):
 
 def test_importer_recognizes_wire_jsonl_gz(tmp_path, write_jsonl_gz):
     path = write_jsonl_gz(tmp_path / "wire.jsonl.gz", [{"rpc": "MaZiqc", "payload": [], "response": ")]}'\n"}])
-    assert GeminiImporter().can_import(path)
+    assert owned(GeminiImporter).can_import(path)
 
 
 def test_importer_rejects_arbitrary_gz(tmp_path, write_jsonl_gz):
     path = write_jsonl_gz(tmp_path / "other.jsonl.gz", [{"not": "a wire log"}])
-    assert not GeminiImporter().can_import(path)
+    assert not owned(GeminiImporter).can_import(path)
 
 
 def test_importer_rejects_non_gz(tmp_path):
     path = tmp_path / "chats.json"
     path.write_text("[]")
-    assert not GeminiImporter().can_import(path)
+    assert not owned(GeminiImporter).can_import(path)
 
 
 def test_importer_rejects_uncompressed_jsonl(tmp_path):
     """The archive is always gzipped; a bare .jsonl isn't ours."""
     path = tmp_path / "wire.jsonl"
     path.write_text(json.dumps({"rpc": "MaZiqc", "payload": [], "response": ""}) + "\n")
-    assert not GeminiImporter().can_import(path)
+    assert not owned(GeminiImporter).can_import(path)
 
 
 def test_importer_reconstructs_events_from_wire(tmp_path):
     """The importer reads raw responses and produces EventLogs with per-turn
     timestamps drawn from the wire."""
     [archive] = _make_fetcher().fetch(tmp_path, since=None)
-    logs = GeminiImporter().import_(archive)
+    logs = owned(GeminiImporter).import_(archive)
 
     assert len(logs) == LISTED * BUCKETS
     log = logs[0]
-    assert log.source == "gemini"
     assert log.metadata["uuid"].startswith("c_")
     assert log.metadata["gem"] == "GEM_NAME"
     assert log.title.startswith("CHAT_TITLE_")
@@ -208,7 +208,7 @@ def test_importer_reconstructs_events_from_wire(tmp_path):
 
 def test_importer_carries_thoughts_metadata(tmp_path):
     [archive] = _make_fetcher().fetch(tmp_path, since=None)
-    logs = GeminiImporter().import_(archive)
+    logs = owned(GeminiImporter).import_(archive)
     # events[1] is the earliest model message. Wire turns are newest-first in
     # the fixture; after chronological reversal the earliest round is wire
     # turn[2] → MODEL_THOUGHTS_2_0.
@@ -220,7 +220,7 @@ def test_importer_carries_thoughts_metadata(tmp_path):
 
 def test_importer_extracts_per_turn_timestamps_from_wire(tmp_path):
     [archive] = _make_fetcher().fetch(tmp_path, since=None)
-    logs = GeminiImporter().import_(archive)
+    logs = owned(GeminiImporter).import_(archive)
     # The three per-round timestamps in the fixture (chronological after reversal):
     times = [e.created.isoformat().replace("+00:00", "Z") for e in logs[0].events[::2]]  # user messages only
     assert times == [
@@ -250,6 +250,6 @@ def test_importer_handles_null_body_with_warning(tmp_path, caplog):
     [archive] = _make_fetcher(handler=handler).fetch(tmp_path, since=None)
     assert archive is not None
     with caplog.at_level(logging.WARNING, logger="commonplace"):
-        logs = GeminiImporter().import_(archive)
+        logs = owned(GeminiImporter).import_(archive)
     assert all(log.events == [] for log in logs)
     assert any("Empty response" in r.message for r in caplog.records)

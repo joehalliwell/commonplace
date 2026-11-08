@@ -11,70 +11,49 @@ import httpx
 import pytest
 
 from commonplace._fetch._base import BaseFetcher
-from commonplace._fetch._chatgpt import ChatGptFetcher
-from commonplace._fetch._chatgpt_memory import ChatGptMemoryFetcher
-from commonplace._fetch._claude import ClaudeFetcher
-from commonplace._fetch._claude_code import ClaudeCodeFetcher, ClaudeCodeMemoryFetcher
-from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
-from commonplace._fetch._claude_tasks import ClaudeTasksFetcher
-from commonplace._fetch._commands import default_fetchers
-from commonplace._fetch._gemini import GeminiFetcher
-from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
 from commonplace._fetch._helpers import FetchBlocked, NoSession
-from commonplace._fetch._keep import KeepFetcher
 from commonplace._fetch._types import Fetcher
+from commonplace._sources import SOURCES
+from commonplace._types import ChatSource
 from commonplace._wire import read_header
+from tests.fetching import owned
 
-FETCHERS = [
-    ChatGptFetcher,
-    ChatGptMemoryFetcher,
-    ClaudeFetcher,
-    ClaudeMemoryFetcher,
-    ClaudeTasksFetcher,
-    GeminiFetcher,
-    GeminiMemoryFetcher,
-    KeepFetcher,
-]
+#: The fetchers that browse a vendor's site, as their sources own them.
+FETCHERS = [s.fetcher_type for s in SOURCES if s.fetcher_type and issubclass(s.fetcher_type, BaseFetcher)]
 
 
-@pytest.mark.parametrize("fetcher_class", FETCHERS, ids=lambda c: c.source)
+@pytest.mark.parametrize("fetcher_class", FETCHERS, ids=lambda c: c.__name__)
 def test_accept_language_is_sent_last(fetcher_class):
     """Order is part of the fingerprint, not just the set. The same headers
     with Accept-Language ahead of Accept draw a 403 from the live API, so the
     trailing position is load-bearing — for every provider, since any of them
     may end up behind the same bot check."""
-    headers = list(fetcher_class()._headers())
+    headers = list(owned(fetcher_class)._headers())
 
     assert headers[0] == "User-Agent"
     assert headers[-1] == "Accept-Language"
 
 
-@pytest.mark.parametrize("fetcher_class", FETCHERS, ids=lambda c: c.source)
+@pytest.mark.parametrize("fetcher_class", FETCHERS, ids=lambda c: c.__name__)
 def test_provider_headers_sit_between_user_agent_and_accept_language(fetcher_class):
     """`extra_headers` is the only variation point, so a provider cannot
     contribute a header that displaces the trailing Accept-Language."""
-    headers = fetcher_class()._headers()
+    headers = owned(fetcher_class)._headers()
 
     assert set(fetcher_class.extra_headers) <= set(headers)
     assert list(headers)[1:-1] == list(fetcher_class.extra_headers)
 
 
-@pytest.mark.parametrize("fetcher_class", FETCHERS, ids=lambda c: c.source)
+@pytest.mark.parametrize("fetcher_class", FETCHERS, ids=lambda c: c.__name__)
 def test_fetchers_satisfy_the_protocol(fetcher_class):
     """The Protocol is the contract; BaseFetcher is only shared implementation."""
-    assert isinstance(fetcher_class(), Fetcher)
+    assert isinstance(owned(fetcher_class), Fetcher)
 
 
-def test_default_fetchers_cover_every_provider(test_repo):
-    """`FETCHERS` are the browser-session ones; Claude Code's sessions are local files."""
-    local = {ClaudeCodeFetcher.source, ClaudeCodeMemoryFetcher.source}
-    assert {f.source for f in default_fetchers(test_repo.config)} == {c.source for c in FETCHERS} | local
-
-
-@pytest.mark.parametrize("fetcher_class", FETCHERS, ids=lambda c: c.source)
+@pytest.mark.parametrize("fetcher_class", FETCHERS, ids=lambda c: c.__name__)
 def test_fetch_without_session_cookie_raises_no_session_saying_where_to_log_in(fetcher_class, tmp_path):
     with pytest.raises(NoSession) as excinfo:
-        fetcher_class(cookies={}).fetch(tmp_path, since=None)
+        owned(fetcher_class, cookies={}).fetch(tmp_path, since=None)
 
     assert fetcher_class.service_name in str(excinfo.value)
     assert fetcher_class.login_url in str(excinfo.value)
@@ -83,22 +62,25 @@ def test_fetch_without_session_cookie_raises_no_session_saying_where_to_log_in(f
 class _StubFetcher(BaseFetcher):
     """Minimal concrete fetcher for exercising the base class directly."""
 
-    source = "stub"
     cookie_domain = "example.com"
     service_name = "Stub"
     login_url = "https://example.com"
     session_cookie = "session"
 
 
+#: A source for fetchers that belong to no real one.
+STUB = ChatSource("stub", (), None)
+
+
 def _stub(handler) -> _StubFetcher:
-    return _StubFetcher(cookies={"session": "x"}, transport=httpx.MockTransport(handler))
+    return _StubFetcher(STUB, cookies={"session": "x"}, transport=httpx.MockTransport(handler))
 
 
 class _AuthorisingStub(_StubFetcher):
     """Records each client `_authorise` is handed."""
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, source, **kwargs):
+        super().__init__(source, **kwargs)
         self.authorised: list[httpx.Client] = []
 
     def _authorise(self, client: httpx.Client) -> None:
@@ -106,7 +88,7 @@ class _AuthorisingStub(_StubFetcher):
 
 
 def test_signed_in_without_session_cookie_is_blocked_unauthorised():
-    fetcher = _AuthorisingStub(cookies={"other": "x"})
+    fetcher = _AuthorisingStub(STUB, cookies={"other": "x"})
 
     with pytest.raises(FetchBlocked), fetcher._signed_in():
         pass
@@ -115,7 +97,9 @@ def test_signed_in_without_session_cookie_is_blocked_unauthorised():
 
 
 def test_signed_in_with_session_cookie_yields_the_client_it_authorised():
-    fetcher = _AuthorisingStub(cookies={"session": "x"}, transport=httpx.MockTransport(lambda r: httpx.Response(200)))
+    fetcher = _AuthorisingStub(
+        STUB, cookies={"session": "x"}, transport=httpx.MockTransport(lambda r: httpx.Response(200))
+    )
 
     with fetcher._signed_in() as client:
         assert client is not None
@@ -140,7 +124,7 @@ def test_browser_cookies_reach_only_the_hosts_they_belong_to(monkeypatch):
         sent.append(request.headers.get("cookie", ""))
         return httpx.Response(200)
 
-    fetcher = _AuthorisingStub(transport=httpx.MockTransport(handler))
+    fetcher = _AuthorisingStub(STUB, transport=httpx.MockTransport(handler))
     with fetcher._signed_in() as client:
         assert client is not None
         client.get("https://gemini.example.com/app")

@@ -7,9 +7,12 @@ from pathlib import Path
 import pytest
 
 from commonplace._import._claude_tasks import ClaudeTasksImporter
-from commonplace._import._commands import CHAT_IMPORTERS, autodetect_importer
+from commonplace._import._commands import autodetect_importer
 from commonplace._import._types import Message, Role
+from commonplace._sources import importers
+from commonplace._types import ChatSource
 from commonplace._wire import read_entries, write_archive
+from tests.fetching import owned
 
 WIRE = Path(__file__).parent / "resources" / "wire"
 EXAMPLE = WIRE / "claude-tasks-v3.jsonl.gz"
@@ -17,17 +20,17 @@ EXAMPLE = WIRE / "claude-tasks-v3.jsonl.gz"
 
 @pytest.fixture
 def run():
-    [log] = ClaudeTasksImporter().import_(EXAMPLE)
+    [log] = owned(ClaudeTasksImporter).import_(EXAMPLE)
     return log
 
 
 def test_claude_tasks_archive_is_claimed_by_its_own_importer():
-    assert isinstance(autodetect_importer(EXAMPLE, CHAT_IMPORTERS), ClaudeTasksImporter)
+    assert isinstance(autodetect_importer(EXAMPLE, importers(ChatSource)), ClaudeTasksImporter)
 
 
 @pytest.mark.parametrize("other", ["claude-v3", "claude-memory-v3"])
 def test_claude_tasks_importer_declines_other_claude_archives(other):
-    assert not ClaudeTasksImporter().can_import(WIRE / f"{other}.jsonl.gz")
+    assert not owned(ClaudeTasksImporter).can_import(WIRE / f"{other}.jsonl.gz")
 
 
 def _rewritten(tmp_path, edit) -> Path:
@@ -62,7 +65,7 @@ def test_claude_tasks_run_without_output_yet_is_skipped(tmp_path):
     """A run caught mid-flight has nothing to show; its later events bring it back on the next fetch."""
     archive = _rewritten(tmp_path, lambda events: [e for e in events if e["event_type"] != "result"])
 
-    assert ClaudeTasksImporter().import_(archive) == []
+    assert owned(ClaudeTasksImporter).import_(archive) == []
 
 
 def test_claude_tasks_run_is_titled_by_the_first_headline_in_its_output(run):
@@ -79,7 +82,7 @@ def test_claude_tasks_run_without_a_headline_is_titled_by_task_and_time(tmp_path
                 event["payload"]["message"]["content"][0]["text"] = "Nothing new today, see [the log](x)."
         return events
 
-    [log] = ClaudeTasksImporter().import_(_rewritten(tmp_path, unheadline))
+    [log] = owned(ClaudeTasksImporter).import_(_rewritten(tmp_path, unheadline))
     assert log.title == "Morning digest 05:10"
 
 
@@ -111,11 +114,11 @@ def _errored(tmp_path, sequence_num: str) -> Path:
 
 def test_claude_tasks_run_whose_scheduled_turn_errored_is_flagged_failed(tmp_path):
     """Read from `is_error`, not `subtype`: an API error can end a turn with `subtype: success`."""
-    [log] = ClaudeTasksImporter().import_(_errored(tmp_path, "8"))
+    [log] = owned(ClaudeTasksImporter).import_(_errored(tmp_path, "8"))
     assert log.metadata["failed"] is True
 
 
 def test_claude_tasks_run_whose_follow_up_errored_is_not_flagged_failed(tmp_path):
     """The run is the scheduled turn; a follow-up failing afterwards doesn't undo its output."""
-    [log] = ClaudeTasksImporter().import_(_errored(tmp_path, "11"))
+    [log] = owned(ClaudeTasksImporter).import_(_errored(tmp_path, "11"))
     assert "failed" not in log.metadata

@@ -11,8 +11,6 @@ from commonplace._fetch._claude import ClaudeSessionFetcher, updated_after
 class ClaudeMemoryFetcher(ClaudeSessionFetcher):
     """Records one complete listing plus a read per changed path; the API is strict, so bodies carry nothing extra."""
 
-    source = "claude-memory"
-
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         with self._signed_in():
             fresh = self._list_fresh(since)
