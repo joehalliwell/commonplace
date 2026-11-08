@@ -4,6 +4,7 @@ A node type is commonplace's: a `Note`, a `Blob` or a `Source`. It is not OKF's 
 names a kind of note (a chat, a topic), so never a `Node` subclass.
 """
 
+import hashlib
 import os
 from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
@@ -12,7 +13,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from commonplace._config import MARGINALIA
+from commonplace._config import BLOBS, MARGINALIA
 from commonplace._links import Edge, Target, extract_links
 from commonplace._utils import override
 
@@ -88,6 +89,12 @@ class Blob(Node):
     """An archive as captured, under `.commonplace/blobs/`: immutable, and what a rendered note names as its provenance."""
 
     path: Path  # Relative to the root
+
+    @classmethod
+    def of(cls, file: Path) -> "Blob":
+        """The blob `file` is stored as: under its SHA-256, so a capture stored twice lands once, by its own name."""
+        with file.open("rb") as f:
+            return cls(BLOBS / hashlib.file_digest(f, "sha256").hexdigest() / file.name)
 
 
 @dataclass(frozen=True)

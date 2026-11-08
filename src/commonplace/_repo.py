@@ -6,7 +6,6 @@ record their paths, `commit` stages and commits exactly those, and nothing else 
 the user's hooks.
 """
 
-import hashlib
 import os
 import shutil
 import subprocess
@@ -131,11 +130,6 @@ def _content_ids(root: Path, head: str) -> dict[str, str]:
     return {path: meta.split()[2] for meta, path in (e.split("\t", 1) for e in _z(root, "ls-tree", "-r", head))}
 
 
-def _hash_file(path: Path) -> str:
-    with open(path, "rb") as f:
-        return hashlib.file_digest(f, "sha256").hexdigest()
-
-
 @dataclass
 class Commonplace:
     """A git repository of notes, with configuration and search index in `.commonplace/`; it corresponds to an OKF bundle."""
@@ -164,13 +158,13 @@ class Commonplace:
         return Config.load(self.root)
 
     def store_blob(self, source_path: Path) -> Blob:
-        """Store a file under its SHA-256 in .commonplace/blobs/, once."""
-        rel_path = BLOBS / _hash_file(source_path) / source_path.name
-        if not (self.root / rel_path).exists():
-            (self.root / rel_path).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source_path, self.root / rel_path)
-            self._wrote(rel_path)
-        return Blob(rel_path)
+        """Copy a file in as the blob it is, once, for the next commit."""
+        blob = Blob.of(source_path)
+        if not (self.root / blob.path).exists():
+            (self.root / blob.path).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_path, self.root / blob.path)
+            self._wrote(blob.path)
+        return blob
 
     @staticmethod
     def init(root: Path) -> "Commonplace":
