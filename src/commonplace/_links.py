@@ -1,10 +1,13 @@
-"""Find the links in markdown, as written; where they land is the graph's business (`_graph`)."""
+"""Find the links in markdown as written, and the rules by which they land on the repository's files."""
 
+import fnmatch
+import os
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Collection, Iterable, Iterator
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from urllib.parse import unquote
 
 from markdown_it import MarkdownIt
 from markdown_it.rules_inline import StateInline
@@ -179,3 +182,148 @@ class Target:
         """Rooted and without `.md`, so a later note of the same name can't make it ambiguous."""
         rooted = "/" + self.note.with_suffix("").as_posix()
         return f"{rooted}#{self.fragment}" if self.fragment else rooted
+
+
+# --- Where links land: the rules the repository's graph is built by ---------
+
+
+class UnresolvedNote(ValueError):
+    """A spec that names no note, or more than one where one was meant."""
+
+
+@dataclass(frozen=True)
+class Edge:
+    """A link from a node, as written in one of its bodies."""
+
+    node: Path  # The node it's from: a path in it is measured from here
+    link: Link  # Its source is the file of the body it's written in, its line the line there
+
+
+@dataclass(frozen=True)
+class BrokenLink:
+    """An edge that lands nowhere, and where it probably meant to."""
+
+    link: Link
+    reason: str
+    suggestion: Path | None = None
+
+
+class Names:
+    """Files indexed by name and by stem, with every directory holding one: what links land on."""
+
+    def __init__(self, files: Iterable[Path]) -> None:
+        self.files = set(files)
+        self.present = self.files | {parent for path in self.files for parent in path.parents}
+        self._by_name: dict[str, list[Path]] = {}
+        for path in sorted(self.files):
+            for key in {path.name, path.stem}:
+                self._by_name.setdefault(key, []).append(path)
+
+    def named(self, name: str) -> list[Path]:
+        """The files `name` writes as a wikilink would, in order."""
+        return [path for path in self._by_name.get(Path(name).name, []) if is_named(path, name)]
+
+    def called(self, name: str) -> list[Path]:
+        """The files whose name or stem is `name`."""
+        return self._by_name.get(name, [])
+
+
+def is_named(path: Path, name: str) -> bool:
+    """True if `name` is how a wikilink would write `path`: its tail, or from `/` its whole path, either extension."""
+    return any(
+        f"/{written}" == name or written == name or written.endswith(f"/{name}")
+        for written in (path.as_posix(), path.with_suffix("").as_posix())
+    )
+
+
+def lands(edge: Edge, root: Path, names: Names) -> list[Path]:
+    """Every file `edge` could mean: each one a wikilink names, or the file or directory a path is at."""
+    if edge.link.kind is LinkKind.WIKILINK:
+        return names.named(edge.link.target.split("#")[0])
+    landing = _landing(edge, root)
+    if landing is None or not landing.is_relative_to(root):
+        return []
+    return [path] if (path := landing.relative_to(root)) in names.present else []
+
+
+def broken(edge: Edge, root: Path, names: Names) -> BrokenLink | None:
+    """Why `edge` lands on nothing, or on no span it names, and the one file of its name it probably meant."""
+    page, _, span = edge.link.target.partition("#")
+    if landed := lands(edge, root, names):
+        if edge.link.kind is not LinkKind.WIKILINK or not span or any(_has_span(root / p, span) for p in landed):
+            return None
+        return BrokenLink(edge.link, "no such heading or phrase")
+    called = names.called(Path(unquote(page)).name)
+    return BrokenLink(edge.link, _why_broken(edge, root), called[0] if len(called) == 1 else None)
+
+
+def resolve(spec: str, names: Names) -> list[Path]:
+    """The notes a spec names: exactly one, or every match of a glob, else `UnresolvedNote`; a link may mean several."""
+    name = spec.removeprefix("[[").removesuffix("]]").split("#")[0].strip()
+    if "*" in name:
+        notes = sorted(path for path in names.files if path.suffix == ".md")
+        if not (matched := [path for path in notes if fnmatch.fnmatchcase(path.as_posix(), name.lstrip("/"))]):
+            raise UnresolvedNote(f"'{spec}' matches no note")
+        return matched
+    found = [path for path in names.named(name) if path.suffix == ".md"]
+    if not found:
+        raise UnresolvedNote(f"'{spec}' names no note")
+    if len(found) > 1:
+        candidates = "\n".join(f"  /{path.with_suffix('').as_posix()}" for path in found)
+        raise UnresolvedNote(f"'{spec}' names {len(found)} notes; say which:\n{candidates}")
+    return found
+
+
+def resolve_target(spec: str, root: Path, names: Names) -> Target:
+    """The one note `spec` names, with its span checked against the note: `#Heading` or `#"exact phrase"`."""
+    if "*" in spec:
+        raise UnresolvedNote(f"'{spec}' is a glob; a link joins one note to one note")
+    [note] = resolve(spec, names)
+    _, _, fragment = spec.removeprefix("[[").removesuffix("]]").partition("#")
+    if fragment and not _has_span(root / note, fragment):
+        raise UnresolvedNote(f"'{spec}': no such heading or phrase in /{note.with_suffix('').as_posix()}")
+    return Target(note, fragment)
+
+
+def summarize(found: Collection[BrokenLink]) -> list[str]:
+    """One report per file of what no longer resolves."""
+    by_source: dict[Path, list[BrokenLink]] = {}
+    for item in found:
+        by_source.setdefault(item.link.source, []).append(item)
+
+    summaries = []
+    for source, items in sorted(by_source.items()):
+        count = f"{len(items)} links that go" if len(items) > 1 else "1 link that goes"
+        lines = [f"{source}: {count} nowhere"]
+        for item in sorted(items, key=lambda i: i.link.line):
+            suggestion = f" — same name at {item.suggestion}" if item.suggestion else ""
+            lines.append(f"  line {item.link.line}: {item.link.target} ({item.reason}){suggestion}")
+        summaries.append("\n".join(lines))
+    return summaries
+
+
+def _landing(edge: Edge, root: Path) -> Path | None:
+    """Where a path link or citation points, if anywhere; a citation is written from the root, a path from the note."""
+    if not (target := unquote(edge.link.target.split("#")[0].split("?")[0])):
+        return None
+    root_relative = edge.link.kind is LinkKind.CITATION or target.startswith("/")
+    base = root if root_relative else root / edge.node.parent
+    return Path(os.path.normpath(base / target.lstrip("/")))
+
+
+def _why_broken(edge: Edge, root: Path) -> str:
+    if edge.link.kind is LinkKind.WIKILINK:
+        return "no note with that name"
+    if (landing := _landing(edge, root)) is None:
+        return "empty target"
+    if not landing.is_relative_to(root):
+        return "outside the repository"
+    return "on disk but not in the repository" if landing.exists() else "no such file"
+
+
+def _has_span(path: Path, fragment: str) -> bool:
+    """Whether the note has a heading reading `fragment` exactly, or for `"phrase"`, contains the phrase."""
+    text = path.read_text(errors="replace")
+    if len(fragment) > 1 and fragment.startswith('"') and fragment.endswith('"'):
+        return fragment[1:-1] in text
+    return any(line.lstrip("#").strip() == fragment for line in text.splitlines() if line.startswith("#"))

@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-from commonplace._graph import link, tag
 from commonplace._marginalia import read_marginalia, write_marginalia
 from commonplace._search import _commands
 from commonplace._show import render, show
@@ -36,8 +35,8 @@ def as_joe(monkeypatch):
 
 
 def test_show_gathers_what_frontmatter_and_marginalia_say(notes, as_joe):
-    tag(notes, "ideas", ["revisit"])
-    link(notes, "ideas", "2026-11-01", "where it started", on=date(2026, 11, 2))
+    notes.tag("ideas", ["revisit"])
+    notes.link("ideas", "2026-11-01", "where it started", on=date(2026, 11, 2))
     marginalia = read_marginalia(notes.root, Path("notes/ideas.md"))
     write_marginalia(notes, replace(marginalia, body=marginalia.body + "- 2026-11-02 half wrong\n"))
 
@@ -88,13 +87,13 @@ def test_show_index_is_current_while_an_uncommitted_edit_waits_for_its_commit(no
 
 def test_show_a_hidden_note_when_asked_by_name_and_says_so(notes, as_joe):
     """Asking for it by name is asking for it; hidden only keeps it out of what's offered."""
-    tag(notes, "ideas", ["hidden"])
+    notes.tag("ideas", ["hidden"])
 
     assert show(notes, "ideas")["hidden"] is True
 
 
 def test_render_is_the_record_as_yaml_keeping_the_header_and_the_sections_asked_for(notes, as_joe):
-    tag(notes, "ideas", ["revisit"])
+    notes.tag("ideas", ["revisit"])
     shown = show(notes, "ideas")
 
     rendered = yaml.safe_load(render(shown, only=["tags"]))
@@ -106,7 +105,7 @@ def test_render_is_the_record_as_yaml_keeping_the_header_and_the_sections_asked_
 
 
 def test_show_cli_lists_each_link_with_its_direction(notes, as_joe, test_app, capsys):
-    link(notes, "ideas", "2026-11-01", "and on", on=date(2026, 11, 2))
+    notes.link("ideas", "2026-11-01", "and on", on=date(2026, 11, 2))
     capsys.readouterr()
 
     assert test_app(["show", "ideas", "--only", "links"]) == 0

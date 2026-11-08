@@ -7,16 +7,15 @@ either gives skills the whole record in one call. The record is a third thing, n
 marginalia, so it never takes a note's form; the note itself is read at its path, which `resolve` gives.
 """
 
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from commonplace._graph import links, notes_named
 from commonplace._links import Target
 from commonplace._repo import Commonplace
-from commonplace._utils import load_frontmatter
+from commonplace._types import RepoPath
 
 #: The sections after the header, in the order they render.
 SECTIONS = ("tags", "links", "commentary", "history", "index")
@@ -24,18 +23,20 @@ SECTIONS = ("tags", "links", "commentary", "history", "index")
 
 def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str, Any]:
     """The record of the note `spec` names; a hidden note is shown when asked for by name, and says so."""
-    graph = repo.graph()
-    [note] = notes_named(graph, spec)
-    node = graph.node(note)
-    metadata, _ = load_frontmatter(node.body)
+    [note] = repo.notes_named(spec)
+    node = repo.load(repo.make_repo_path(note))
+    metadata = node.metadata
     # A field the note lacks is left out rather than shown as null.
     header = {field: metadata[field] for field in ("title", "type", "description") if metadata.get(field)}
     return {
         "note": str(Target(note)),
         **header,
         "hidden": "hidden" in node.labels,
-        "tags": {"own": list(metadata.get("tags") or []), "marginalia": node.marginalia.tags},
-        "links": [asdict(neighbour) for neighbour in links(graph, note, include_hidden)],
+        "tags": {
+            "own": list(metadata.get("tags") or []),
+            "marginalia": node.marginalia.tags if node.marginalia else [],
+        },
+        "links": [asdict(neighbour) for neighbour in links(repo, note, include_hidden)],
         "commentary": node.commentary,
         "history": [{"date": day, "subject": subject} for day, subject in repo.history(note)],
         "index": _index_state(repo, note),
@@ -64,3 +65,31 @@ def render(shown: dict[str, Any], only: list[str] | None = None) -> str:
     return yaml.safe_dump(
         select(shown, only), sort_keys=False, allow_unicode=True, default_flow_style=None, width=float("inf")
     )
+
+
+@dataclass(frozen=True)
+class Neighbour:
+    """An edge to or from a note: the node at the other end, rooted, and the line it's written on."""
+
+    direction: str  # "out" from the note, or "in" to it
+    other: str
+    context: str
+
+
+def links(repo: Commonplace, note: Path, include_hidden: bool = False) -> list[Neighbour]:
+    """A note's edges, out then in; those whose other end is labelled `hidden` left out unless asked for."""
+
+    def shown(other: Path) -> bool:
+        return include_hidden or "hidden" not in repo.load(RepoPath(other)).labels
+
+    node, found = repo.load(RepoPath(note)), []
+    for edge in node.edges:
+        match repo.lands(edge):
+            case [other] if not shown(other):
+                continue
+            case [other]:
+                found.append(Neighbour("out", str(Target(other, edge.link.target.partition("#")[2])), node.line(edge)))
+            case _:
+                found.append(Neighbour("out", edge.link.target, node.line(edge)))
+    into = [(edge, repo.load(RepoPath(edge.node))) for edge in repo.into(note) if shown(edge.node)]
+    return found + [Neighbour("in", str(Target(edge.node)), source.line(edge)) for edge, source in into]

@@ -7,8 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from commonplace._graph import Graph, Node, UnresolvedNote, link, links, tag, unlink, untag
-from commonplace._links import Target
+from commonplace._links import Target, UnresolvedNote
 from commonplace._marginalia import (
     MARGINALIA_VERSION,
     Marginalia,
@@ -16,6 +15,8 @@ from commonplace._marginalia import (
     read_marginalia,
     write_marginalia,
 )
+from commonplace._show import links
+from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
 from tests.porcelain import git
 
@@ -89,7 +90,7 @@ def test_untagging_leaves_the_body_alone():
 
 
 def test_tag_records_the_tags_and_the_notes_ref(notes, as_joe):
-    tag(notes, "ideas", ["hidden", "tea"])
+    notes.tag("ideas", ["hidden", "tea"])
 
     marginalia = read_marginalia(notes.root, NOTE)
     assert marginalia.tags == ["hidden", "tea"]
@@ -98,22 +99,22 @@ def test_tag_records_the_tags_and_the_notes_ref(notes, as_joe):
 
 def test_tag_commits_as_the_person_not_the_bot(notes, as_joe):
     """Tools tell a person's tags from their own by the commit's author, so they never remove them."""
-    tag(notes, "ideas", ["hidden"])
+    notes.tag("ideas", ["hidden"])
 
     assert git(notes.root, "log", "-1", "--format=%an") == "Joe\n"
 
 
 def test_tag_a_glob_tags_every_match(notes, as_joe):
-    tag(notes, "/chats/claude-tasks/**", ["scheduled"])
+    notes.tag("/chats/claude-tasks/**", ["scheduled"])
 
     for month in ("10", "11"):
         assert read_marginalia(notes.root, Path(f"chats/claude-tasks/2026/{month}/log.md")).tags == ["scheduled"]
 
 
 def test_untag_removes_only_the_tags_named(notes, as_joe):
-    tag(notes, "ideas", ["hidden", "tea"])
+    notes.tag("ideas", ["hidden", "tea"])
 
-    untag(notes, "ideas", ["hidden"])
+    notes.untag("ideas", ["hidden"])
 
     assert read_marginalia(notes.root, NOTE).tags == ["tea"]
 
@@ -121,7 +122,7 @@ def test_untag_removes_only_the_tags_named(notes, as_joe):
 def test_tag_a_span_is_refused(notes, as_joe):
     """Tags describe whole notes; only links reach inside one."""
     with pytest.raises(UnresolvedNote, match="whole notes"):
-        tag(notes, "ideas#Tea house", ["hidden"])
+        notes.tag("ideas#Tea house", ["hidden"])
 
 
 def test_every_wikilink_in_marginalia_is_a_link_from_its_note(any_marginalia_version):
@@ -131,13 +132,13 @@ def test_every_wikilink_in_marginalia_is_a_link_from_its_note(any_marginalia_ver
 
 def test_link_to_an_ambiguous_name_fails_and_writes_nothing(notes, as_joe):
     with pytest.raises(UnresolvedNote):  # Two notes are called log
-        link(notes, "ideas", "log", "")
+        notes.link("ideas", "log", "")
 
     assert read_marginalia(notes.root, NOTE) == Marginalia(note=NOTE)
 
 
 def test_link_records_the_edge_and_commits_as_the_person(notes, as_joe):
-    link(notes, "ideas", '2026/10/log#"Some text."', "the same thought, scheduled", on=date(2026, 11, 2))
+    notes.link("ideas", '2026/10/log#"Some text."', "the same thought, scheduled", on=date(2026, 11, 2))
 
     marginalia = read_marginalia(notes.root, NOTE)
     assert marginalia.body.splitlines() == [
@@ -148,9 +149,9 @@ def test_link_records_the_edge_and_commits_as_the_person(notes, as_joe):
 
 
 def test_link_keeps_the_tags_and_appends_after_whats_there(notes, as_joe):
-    tag(notes, "ideas", ["tea"])
-    link(notes, "ideas", "2026/10/log", "", on=date(2026, 11, 2))
-    link(notes, "ideas", "2026/11/log", "and again", on=date(2026, 11, 3))
+    notes.tag("ideas", ["tea"])
+    notes.link("ideas", "2026/10/log", "", on=date(2026, 11, 2))
+    notes.link("ideas", "2026/11/log", "and again", on=date(2026, 11, 3))
 
     marginalia = read_marginalia(notes.root, NOTE)
     assert marginalia.tags == ["tea"]
@@ -160,32 +161,32 @@ def test_link_keeps_the_tags_and_appends_after_whats_there(notes, as_joe):
 def test_link_from_a_span_is_refused(notes, as_joe):
     """Marginalia speak for a whole note; the span belongs at the other end."""
     with pytest.raises(UnresolvedNote, match="whole notes"):
-        link(notes, "ideas#Something", "2026/10/log", "")
+        notes.link("ideas#Something", "2026/10/log", "")
 
 
 def test_unlink_removes_only_the_edges_to_that_target(notes, as_joe):
-    link(notes, "ideas", "2026/10/log", "", on=date(2026, 11, 2))
-    link(notes, "ideas", "2026/11/log", "", on=date(2026, 11, 2))
+    notes.link("ideas", "2026/10/log", "", on=date(2026, 11, 2))
+    notes.link("ideas", "2026/11/log", "", on=date(2026, 11, 2))
 
-    assert unlink(notes, "ideas", "2026/10/log") == 1
+    assert notes.unlink("ideas", "2026/10/log") == 1
 
     assert _targets(notes.root) == ["/chats/claude-tasks/2026/11/log"]
 
 
 def test_unlink_an_edge_that_isnt_there_fails(notes, as_joe):
     with pytest.raises(ValueError, match="no link"):
-        unlink(notes, "ideas", "2026/10/log")
+        notes.unlink("ideas", "2026/10/log")
 
 
 def test_unlink_a_link_whose_target_is_gone_by_writing_it_as_the_marginalia_do(notes, as_joe):
     """doctor reports dead links; they must stay removable once their note can no longer be named."""
-    link(notes, "ideas", "2026/10/log", "", on=date(2026, 11, 2))
+    notes.link("ideas", "2026/10/log", "", on=date(2026, 11, 2))
     notes.remove(Path("chats/claude-tasks/2026/10/log.md"))
     notes.commit("Delete", auto_index=False)
 
     with pytest.raises(UnresolvedNote, match="/chats/claude-tasks/2026/10/log"):  # The hint shows how
-        unlink(notes, "ideas", "2026/10/log")
-    assert unlink(notes, "ideas", "[[/chats/claude-tasks/2026/10/log]]") == 1
+        notes.unlink("ideas", "2026/10/log")
+    assert notes.unlink("ideas", "[[/chats/claude-tasks/2026/10/log]]") == 1
 
     assert _targets(notes.root) == []
 
@@ -198,7 +199,11 @@ def test_link_cli_takes_the_rest_of_the_line_as_why(notes, as_joe, test_app):
 
 
 def _targets(root: Path) -> list[str]:
-    return [edge.link.target for edge in Node(root, NOTE).said]
+    return [edge.link.target for edge in _note(root).said]
+
+
+def _note(root: Path) -> Note:
+    return Note(RepoPath(NOTE), "", marginalia=read_marginalia(root, NOTE))
 
 
 def _found(neighbours, direction: str) -> set[tuple[str, str, str]]:
@@ -208,9 +213,9 @@ def _found(neighbours, direction: str) -> set[tuple[str, str, str]]:
 def test_links_incoming_gathers_marginalia_edges_and_links_in_notes(notes, as_joe, make_note):
     notes.save(make_note(path="journal/2026-11-02.md", content="# Day\n\nAdded to [[ideas]].\n"))
     notes.commit("Journal", auto_index=False)
-    link(notes, "2026/10/log", 'ideas#"Some text."', "the same thought", on=date(2026, 11, 2))
+    notes.link("2026/10/log", 'ideas#"Some text."', "the same thought", on=date(2026, 11, 2))
 
-    assert _found(links(notes.graph(), NOTE), "in") == {
+    assert _found(links(notes, NOTE), "in") == {
         ("in", "/chats/claude-tasks/2026/10/log", '- 2026-11-02 [[/notes/ideas#"Some text."]] the same thought'),
         ("in", "/journal/2026-11-02", "Added to [[ideas]]."),
     }
@@ -220,15 +225,15 @@ def test_links_outgoing_gathers_marginalia_edges_and_links_in_the_notes_own_text
     """For a foreign note, marginalia are its only outgoing links; for your own, both count."""
     notes.save(make_note(path="notes/ideas.md", content="# Ideas\n\nSee [[2026/11/log]].\n"))
     notes.commit("Edit", auto_index=False)
-    link(notes, "ideas", "2026/10/log", "scheduled", on=date(2026, 11, 2))
+    notes.link("ideas", "2026/10/log", "scheduled", on=date(2026, 11, 2))
 
-    assert _found(links(notes.graph(), NOTE), "out") == {
+    assert _found(links(notes, NOTE), "out") == {
         ("out", "/chats/claude-tasks/2026/10/log", "- 2026-11-02 [[/chats/claude-tasks/2026/10/log]] scheduled"),
         ("out", "/chats/claude-tasks/2026/11/log", "See [[2026/11/log]]."),
     }
 
 
-def test_links_to_finds_every_kind_of_link_to_the_note_in_text_and_marginalia(tmp_path):
+def test_into_finds_every_kind_of_link_to_the_note_in_text_and_marginalia(test_repo):
     files = {
         "notes/ideas.md": "# Ideas\n",
         "notes/other.md": "# Other\n",
@@ -241,15 +246,13 @@ def test_links_to_finds_every_kind_of_link_to_the_note_in_text_and_marginalia(tm
         str(marginalia_path(Path("notes/other.md"))): "---\nmarginalia: 1\n---\n\n- 2026-11-02 [[/notes/ideas]] why\n",
     }
     for path, text in files.items():
-        (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / path).write_text(text)
-    notes = [Path(p) for p in files if not p.startswith(".")]
+        (test_repo.root / path).parent.mkdir(parents=True, exist_ok=True)
+        (test_repo.root / path).write_text(text)
 
-    graph = Graph(tmp_path, notes)
-    found = graph.into(Path("notes/ideas.md"))
+    found = test_repo.into(Path("notes/ideas.md"))
 
     # Chats quote links rather than make them, as for the link check.
-    assert [(str(Target(edge.node)), graph.node(edge.node).line(edge)) for edge in found] == [
+    assert [(str(Target(edge.node)), test_repo.load(RepoPath(edge.node)).line(edge)) for edge in found] == [
         ("/journal/a", "See [[ideas]]."),
         ("/journal/b", "See [[/notes/ideas#Tea house]]."),
         ("/journal/c", "See [the list](../notes/ideas.md)."),
@@ -265,16 +268,16 @@ def test_a_wikilink_quoted_as_code_in_marginalia_is_commentary_not_a_link(notes)
     )
 
     assert _targets(notes.root) == ["/notes/done"]
-    assert Node(notes.root, NOTE).commentary == ["- write one as `[[/notes/todo]]`"]
+    assert _note(notes.root).commentary == ["- write one as `[[/notes/todo]]`"]
 
 
 def test_unlink_leaves_a_line_that_only_quotes_the_link(notes, as_joe):
-    link(notes, "ideas", "2026/10/log", "", on=date(2026, 11, 2))
+    notes.link("ideas", "2026/10/log", "", on=date(2026, 11, 2))
     marginalia = read_marginalia(notes.root, NOTE)
     quoted = "- unlink with `[[/chats/claude-tasks/2026/10/log]]`\n"
     write_marginalia(notes, replace(marginalia, body=marginalia.body + quoted))
 
-    assert unlink(notes, "ideas", "2026/10/log") == 1
+    assert notes.unlink("ideas", "2026/10/log") == 1
 
     assert read_marginalia(notes.root, NOTE).body == quoted
 
@@ -284,16 +287,16 @@ def test_a_path_link_in_marginalia_lands_as_if_written_in_the_note(notes, as_joe
     line = "- see [the log](../chats/claude-tasks/2026/10/log.md)"
     write_marginalia(notes, Marginalia(note=NOTE, body=f"{line}\n"))
 
-    assert _found(links(notes.graph(), NOTE), "out") == {("out", "/chats/claude-tasks/2026/10/log", line)}
+    assert _found(links(notes, NOTE), "out") == {("out", "/chats/claude-tasks/2026/10/log", line)}
 
 
 def test_links_leave_out_hidden_notes_at_the_other_end_unless_asked(notes, as_joe):
-    link(notes, "2026/10/log", "ideas", "", on=date(2026, 11, 2))
-    link(notes, "ideas", "2026/11/log", "", on=date(2026, 11, 2))
-    tag(notes, "/chats/claude-tasks/**", ["hidden"])
+    notes.link("2026/10/log", "ideas", "", on=date(2026, 11, 2))
+    notes.link("ideas", "2026/11/log", "", on=date(2026, 11, 2))
+    notes.tag("/chats/claude-tasks/**", ["hidden"])
 
-    assert links(notes.graph(), NOTE) == []
-    assert len(links(notes.graph(), NOTE, include_hidden=True)) == 2
+    assert links(notes, NOTE) == []
+    assert len(links(notes, NOTE, include_hidden=True)) == 2
 
 
 def test_marginalia_newer_than_this_release_are_refused(tmp_path):

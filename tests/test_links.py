@@ -1,11 +1,12 @@
 """Tests for link extraction and broken-link checking."""
 
+from contextlib import closing
 from pathlib import Path
 
 import pytest
 
-from commonplace._graph import BrokenLink, Graph, UnresolvedNote
-from commonplace._links import LinkKind, extract_links
+from commonplace._links import BrokenLink, LinkKind, Names, UnresolvedNote, extract_links, resolve, resolve_target
+from commonplace._repo import Commonplace
 
 SOURCE = Path("notes/note.md")
 
@@ -301,9 +302,13 @@ def write(root: Path, path: str, content: str = "") -> Path:
 
 
 def check(root: Path, ignore: str | None = None) -> list[BrokenLink]:
-    """Check links over every file under `root`, minus the top-level folder `ignore`, as `paths()` would list them."""
-    files = [path.relative_to(root) for path in root.rglob("*") if path.is_file()]
-    return Graph(root, [path for path in files if path.parts[0] != ignore]).check()
+    """Check links over the files under `root`, made a commonplace, with the top-level folder `ignore` ignored."""
+    Commonplace.init(root)
+    if ignore:
+        with (root / ".gitignore").open("a") as gitignore:
+            gitignore.write(f"\n/{ignore}/\n")
+    with closing(Commonplace.open(root)) as repo:
+        return repo.check()
 
 
 def test_check_links_relative_target_resolves_against_containing_file(tmp_path):
@@ -490,29 +495,29 @@ NOTES = [
     ["ideas", "notes/ideas", "/notes/ideas", "/notes/ideas.md", "ideas.md", "[[ideas]]", "[[/notes/ideas]]"],
 )
 def test_resolve_names_a_note_the_ways_a_wikilink_can(spec):
-    assert Graph(Path(), NOTES).resolve(spec) == [Path("notes/ideas.md")]
+    assert resolve(spec, Names(NOTES)) == [Path("notes/ideas.md")]
 
 
 def test_resolve_an_ambiguous_name_fails_listing_rooted_candidates():
     """A command that writes must know which note; doctor's checks may accept any match."""
     with pytest.raises(UnresolvedNote) as excinfo:
-        Graph(Path(), NOTES).resolve("tea")
+        resolve("tea", Names(NOTES))
 
     assert "/chats/claude/2026/06/tea" in str(excinfo.value)
     assert "/chats/gemini/2026/05/tea" in str(excinfo.value)
 
 
 def test_resolve_a_longer_tail_disambiguates():
-    assert Graph(Path(), NOTES).resolve("gemini/2026/05/tea") == [Path("chats/gemini/2026/05/tea.md")]
+    assert resolve("gemini/2026/05/tea", Names(NOTES)) == [Path("chats/gemini/2026/05/tea.md")]
 
 
 def test_resolve_a_name_nothing_has_fails():
     with pytest.raises(UnresolvedNote, match="nothing"):
-        Graph(Path(), NOTES).resolve("nothing")
+        resolve("nothing", Names(NOTES))
 
 
 def test_resolve_a_glob_expands_over_rooted_paths():
-    assert Graph(Path(), NOTES).resolve("/chats/claude-tasks/**") == [
+    assert resolve("/chats/claude-tasks/**", Names(NOTES)) == [
         Path("chats/claude-tasks/2026/10/log.md"),
         Path("chats/claude-tasks/2026/11/log.md"),
     ]
@@ -520,11 +525,11 @@ def test_resolve_a_glob_expands_over_rooted_paths():
 
 def test_resolve_a_glob_matching_nothing_fails():
     with pytest.raises(UnresolvedNote):
-        Graph(Path(), NOTES).resolve("/chats/chatgpt/**")
+        resolve("/chats/chatgpt/**", Names(NOTES))
 
 
 def test_resolve_ignores_a_fragment_leaving_it_to_the_caller():
-    assert Graph(Path(), NOTES).resolve("ideas#Tea house") == [Path("notes/ideas.md")]
+    assert resolve("ideas#Tea house", Names(NOTES)) == [Path("notes/ideas.md")]
 
 
 # ---------------------------------------------------------------------------
@@ -553,7 +558,7 @@ def ideas_root(tmp_path) -> Path:
 )
 def test_resolve_target_renders_rooted_whatever_was_typed(ideas_root, spec, rooted):
     """Rooted, so a later note of the same name can't make an old edge ambiguous."""
-    target = Graph(ideas_root, [Path("notes/ideas.md")]).resolve_target(spec)
+    target = resolve_target(spec, ideas_root, Names([Path("notes/ideas.md")]))
 
     assert str(target) == rooted
     assert target.note == Path("notes/ideas.md")
@@ -562,10 +567,10 @@ def test_resolve_target_renders_rooted_whatever_was_typed(ideas_root, spec, root
 @pytest.mark.parametrize("spec", ["ideas#No such heading", 'ideas#"not in the note"', "ideas#Tea"])
 def test_resolve_target_refuses_a_span_the_note_lacks(ideas_root, spec):
     with pytest.raises(UnresolvedNote, match="ideas"):
-        Graph(ideas_root, [Path("notes/ideas.md")]).resolve_target(spec)
+        resolve_target(spec, ideas_root, Names([Path("notes/ideas.md")]))
 
 
 def test_resolve_target_refuses_a_glob(ideas_root):
     """An edge joins two notes; tagging is what takes globs."""
     with pytest.raises(UnresolvedNote, match="one note"):
-        Graph(ideas_root, [Path("notes/ideas.md")]).resolve_target("/notes/*")
+        resolve_target("/notes/*", ideas_root, Names([Path("notes/ideas.md")]))
