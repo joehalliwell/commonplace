@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from commonplace._config import MARGINALIA
-from commonplace._links import Edge, LinkKind, Target, extract_links
+from commonplace._links import Edge, Target, extract_links
 from commonplace._utils import override
 
 if TYPE_CHECKING:
@@ -185,10 +185,9 @@ class Note(Node):
     @cached_property
     def _own(self) -> list[Edge]:
         path = self.repo_path.path
-        edges = [Edge(path, link) for link in extract_links(self.text, source=path)]
         # Text that only quotes links makes none, but what the frontmatter cites, its provenance, is still the note's.
         quotes = self.source is not None and self.source.quotes
-        return [edge for edge in edges if edge.link.kind is LinkKind.CITATION] if quotes else edges
+        return [Edge(path, link) for link in extract_links(self.text, source=path, body=not quotes)]
 
     def _said_lines(self) -> Iterator[tuple[int, str]]:
         return enumerate(self.marginalia.body.split("\n"), self.marginalia.offset + 1)

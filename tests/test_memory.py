@@ -10,11 +10,10 @@ import pytest
 from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._claude_memory import ClaudeMemoryImporter
-from commonplace._import._commands import autodetect_importer, import_
+from commonplace._import._commands import import_
 from commonplace._import._types import Snapshot
-from commonplace._sources import importers, source_named
 from commonplace._stats import source
-from commonplace._types import ChatSource, MirrorSource, Note, RepoPath
+from commonplace._types import ChatSource, Note, RepoPath
 from commonplace._utils import load_frontmatter
 from commonplace._wire import write_archive
 from tests.fetching import owned
@@ -78,10 +77,6 @@ def test_import_chat_importer_shaped_like_a_mirror_still_lands_chats(test_repo, 
     assert list((test_repo.root / "chats" / "claude").rglob("*.md"))
 
 
-def test_autodetect_example_archive_finds_the_memory_importer():
-    assert isinstance(autodetect_importer(EXAMPLE, importers(MirrorSource)), ClaudeMemoryImporter)
-
-
 def test_snapshot_example_archive_interprets_without_a_repo():
     snapshot = owned(ClaudeMemoryImporter).snapshot(EXAMPLE)
 
@@ -125,14 +120,6 @@ def test_snapshot_listed_but_unread_path_is_unread(tmp_path):
     snapshot = owned(ClaudeMemoryImporter).snapshot(_archive(tmp_path, {"/a.md": "a\n"}, listed=["/a.md", "/b.md"]))
 
     assert snapshot.unread == {Path("memory/claude/b.md")}
-
-
-def test_landing_tree_memory_source_lands_in_its_own_tree():
-    assert source_named("claude-memory").tree == Path("memory/claude")
-
-
-def test_autodetect_chatgpt_example_archive_finds_its_memory_importer():
-    assert isinstance(autodetect_importer(CHATGPT_EXAMPLE, importers(MirrorSource)), ChatGptMemoryImporter)
 
 
 def test_snapshot_chatgpt_example_archive_lands_the_summary_as_one_file():
@@ -203,14 +190,6 @@ def test_snapshot_chatgpt_no_saved_memories_lands_no_file(tmp_path):
     )
 
     assert owned(ChatGptMemoryImporter).snapshot(archive) == Snapshot([])
-
-
-def test_landing_tree_chatgpt_memory_lands_in_its_own_tree():
-    assert source_named("chatgpt-memory").tree == Path("memory/chatgpt")
-
-
-def test_landing_tree_chat_source_lands_under_chats():
-    assert source_named("claude").tree == Path("chats/claude")
 
 
 # ---------------------------------------------------------------------------

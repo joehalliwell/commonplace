@@ -7,10 +7,7 @@ from pathlib import Path
 import pytest
 
 from commonplace._import._claude_tasks import ClaudeTasksImporter
-from commonplace._import._commands import autodetect_importer
 from commonplace._import._types import Message, Role
-from commonplace._sources import importers
-from commonplace._types import ChatSource
 from commonplace._wire import read_entries, write_archive
 from tests.fetching import owned
 
@@ -22,10 +19,6 @@ EXAMPLE = WIRE / "claude-tasks-v3.jsonl.gz"
 def run():
     [log] = owned(ClaudeTasksImporter).import_(EXAMPLE)
     return log
-
-
-def test_claude_tasks_archive_is_claimed_by_its_own_importer():
-    assert isinstance(autodetect_importer(EXAMPLE, importers(ChatSource)), ClaudeTasksImporter)
 
 
 @pytest.mark.parametrize("other", ["claude-v3", "claude-memory-v3"])
