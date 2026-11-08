@@ -27,7 +27,7 @@ class Placement:
         if id_key is not None:
             for note in repo.notes(tree):
                 if (note_id := note.metadata.get(id_key)) is not None:
-                    landed[str(note_id)] = note.repo_path.path
+                    landed[str(note_id)] = note.path
         # Marginalia outlive their note: a new note at a gone note's path would silently inherit them.
         return cls(landed, set(landed.values()) | set(repo.gone(tree)))
 

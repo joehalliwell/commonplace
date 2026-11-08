@@ -11,7 +11,7 @@ from pathlib import Path
 from commonplace._import._base import BaseWireImporter
 from commonplace._import._gemini import _extract_rpc_body
 from commonplace._import._types import Snapshot
-from commonplace._types import Note, RepoPath
+from commonplace._types import Note
 from commonplace._wire import read_entries
 
 RPC_LIST_SAVED_INFO = "ZKcapf"
@@ -27,5 +27,5 @@ class GeminiMemoryImporter(BaseWireImporter):
         items = sorted(body[0], key=lambda item: item[2])
         bullets = "".join(f"- {item[1].replace('\n', '\n  ')}\n" for item in items)
         title = "Saved info"
-        note = Note.compose(RepoPath(self.source.tree / "saved-info.md"), "Memory", title, f"# {title}\n\n{bullets}")
+        note = Note.compose(self.source.tree / "saved-info.md", "Memory", title, f"# {title}\n\n{bullets}")
         return Snapshot([note])

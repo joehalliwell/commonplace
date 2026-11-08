@@ -6,10 +6,14 @@ import numpy as np
 
 from commonplace._marginalia import Marginalia, write_marginalia
 from commonplace._search import _commands
-from commonplace._search._types import Chunk, SearchMethod
-from commonplace._types import RepoPath
+from commonplace._search._types import Chunk, SearchMethod, Version
 from tests.conftest import StubEmbedder
 from tests.porcelain import git
+
+
+def _version(repo, path: str) -> Version:
+    """The version of the note at `path` the index should hold: its committed content."""
+    return Version(Path(path), repo.content_ids()[Path(path)])
 
 
 def _delete(repo, path: str) -> None:
@@ -53,7 +57,7 @@ Baking bread requires flour, water, and yeast.
 
     assert len(results) > 0
     # Should find the ML note
-    assert any("ml.md" in str(hit.chunk.repo_path.path) for hit in results)
+    assert any("ml.md" in str(hit.chunk.version.path) for hit in results)
 
 
 def test_search_with_limit(test_repo, make_note):
@@ -117,7 +121,7 @@ Initial content.
     _commands.index(test_repo)
 
     indexed_paths = set(test_repo.index.get_indexed_paths())
-    assert test_repo.make_repo_path("first.md") in indexed_paths
+    assert _version(test_repo, "first.md") in indexed_paths
 
     # Add second note
     note2 = make_note(
@@ -135,8 +139,8 @@ More content.
 
     # Verify both notes are indexed
     indexed_paths = set(test_repo.index.get_indexed_paths())
-    assert test_repo.make_repo_path("first.md") in indexed_paths
-    assert test_repo.make_repo_path("second.md") in indexed_paths
+    assert _version(test_repo, "first.md") in indexed_paths
+    assert _version(test_repo, "second.md") in indexed_paths
 
     # Index again without changes - should not add duplicates
     _commands.index(test_repo)
@@ -149,12 +153,12 @@ def test_index_visits_a_note_with_no_chunks_once(test_repo, make_note, monkeypat
     test_repo.commit("Add an empty day")
     _commands.index(test_repo)
 
-    loaded: list[RepoPath] = []
+    loaded: list[Path] = []
     load = test_repo.load
     monkeypatch.setattr(test_repo, "load", lambda path: loaded.append(path) or load(path))
     _commands.index(test_repo)
 
-    assert test_repo.make_repo_path("journal/empty.md") in set(test_repo.index.get_indexed_paths())
+    assert _version(test_repo, "journal/empty.md") in set(test_repo.index.get_indexed_paths())
     assert loaded == []
 
 
@@ -168,9 +172,9 @@ def test_index_gives_a_once_empty_note_its_chunks_when_it_gains_text(test_repo, 
     _commands.index(test_repo)
 
     [hit] = test_repo.index.search_keyword("river")
-    assert hit.chunk.repo_path == test_repo.make_repo_path("journal/day.md")
+    assert hit.chunk.version == _version(test_repo, "journal/day.md")
     versions = {p for p in test_repo.index.get_indexed_paths() if p.path == Path("journal/day.md")}
-    assert versions == {test_repo.make_repo_path("journal/day.md")}
+    assert versions == {_version(test_repo, "journal/day.md")}
 
 
 def test_index_keeps_another_models_notes_but_warns(test_repo, other_model_index, make_chunk, caplog):
@@ -180,7 +184,7 @@ def test_index_keeps_another_models_notes_but_warns(test_repo, other_model_index
 
     _commands.index(test_repo)
 
-    assert set(other_model_index.get_indexed_paths()) == {chunk.repo_path}
+    assert set(other_model_index.get_indexed_paths()) == {chunk.version}
     assert [r for r in caplog.records if r.levelname == "WARNING" and StubEmbedder.model_id in r.getMessage()]
 
 
@@ -204,10 +208,10 @@ def test_search_leaves_out_a_note_tagged_hidden(test_repo, make_note):
     write_marginalia(test_repo, Marginalia(note=Path("mood.md")).tagged("hidden"))
 
     for method in SearchMethod:
-        found = {hit.chunk.repo_path.path.name for hit in test_repo.index.search("Ozymandias", method=method)}
+        found = {hit.chunk.version.path.name for hit in test_repo.index.search("Ozymandias", method=method)}
         assert "mood.md" not in found, method
     shown = test_repo.index.search_keyword("Ozymandias", include_hidden=True)
-    assert {hit.chunk.repo_path.path.name for hit in shown} == {"kept.md", "mood.md"}
+    assert {hit.chunk.version.path.name for hit in shown} == {"kept.md", "mood.md"}
 
 
 def test_search_hides_deleted_notes(test_repo, make_note):
@@ -221,7 +225,7 @@ def test_search_hides_deleted_notes(test_repo, make_note):
 
     assert test_repo.index.search_keyword("Ozymandias", limit=10) == []
     assert [
-        hit for hit in test_repo.index.search("Ozymandias", limit=10) if hit.chunk.repo_path.path.name == "doomed.md"
+        hit for hit in test_repo.index.search("Ozymandias", limit=10) if hit.chunk.version.path.name == "doomed.md"
     ] == []
 
 
@@ -234,7 +238,7 @@ def test_search_include_deleted_shows_them(test_repo, make_note):
     _delete(test_repo, "doomed.md")
 
     hits = test_repo.index.search_keyword("Ozymandias", limit=10, include_deleted=True)
-    assert [str(hit.chunk.repo_path.path) for hit in hits] == ["doomed.md"]
+    assert [str(hit.chunk.version.path) for hit in hits] == ["doomed.md"]
 
 
 def test_search_keeps_finding_an_edited_note(test_repo, make_note):
@@ -252,7 +256,7 @@ def test_search_keeps_finding_an_edited_note(test_repo, make_note):
     test_repo.commit("Edit note", auto_index=False)
 
     hits = test_repo.index.search_keyword("silver", limit=10)
-    assert [str(hit.chunk.repo_path.path) for hit in hits] == ["draft.md"]
+    assert [str(hit.chunk.version.path) for hit in hits] == ["draft.md"]
 
 
 def test_search_fills_the_limit_around_deleted_notes(test_repo, make_note):
@@ -300,8 +304,8 @@ def test_index_commonplace_dir_pruned(test_repo, make_note):
     """A chunk indexed from .commonplace/ before it was excluded leaves on the next run."""
     test_repo.save(make_note(path=".commonplace/skills/rake/chaff.md", content="# Chaff\n\nDropped in triage.\n"))
     test_repo.commit("Add chaff", auto_index=False)
-    stale = test_repo.make_repo_path(".commonplace/skills/rake/chaff.md")
-    chunk = Chunk(repo_path=stale, section="Chaff", text="Dropped in triage.", offset=0)
+    stale = _version(test_repo, ".commonplace/skills/rake/chaff.md")
+    chunk = Chunk(version=stale, section="Chaff", text="Dropped in triage.", offset=0)
     test_repo.index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
 
     _commands.index(test_repo)
@@ -340,7 +344,7 @@ def test_index_prunes_superseded_versions(test_repo, make_note):
     _commands.index(test_repo)
 
     drafts = [p for p in test_repo.index.get_indexed_paths() if p.path == Path("draft.md")]
-    assert drafts == [test_repo.make_repo_path("draft.md")]
+    assert drafts == [_version(test_repo, "draft.md")]
     assert test_repo.index.search_keyword("crimson", limit=10)
     assert test_repo.index.search_keyword("silver", limit=10) == []
 

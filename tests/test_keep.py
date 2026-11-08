@@ -63,7 +63,7 @@ def test_snapshot_lands_each_note_by_its_creation_month_and_title():
     note = _notes()["note-tea"]
     metadata, body = note.metadata, note.body
 
-    assert note.repo_path.path == TEA
+    assert note.path == TEA
     assert body == "# Tea house\n\nA tea house by the river.\n"
     assert metadata["title"] == "Tea house"
     assert metadata["id"] == "note-tea"
@@ -83,7 +83,7 @@ def test_snapshot_names_an_untitled_note_by_its_first_words_and_gives_it_no_head
     """Most Keep notes have no title; inventing a heading would only repeat the text."""
     note = _notes()["note-word"]
     metadata, body = note.metadata, note.body
-    assert note.repo_path.path == WORD
+    assert note.path == WORD
 
     assert body == "Sesquipedalian: given to long words.\nAnd a second line.\n"
     assert metadata["title"] == "Sesquipedalian: given to long words."
@@ -91,7 +91,7 @@ def test_snapshot_names_an_untitled_note_by_its_first_words_and_gives_it_no_head
 
 def test_snapshot_caps_a_name_drawn_from_one_long_word():
     """A pasted URL is one 'word'; live, one ran a filename to 228 characters."""
-    link = _notes()["note-link"].repo_path.path
+    link = _notes()["note-link"].path
 
     assert link.parent == Path("notes/keep/2026/06")
     assert len(link.stem) <= len("2026-06-02-") + 50
@@ -101,7 +101,7 @@ def test_snapshot_caps_a_name_drawn_from_one_long_word():
 def test_snapshot_renders_a_list_as_checkboxes_in_keeps_order():
     shopping = _notes()["list-shop"]
     body = shopping.body
-    assert shopping.repo_path.path == SHOPPING
+    assert shopping.path == SHOPPING
 
     assert body == "# Shopping\n\n- [ ] Milk\n- [x] Eggs\n"
 
@@ -275,7 +275,7 @@ def test_snapshot_replays_a_change_set_on_the_last_full_sync(tmp_path):
 
     snapshot = owned(KeepImporter).snapshot(changes, earlier=[EXAMPLE])
 
-    notes = {note.repo_path.path: note for note in snapshot.notes}
+    notes = {note.path: note for note in snapshot.notes}
     assert notes[SHOPPING].body == "# Shopping\n\n- [ ] Milk\n- [ ] Eggs\n"
     assert WORD not in notes
     assert TEA in notes  # Unchanged since the full sync, still listed

@@ -15,7 +15,7 @@ import yaml
 
 from commonplace._links import Target
 from commonplace._repo import Commonplace
-from commonplace._types import RepoPath
+from commonplace._search._types import Version
 
 #: The sections after the header, in the order they render.
 SECTIONS = ("tags", "links", "commentary", "index")
@@ -24,7 +24,7 @@ SECTIONS = ("tags", "links", "commentary", "index")
 def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str, Any]:
     """The record of the note `spec` names; a hidden note is shown when asked for by name, and says so."""
     [note] = repo.notes_named(spec)
-    node = repo.load(repo.make_repo_path(note))
+    node = repo.load(note)
     metadata = node.metadata
     # A field the note lacks is left out rather than shown as null.
     header = {field: metadata[field] for field in ("title", "type", "description") if metadata.get(field)}
@@ -44,11 +44,11 @@ def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str
 
 def _index_state(repo: Commonplace, note: Path) -> dict[str, Any]:
     """How many chunks the current version has in the index, and whether it's current, stale or not indexed."""
-    current = repo.make_repo_path(note)
+    current = Version(note, repo.content_ids().get(note, ""))
     index = repo.index
-    versions = [path for path in index.get_indexed_paths() if path.path == note]
+    versions = [version for version in index.get_indexed_paths() if version.path == note]
     if current in versions:
-        chunks = sum(stat.num_chunks for stat in index.stats() if stat.repo_path == current)
+        chunks = sum(stat.num_chunks for stat in index.stats() if stat.version == current)
         return {"state": "current", "chunks": chunks}
     return {"state": "stale" if versions else "not indexed", "chunks": 0}
 
@@ -79,9 +79,9 @@ def links(repo: Commonplace, note: Path, include_hidden: bool = False) -> list[N
     """A note's edges, out then in; those whose other end is labelled `hidden` left out unless asked for."""
 
     def shown(other: Path) -> bool:
-        return include_hidden or not repo.load(RepoPath(other)).hidden
+        return include_hidden or not repo.load(other).hidden
 
-    node, found = repo.load(RepoPath(note)), []
+    node, found = repo.load(note), []
     for edge in node.edges:
         match repo.files.lands(edge):
             case [other] if not shown(other):

@@ -12,13 +12,11 @@ from commonplace._import._placement import Placement
 from commonplace._import._types import MirrorImporter
 from commonplace._logging import logger
 from commonplace._repo import Commonplace
-from commonplace._types import Note, RepoPath, Source
+from commonplace._types import Blob, Note, Source
 from commonplace._wire import archive_names, last_fetched, read_header
 
 
-def mirror_one(
-    path: Path, repo: Commonplace, importer: MirrorImporter, auto_index: bool | None = None
-) -> RepoPath | None:
+def mirror_one(path: Path, repo: Commonplace, importer: MirrorImporter, auto_index: bool | None = None) -> Blob | None:
     """Land the files the capture read and prune the paths its listing no longer names; returns the blob stored."""
     tree = importer.source.tree
     # Captures of this source already landed, for an importer whose captures are changes on earlier ones.
@@ -33,8 +31,8 @@ def mirror_one(
         snapshot = replace(snapshot, notes=_placed(repo, tree, importer.id_key, snapshot.notes))
     # Paths come from upstream, and a mirror owns its tree and nothing else.
     for note in snapshot.notes:
-        if not note.repo_path.path.is_relative_to(tree) or note.repo_path.path == tree:
-            raise ValueError(f"'{path}' names '{note.repo_path}', outside '{tree}'")
+        if not note.path.is_relative_to(tree) or note.path == tree:
+            raise ValueError(f"'{path}' names '{note.path}', outside '{tree}'")
     # A re-read is a new blob, so rewriting what is already there would change only its provenance.
     notes = [note for note in snapshot.notes if not repo.holds(note, aside=Source.PROVENANCE)]
 
@@ -43,7 +41,7 @@ def mirror_one(
         # Without the complete listing, absence means nothing.
         logger.warning(f"'{path}' has no listing; nothing pruned")
     else:
-        kept = snapshot.unread | {note.repo_path.path for note in snapshot.notes}
+        kept = snapshot.unread | {note.path for note in snapshot.notes}
         stale = [p for p in repo.paths(tree) if p not in kept]
 
     # Decided before the blob is stored, so a capture that changes nothing leaves no trace.
@@ -55,7 +53,7 @@ def mirror_one(
     provenance = importer.source.provenance(blob.path.as_posix())
     for note in notes:
         repo.save(replace(note, metadata=note.metadata | provenance))
-        logger.info(f"Mirrored '{note.repo_path}'")
+        logger.info(f"Mirrored '{note.path}'")
     for target in stale:
         repo.remove(target)
         logger.info(f"Pruned '{target}'")
@@ -67,9 +65,4 @@ def mirror_one(
 def _placed(repo: Commonplace, tree: Path, id_key: str, notes: list[Note]) -> list[Note]:
     """Each note at the path it first landed at, found by its id; a new note, in order, clear of every path held."""
     placement = Placement.of(repo, tree, id_key)
-    return [
-        replace(
-            note, repo_path=replace(note.repo_path, path=placement.place(note.repo_path.path, note.metadata[id_key]))
-        )
-        for note in notes
-    ]
+    return [replace(note, path=placement.place(note.path, note.metadata[id_key])) for note in notes]

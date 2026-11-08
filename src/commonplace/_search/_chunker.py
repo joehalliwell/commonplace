@@ -3,7 +3,7 @@
 import re
 from collections.abc import Iterator
 
-from commonplace._search._types import Chunk
+from commonplace._search._types import Chunk, Version
 from commonplace._types import Note
 
 #: A chat turn's heading, as the serializer writes it; nothing else in a chat carries the `created` marker.
@@ -43,16 +43,18 @@ class MarkdownChunker:
         self.max_chunk_chars = max_chunk_chars
         self.overlap_chars = overlap_chars
 
-    def chunk(self, note: Note) -> Iterator[Chunk]:
+    def chunk(self, note: Note, oid: str) -> Iterator[Chunk]:
         """
         Split a markdown note into chunks by headers.
 
         Args:
             note: The note to chunk
+            oid: Git's id for the note's committed content, which its chunks are of
 
         Yields:
             Chunks extracted from the note, one per section
         """
+        version, title = Version(note.path, oid), note.metadata.get("title") or note.path.stem
         lines = note.body.split("\n")
         current_section: list[str] = []
         current_text: list[str] = []
@@ -75,12 +77,12 @@ class MarkdownChunker:
 
             if skipping:
                 if header_match and current_text and any(t.strip() for t in current_text):
-                    yield from self._split_if_needed(note, current_section, current_text, chunk_start_offset)
+                    yield from self._split_if_needed(version, title, current_section, current_text, chunk_start_offset)
                 current_text = []
             elif header_match:
                 # Yield previous chunk if we have content
                 if current_text and any(t.strip() for t in current_text):
-                    yield from self._split_if_needed(note, current_section, current_text, chunk_start_offset)
+                    yield from self._split_if_needed(version, title, current_section, current_text, chunk_start_offset)
 
                 # Update section hierarchy
                 level = len(header_match.group(1))
@@ -101,16 +103,17 @@ class MarkdownChunker:
 
         # Yield final chunk if we have content
         if current_text and any(t.strip() for t in current_text):
-            yield from self._split_if_needed(note, current_section, current_text, chunk_start_offset)
+            yield from self._split_if_needed(version, title, current_section, current_text, chunk_start_offset)
 
     def _split_if_needed(
-        self, note: Note, section_stack: list[str], text_lines: list[str], start_offset: int
+        self, version: Version, title: str, section_stack: list[str], text_lines: list[str], start_offset: int
     ) -> Iterator[Chunk]:
         """
         Split a section into multiple chunks if it exceeds max_chunk_chars.
 
         Args:
-            note: The note being chunked
+            version: The note being chunked, at the version its chunks are of
+            title: The section a chunk outside any heading is in
             section_stack: Hierarchical section path
             text_lines: Lines of text in the section
             start_offset: Character offset where this section begins
@@ -118,13 +121,13 @@ class MarkdownChunker:
         Yields:
             One or more chunks, split as needed to fit within size limits
         """
-        section_path = " / ".join(section_stack) or note.metadata.get("title") or note.repo_path.path.stem
+        section_path = " / ".join(section_stack) or title
         chunk_text = "\n".join(text_lines).strip()
 
         # If chunk fits within limit, yield as-is
         if len(chunk_text) <= self.max_chunk_chars:
             yield Chunk(
-                repo_path=note.repo_path,
+                version=version,
                 text=chunk_text,
                 section=section_path,
                 offset=start_offset,
@@ -150,7 +153,7 @@ class MarkdownChunker:
                     end_pos = current_pos + last_break
 
             yield Chunk(
-                repo_path=note.repo_path,
+                version=version,
                 text=sub_chunk.strip(),
                 section=section_path,
                 offset=start_offset + current_pos,

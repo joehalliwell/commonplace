@@ -8,7 +8,7 @@ from pathlib import Path
 
 from commonplace._import._base import BaseWireImporter
 from commonplace._import._types import Snapshot
-from commonplace._types import Note, RepoPath
+from commonplace._types import Note
 from commonplace._utils import load_frontmatter
 from commonplace._wire import read_entries
 
@@ -23,7 +23,7 @@ class ClaudeMemoryImporter(BaseWireImporter):
         for entry in read_entries(path):
             response = json.loads(entry["response"])
             if entry.get("endpoint") == "list":
-                listed = {self._path(item["path"]).path for item in response["data"]}
+                listed = {self._path(item["path"]) for item in response["data"]}
             elif entry.get("endpoint") == "read":
                 # `content`, not `parsed`: the latter is the provider's reading of the file.
                 metadata, body = load_frontmatter(response["content"])
@@ -34,8 +34,8 @@ class ClaudeMemoryImporter(BaseWireImporter):
                 notes.append(Note.compose(self._path(response["path"]), "Memory", title, body, metadata))
         if listed is None:
             return Snapshot(notes, None)
-        return Snapshot(notes, frozenset(listed - {note.repo_path.path for note in notes}))
+        return Snapshot(notes, frozenset(listed - {note.path for note in notes}))
 
-    def _path(self, provider_path: str) -> RepoPath:
+    def _path(self, provider_path: str) -> Path:
         """Provider paths are rooted at `/`; ours sit under the tree."""
-        return RepoPath(self.source.tree / provider_path.lstrip("/"))
+        return self.source.tree / provider_path.lstrip("/")

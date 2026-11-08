@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from commonplace._search._chunker import MarkdownChunker
+from tests.conftest import TEST_OID
 
 
 def test_basic_chunking(make_note):
@@ -30,14 +31,14 @@ Nested content.
     )
 
     chunker = MarkdownChunker()
-    chunks = list(chunker.chunk(note))
+    chunks = list(chunker.chunk(note, TEST_OID))
 
     assert len(chunks) == 4
 
     # Check first chunk (intro)
     assert chunks[0].section == "Main Title"
     assert chunks[0].text == "Some intro text."
-    assert chunks[0].repo_path.path == Path("test.md")
+    assert chunks[0].version.path == Path("test.md")
 
     # Check second chunk
     assert chunks[1].section == "Main Title / Section 1"
@@ -60,7 +61,7 @@ def test_no_headers(make_note):
     )
 
     chunker = MarkdownChunker()
-    chunks = list(chunker.chunk(note))
+    chunks = list(chunker.chunk(note, TEST_OID))
 
     assert len(chunks) == 1
     assert chunks[0].section == "test"
@@ -82,7 +83,7 @@ Some text here.
     )
 
     chunker = MarkdownChunker()
-    chunks = list(chunker.chunk(note))
+    chunks = list(chunker.chunk(note, TEST_OID))
 
     assert len(chunks) == 1
     assert chunks[0].section == "Title / Section with content"
@@ -96,7 +97,7 @@ def test_offset_calculation(make_note):
     )
 
     chunker = MarkdownChunker()
-    chunks = list(chunker.chunk(note))
+    chunks = list(chunker.chunk(note, TEST_OID))
 
     # First chunk starts at "# Title"
     assert chunks[0].offset == 0
@@ -111,7 +112,7 @@ def test_chunk_note_without_headers_is_labelled_with_its_title(make_note):
     note = make_note(path="memory/claude/tea.md", content="Prefers tea.")
     note.metadata = {"type": "Memory", "title": "Tea preferences"}
 
-    [chunk] = MarkdownChunker().chunk(note)
+    [chunk] = MarkdownChunker().chunk(note, TEST_OID)
 
     assert chunk.section == "Tea preferences"
 
@@ -121,7 +122,7 @@ def test_chunk_note_with_metadata_chunks_the_body_only(make_note):
     note = make_note(path="test.md", content="# Title\n\nFirst.")
     note.metadata = {"uuid": "abc123", "source_export": ".commonplace/blobs/0000/export.json"}
 
-    chunks = list(MarkdownChunker().chunk(note))
+    chunks = list(MarkdownChunker().chunk(note, TEST_OID))
 
     assert [chunk.text for chunk in chunks] == ["First."]
     assert note.body[chunks[0].offset :].startswith("# Title")
@@ -138,7 +139,7 @@ Content here.
     )
 
     chunker = MarkdownChunker()
-    chunks = list(chunker.chunk(note))
+    chunks = list(chunker.chunk(note, TEST_OID))
 
     assert len(chunks) == 1
     assert chunks[0].section == "Title"
@@ -160,7 +161,7 @@ def test_large_section_splitting(make_note):
     )
 
     chunker = MarkdownChunker(max_chunk_chars=500, overlap_chars=50)
-    chunks = list(chunker.chunk(note))
+    chunks = list(chunker.chunk(note, TEST_OID))
 
     # Should have at least 3 chunks: small intro + multiple from large section
     assert len(chunks) >= 3
@@ -198,7 +199,7 @@ Also short.
     )
 
     chunker = MarkdownChunker(max_chunk_chars=500, overlap_chars=50)
-    chunks = list(chunker.chunk(note))
+    chunks = list(chunker.chunk(note, TEST_OID))
 
     # Should have 2 chunks, one for each section (intro is empty)
     assert len(chunks) == 2
@@ -245,7 +246,7 @@ lock()
 def test_chunk_chat_indexes_what_was_said_not_tool_calls_or_system_turns(make_note):
     note = make_note(path="chats/claude-code/build.md", content=CHAT, metadata={"type": "Chat"})
 
-    chunks = list(MarkdownChunker().chunk(note))
+    chunks = list(MarkdownChunker().chunk(note, TEST_OID))
 
     assert [c.section for c in chunks] == ["Fixing the build / Joe", "Fixing the build / Claude Code"]
     assert "grep output" not in " ".join(c.text for c in chunks)
@@ -256,7 +257,7 @@ def test_chunk_heading_inside_a_code_fence_is_content(make_note):
     """A code comment or a quoted document's heading is text, not a new section."""
     note = make_note(path="chats/claude-code/build.md", content=CHAT, metadata={"type": "Chat"})
 
-    [_, agent] = MarkdownChunker().chunk(note)
+    [_, agent] = MarkdownChunker().chunk(note, TEST_OID)
 
     assert "# regenerate it" in agent.text
 
@@ -265,4 +266,4 @@ def test_chunk_note_keeps_a_section_named_like_a_call_outside_chats(make_note):
     """Only a chat's own turn headings mark tool calls; a note's `## Sales call` is the user's."""
     note = make_note(path="notes/week.md", content="# Week\n\n## Sales call\n\nThey want a demo.\n")
 
-    assert [c.text for c in MarkdownChunker().chunk(note)] == ["They want a demo."]
+    assert [c.text for c in MarkdownChunker().chunk(note, TEST_OID)] == ["They want a demo."]

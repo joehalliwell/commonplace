@@ -139,8 +139,8 @@ def test_get_indexed_paths(test_index, make_chunk):
     # Should return unique paths
     paths = set(test_index.get_indexed_paths())
     assert len(paths) == 2
-    assert chunk1.repo_path in paths
-    assert chunk2.repo_path in paths
+    assert chunk1.version in paths
+    assert chunk2.version in paths
 
 
 def test_remove_leaves_another_models_chunks_alone(test_index, other_model_index, make_chunk):
@@ -154,26 +154,26 @@ def test_remove_leaves_another_models_chunks_alone(test_index, other_model_index
     test_index._add_with_embeddings([(chunk, emb)])
     other_model_index._add_with_embeddings([(chunk, emb)])
 
-    assert test_index.remove([chunk.repo_path]) == 1
+    assert test_index.remove([chunk.version]) == 1
 
     assert set(test_index.get_indexed_paths()) == set()
-    assert set(other_model_index.get_indexed_paths()) == {chunk.repo_path}
+    assert set(other_model_index.get_indexed_paths()) == {chunk.version}
 
 
 def test_remove_drops_chunks_for_the_given_versions(test_index, make_chunk):
     """Removal is by (path, ref), so one version of a note can go while another stays."""
     live = make_chunk(path="live.md", section="Section", text="Still here", offset=0)
     deleted = make_chunk(path="deleted.md", section="Section", text="Long gone", offset=0)
-    superseded = make_chunk(path="live.md", section="Section", text="Earlier draft", offset=0, ref="1" * 40)
+    superseded = make_chunk(path="live.md", section="Section", text="Earlier draft", offset=0, oid="1" * 40)
 
     emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
     for chunk in (live, deleted, superseded):
         test_index._add_with_embeddings([(chunk, emb)])
 
-    removed = test_index.remove([deleted.repo_path, superseded.repo_path])
+    removed = test_index.remove([deleted.version, superseded.version])
 
     assert removed == 2
-    assert set(test_index.get_indexed_paths()) == {live.repo_path}
+    assert set(test_index.get_indexed_paths()) == {live.version}
 
 
 def test_remove_keeps_the_full_text_index_in_step(test_index, make_chunk):
@@ -182,7 +182,7 @@ def test_remove_keeps_the_full_text_index_in_step(test_index, make_chunk):
     test_index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
     assert test_index.search_keyword("Ozymandias", limit=10)
 
-    test_index.remove([chunk.repo_path])
+    test_index.remove([chunk.version])
 
     assert test_index.search_keyword("Ozymandias", limit=10) == []
 
@@ -208,7 +208,7 @@ def test_remove_nothing_leaves_the_index_alone(test_index, make_chunk):
     test_index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
 
     assert test_index.remove([]) == 0
-    assert set(test_index.get_indexed_paths()) == {chunk.repo_path}
+    assert set(test_index.get_indexed_paths()) == {chunk.version}
 
 
 def test_remove_unknown_version_is_a_no_op(test_index, make_chunk):
@@ -216,10 +216,10 @@ def test_remove_unknown_version_is_a_no_op(test_index, make_chunk):
     chunk = make_chunk(path="live.md", section="Section", text="Still here", offset=0)
     test_index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
 
-    stranger = make_chunk(path="live.md", section="Section", text="Never indexed", offset=0, ref="1" * 40)
+    stranger = make_chunk(path="live.md", section="Section", text="Never indexed", offset=0, oid="1" * 40)
 
-    assert test_index.remove([stranger.repo_path]) == 0
-    assert set(test_index.get_indexed_paths()) == {chunk.repo_path}
+    assert test_index.remove([stranger.version]) == 0
+    assert set(test_index.get_indexed_paths()) == {chunk.version}
 
 
 def test_stats_empty(test_index):
@@ -257,7 +257,7 @@ def test_add_chunks_empty_batch(test_index):
 
 def test_add_chunk_of_uncommitted_note_is_refused(test_index, make_chunk):
     """The index holds versions only, so a chunk must name one."""
-    chunk = make_chunk(path="draft.md", section="S", text="Draft text", offset=0, ref=None)
+    chunk = make_chunk(path="draft.md", section="S", text="Draft text", offset=0, oid=None)
 
     with pytest.raises(sqlite3.IntegrityError):
         test_index.add_chunks([chunk])
@@ -267,7 +267,7 @@ def test_add_chunk_of_uncommitted_note_is_refused(test_index, make_chunk):
 
 def test_add_chunks_refused_midway_leaves_none_of_the_batch(test_index, make_chunk):
     good = make_chunk(path="kept.md", section="S", text="Kept text", offset=0)
-    bad = make_chunk(path="draft.md", section="S", text="Draft text", offset=0, ref=None)
+    bad = make_chunk(path="draft.md", section="S", text="Draft text", offset=0, oid=None)
 
     with pytest.raises(sqlite3.IntegrityError):
         test_index.add_chunks([good, bad])

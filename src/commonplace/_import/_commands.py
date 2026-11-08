@@ -16,7 +16,7 @@ from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
 from commonplace._sources import importers
-from commonplace._types import ChatSource, MirrorSource, Note, RepoPath
+from commonplace._types import Blob, ChatSource, MirrorSource, Note
 from commonplace._utils import slugify
 from commonplace._wire import NewerWireVersion
 
@@ -57,7 +57,7 @@ def autodetect_importer[I: (ChatImporter, MirrorImporter)](path: Path, importers
     return None
 
 
-def extract_and_store(archive: Path, member: str, repo: Commonplace) -> RepoPath:
+def extract_and_store(archive: Path, member: str, repo: Commonplace) -> Blob:
     """Extract one member from an archive and store it as a blob."""
     with tempfile.TemporaryDirectory() as tmp, ZipFile(archive) as zf:
         return repo.store_blob(Path(zf.extract(member, tmp)))
@@ -65,7 +65,7 @@ def extract_and_store(archive: Path, member: str, repo: Commonplace) -> RepoPath
 
 def import_one(
     path: Path, repo: Commonplace, user: str, auto_index: bool | None = None, commit: bool = True
-) -> RepoPath | None:
+) -> Blob | None:
     """Import chats, or hand a mirrored source to `mirror_one`; returns the blob stored, if any."""
     if mirror := autodetect_importer(path, importers(MirrorSource)):
         return mirror_one(path, repo, mirror, auto_index=auto_index)
@@ -83,7 +83,7 @@ def import_one(
     placement = Placement.of(repo, importer.source.tree, importer.id_key)
     for note in render_chats(path, importer, user, blob.path.as_posix(), placement):
         repo.save(note)
-        logger.info(f"Stored log '{note.metadata['title']}' at '{note.repo_path}'")
+        logger.info(f"Stored log '{note.metadata['title']}' at '{note.path}'")
 
     if commit:
         repo.commit(f"Import from '{path}' using '{importer.source.name}' importer", auto_index=auto_index)
@@ -111,7 +111,7 @@ def render_chats(
             },
             **importer.source.provenance(source_export),
         }
-        rendered.append(Note.compose(RepoPath(rel_path), "Chat", log.title, serializer.serialize(log), metadata))
+        rendered.append(Note.compose(rel_path, "Chat", log.title, serializer.serialize(log), metadata))
 
     return rendered
 

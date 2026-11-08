@@ -12,11 +12,11 @@ from pathlib import Path
 import pytest
 
 from commonplace._search._sqlite import INDEX_VERSION, SQLiteSearchIndex
-from commonplace._types import RepoPath
+from commonplace._search._types import Version
 from tests.resources.index.make_examples import REF_A, REF_B, ExampleEmbedder
 
-TEA = RepoPath(Path("notes/tea.md"), REF_A)
-WALKS = RepoPath(Path("notes/walks.md"), REF_B)
+TEA = Version(Path("notes/tea.md"), REF_A)
+WALKS = Version(Path("notes/walks.md"), REF_B)
 
 
 def _open(example):
@@ -24,7 +24,7 @@ def _open(example):
 
 
 def _found(hits) -> list[tuple[str, int]]:
-    return [(str(hit.chunk.repo_path.path), hit.chunk.offset) for hit in hits]
+    return [(str(hit.chunk.version.path), hit.chunk.offset) for hit in hits]
 
 
 def test_every_index_version_lists_the_same_notes(any_index_version):
@@ -44,7 +44,7 @@ def test_every_index_version_ranks_by_its_stored_embeddings(any_index_version):
 
 def test_every_index_version_counts_chunks_per_note(any_index_version):
     with _open(any_index_version) as index:
-        assert {stat.repo_path: stat.num_chunks for stat in index.stats()} == {TEA: 2, WALKS: 1}
+        assert {stat.version: stat.num_chunks for stat in index.stats()} == {TEA: 2, WALKS: 1}
 
 
 def _schema(db: Path) -> dict[str, list[tuple]]:

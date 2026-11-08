@@ -18,7 +18,7 @@ from typing import Any
 
 from commonplace._import._base import BaseWireImporter
 from commonplace._import._types import Snapshot
-from commonplace._types import Note, RepoPath
+from commonplace._types import Note
 from commonplace._utils import slugify
 from commonplace._wire import read_entries
 
@@ -88,7 +88,7 @@ class KeepImporter(BaseWireImporter):
             "pinned": root.get("isPinned", False),  # Left out when false
             "archived": root["isArchived"],
         }
-        return Note.compose(RepoPath(path), "Note", title or first_line, body, metadata)
+        return Note.compose(Path(path), "Note", title or first_line, body, metadata)
 
 
 def is_full_sync(archive: Path) -> bool:

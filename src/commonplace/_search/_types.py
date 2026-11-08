@@ -8,12 +8,20 @@ generating embeddings, and storing/searching vectors.
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum
-from typing import Protocol
+from pathlib import Path
+from typing import NamedTuple, Protocol
 
 import numpy as np
 from numpy.typing import NDArray
 
-from commonplace._types import Note, RepoPath
+from commonplace._types import Note
+
+
+class Version(NamedTuple):
+    """A note as the index holds it: its path, and git's id for its committed content."""
+
+    path: Path
+    oid: str
 
 
 class SearchMethod(str, Enum):
@@ -28,8 +36,8 @@ class SearchMethod(str, Enum):
 class Chunk:
     """A chunk of text extracted from a note."""
 
-    repo_path: RepoPath
-    """Repository path to the source note"""
+    version: Version
+    """The version of the note it is from"""
 
     text: str
     """The chunk text content"""
@@ -53,12 +61,13 @@ class SearchHit:
 class Chunker(Protocol):
     """Protocol for chunking notes into smaller pieces."""
 
-    def chunk(self, note: Note) -> Iterator[Chunk]:
+    def chunk(self, note: Note, oid: str) -> Iterator[Chunk]:
         """
         Split a note into chunks.
 
         Args:
             note: The note to chunk
+            oid: Git's id for the note's committed content, which its chunks are of
 
         Yields:
             Chunks extracted from the note
@@ -121,7 +130,7 @@ class IndexStat:
     """Statistic about a particular set of chunks"""
 
     model_id: str
-    repo_path: RepoPath
+    version: Version
     num_chunks: int
 
 
@@ -141,11 +150,11 @@ class SearchIndex(Protocol):
         """How many notes are indexed under each model other than this store's."""
         ...
 
-    def record_indexed(self, versions: Iterable[RepoPath]) -> None:
+    def record_indexed(self, versions: Iterable[Version]) -> None:
         """Record these versions as indexed, including any that yielded no chunks."""
         ...
 
-    def get_indexed_paths(self) -> Iterable[RepoPath]:
+    def get_indexed_paths(self) -> Iterable[Version]:
         """
         Paths that have been indexed.
         """
@@ -180,12 +189,12 @@ class SearchIndex(Protocol):
         """
         ...
 
-    def remove(self, versions: Iterable[RepoPath]) -> int:
+    def remove(self, versions: Iterable[Version]) -> int:
         """
         Remove every chunk belonging to the given versions of notes.
 
         Args:
-            versions: Paths/refs whose chunks should go, because the note has
+            versions: Versions whose chunks should go, because the note has
                 been deleted or the version superseded by an edit
 
         Returns:

@@ -25,28 +25,12 @@ type Metadata = dict[str, Any]
 type Pathlike = str | Path
 
 
-@dataclass(frozen=True)
-class RepoPath:
-    """
-    Immutable reference to a note: its path, which corresponds to an OKF concept ID, at a version.
-
-    Invariants:
-    - path is normalised and relative to the repository root, as note links resolve
-    - ref is git's id for the note's committed content, or None for a note not yet committed
-    - instances are hashable and suitable as dict keys
-    """
-
-    path: Path  # Relative to repo root
-    ref: str | None = None
-
-    def __post_init__(self):
-        path = Path(os.path.normpath(self.path))
-        if path.is_absolute() or path.parts[:1] == ("..",):
-            raise ValueError(f"RepoPath must stay inside the repository: {self.path}")
-        object.__setattr__(self, "path", path)
-
-    def __str__(self) -> str:
-        return f"{self.path}@{self.ref[:8]}" if self.ref else str(self.path)
+def node_id(path: Pathlike) -> Path:
+    """`path` as a node's id: normalised and relative to the root, as links resolve, or refused if it leaves it."""
+    normal = Path(os.path.normpath(path))
+    if normal.is_absolute() or normal.parts[:1] == ("..",):
+        raise ValueError(f"A node's path must stay inside the repository: {path}")
+    return normal
 
 
 class Node:
@@ -138,7 +122,7 @@ class Note(Node):
     its marginalia, which add labels to its own tags, edges to its own links, and a second body.
     """
 
-    repo_path: RepoPath
+    path: Path  # Its id: relative to the root, and normalised
     body: str
     metadata: Metadata = field(default_factory=dict)
     marginalia: Marginalia = field(default=None, compare=False)  # type: ignore[assignment]  # Empty unless read back
@@ -146,13 +130,15 @@ class Note(Node):
     source: Source | None = field(default=None, compare=False)  # As read back: the one it names, or whose tree holds it
 
     @classmethod
-    def compose(cls, repo_path: RepoPath, type: str, title: str, body: str, metadata: Metadata | None = None) -> "Note":
+    def compose(cls, path: Path, type: str, title: str, body: str, metadata: Metadata | None = None) -> "Note":
         """A note whose `type` and `title` lead and override `metadata`."""
-        return cls(repo_path, body, override(metadata or {}, repo_path, type=type, title=title))
+        return cls(path, body, override(metadata or {}, path, type=type, title=title))
 
     def __post_init__(self) -> None:
+        # Every note written starts here, so a path built from a vendor's title can't leave the repository.
+        self.path = node_id(self.path)
         if self.marginalia is None:
-            self.marginalia = Marginalia(self.repo_path.path)
+            self.marginalia = Marginalia(self.path)
 
     @cached_property
     def labels(self) -> list[str]:
@@ -172,13 +158,13 @@ class Note(Node):
     @cached_property
     def said(self) -> list[Edge]:
         """The edges its marginalia add, at their lines in the marginalia's file."""
-        path, offset = self.repo_path.path, self.marginalia.offset
+        path, offset = self.path, self.marginalia.offset
         said = extract_links(self.marginalia.body, source=MARGINALIA / path, metadata={})
         return [Edge(path, replace(link, line=link.line + offset)) for link in said]
 
     def line(self, edge: Edge) -> str:
         """The line `edge` is written on."""
-        if edge.link.source == self.repo_path.path:
+        if edge.link.source == self.path:
             return self.text.split("\n")[edge.link.line - 1]
         return self.marginalia.body.split("\n")[edge.link.line - self.marginalia.offset - 1]
 
@@ -196,7 +182,7 @@ class Note(Node):
 
     @cached_property
     def _own(self) -> list[Edge]:
-        path = self.repo_path.path
+        path = self.path
         # Text that only quotes links makes none, but what the frontmatter cites, its provenance, is still the note's.
         quotes = self.source is not None and self.source.quotes
         found = extract_links(self.text, source=path, body=not quotes, metadata=self.metadata)
