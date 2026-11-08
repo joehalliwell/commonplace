@@ -14,7 +14,6 @@ from typing import Any
 import yaml
 
 from commonplace._links import Target
-from commonplace._marginalia import notes_named
 from commonplace._repo import Commonplace
 from commonplace._types import RepoPath
 
@@ -24,7 +23,7 @@ SECTIONS = ("tags", "links", "commentary", "history", "index")
 
 def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str, Any]:
     """The record of the note `spec` names; a hidden note is shown when asked for by name, and says so."""
-    [note] = notes_named(repo, spec)
+    [note] = repo.notes_named(spec)
     node = repo.load(repo.make_repo_path(note))
     metadata = node.metadata
     # A field the note lacks is left out rather than shown as null.
