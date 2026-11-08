@@ -367,7 +367,7 @@ def git(
     import shlex
 
     cmd = "git"
-    _args = [f"--git-dir={repo.root / '.git'}", f"--work-tree={repo.root}", *args]
+    _args = ["-C", str(repo.root), *args]
 
     logger.info(f"Executing command: {cmd} {shlex.join(_args)}")
     os.execlp(cmd, cmd, *_args)
