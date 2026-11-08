@@ -37,7 +37,7 @@ def mirror_one(
         if not note.repo_path.path.is_relative_to(tree) or note.repo_path.path == tree:
             raise ValueError(f"'{path}' names '{note.repo_path}', outside '{tree}'")
     # A re-read is a new blob, so rewriting what is already there would change only its provenance.
-    notes = [note for note in snapshot.notes if not _landed(repo, importer.source, note)]
+    notes = [note for note in snapshot.notes if not repo.holds(note, aside=Source.PROVENANCE)]
 
     stale: list[Path] = []
     if snapshot.unread is None:
@@ -74,11 +74,3 @@ def _placed(repo: Commonplace, tree: Path, id_key: str, notes: list[Note]) -> li
         )
         for note in notes
     ]
-
-
-def _landed(repo: Commonplace, source: Source, note: Note) -> bool:
-    """Whether the working tree already holds this note, whichever capture it was landed from."""
-    held = repo.load(note.repo_path)
-    landed = note.metadata | source.provenance(held.metadata.get("source_export", ""))
-    # Whitespace aside, since a formatting hook may rewrap what was landed.
-    return bool(held.text) and (held.metadata, held.body.split()) == (landed, note.body.split())

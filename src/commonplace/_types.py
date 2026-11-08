@@ -63,6 +63,8 @@ class Source(Node):
     fetcher_type: "type[Fetcher] | None"
     #: Whether its notes' own text quotes links rather than making them.
     quotes: ClassVar[bool] = False
+    #: The frontmatter keys in which a note records where it came from.
+    PROVENANCE: ClassVar[tuple[str, str]] = ("source", "source_export")
 
     @cached_property
     def importers(self) -> tuple[Any, ...]:
@@ -71,7 +73,7 @@ class Source(Node):
 
     def provenance(self, archive: str) -> dict[str, str]:
         """What a note it lands records of where it came from: this source, and the archive it was read from."""
-        return {"source": self.name, "source_export": archive}
+        return dict(zip(self.PROVENANCE, (self.name, archive), strict=True))
 
     def fetcher(self, config: "Config") -> "Fetcher":
         """Its fetcher, built per run so that the configured User-Agent, a repo's own included, reaches it."""
