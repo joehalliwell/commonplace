@@ -19,6 +19,7 @@ from functools import cached_property, lru_cache
 from pathlib import Path
 
 from commonplace._config import BLOBS, CACHE, CONFIG
+from commonplace._links import Tree
 from commonplace._logging import logger
 from commonplace._types import Note, Pathlike, RepoPath
 from commonplace._utils import dump_frontmatter, load_frontmatter
@@ -381,6 +382,10 @@ class Commonplace:
         for path in sorted({Path(p) for p in out.split("\0") if p}):
             if not any(part.startswith(".") for part in path.parts[:-1]) and (self.root / path).exists():
                 yield path
+
+    def tree(self) -> Tree:
+        """The files `paths` gives, indexed for landing links and resolving specs."""
+        return Tree(self.root, self.paths())
 
     def history(self, path: Path) -> list[tuple[str, str]]:
         """The commits that changed `path`, newest first, following renames, as (date, subject)."""

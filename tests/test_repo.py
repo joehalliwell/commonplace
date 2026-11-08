@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from commonplace._links import check_links
+from commonplace._document import check_links
 from commonplace._repo import Commonplace
 from commonplace._types import Note, RepoPath
 from commonplace._utils import load_frontmatter
@@ -270,7 +270,7 @@ def test_init_seeds_a_root_index_declaring_okf_version(test_repo):
 
 def test_init_creates_every_folder_the_root_index_links(test_repo):
     """A fresh repo has the folders its root index describes, so no link needs excusing."""
-    assert check_links(test_repo.root, list(test_repo.paths())) == []
+    assert check_links(test_repo.tree()) == []
 
 
 def test_init_scaffolds_mdformat_that_preserves_wikilinks(test_repo):
