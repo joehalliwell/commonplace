@@ -164,7 +164,7 @@ def test_remove_drops_chunks_for_the_given_versions(test_index, make_chunk):
     """Removal is by (path, ref), so one version of a note can go while another stays."""
     live = make_chunk(path="live.md", section="Section", text="Still here", offset=0)
     deleted = make_chunk(path="deleted.md", section="Section", text="Long gone", offset=0)
-    superseded = make_chunk(path="live.md", section="Section", text="Earlier draft", offset=0, oid="1" * 40)
+    superseded = make_chunk(path="live.md", section="Section", text="Earlier draft", offset=0, content_id="1" * 40)
 
     emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
     for chunk in (live, deleted, superseded):
@@ -216,7 +216,7 @@ def test_remove_unknown_version_is_a_no_op(test_index, make_chunk):
     chunk = make_chunk(path="live.md", section="Section", text="Still here", offset=0)
     test_index._add_with_embeddings([(chunk, np.array([1.0, 0.0, 0.0], dtype=np.float32))])
 
-    stranger = make_chunk(path="live.md", section="Section", text="Never indexed", offset=0, oid="1" * 40)
+    stranger = make_chunk(path="live.md", section="Section", text="Never indexed", offset=0, content_id="1" * 40)
 
     assert test_index.remove([stranger.version]) == 0
     assert set(test_index.get_indexed_paths()) == {chunk.version}
@@ -257,7 +257,7 @@ def test_add_chunks_empty_batch(test_index):
 
 def test_add_chunk_of_uncommitted_note_is_refused(test_index, make_chunk):
     """The index holds versions only, so a chunk must name one."""
-    chunk = make_chunk(path="draft.md", section="S", text="Draft text", offset=0, oid=None)
+    chunk = make_chunk(path="draft.md", section="S", text="Draft text", offset=0, content_id=None)
 
     with pytest.raises(sqlite3.IntegrityError):
         test_index.add_chunks([chunk])
@@ -267,7 +267,7 @@ def test_add_chunk_of_uncommitted_note_is_refused(test_index, make_chunk):
 
 def test_add_chunks_refused_midway_leaves_none_of_the_batch(test_index, make_chunk):
     good = make_chunk(path="kept.md", section="S", text="Kept text", offset=0)
-    bad = make_chunk(path="draft.md", section="S", text="Draft text", offset=0, oid=None)
+    bad = make_chunk(path="draft.md", section="S", text="Draft text", offset=0, content_id=None)
 
     with pytest.raises(sqlite3.IntegrityError):
         test_index.add_chunks([good, bad])
