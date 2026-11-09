@@ -57,12 +57,6 @@ def autodetect_importer[I: (ChatImporter, MirrorImporter)](path: Path, importers
     return None
 
 
-def extract_and_store(archive: Path, member: str, repo: Commonplace) -> Blob:
-    """Extract one member from an archive and store it as a blob."""
-    with tempfile.TemporaryDirectory() as tmp, ZipFile(archive) as zf:
-        return repo.store_blob(Path(zf.extract(member, tmp)))
-
-
 def import_one(path: Path, repo: Commonplace, user: str, commit: bool = True) -> Blob | None:
     """Import chats, or hand a mirrored source to `mirror_one`; returns the blob stored, if any."""
     if mirror := autodetect_importer(path, importers(MirrorSource)):
@@ -74,7 +68,8 @@ def import_one(path: Path, repo: Commonplace, user: str, commit: bool = True) ->
     # Store only the member an archive's importer reads, or the whole file for non-archives —
     # which includes a member already extracted from one, re-imported from the blob store.
     if importer.member and is_zipfile(path):
-        blob = extract_and_store(path, importer.member, repo)
+        with tempfile.TemporaryDirectory() as tmp, ZipFile(path) as zf:
+            blob = repo.store_blob(Path(zf.extract(importer.member, tmp)))
     else:
         blob = repo.store_blob(path)
 

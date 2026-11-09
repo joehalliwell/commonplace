@@ -342,9 +342,9 @@ that one value.
 | `auto_index` | `true`                      | index what `import`, `fetch` and `journal` commit |
 | `ua`         | a current Chrome UA         | User-Agent sent by fetchers                       |
 
-`ua` is the one worth knowing about: every vendor fronts its internal API with a
-bot check that a stale User-Agent fails, so if fetches start getting blocked,
-copy `navigator.userAgent` from your browser's console and set `COMMONPLACE_UA`
+If fetches start getting blocked, the built-in User-Agent may have gone stale:
+every vendor fronts its internal API with a bot check that an old one fails.
+Copy `navigator.userAgent` from your browser's console and set `COMMONPLACE_UA`
 (or `ua`) to it — no need to wait for a release.
 
 ## Upgrading
