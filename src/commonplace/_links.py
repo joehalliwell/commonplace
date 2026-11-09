@@ -4,7 +4,7 @@ import fnmatch
 import os
 import re
 from collections.abc import Callable, Collection, Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
 from urllib.parse import unquote
@@ -198,6 +198,7 @@ class Edge:
 
     node: Path  # The node it's from: a path in it is measured from here
     link: Link  # Its source is the file of the body it's written in, its line the line there
+    to: Path | str | None = None  # Once landed: the node it names, or the name it writes, itself a node with no file
 
 
 @dataclass(frozen=True)
@@ -225,6 +226,11 @@ class Files:
         """The files `name` writes as a wikilink would, in order."""
         return [path for path in self._by_name.get(Path(name).name, []) if is_named(path, name)]
 
+    def landing(self, edge: Edge) -> Edge:
+        """`edge` with where it lands: the one node it names, or the name it writes when it names none or several."""
+        landed = self.lands(edge)
+        return replace(edge, to=landed[0] if len(landed) == 1 else edge.link.target)
+
     def lands(self, edge: Edge) -> list[Path]:
         """Every file `edge` could mean: each one a wikilink names, or the file or directory a path is at."""
         if edge.link.kind is LinkKind.WIKILINK:
@@ -235,11 +241,12 @@ class Files:
         return [path] if (path := landing.relative_to(self.root)) in self._present else []
 
     def broken(self, edge: Edge) -> BrokenLink | None:
-        """Why `edge` lands on nothing, or on no span it names, and the one file of its name it probably meant."""
+        """Why `edge` lands on no one node, or on no span it names, and the one file of its name it probably meant."""
         page, _, span = edge.link.target.partition("#")
-        if landed := self.lands(edge):
-            wikilink = edge.link.kind is LinkKind.WIKILINK
-            if not wikilink or not span or any(_has_span(self.root / path, span) for path in landed):
+        if len(landed := self.lands(edge)) > 1:
+            return BrokenLink(edge.link, f"names {len(landed)} notes: {', '.join(str(Target(p)) for p in landed)}")
+        if landed:
+            if edge.link.kind is not LinkKind.WIKILINK or not span or _has_span(self.root / landed[0], span):
                 return None
             return BrokenLink(edge.link, "no such heading or phrase")
         called = self._by_name.get(Path(unquote(page)).name, [])

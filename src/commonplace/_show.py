@@ -83,11 +83,11 @@ def links(repo: Commonplace, note: Path, include_hidden: bool = False) -> list[N
         return include_hidden or not repo.get(other).hidden
 
     node, found = repo.get(note), []
-    for edge in node.edges:
-        match repo.files.lands(edge):
-            case [other] if not shown(other):
+    for edge in repo.edges(note):
+        match edge.to:
+            case Path() as other if not shown(other):
                 continue
-            case [other]:
+            case Path() as other:
                 found.append(Neighbour("out", str(Target(other, edge.link.target.partition("#")[2])), node.line(edge)))
             case _:
                 found.append(Neighbour("out", edge.link.target, node.line(edge)))

@@ -413,12 +413,39 @@ def test_check_links_wikilink_to_a_heading_the_note_lacks_is_reported(tmp_path):
     assert [(item.link.target, item.reason) for item in check(tmp_path)] == [("b#Gone", "no such heading or phrase")]
 
 
-def test_check_links_wikilink_to_ambiguous_name_resolves(tmp_path):
-    """Two notes by that name is two places it lands, not none."""
+def test_check_links_wikilink_to_ambiguous_name_is_reported_with_its_candidates(tmp_path):
+    """One written link is one edge, so a name two notes share lands on neither until it says which."""
     write(tmp_path, "notes/a/dup.md")
     write(tmp_path, "notes/b/dup.md")
     write(tmp_path, "notes/note.md", "See [[dup]].")
-    assert check(tmp_path) == []
+
+    assert [(item.link.target, item.reason) for item in check(tmp_path)] == [
+        ("dup", "names 2 notes: /notes/a/dup, /notes/b/dup")
+    ]
+
+
+def test_edges_land_on_the_one_node_they_name_or_stay_the_name_they_write(tmp_path):
+    """An edge to a name with no file, or to one several share, is an edge to that name: a node with no file."""
+    write(tmp_path, "notes/ideas.md")
+    write(tmp_path, "notes/a/dup.md")
+    write(tmp_path, "notes/b/dup.md")
+    write(tmp_path, "notes/note.md", "See [[ideas#Tea]], [[alice]] and [[dup]].")
+    Commonplace.init(tmp_path)
+
+    edges = Commonplace.open(tmp_path).edges(Path("notes/note.md"))
+
+    assert [edge.to for edge in edges] == [Path("notes/ideas.md"), "alice", "dup"]
+
+
+def test_into_leaves_out_an_ambiguous_link_since_it_lands_on_neither_note(tmp_path):
+    write(tmp_path, "notes/a/dup.md")
+    write(tmp_path, "notes/b/dup.md")
+    write(tmp_path, "notes/note.md", "See [[dup]] and [[a/dup]].")
+    Commonplace.init(tmp_path)
+    repo = Commonplace.open(tmp_path)
+
+    assert [edge.link.target for _, edge in repo.into(Path("notes/a/dup.md"))] == ["a/dup"]
+    assert repo.into(Path("notes/b/dup.md")) == []
 
 
 def test_check_links_path_qualified_wikilink_resolves(tmp_path):
