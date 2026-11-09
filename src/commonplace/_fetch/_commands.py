@@ -51,7 +51,9 @@ def _fetch_one(repo: Commonplace, source: Source, all_: bool) -> None:
     """Fetch what is new from one source and import it."""
     fetcher = source.fetcher(repo.config)
     # What this source has landed, for a fetcher that asks only for what changed since; --all asks for it all.
-    previous = [] if all_ else [repo.root / blob.path for blob in repo.blobs(*archive_names(source.name))]
+    previous = (
+        [] if all_ else [repo.root / blob.path for blob in repo.blobs(*archive_names(source.name), committed_only=True)]
+    )
     # Each capture is stamped before it reads anything, so nothing changed while it ran is missed.
     since = last_fetched(previous)
     with tempfile.TemporaryDirectory() as tmp:

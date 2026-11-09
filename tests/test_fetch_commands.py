@@ -106,6 +106,20 @@ def test_fetch_cursor_is_when_the_newest_stored_capture_of_the_source_was_fetche
     assert recording.since == [newest, None]
 
 
+def test_fetch_cursor_counts_only_committed_captures(test_repo, tmp_path):
+    """A capture stored by a run that died before committing isn't in the record yet, so it moves nothing."""
+    committed = datetime(2026, 3, 1, tzinfo=UTC)
+    _store_capture(test_repo, tmp_path, "recording", committed)
+    test_repo.commit("Seed capture")
+    _store_capture(test_repo, tmp_path, "recording", datetime(2026, 3, 2, tzinfo=UTC))
+    test_repo._pending.clear()  # The run that stored it died before its commit
+    recording = _Recording()
+
+    fetch(test_repo, sources=fetching(recording))
+
+    assert recording.since == [committed]
+
+
 def test_fetch_without_a_stamped_capture_fetches_everything(test_repo, make_note):
     """Notes in the source's tree, from an export, say nothing about when the vendor was last read."""
     test_repo.put(make_note("chats/recording/seed.md", "# seed\n"))
