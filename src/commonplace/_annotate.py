@@ -58,7 +58,7 @@ def _as_written(repo: Commonplace, source: Path, spec: str) -> str:
     except UnresolvedNote as e:
         target, said = spec.removeprefix("[[").removesuffix("]]"), repo.get(source).said
         if target not in [edge.link.target for edge in said]:
-            dead = [edge.link.target for edge in said if not repo.files.lands(edge)]
+            dead = [edge.link.target for edge in map(repo.files.landing, said) if not isinstance(edge.to, Path)]
             hint = f"; a link whose note is gone is removed as written: {', '.join(dead)}" if dead else ""
             raise UnresolvedNote(f"{e}{hint}") from e
         return target

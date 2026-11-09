@@ -259,7 +259,8 @@ It also checks that links land somewhere. Every reference your own markdown
 and your marginalia make into the repository is followed: inline and reference-style links,
 images, wikilinks, raw HTML `href`/`src`, and the paths that topics list as
 their `sources`. Anything that no longer resolves, down to a heading or quoted
-phrase a wikilink names, is reported with the file and line it was written on,
+phrase a wikilink names, or a wikilink whose name several notes share (it lands on
+neither until you root it, e.g. `[[/notes/ideas]]`), is reported with the file and line it was written on,
 the note's or its marginalia's, and — since a rename is what most breakage turns out to
 be — where a file of that name lives now:
 

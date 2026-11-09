@@ -270,18 +270,22 @@ class Commonplace:
         """The path of every note that has marginalia, in order, whether or not the note is still there."""
         return sorted(Path(path).relative_to(MARGINALIA) for path in self._ls(MARGINALIA.as_posix()))
 
+    def edges(self, note: Pathlike) -> list[Edge]:
+        """Every edge `note` makes, in its own text then its marginalia, each with where it lands."""
+        return [self.files.landing(edge) for edge in self.get(note).edges]
+
     def into(self, path: Path) -> list[tuple[Note, Edge]]:
-        """Every edge from another note that could mean `path`, with that note."""
+        """Every edge from another note that lands on `path`, with that note."""
         return [
             (note, edge)
             for note in self.notes()
             if note.path != path
-            for edge in note.edges
-            if path in self.files.lands(edge)
+            for edge in map(self.files.landing, note.edges)
+            if edge.to == path
         ]
 
     def check(self) -> list[BrokenLink]:
-        """Every edge that lands on no node, or on no span it names."""
+        """Every edge that lands on no one node, or on no span it names."""
         return [found for note in self.notes() for edge in note.edges if (found := self.files.broken(edge))]
 
     def add_link(self, note: Pathlike, target: str, why: str = "", on: date | None = None) -> None:
