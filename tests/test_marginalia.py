@@ -300,11 +300,11 @@ def test_links_leave_out_hidden_notes_at_the_other_end_unless_asked(notes, as_jo
     assert len(links(notes, NOTE, include_hidden=True)) == 2
 
 
-def test_add_link_to_a_tag_labels_the_note(notes):
-    notes.add_link(NOTE, "tag:tea")
+def test_label_and_unlabel_change_only_the_marginalias_tags(notes):
+    notes.label(NOTE, "tea", "hidden")
+    notes.unlabel(NOTE, "hidden")
 
-    assert read_marginalia(notes.root, NOTE).tags == ["tea"]
-    assert read_marginalia(notes.root, NOTE).body == ""
+    assert read_marginalia(notes.root, NOTE) == Marginalia(note=NOTE, tags=["tea"])
 
 
 def test_add_link_to_a_name_with_no_note_is_an_edge_all_the_same(notes):
@@ -314,35 +314,45 @@ def test_add_link_to_a_name_with_no_note_is_an_edge_all_the_same(notes):
     assert _targets(notes.root) == ["alice"]
 
 
-def test_add_link_writes_for_the_next_commit_without_committing(notes):
+def test_add_link_takes_every_target_as_a_link_even_one_that_looks_like_a_tag(notes):
+    notes.add_link(NOTE, "tag:tea", on=date(2026, 11, 2))
+
+    assert read_marginalia(notes.root, NOTE) == Marginalia(note=NOTE, body="- 2026-11-02 [[tag:tea]]\n")
+
+
+@pytest.mark.parametrize(
+    "write", [lambda repo, note: repo.add_link(note, "alice"), lambda repo, note: repo.label(note, "tea")]
+)
+def test_marginalia_writes_hold_for_the_next_commit_without_committing(notes, write):
     head = git(notes.root, "rev-parse", "HEAD")
 
-    notes.add_link(NOTE, "tag:tea")
+    write(notes, NOTE)
 
     assert git(notes.root, "rev-parse", "HEAD") == head
-    notes.commit("Tag")
+    notes.commit("Annotate")
     assert git(notes.root, "rev-parse", "HEAD") != head
 
 
+@pytest.mark.parametrize(
+    "write", [lambda repo, note: repo.add_link(note, "alice"), lambda repo, note: repo.label(note, "tea")]
+)
 @pytest.mark.parametrize("note", [Path("../config.toml"), Path("/etc/passwd")])
-def test_add_link_from_a_note_outside_the_repository_is_refused(notes, note):
+def test_marginalia_writes_for_a_note_outside_the_repository_are_refused(notes, note, write):
     """Marginalia sit at their note's path under the shadow tree, so `../config.toml` would be the config."""
     config = (notes.root / ".commonplace" / "config.toml").read_text()
 
     with pytest.raises(ValueError):
-        notes.add_link(note, "tag:tea")
+        write(notes, note)
 
     assert (notes.root / ".commonplace" / "config.toml").read_text() == config
 
 
-def test_remove_link_says_how_many_edges_went_and_a_tag_counts_once(notes):
+def test_remove_link_says_how_many_edges_went(notes):
     notes.add_link(NOTE, "alice", on=date(2026, 11, 2))
     notes.add_link(NOTE, "alice", "again", on=date(2026, 11, 3))
-    notes.add_link(NOTE, "tag:tea")
 
     assert notes.remove_link(NOTE, "alice") == 2
-    assert notes.remove_link(NOTE, "tag:tea") == 1
-    assert notes.remove_link(NOTE, "tag:tea") == 0
+    assert notes.remove_link(NOTE, "alice") == 0
     assert read_marginalia(notes.root, NOTE) == Marginalia(note=NOTE)
 
 

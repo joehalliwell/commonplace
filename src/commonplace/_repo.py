@@ -23,7 +23,7 @@ from commonplace._config import BLOBS, MARGINALIA, Config
 from commonplace._links import BrokenLink, Edge, Files
 from commonplace._logging import logger
 from commonplace._marginalia import read_marginalia, write_marginalia
-from commonplace._types import TAG, Blob, Note, Pathlike, node_id
+from commonplace._types import Blob, Note, Pathlike, node_id
 from commonplace._utils import dump_frontmatter, load_frontmatter
 
 _BOT_USERNAME = "Commonplace Bot"
@@ -289,25 +289,24 @@ class Commonplace:
         return [found for note in self.notes() for edge in note.edges if (found := self.files.broken(edge))]
 
     def add_link(self, note: Pathlike, target: str, why: str = "", on: date | None = None) -> None:
-        """Add an edge from `note` to `target` as written, in its marginalia, for the next commit; `tag:x` labels it."""
-        marginalia = read_marginalia(self.root, node_id(note))
-        if (label := target.removeprefix(TAG)) != target:
-            write_marginalia(self, marginalia.tagged(label))
-        else:
-            on = on or date.today()  # noqa: DTZ011 - the user's local day, as the journal's
-            write_marginalia(self, marginalia.linked(target, why, on))
+        """Add an edge from `note` to `target` as written, a dated line in its marginalia, for the next commit."""
+        on = on or date.today()  # noqa: DTZ011 - the user's local day, as the journal's
+        write_marginalia(self, read_marginalia(self.root, node_id(note)).linked(target, why, on))
 
     def remove_link(self, note: Pathlike, target: str) -> int:
         """Remove `note`'s edges to exactly `target` from its marginalia, for the next commit; how many went."""
-        note = node_id(note)
-        if (label := target.removeprefix(TAG)) != target:
-            marginalia = read_marginalia(self.root, note)
-            changed, removed = marginalia.untagged(label), int(label in marginalia.tags)
-        else:
-            changed, removed = self.get(note).unlinked(target)
+        marginalia, removed = self.get(node_id(note)).unlinked(target)
         if removed:
-            write_marginalia(self, changed)
+            write_marginalia(self, marginalia)
         return removed
+
+    def label(self, note: Pathlike, *tags: str) -> None:
+        """Add `tags` to `note`'s marginalia, for the next commit."""
+        write_marginalia(self, read_marginalia(self.root, node_id(note)).tagged(*tags))
+
+    def unlabel(self, note: Pathlike, *tags: str) -> None:
+        """Remove `tags` from `note`'s marginalia, for the next commit."""
+        write_marginalia(self, read_marginalia(self.root, node_id(note)).untagged(*tags))
 
     @cached_property
     def files(self) -> Files:
