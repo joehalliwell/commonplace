@@ -43,18 +43,18 @@ class MarkdownChunker:
         self.max_chunk_chars = max_chunk_chars
         self.overlap_chars = overlap_chars
 
-    def chunk(self, note: Note, oid: str) -> Iterator[Chunk]:
+    def chunk(self, note: Note, content_id: str) -> Iterator[Chunk]:
         """
         Split a markdown note into chunks by headers.
 
         Args:
             note: The note to chunk
-            oid: Git's id for the note's committed content, which its chunks are of
+            content_id: Git's id for the note's committed content, which its chunks are of
 
         Yields:
             Chunks extracted from the note, one per section
         """
-        version, title = Version(note.path, oid), note.metadata.get("title") or note.path.stem
+        version, title = Version(note.path, content_id), note.metadata.get("title") or note.path.stem
         lines = note.body.split("\n")
         current_section: list[str] = []
         current_text: list[str] = []

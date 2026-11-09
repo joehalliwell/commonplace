@@ -15,7 +15,7 @@ from commonplace._search._types import Chunk, Embedder, IndexStat, SearchHit, Se
 #: whose every chunk named its own model, path and ref. Version 2 names a note once, in `notes`, which
 #: also records a note that yields no chunks, so it is visited once rather than on every run. Version 3
 #: stores embeddings at half precision, halving the bulk of the file; cosine ranking never needed more.
-#: Version 4 names a note's version by git's id for its content, `oid`, where v3 named the commit that
+#: Version 4 names a note's version by git's id for its content, `content_id`, where v3 named the commit that
 #: last changed it: v3's versions are stale on the next run and replaced, keeping their embeddings.
 INDEX_VERSION = 4
 
@@ -36,8 +36,8 @@ CREATE TABLE notes (
     id INTEGER PRIMARY KEY,
     model_id TEXT NOT NULL,
     path TEXT NOT NULL,
-    oid TEXT NOT NULL,
-    UNIQUE(model_id, path, oid)
+    content_id TEXT NOT NULL,
+    UNIQUE(model_id, path, content_id)
 );
 """
 
@@ -119,7 +119,7 @@ COMMIT;
 # The commit ids v3 holds are kept, not dropped: replacing them on the next run lends their embeddings.
 _MIGRATE_V3 = """
 BEGIN;
-ALTER TABLE notes RENAME COLUMN ref TO oid;
+ALTER TABLE notes RENAME COLUMN ref TO content_id;
 PRAGMA user_version = 4;
 COMMIT;
 """
@@ -199,12 +199,15 @@ class SQLiteSearchIndex(SearchIndex):
 
     def _note_id(self, version: Version) -> int:
         """The `notes` row for this version of a note under this store's model, created if need be."""
-        key = (self._embedder.model_id, str(version.path), version.oid)
+        key = (self._embedder.model_id, str(version.path), version.content_id)
         # Not OR IGNORE, which would also swallow the NOT NULL that refuses an uncommitted note.
         self._conn.execute(
-            "INSERT INTO notes (model_id, path, oid) VALUES (?, ?, ?) ON CONFLICT (model_id, path, oid) DO NOTHING", key
+            "INSERT INTO notes (model_id, path, content_id) VALUES (?, ?, ?) ON CONFLICT (model_id, path, content_id) DO NOTHING",
+            key,
         )
-        return self._conn.execute("SELECT id FROM notes WHERE model_id = ? AND path = ? AND oid = ?", key).fetchone()[0]
+        return self._conn.execute(
+            "SELECT id FROM notes WHERE model_id = ? AND path = ? AND content_id = ?", key
+        ).fetchone()[0]
 
     def other_models(self) -> dict[str, int]:
         """How many notes are indexed under each model other than this store's."""
@@ -347,7 +350,7 @@ class SQLiteSearchIndex(SearchIndex):
             List of search hits, ordered by descending similarity
         """
         cursor = self._conn.execute(
-            "SELECT c.id, n.path, n.oid, c.section, c.text, c.offset, c.embedding"
+            "SELECT c.id, n.path, n.content_id, c.section, c.text, c.offset, c.embedding"
             " FROM chunks c JOIN notes n ON n.id = c.note_id WHERE n.model_id = ?",
             (self._embedder.model_id,),
         )
@@ -361,11 +364,11 @@ class SQLiteSearchIndex(SearchIndex):
         chunks = []
         chunk_ids = []
         for row in rows:
-            chunk_id, path, oid, section, text, offset, embedding_bytes = row
+            chunk_id, path, content_id, section, text, offset, embedding_bytes = row
             embedding = _from_blob(embedding_bytes)
             embeddings.append(embedding)
 
-            version = Version(Path(path), oid)
+            version = Version(Path(path), content_id)
             chunks.append(Chunk(version=version, section=section, text=text, offset=offset))
             chunk_ids.append(chunk_id)
 
@@ -403,7 +406,7 @@ class SQLiteSearchIndex(SearchIndex):
         # limit is filled, which leaves room to skip hits that are no longer live.
         cursor = self._conn.execute(
             """
-            SELECT c.id, n.path, n.oid, c.section, c.text, c.offset, rank
+            SELECT c.id, n.path, n.content_id, c.section, c.text, c.offset, rank
             FROM chunks_fts
             JOIN chunks c ON chunks_fts.rowid = c.id
             JOIN notes n ON n.id = c.note_id
@@ -414,8 +417,8 @@ class SQLiteSearchIndex(SearchIndex):
         )
 
         def ranked() -> Iterator[SearchHit]:
-            for _chunk_id, path, oid, section, text, offset, rank in cursor:
-                version = Version(Path(path), oid)
+            for _chunk_id, path, content_id, section, text, offset, rank in cursor:
+                version = Version(Path(path), content_id)
                 chunk = Chunk(version=version, section=section, text=text, offset=offset)
                 # Convert BM25 rank (negative, lower is better) to positive score
                 yield SearchHit(chunk=chunk, score=-float(rank))
@@ -473,15 +476,10 @@ class SQLiteSearchIndex(SearchIndex):
         return results
 
     def get_indexed_paths(self) -> Iterable[Version]:
-        """
-        Get mapping of paths to their indexed refs for this store's model.
-
-        Returns:
-            Dict mapping path -> set of refs
-        """
-        cursor = self._conn.execute("SELECT path, oid FROM notes WHERE model_id = ?", (self._embedder.model_id,))
-        for path, oid in cursor.fetchall():
-            yield Version(Path(path), oid)
+        """Each note version indexed under this store's model: its path, and git's id for the content it was read at."""
+        cursor = self._conn.execute("SELECT path, content_id FROM notes WHERE model_id = ?", (self._embedder.model_id,))
+        for path, content_id in cursor.fetchall():
+            yield Version(Path(path), content_id)
 
     def remove(self, versions: Iterable[Version]) -> int:
         """
@@ -498,7 +496,7 @@ class SQLiteSearchIndex(SearchIndex):
             Number of chunks removed
         """
         model_id = self._embedder.model_id
-        keys = [(str(version.path), version.oid, model_id) for version in versions]
+        keys = [(str(version.path), version.content_id, model_id) for version in versions]
 
         if not keys:
             return 0
@@ -508,10 +506,10 @@ class SQLiteSearchIndex(SearchIndex):
         for key in keys:
             removed += self._conn.execute(
                 "SELECT COUNT(*) FROM chunks c JOIN notes n ON n.id = c.note_id"
-                " WHERE n.path = ? AND n.oid = ? AND n.model_id = ?",
+                " WHERE n.path = ? AND n.content_id = ? AND n.model_id = ?",
                 key,
             ).fetchone()[0]
-        self._conn.executemany("DELETE FROM notes WHERE path = ? AND oid = ? AND model_id = ?", keys)
+        self._conn.executemany("DELETE FROM notes WHERE path = ? AND content_id = ? AND model_id = ?", keys)
         self._conn.commit()
 
         logger.info(f"Removed {removed} chunks from {len(keys)} deleted or superseded notes")
@@ -553,7 +551,7 @@ class SQLiteSearchIndex(SearchIndex):
         """Get statistics about the vector store."""
 
         for row in self._conn.execute(
-            "SELECT n.model_id, n.path, n.oid, COUNT(c.id) FROM notes n LEFT JOIN chunks c ON c.note_id = n.id"
+            "SELECT n.model_id, n.path, n.content_id, COUNT(c.id) FROM notes n LEFT JOIN chunks c ON c.note_id = n.id"
             " GROUP BY n.id"
         ):
             yield IndexStat(row[0], Version(Path(row[1]), row[2]), num_chunks=row[3])

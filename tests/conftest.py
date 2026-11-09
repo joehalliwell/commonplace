@@ -20,7 +20,7 @@ from commonplace._types import Note
 from commonplace._wire import LEGACY_VERSION, WIRE_VERSION
 
 # Dummy ref for tests that don't care about git history
-TEST_OID = "0" * 40
+TEST_CONTENT_ID = "0" * 40
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -49,8 +49,10 @@ def make_note():
 def make_chunk():
     """Helper to create a Chunk of a committed version of a note, for testing."""
 
-    def _make_chunk(path: str | Path, section: str, text: str, offset: int, oid: str | None = TEST_OID) -> Chunk:
-        return Chunk(version=Version(Path(path), oid), section=section, text=text, offset=offset)  # type: ignore[arg-type]
+    def _make_chunk(
+        path: str | Path, section: str, text: str, offset: int, content_id: str | None = TEST_CONTENT_ID
+    ) -> Chunk:
+        return Chunk(version=Version(Path(path), content_id), section=section, text=text, offset=offset)  # type: ignore[arg-type]
 
     return _make_chunk
 

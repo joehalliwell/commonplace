@@ -153,9 +153,9 @@ def _write_v3(conn: sqlite3.Connection) -> None:
 
 
 def _write_v4(conn: sqlite3.Connection) -> None:
-    """v3's schema, with a note's version named `oid`: git's id for its content, not a commit's."""
+    """v3's schema, with a note's version named `content_id`: git's id for its content, not a commit's."""
     _write_v3(conn)
-    conn.execute("ALTER TABLE notes RENAME COLUMN ref TO oid")
+    conn.execute("ALTER TABLE notes RENAME COLUMN ref TO content_id")
     conn.execute("PRAGMA user_version = 4")
 
 

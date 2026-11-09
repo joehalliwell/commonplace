@@ -176,7 +176,7 @@ class Commonplace:
 
     def content_ids(self) -> dict[Path, str]:
         """Each committed file, with git's id for its content at HEAD, uncommitted changes aside."""
-        return {Path(path): oid for path, oid in _content_ids(self.root, self.head()).items()}
+        return {Path(path): content_id for path, content_id in _content_ids(self.root, self.head()).items()}
 
     def head(self) -> str:
         """The commit checked out, which moves with every commit."""

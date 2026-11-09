@@ -21,7 +21,7 @@ class Version(NamedTuple):
     """A note as the index holds it: its path, and git's id for its committed content."""
 
     path: Path
-    oid: str
+    content_id: str
 
 
 class SearchMethod(str, Enum):
@@ -61,13 +61,13 @@ class SearchHit:
 class Chunker(Protocol):
     """Protocol for chunking notes into smaller pieces."""
 
-    def chunk(self, note: Note, oid: str) -> Iterator[Chunk]:
+    def chunk(self, note: Note, content_id: str) -> Iterator[Chunk]:
         """
         Split a note into chunks.
 
         Args:
             note: The note to chunk
-            oid: Git's id for the note's committed content, which its chunks are of
+            content_id: Git's id for the note's committed content, which its chunks are of
 
         Yields:
             Chunks extracted from the note
@@ -155,9 +155,7 @@ class SearchIndex(Protocol):
         ...
 
     def get_indexed_paths(self) -> Iterable[Version]:
-        """
-        Paths that have been indexed.
-        """
+        """Each note version indexed: its path, and git's id for the content it was read at."""
         ...
 
     def search(
