@@ -97,10 +97,6 @@ class Blob(Node):
             return cls(BLOBS / hashlib.file_digest(f, "sha256").hexdigest() / file.name)
 
 
-#: What a link to a label is written with: a tag is an edge to `tag:<label>`, a node with no file.
-TAG = "tag:"
-
-
 @dataclass(frozen=True)
 class Marginalia:
     """What's been said about a note since: labels on its node, and a second body, a log of what's been said."""

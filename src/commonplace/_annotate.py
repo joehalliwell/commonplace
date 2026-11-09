@@ -1,6 +1,6 @@
-"""`tag`, `untag`, `link` and `unlink`: what a person names, resolved to notes, then written as links on the graph.
+"""`tag`, `untag`, `link` and `unlink`: what a person names, resolved to notes, then written to their marginalia.
 
-The graph's writes are `Commonplace.add_link` and `remove_link`, which take nodes and a target as written. Here a spec
+The repository's writes are `Commonplace.label`, `unlabel`, `add_link` and `remove_link`, which take nodes. Here a spec
 becomes the notes it names, a span is refused where marginalia speak for a whole note, and each command commits as
 the person, since they did it themselves.
 """
@@ -10,15 +10,13 @@ from pathlib import Path
 
 from commonplace._links import Target, UnresolvedNote
 from commonplace._repo import Commonplace
-from commonplace._types import TAG
 
 
 def tag(repo: Commonplace, spec: str, tags: list[str]) -> list[Path]:
     """Label the notes `spec` names; returns the notes."""
     notes = repo.files.resolve(_whole(spec))
     for note in notes:
-        for label in tags:
-            repo.add_link(note, TAG + label)
+        repo.label(note, *tags)
     repo.commit(f"Tag {spec}: {', '.join(tags)}", as_user=True)
     return notes
 
@@ -27,8 +25,7 @@ def untag(repo: Commonplace, spec: str, tags: list[str]) -> list[Path]:
     """Remove labels from the notes `spec` names; returns the notes."""
     notes = repo.files.resolve(_whole(spec))
     for note in notes:
-        for label in tags:
-            repo.remove_link(note, TAG + label)
+        repo.unlabel(note, *tags)
     repo.commit(f"Untag {spec}: {', '.join(tags)}", as_user=True)
     return notes
 
