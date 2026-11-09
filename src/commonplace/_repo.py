@@ -313,12 +313,12 @@ class Commonplace:
         """The files `paths` gives, indexed for landing edges and resolving specs; dropped on any write."""
         return Files(self.root, [*self.paths(), *(blob.path for blob in self.blobs())])
 
-    def blobs(self, *names: str) -> list[Blob]:
+    def blobs(self, *names: str, committed_only: bool = False) -> list[Blob]:
         """Every archive stored, or those called any of `names`, in the order stored: committed, then not yet."""
         present = self._ls(BLOBS.as_posix())
         # A blob is never rewritten, so the commit that last changed it is the one that stored it.
         committed = [p for p in reversed(_last_changed(self.root, self.head(), ".", "%H")) if p in present]
-        stored = [*committed, *sorted(present - set(committed))]
+        stored = committed if committed_only else [*committed, *sorted(present - set(committed))]
         return [Blob(Path(p)) for p in stored if not names or Path(p).name in names]
 
     def commit(self, message: str, *, as_user: bool = False, written: Iterable[str] = ()) -> None:

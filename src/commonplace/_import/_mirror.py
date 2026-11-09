@@ -20,7 +20,7 @@ def mirror_one(path: Path, repo: Commonplace, importer: MirrorImporter) -> Blob 
     """Land the files the capture read and prune the paths its listing no longer names; returns the blob stored."""
     tree = importer.source.tree
     # Captures of this source already landed, for an importer whose captures are changes on earlier ones.
-    earlier = [repo.root / blob.path for blob in repo.blobs(*archive_names(importer.source.name))]
+    earlier = [repo.root / blob.path for blob in repo.blobs(*archive_names(importer.source.name), committed_only=True)]
     fetched_at, newest = read_header(path).fetched_at, last_fetched(earlier)
     if fetched_at and newest and fetched_at < newest:
         logger.error(f"Not mirroring '{path}': captured {fetched_at}, but a capture from {newest} has landed")
