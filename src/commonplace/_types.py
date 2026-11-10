@@ -104,6 +104,7 @@ class Marginalia:
     note: Path  # The annotated note, relative to the root
     tags: list[str] = field(default_factory=list)
     body: str = ""
+    properties: Metadata = field(default_factory=dict)  # Every other frontmatter key, kept through any rewrite
     offset: int = field(default=0, compare=False)  # The lines of their file before the body, as read
 
     def tagged(self, *tags: str) -> "Marginalia":
