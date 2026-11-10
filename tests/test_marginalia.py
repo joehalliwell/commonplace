@@ -356,6 +356,21 @@ def test_remove_link_says_how_many_edges_went(notes):
     assert read_marginalia(notes.root, NOTE) == Marginalia(note=NOTE)
 
 
+def test_marginalia_keep_every_property_through_a_rewrite(notes):
+    """Marginalia are the counterpart half of a node, so whatever a tool adds there must survive the next edit."""
+    write_marginalia(notes, Marginalia(note=NOTE, properties={"status": "draft", "seen": [1, 2]}))
+
+    notes.label(NOTE, "tea")
+
+    marginalia = read_marginalia(notes.root, NOTE)
+    assert (marginalia.tags, marginalia.properties) == (["tea"], {"status": "draft", "seen": [1, 2]})
+
+
+def test_marginalia_v1s_ref_is_dropped_not_kept_as_a_property(any_marginalia_version, test_repo):
+    """v2 dropped `ref`: git's rename history says where a moved note went."""
+    assert read_marginalia(any_marginalia_version, NOTE).properties == {}
+
+
 def test_marginalia_newer_than_this_release_are_refused(tmp_path):
     """Its fields are unknown here, so rewriting it could lose them."""
     target = tmp_path / marginalia_path(NOTE)

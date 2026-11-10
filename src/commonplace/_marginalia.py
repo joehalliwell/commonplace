@@ -18,7 +18,8 @@ if TYPE_CHECKING:
     from commonplace._repo import Commonplace
 
 #: The marginalia format this release writes. Bump it, with an example in tests/resources/marginalia/, on any change.
-#: v2 drops `ref`, the commit the note was at: git's rename history says where a moved note went.
+#: v2 drops `ref`, the commit the note was at: git's rename history says where a moved note went. It keeps every other
+#: frontmatter key as one of the node's properties, where v1 kept only `tags`.
 MARGINALIA_VERSION = 2
 
 
@@ -40,12 +41,14 @@ def parse_marginalia(note: Path, text: str) -> Marginalia:
     if version > MARGINALIA_VERSION:
         raise ValueError(f"The marginalia of '{note}' are v{version}, newer than this release's v{MARGINALIA_VERSION}")
     tags = list(metadata.get("tags") or [])
-    return Marginalia(note, tags, body, offset=text.count("\n") - body.count("\n"))
+    # v1's `ref` went with v2; the format's own keys aren't the node's.
+    properties = {key: value for key, value in metadata.items() if key not in ("marginalia", "tags", "ref")}
+    return Marginalia(note, tags, body, properties, offset=text.count("\n") - body.count("\n"))
 
 
 def write_marginalia(repo: "Commonplace", marginalia: Marginalia) -> None:
     """Save the marginalia for the repo's next commit."""
-    metadata = {"marginalia": MARGINALIA_VERSION, "tags": marginalia.tags}
+    metadata = {"marginalia": MARGINALIA_VERSION, "tags": marginalia.tags, **marginalia.properties}
     repo.put(Note(marginalia_path(marginalia.note), marginalia.body, metadata))
 
 
