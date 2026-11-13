@@ -283,6 +283,18 @@ def test_snapshot_replays_a_change_set_on_the_last_full_sync(tmp_path):
     assert snapshot.unread == frozenset()
 
 
+def test_snapshot_leaves_out_a_note_deleted_since_the_full_sync(tmp_path):
+    """A deleted node comes back as a tombstone: no type, no parent, just its id and when it went."""
+    tombstone = {"kind": "notes#node", "id": "note-tea", "timestamps": {"deleted": "2026-11-08T15:16:01.190Z"}}
+    changes = _archive(
+        tmp_path, "keep-wire.jsonl.gz", "v2", {"toVersion": "v3", "truncated": False, "nodes": [tombstone]}
+    )
+
+    snapshot = owned(KeepImporter).snapshot(changes, earlier=[EXAMPLE])
+
+    assert "note-tea" not in {note.metadata["id"] for note in snapshot.notes}
+
+
 def test_snapshot_of_a_change_set_without_a_full_sync_before_it_fails(tmp_path):
     changes = _archive(tmp_path, "keep-wire.jsonl.gz", "v2", CHANGES)
 
