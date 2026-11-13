@@ -62,7 +62,7 @@ def _launch(
     root: Annotated[
         Path,
         Parameter(name=["--root"], help="Path to the commonplace root directory.", env_var=f"{ENV_PREFIX}_ROOT"),
-    ] = Path(os.getenv("COMMONPLACE_ROOT", DEFAULT_ROOT)),  # noqa: B008 - cyclopts renders the default in --help
+    ] = Path(os.getenv(f"{ENV_PREFIX}_ROOT", DEFAULT_ROOT)),  # noqa: B008 - cyclopts renders the default in --help
 ) -> None:
     """Set up common parameters for all commands."""
 
