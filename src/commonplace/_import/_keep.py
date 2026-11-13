@@ -2,7 +2,8 @@
 
 An archive holds every page of one sync of Keep's `notes/v1/changes`: a full sync if its first request named
 no version, otherwise a change set since the version it named. Keep's state is the last full sync with every
-change set since replayed on it, node by node; a note trashed or deleted arrives as a change like any other.
+change set since replayed on it, node by node; a note trashed or deleted arrives as a change like any other,
+a deleted one as a tombstone holding only its id and timestamps, so nothing else is read before `_gone`.
 Notes and lists are root nodes
 (`parentId` "root"); their text lives in `LIST_ITEM` children pointing back by `parentId`: one for a note,
 one per item for a list. A node not in the trash has the epoch as its `trashed` time. Label names live in
@@ -49,9 +50,9 @@ class KeepImporter(BaseWireImporter):
 
         items: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for node in nodes.values():
-            if node["type"] == "LIST_ITEM" and not _gone(node):
+            if not _gone(node) and node["type"] == "LIST_ITEM":
                 items[node["parentId"]].append(node)
-        roots = [node for node in nodes.values() if node["parentId"] == "root" and not _gone(node)]
+        roots = [node for node in nodes.values() if not _gone(node) and node["parentId"] == "root"]
 
         # Oldest first, so of two notes with the same day and title, the later is the one the mirror suffixes.
         roots.sort(key=lambda node: (node["timestamps"]["created"], node["id"]))
