@@ -1,6 +1,4 @@
-import itertools as it
 import time
-from contextlib import contextmanager
 
 from rich.console import Group, RenderableType
 from rich.live import Live
@@ -56,40 +54,6 @@ class TaskFieldColumn(ProgressColumn):
         return t
 
 
-@contextmanager
-def checkpoint(name="", every=0.5, fields=dict, quiet=False):
-    if quiet:
-        yield it.count()
-        return
-
-    progress = Progress(
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        MofNCompleteColumn(),
-        TaskProgressColumn(show_speed=True),
-        TimeRemainingColumn(),  # SpinnerColumn(),
-        TimeElapsedColumn(),
-        *(TaskFieldColumn(k) for k in fields()),
-    )
-    start_live(progress)
-    # progress.console.height = 1
-    # progress.console.options.overflow = "ellipsis"
-    task = progress.add_task(name, total=None, **fields())
-
-    def generator():
-        checkpoint_at = 0
-        for step in it.count():
-            progress.update(task, advance=1)
-            if checkpoint_at < time.time():
-                checkpoint_at = time.time() + every
-                progress.update(task, **fields())
-            yield step
-
-    yield generator()
-    progress.update(task, **fields())
-    stop_live(progress)
-
-
 def track(iterable, name="", fields=dict, every=0.5):
     progress = Progress(
         TextColumn("[progress.description]{task.description}"),
@@ -114,19 +78,3 @@ def track(iterable, name="", fields=dict, every=0.5):
 
     progress.update(task, **fields())
     stop_live(progress)
-
-
-def demo(delay=0.04):
-    with checkpoint() as steps:
-        for x in track(range(5)):
-            for y in track(range(10)):
-                time.sleep(delay)
-
-    step = 0
-    with checkpoint(fields=lambda: {"steps": step + 1}) as steps:
-        for step in it.islice(steps, 100):
-            time.sleep(delay)
-
-
-if __name__ == "__main__":
-    demo()  # pragma: no cover
