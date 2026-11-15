@@ -2,7 +2,8 @@
 
 import os
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -28,13 +29,29 @@ def read_chrome_cookies(domain: str) -> httpx.Cookies:
 
     Subdomains reuse names (Google's OSID is per service), so flattening to a dict sends one service's copy to all.
     """
-    if FLATPAK_CHROME_CONFIG.exists():
-        os.environ["XDG_CONFIG_HOME"] = str(FLATPAK_CHROME_CONFIG)
+    config = {"XDG_CONFIG_HOME": str(FLATPAK_CHROME_CONFIG)} if FLATPAK_CHROME_CONFIG.exists() else {}
+    with _environ(config):
+        jar = browser_cookie3.chrome(domain_name=domain)
     cookies = httpx.Cookies()
-    for c in browser_cookie3.chrome(domain_name=domain):
+    for c in jar:
         if c.value:
             cookies.jar.set_cookie(c)
     return cookies
+
+
+@contextmanager
+def _environ(values: dict[str, str]) -> Iterator[None]:
+    """Set `values` in the environment for the block only, since git and everything else this process runs inherits it."""
+    before = {name: os.environ.get(name) for name in values}
+    os.environ.update(values)
+    try:
+        yield
+    finally:
+        for name, value in before.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
 
 
 def request_with_retry(
