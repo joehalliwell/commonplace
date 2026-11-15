@@ -23,7 +23,7 @@ dependencies = [
     "numpy~=2.0",
     "humanize~=4.0",
     "platformdirs~=4.0",
-    "cyclopts==4.1.0",              # There's a bug in 4.2.0
+    "cyclopts~=5.5",
     "fastembed~=0.7.4",
     "browser-cookie3~=0.20.1",
     "httpx~=0.28.1",
