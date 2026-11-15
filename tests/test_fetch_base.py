@@ -6,6 +6,7 @@ rather than rediscovering them.
 """
 
 import http.cookiejar
+import os
 import time
 from datetime import UTC, datetime
 
@@ -13,7 +14,7 @@ import httpx
 import pytest
 
 from commonplace._fetch._base import BaseFetcher
-from commonplace._fetch._helpers import FetchBlocked, NoSession
+from commonplace._fetch._helpers import FetchBlocked, NoSession, read_chrome_cookies
 from commonplace._fetch._types import Fetcher
 from commonplace._sources import SOURCES
 from commonplace._types import ChatSource
@@ -132,6 +133,27 @@ def test_browser_cookies_reach_only_the_hosts_they_belong_to(monkeypatch):
         client.get("https://gemini.example.com/app")
 
     assert sent == ["session=v"]
+
+
+@pytest.mark.parametrize("before", ["/home/someone/.config", None], ids=["set", "unset"])
+def test_flatpak_chrome_config_is_pointed_at_only_while_reading_cookies(monkeypatch, tmp_path, before):
+    """Git reads its global ignore and config through XDG_CONFIG_HOME, and every later commit inherits it."""
+    monkeypatch.setattr("commonplace._fetch._helpers.FLATPAK_CHROME_CONFIG", tmp_path)
+    if before is None:
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    else:
+        monkeypatch.setenv("XDG_CONFIG_HOME", before)
+    seen: list[str | None] = []
+
+    def chrome(domain_name):
+        seen.append(os.environ.get("XDG_CONFIG_HOME"))
+        return http.cookiejar.CookieJar()
+
+    monkeypatch.setattr("commonplace._fetch._helpers.browser_cookie3.chrome", chrome)
+
+    read_chrome_cookies("example.com")
+
+    assert (seen, os.environ.get("XDG_CONFIG_HOME")) == ([str(tmp_path)], before)
 
 
 def test_archive_is_named_for_the_source(tmp_path):
