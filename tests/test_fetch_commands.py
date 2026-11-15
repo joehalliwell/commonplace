@@ -157,3 +157,30 @@ def test_fetch_without_a_stamped_capture_fetches_everything(test_repo, make_note
     fetch(test_repo, sources=fetching(recording))
 
     assert recording.since == [None]
+
+
+def test_fetch_leaves_a_row_per_source_saying_how_it_went(test_repo, capsys):
+    class Unused:
+        source = "unused"
+
+        def fetch(self, destination, since, previous=()):
+            raise NoSession("Unused rejected the session: Chrome holds no session cookie.")
+
+    class Blocked:
+        source = "blocked"
+
+        def fetch(self, destination, since, previous=()):
+            raise FetchBlocked("Blocked rejected the session.")
+
+    class Quiet:
+        source = "quiet"
+
+        def fetch(self, destination, since, previous=()):
+            return []
+
+    with pytest.raises(FetchBlocked):
+        fetch(test_repo, sources=fetching(Unused(), Blocked(), Quiet()))
+
+    rows = capsys.readouterr().out.splitlines()
+    for source, outcome in [("unused", "not signed in"), ("blocked", "blocked"), ("quiet", "nothing new")]:
+        assert any(line.lstrip().startswith(source) and outcome in line for line in rows), (source, outcome)
