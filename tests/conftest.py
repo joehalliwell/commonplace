@@ -12,6 +12,7 @@ from typing import NamedTuple
 import pytest
 from rich.console import Console
 
+from commonplace import _progress
 from commonplace._config import CACHE
 from commonplace._repo import Commonplace
 from commonplace._search._sqlite import INDEX_VERSION
@@ -251,3 +252,17 @@ def _wire_example(source: str, version: int) -> WireExample:
     if not path.exists():
         pytest.fail(f"wire v{version} has no example archive at {path} — add one with the version bump")
     return WireExample(version, path)
+
+
+@pytest.fixture
+def bars(monkeypatch) -> list[str]:
+    """The description of every progress bar shown, in order."""
+    shown: list[str] = []
+    real = _progress.start_live
+
+    def record(renderable):
+        shown.extend(task.description for task in renderable.tasks)
+        return real(renderable)
+
+    monkeypatch.setattr(_progress, "start_live", record)
+    return shown
