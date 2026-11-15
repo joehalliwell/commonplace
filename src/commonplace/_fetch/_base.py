@@ -46,7 +46,7 @@ from commonplace._fetch._helpers import (
     session_rejected,
 )
 from commonplace._logging import logger
-from commonplace._progress import track
+from commonplace._progress import expect, tick
 from commonplace._wire import archive_name, write_archive
 
 if TYPE_CHECKING:
@@ -217,15 +217,15 @@ class BaseFetcher:
         self._started = datetime.now(UTC)
 
     def _log(self, **entry: Any) -> None:
-        """Record one response or file verbatim."""
+        """Record one response or file verbatim, counting it on the source's row."""
         self._wire_log.append(entry)
+        tick(next((entry[key] for key in ("path", "endpoint", "rpc") if key in entry), None))
 
     def _read_fresh[T](self, fresh: Sequence[T], since: datetime | None, read: Callable[[T], object]) -> None:
-        """Say how much is new since the cursor, then `read` each item behind a progress bar."""
+        """Say how much is new since the cursor, and expect a response for each, then `read` each item."""
         logger.info(f"{len(fresh)} new since {since or 'beginning'}")
-        if not fresh:
-            return
-        for item in track(fresh, f"Fetching {self.source.name}"):
+        expect(len(fresh))
+        for item in fresh:
             read(item)
 
     def _write_archive(self, destination: Path) -> Path:

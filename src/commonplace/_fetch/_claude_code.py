@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from commonplace._fetch._base import BaseFetcher
-from commonplace._progress import track
 from commonplace._wire import file_entry
 
 if TYPE_CHECKING:
@@ -71,9 +70,7 @@ class ClaudeCodeMemoryFetcher(_ClaudeHome):
         projects = self.root / "projects"
         self._log(endpoint="projects", response=json.dumps(self._project_paths()))
         # A mirror sees a deletion only by its absence from a complete listing, so every run records it all.
-        for file in track(
-            sorted(p for p in projects.glob("*/memory/**/*") if p.is_file()), f"Fetching {self.source.name}"
-        ):
+        for file in sorted(p for p in projects.glob("*/memory/**/*") if p.is_file()):
             self._log(**file_entry(file, file.relative_to(projects).as_posix()))
         return [self._write_archive(destination)]
 

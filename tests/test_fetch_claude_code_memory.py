@@ -5,6 +5,7 @@ from pathlib import Path
 from commonplace._fetch._claude_code import ClaudeCodeMemoryFetcher
 from commonplace._fetch._commands import fetch
 from commonplace._import._claude_code_memory import ClaudeCodeMemoryImporter
+from commonplace._progress import on, rows
 from commonplace._utils import load_frontmatter
 from commonplace._wire import entry_body, read_entries, read_header
 from tests.fetching import fetching, owned
@@ -176,6 +177,15 @@ def test_fetch_command_no_index_reaches_the_mirror(test_repo, tmp_path, index_sp
     fetch(test_repo, sources=fetching(owned(ClaudeCodeMemoryFetcher, root=_home(tmp_path))))
 
     assert index_spy == []
+
+
+def test_fetch_counts_every_entry_it_records_on_the_sources_row(tmp_path):
+    fetcher = owned(ClaudeCodeMemoryFetcher, root=_home(tmp_path))
+
+    with rows(["claude-code-memory"]) as table, on(table["claude-code-memory"]):
+        [archive] = fetcher.fetch(tmp_path, since=None)
+
+        assert table["claude-code-memory"].done()[0] == len(list(read_entries(archive)))
 
 
 def test_fetch_stamps_the_archive_before_listing_memory(tmp_path, monkeypatch):
