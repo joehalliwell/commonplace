@@ -9,6 +9,7 @@ import pytest
 
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._helpers import FetchBlocked, NoSession
+from commonplace._progress import tick
 from commonplace._repo import UncommittedChanges
 from commonplace._wire import archive_name, write_archive
 from tests.fetching import fetching
@@ -184,3 +185,19 @@ def test_fetch_leaves_a_row_per_source_saying_how_it_went(test_repo, capsys):
     rows = capsys.readouterr().out.splitlines()
     for source, outcome in [("unused", "not signed in"), ("blocked", "blocked"), ("quiet", "nothing new")]:
         assert any(line.lstrip().startswith(source) and outcome in line for line in rows), (source, outcome)
+
+
+def test_a_sources_row_ends_with_what_its_capture_counted(test_repo, capsys):
+    """A pager knows how many pages there were only once it's done; the row says so."""
+
+    class Pager:
+        source = "pager"
+
+        def fetch(self, destination, since, previous=()):
+            for _ in range(3):
+                tick("page")
+            return []
+
+    fetch(test_repo, sources=fetching(Pager()))
+
+    assert any(line.lstrip().startswith("pager") and "3/3" in line for line in capsys.readouterr().out.splitlines())
