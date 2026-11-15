@@ -74,7 +74,7 @@ def test_fetch_shows_progress_over_the_sessions_it_reads(tmp_path, monkeypatch):
         tracked.extend(items)
         return tracked
 
-    monkeypatch.setattr("commonplace._fetch._claude_code.track", track)
+    monkeypatch.setattr("commonplace._fetch._base.track", track)
 
     owned(ClaudeCodeFetcher, root=_claude_home(tmp_path)).fetch(tmp_path, since=NEW - (NEW - OLD) / 2)
 
