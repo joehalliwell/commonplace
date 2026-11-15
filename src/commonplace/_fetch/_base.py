@@ -28,7 +28,7 @@ the Protocol without inheriting.
 
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
@@ -159,11 +159,14 @@ class BaseFetcher:
 
     @contextmanager
     def _session(self, cookies: httpx.Cookies) -> Iterator[httpx.Client]:
-        """Open the client and start a fresh wire log.
+        """Open the client and start a fresh wire log, stamped now, before anything is read.
 
         The log resets here rather than in `__init__` so that a fetcher reused
-        across runs cannot carry one run's responses into another's archive."""
+        across runs cannot carry one run's responses into another's archive.
+        The next fetch resumes from the stamp, so anything that changes after
+        it was read, while this run goes on, is read again."""
         self._wire_log = []
+        self._started = datetime.now(UTC)
         with httpx.Client(
             cookies=cookies,
             headers=self._headers(),
@@ -202,4 +205,5 @@ class BaseFetcher:
         self._wire_log.append(entry)
 
     def _write_archive(self, destination: Path) -> Path:
-        return write_archive(destination / archive_name(self.source.name), self.source.name, self._wire_log)
+        path = destination / archive_name(self.source.name)
+        return write_archive(path, self.source.name, self._wire_log, fetched_at=self._started)

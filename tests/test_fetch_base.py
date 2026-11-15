@@ -6,6 +6,8 @@ rather than rediscovering them.
 """
 
 import http.cookiejar
+import time
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -140,6 +142,23 @@ def test_archive_is_named_for_the_source(tmp_path):
 
     assert archive.name == "stub-wire.jsonl.xz"
     assert read_header(archive)[0] == "stub"
+
+
+def test_an_archive_is_stamped_when_its_session_opened_before_anything_was_read(tmp_path):
+    """The next fetch resumes from this stamp, so a conversation that changes after it was read is read again."""
+    served: list[datetime] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        served.append(datetime.now(UTC))
+        return httpx.Response(200, text="{}")
+
+    fetcher = _stub(handler)
+    with fetcher._session({"session": "x"}):
+        time.sleep(0.01)
+        fetcher._log(endpoint="list", response=fetcher._get("https://example.com/list").text)
+    archive = fetcher._write_archive(tmp_path)
+
+    assert read_header(archive).fetched_at < served[0]
 
 
 def test_a_second_run_does_not_inherit_the_first_runs_wire_log(tmp_path):
