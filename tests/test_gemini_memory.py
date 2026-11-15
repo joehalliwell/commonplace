@@ -176,9 +176,3 @@ def test_fetch_command_upstream_deletion_rewrites_the_file(test_repo):
 
     _, body = load_frontmatter((test_repo.root / "memory/gemini/saved-info.md").read_text())
     assert body == "# Saved info\n\n- Kept.\n"
-
-
-def test_fetch_shows_a_progress_bar(tmp_path, bars):
-    FakeGemini().fetcher().fetch(tmp_path, since=None)
-
-    assert bars == ["Fetching gemini-memory"]

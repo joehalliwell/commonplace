@@ -15,6 +15,7 @@ import pytest
 from commonplace._fetch._base import BaseFetcher
 from commonplace._fetch._helpers import FetchBlocked, NoSession
 from commonplace._fetch._types import Fetcher
+from commonplace._progress import on, rows
 from commonplace._sources import SOURCES
 from commonplace._types import ChatSource
 from commonplace._wire import read_header
@@ -252,8 +253,22 @@ def test_a_429_widens_pacing_for_every_fetcher(no_retry_sleep):
     assert fetcher._pacer.interval > 0.0
 
 
-def test_reading_nothing_fresh_still_shows_a_progress_bar(bars):
-    """Every source shows one, so a stack of them reads the same whatever each found."""
-    _stub(lambda r: httpx.Response(200))._read_fresh([], None, lambda item: None)
+def test_every_response_recorded_counts_on_the_sources_row():
+    """A row counts responses, so every source reports progress without code of its own."""
+    fetcher = _stub(lambda r: httpx.Response(200, text="{}"))
 
-    assert bars == ["Fetching stub"]
+    with rows(["stub"]) as table, on(table["stub"]), fetcher._session({"session": "x"}):
+        fetcher._log(endpoint="list", response="{}")
+        fetcher._log(endpoint="read", response="{}")
+
+        assert table["stub"].done() == (2, None)
+
+
+def test_reading_fresh_items_tells_the_row_how_many_responses_to_expect():
+    fetcher = _stub(lambda r: httpx.Response(200, text="{}"))
+
+    with rows(["stub"]) as table, on(table["stub"]), fetcher._session({"session": "x"}):
+        fetcher._log(endpoint="list", response="{}")
+        fetcher._read_fresh(["a", "b"], None, lambda item: fetcher._log(endpoint="read", response="{}"))
+
+        assert table["stub"].done() == (3, 3)
