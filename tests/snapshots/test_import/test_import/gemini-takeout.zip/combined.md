@@ -37,15 +37,21 @@ Let's try a more precise, targeted approach.
 
 1. Go to [takeout.google.com](https://takeout.google.com) and click **"Deselect
    all"**.
+
 2. Scroll down to the product named **"My Activity"** and check the box next to
    it.
+
 3. A button will appear that says "**All activity data included**". **Click this
    button.** A pop-up window will appear.
+
 4. In the pop-up window, click **"Deselect all"** again.
+
 5. Now, scroll through this new, smaller list and find **"Gemini Apps"**. Check
    the box next to it.
+
 6. Click **"OK"** to close the pop-up. The button should now say something like
    "1 format selected".
+
 7. Scroll to the bottom of the main page and click **"Next step"** to create and
    download your export.
 
