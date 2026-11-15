@@ -7,7 +7,7 @@ from pathlib import Path
 from commonplace._fetch._helpers import FetchBlocked, NoSession
 from commonplace._import._commands import import_one
 from commonplace._logging import logger
-from commonplace._repo import Commonplace
+from commonplace._repo import Commonplace, UncommittedChanges
 from commonplace._sources import SOURCES
 from commonplace._types import Source
 from commonplace._wire import archive_names, last_fetched
@@ -30,9 +30,10 @@ def fetch(
         return
 
     blocked: list[str] = []
+    refused: list[Path] = []
     for source in active:
         logger.info(f"Fetching from {source.name}")
-        # Each source signs in on its own, so one turned away leaves the rest worth fetching.
+        # Each source signs in on its own and lands all or nothing, so one turned away leaves the rest worth fetching.
         try:
             _fetch_one(repo, source, all_)
         except NoSession:
@@ -40,6 +41,11 @@ def fetch(
         except FetchBlocked as e:
             logger.error(str(e))
             blocked.append(source.name)
+        except UncommittedChanges as e:
+            logger.error(f"Not fetching {source.name}: {e}")
+            refused += e.paths
+    if refused:
+        raise UncommittedChanges(refused)
     if blocked:
         raise FetchBlocked(
             f"Blocked: {', '.join(blocked)}; see above. Nothing from those was imported, "
