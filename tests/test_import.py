@@ -370,6 +370,15 @@ def test_takeout_import_skips_a_cell_that_is_not_a_prompt(tmp_path):
     assert [e.content for e in log.events] == ["hello", "hi"]
 
 
+def test_takeout_import_keeps_text_unescaped(tmp_path):
+    """Escaping a hyphen or doubling a backslash corrupts the text, and LaTeX with it."""
+    export = _takeout(tmp_path, "Prompted LLM-based<br>8 Jun 2025, 13:37:50 BST<br><p>$F \\to R$ and snake_case</p>")
+
+    [log] = owned(GeminiTakeoutImporter).import_(export)
+
+    assert [e.content for e in log.events] == ["LLM-based", "$F \\to R$ and snake_case"]
+
+
 def _claude_code_line(role: str, content, timestamp: str, **message) -> dict:
     return {
         "type": role,

@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from bs4.element import NavigableString, PageElement, Tag
 from dateutil import parser
 from dateutil.tz import gettz
-from html_to_markdown import convert_to_markdown
+from html_to_markdown import ConversionOptions, convert
 
 from commonplace._import._types import EventLog, Message, Part, Role
 from commonplace._import._zip import head_contains, zip_contains
@@ -92,7 +92,7 @@ class GeminiTakeoutImporter(Part):
         html = "".join(str(element) for element in elements).strip()
         if not html:
             return ""
-        return convert_to_markdown(html, heading_style="atx").strip()
+        return (convert(html, ConversionOptions(heading_style="atx")).content or "").strip()
 
     def _parse_timestamp(self, timestamp: str) -> datetime:
         """
