@@ -20,8 +20,8 @@ from commonplace._types import ChatSource
 from commonplace._wire import read_header
 from tests.fetching import owned
 
-#: The fetchers that browse a vendor's site, as their sources own them.
-FETCHERS = [s.fetcher_type for s in SOURCES if s.fetcher_type and issubclass(s.fetcher_type, BaseFetcher)]
+#: The fetchers that browse a vendor's site, as their sources own them: those that name a cookie domain.
+FETCHERS = [s.fetcher_type for s in SOURCES if s.fetcher_type and hasattr(s.fetcher_type, "cookie_domain")]
 
 
 @pytest.mark.parametrize("fetcher_class", FETCHERS, ids=lambda c: c.__name__)

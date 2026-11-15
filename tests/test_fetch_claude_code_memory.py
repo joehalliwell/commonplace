@@ -176,3 +176,20 @@ def test_fetch_command_no_index_reaches_the_mirror(test_repo, tmp_path, index_sp
     fetch(test_repo, sources=fetching(owned(ClaudeCodeMemoryFetcher, root=_home(tmp_path))))
 
     assert index_spy == []
+
+
+def test_fetch_stamps_the_archive_before_listing_memory(tmp_path, monkeypatch):
+    """As every fetcher does: the stamp is when the capture began, not when it was written."""
+    fetcher = owned(ClaudeCodeMemoryFetcher, root=_home(tmp_path))
+    listed = []
+    real_glob = Path.glob
+
+    def glob(self, pattern, **kwargs):
+        listed.append(datetime.now(UTC))
+        return real_glob(self, pattern, **kwargs)
+
+    monkeypatch.setattr(Path, "glob", glob)
+    [archive] = fetcher.fetch(tmp_path, since=None)
+    monkeypatch.undo()
+
+    assert read_header(archive).fetched_at <= listed[0]
