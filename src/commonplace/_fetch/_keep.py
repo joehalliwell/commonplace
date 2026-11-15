@@ -16,7 +16,7 @@ Keep asks for one.
 import hashlib
 import random
 import time
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import ClassVar
@@ -26,6 +26,7 @@ import httpx
 from commonplace._fetch._base import BaseFetcher
 from commonplace._fetch._helpers import upstream_changed
 from commonplace._import._keep import last_version, since_last_full
+from commonplace._progress import track
 
 ORIGIN = "https://keep.google.com"
 CHANGES_URL = "https://notes-pa.clients6.google.com/notes/v1/changes"
@@ -67,12 +68,16 @@ class KeepFetcher(BaseFetcher):
 
     def _sync(self, target: str | None) -> bool:
         """Page through the sync from `target` (None: everything); False if Keep asks for a full sync instead."""
+        pages = track(self._pages(target), f"Fetching {self.source.name}", describe=lambda p: p[1].get("toVersion"))
+        return not any(asked is not None and page.get("forceFullResync") for asked, page in pages)
+
+    def _pages(self, target: str | None) -> Iterator[tuple[str | None, dict]]:
+        """Each page of the sync from `target`, with the version it was asked from, until Keep says it's done."""
         while True:
             page = self._changes(target)
-            if target is not None and page.get("forceFullResync"):
-                return False
+            yield target, page
             if not page.get("truncated"):
-                return True
+                return
             if page["toVersion"] == target:
                 raise upstream_changed(self.service_name, self.login_url, "a sync page that didn't advance")
             target = page["toVersion"]

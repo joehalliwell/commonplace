@@ -250,3 +250,10 @@ def test_a_429_widens_pacing_for_every_fetcher(no_retry_sleep):
         fetcher._get("https://example.com/api")
 
     assert fetcher._pacer.interval > 0.0
+
+
+def test_reading_nothing_fresh_still_shows_a_progress_bar(bars):
+    """Every source shows one, so a stack of them reads the same whatever each found."""
+    _stub(lambda r: httpx.Response(200))._read_fresh([], None, lambda item: None)
+
+    assert bars == ["Fetching stub"]

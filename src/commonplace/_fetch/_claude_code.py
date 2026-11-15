@@ -78,7 +78,7 @@ class ClaudeCodeMemoryFetcher(_ClaudeHome):
         memory = sorted(p for p in projects.glob("*/memory/**/*") if p.is_file())
         entries = [
             {"endpoint": "projects", "response": json.dumps(self._project_paths())},
-            *(file_entry(p, p.relative_to(projects).as_posix()) for p in memory),
+            *(file_entry(p, p.relative_to(projects).as_posix()) for p in track(memory, f"Fetching {self.source.name}")),
         ]
         return [write_archive(destination / archive_name(self.source.name), self.source.name, entries)]
 

@@ -192,10 +192,8 @@ class BaseFetcher:
         return self._request("GET", url, **kwargs)
 
     def _read_fresh[T](self, fresh: Sequence[T], since: datetime | None, read: Callable[[T], object]) -> None:
-        """Say how much is new since the cursor, then `read` each item behind a progress bar."""
+        """Say how much is new since the cursor, then `read` each item behind a progress bar, shown even for none."""
         logger.info(f"{len(fresh)} new since {since or 'beginning'}")
-        if not fresh:
-            return
         for item in track(fresh, f"Fetching {self.source.name}"):
             read(item)
 

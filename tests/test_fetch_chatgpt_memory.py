@@ -141,3 +141,9 @@ def test_fetch_command_mirror_commit_names_the_stored_archive(test_repo):
 
     [stored] = [blob.path for blob in test_repo.blobs(*archive_names("chatgpt-memory"))]
     assert git(test_repo.root, "log", "-1", "--format=%s").strip() == f"Mirror chatgpt-memory: {stored.as_posix()}"
+
+
+def test_fetch_shows_a_progress_bar(tmp_path, bars):
+    FakeMemory().fetcher().fetch(tmp_path, since=None)
+
+    assert bars == ["Fetching chatgpt-memory"]

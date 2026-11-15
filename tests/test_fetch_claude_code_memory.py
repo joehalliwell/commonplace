@@ -176,3 +176,9 @@ def test_fetch_command_no_index_reaches_the_mirror(test_repo, tmp_path, index_sp
     fetch(test_repo, sources=fetching(owned(ClaudeCodeMemoryFetcher, root=_home(tmp_path))))
 
     assert index_spy == []
+
+
+def test_fetch_shows_a_progress_bar(tmp_path, bars):
+    owned(ClaudeCodeMemoryFetcher, root=_home(tmp_path)).fetch(tmp_path, since=None)
+
+    assert bars == ["Fetching claude-code-memory"]

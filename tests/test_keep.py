@@ -365,3 +365,9 @@ def test_fetch_never_prunes_a_file_someone_left_untracked_in_the_mirror(test_rep
         fetch(test_repo, sources=fetching(FakeKeep().fetcher()))
 
     assert mine.exists()
+
+
+def test_fetch_shows_a_progress_bar(tmp_path, bars):
+    FakeKeep().fetcher().fetch(tmp_path, since=None)
+
+    assert bars == ["Fetching keep"]
