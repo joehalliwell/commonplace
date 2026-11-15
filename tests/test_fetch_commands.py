@@ -9,6 +9,7 @@ import pytest
 
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._helpers import FetchBlocked, NoSession
+from commonplace._repo import UncommittedChanges
 from commonplace._wire import archive_name, write_archive
 from tests.fetching import fetching
 
@@ -32,6 +33,33 @@ def test_a_blocked_source_does_not_stop_the_others(test_repo):
 
     with pytest.raises(FetchBlocked, match="blocked"):
         fetch(test_repo, sources=fetching(Blocked(), Stub()))
+    assert called == ["stub"]
+
+
+def test_a_source_refused_for_uncommitted_changes_does_not_stop_the_others(test_repo):
+    """Each source lands all or nothing, so refusing one leaves the rest worth fetching."""
+    called: list[str] = []
+
+    class Edited:
+        source = "edited"
+
+        def fetch(self, destination, since, previous=()):
+            called.append("edited")
+            return []
+
+    class Stub:
+        source = "stub"
+
+        def fetch(self, destination, since, previous=()):
+            called.append("stub")
+            return []
+
+    [edited, stub] = fetching(Edited(), Stub())
+    (test_repo.root / edited.tree).mkdir(parents=True)
+    (test_repo.root / edited.tree / "mine.md").write_text("# Mine\n")
+
+    with pytest.raises(UncommittedChanges, match="mine.md"):
+        fetch(test_repo, sources=[edited, stub])
     assert called == ["stub"]
 
 

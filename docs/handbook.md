@@ -54,7 +54,8 @@ imported from an export, is fetched in full; `--all` does the same on demand.
 Neither `fetch` nor `import` writes over a change you haven't committed, since
 nothing could recover it. If a source's tree (`chats/claude/`, `notes/keep/`
 and so on) holds an uncommitted edit or an untracked file, the source is
-refused before anything is fetched or written, naming the files: commit them
+refused before anything is fetched or written, naming the files, and the other
+sources are fetched as usual: commit them
 (`sync` does) or discard them, and run it again. A committed hand edit to a
 chat or mirrored note is still rewritten, since the tree is commonplace's; say
 things about a note in its marginalia.
