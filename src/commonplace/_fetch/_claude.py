@@ -14,17 +14,6 @@ from commonplace._fetch._helpers import session_rejected
 ANTHROPIC_VERSION = "2023-06-01"
 
 
-def _provenance(r: httpx.Response) -> dict[str, str]:
-    """The `request-id` claude.ai stamps on each response.
-
-    Provider-specific, hence here rather than in [[commonplace._wire]]: it is
-    the only identifier tying a capture to Anthropic's own records, and no
-    later reader can recover it from the body. Omitted when absent — the
-    missing key already says the header wasn't sent."""
-    request_id = r.headers.get("request-id")
-    return {"request_id": request_id} if request_id else {}
-
-
 def updated_after(items: list[dict[str, Any]], since: datetime | None) -> list[dict[str, Any]]:
     """The listed items whose `updated_at` is after `since`."""
     return [i for i in items if since is None or datetime.fromisoformat(i["updated_at"]) > since]
@@ -39,37 +28,35 @@ class ClaudeSessionFetcher(BaseFetcher):
     session_cookie = "sessionKey"
     extra_headers: ClassVar[dict[str, str]] = {"Accept": "application/json", "Referer": "https://claude.ai/"}
 
-    _org_uuid: str
-
     def _check_session(self, cookies: httpx.Cookies) -> None:
-        """Also records `_org_uuid`: every API path is scoped to the organisation."""
+        """Also roots `_api` at the organisation, which scopes every API path."""
         super()._check_session(cookies)
         org_uuid = cookies.get("lastActiveOrg")
         if not org_uuid:
             raise session_rejected(self.service_name, self.login_url, ": Chrome holds no lastActiveOrg cookie")
-        self._org_uuid = org_uuid
+        self.api_root = f"https://claude.ai/api/organizations/{org_uuid}"
 
-    def _api(
-        self, method: str, path: str, *, endpoint: str, key: dict[str, str] | None = None, **kwargs: Any
-    ) -> httpx.Response:
-        """Call the organisation's API and log the response verbatim under `endpoint` and `key`."""
-        r = self._request(method, f"https://claude.ai/api/organizations/{self._org_uuid}/{path}", **kwargs)
-        self._log(endpoint=endpoint, **(key or {}), **_provenance(r), response=r.text)
-        return r
+    def _provenance(self, r: httpx.Response) -> dict[str, str]:
+        """The `request-id` claude.ai stamps on each response.
+
+        The only identifier tying a capture to Anthropic's own records, and no
+        later reader can recover it from the body. Omitted when absent — the
+        missing key already says the header wasn't sent."""
+        request_id = r.headers.get("request-id")
+        return {"request_id": request_id} if request_id else {}
 
     def _code_pages(self, path: str, *, endpoint: str, key: dict[str, str] | None = None, **params: str) -> list[Any]:
         """Every item of a Code sessions listing, logging each page verbatim with the cursor that fetched it."""
         items: list[Any] = []
         cursor: dict[str, str] = {}
         while True:
-            r = self._request(
+            page = self._record(
                 "GET",
                 f"https://claude.ai/v1/code/{path}",
+                entry={"endpoint": endpoint, **(key or {}), **cursor},
                 params=params | cursor,
                 headers={"anthropic-version": ANTHROPIC_VERSION},
-            )
-            self._log(endpoint=endpoint, **(key or {}), **cursor, **_provenance(r), response=r.text)
-            page = r.json()
+            ).json()
             items.extend(page["data"])
             if not page.get("next_cursor"):
                 return items
