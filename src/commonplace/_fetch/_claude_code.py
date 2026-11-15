@@ -5,13 +5,12 @@ import os
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Any
 
-from commonplace._fetch._base import Recorder
+from commonplace._fetch._base import BaseFetcher
 from commonplace._wire import file_entry
 
 if TYPE_CHECKING:
-    from commonplace._config import Config
     from commonplace._types import Source
 
 
@@ -31,17 +30,12 @@ def _claude_home(root: Path | None) -> Path:
     return root or Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
 
 
-class _ClaudeHome(Recorder):
-    """A fetcher of a source that reads this machine's Claude Code home rather than browsing."""
+class _ClaudeHome(BaseFetcher):
+    """Reads this machine's Claude Code home rather than browsing, so uses only the capture."""
 
-    def __init__(self, source: "Source", root: Path | None = None):
-        self.source = source
+    def __init__(self, source: "Source", root: Path | None = None, **browsing: Any):
+        super().__init__(source, **browsing)
         self.root = _claude_home(root)
-
-    @classmethod
-    def configured(cls, source: "Source", config: "Config") -> Self:
-        """One for `source`, reading this machine's Claude Code home; it browses nothing, so needs no User-Agent."""
-        return cls(source)
 
 
 class ClaudeCodeFetcher(_ClaudeHome):

@@ -60,55 +60,24 @@ ACCEPT_LANGUAGE = "en-GB,en;q=0.9"
 CONNECT_TIMEOUT = 5.0
 
 
-class Recorder:
-    """A capture: a wire log stamped when it starts, each entry counted on the source's row, written as archives.
-
-    The stamp is taken before anything is read, and the next fetch resumes
-    from it, so anything that changes after it was read, while this run goes
-    on, is read again. Each archive holds what was logged since the last, so a
-    fetcher reused across runs, or writing an archive per session, carries
-    nothing from one into another. Fetchers interpret nothing; see
-    [[commonplace._wire]]."""
-
-    #: The source it belongs to, which names its archives.
-    source: "Source"
-
-    _wire_log: list[dict[str, Any]]
-    _started: datetime
-
-    def _start(self) -> None:
-        self._wire_log = []
-        self._started = datetime.now(UTC)
-
-    def _log(self, **entry: Any) -> None:
-        """Record one response or file verbatim, counting it on the source's row."""
-        self._wire_log.append(entry)
-        tick(next((entry[key] for key in ("path", "endpoint", "rpc") if key in entry), None))
-
-    def _read_fresh[T](self, fresh: Sequence[T], since: datetime | None, read: Callable[[T], object]) -> None:
-        """Say how much is new since the cursor, and expect a response for each, then `read` each item."""
-        logger.info(f"{len(fresh)} new since {since or 'beginning'}")
-        expect(len(fresh))
-        for item in fresh:
-            read(item)
-
-    def _write_archive(self, destination: Path) -> Path:
-        """Write what was logged since the last archive into `destination`, stamped when the capture started."""
-        path = destination / archive_name(self.source.name)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        archive = write_archive(path, self.source.name, self._wire_log, fetched_at=self._started)
-        self._wire_log = []
-        return archive
-
-
-class BaseFetcher(Recorder):
-    """Cookie discovery and browser-shaped HTTP.
+class BaseFetcher:
+    """Cookie discovery, browser-shaped HTTP, and the capture each fetch records.
 
     Subclasses declare the provider as class attributes and implement `fetch`.
     Cookies and HTTP transport are injectable — real use passes neither and the
     fetcher discovers cookies from Chrome and uses the real network. Tests
-    inject fakes for both."""
+    inject fakes for both. A fetcher that reads local files, like Claude
+    Code's, uses only the capture.
 
+    A capture is stamped when it starts, before anything is read, and the next
+    fetch resumes from the stamp, so anything that changes after it was read,
+    while this run goes on, is read again. Each archive holds what was logged
+    since the last, so a fetcher reused across runs, or writing an archive per
+    session, carries nothing from one into another. Fetchers interpret
+    nothing; see [[commonplace._wire]]."""
+
+    #: The source it belongs to, which names its archives.
+    source: "Source"
     #: Cookie domain to read from Chrome.
     cookie_domain: str
     #: How the provider is named in messages to the user, and where to log in.
@@ -130,6 +99,8 @@ class BaseFetcher(Recorder):
     api_root: str
 
     _client: httpx.Client
+    _wire_log: list[dict[str, Any]]
+    _started: datetime
 
     @classmethod
     def configured(cls, source: "Source", config: "Config") -> Self:
@@ -240,3 +211,27 @@ class BaseFetcher(Recorder):
     def _provenance(self, r: httpx.Response) -> dict[str, str]:
         """What a provider says about a response that identifies it to them; nothing by default."""
         return {}
+
+    def _start(self) -> None:
+        self._wire_log = []
+        self._started = datetime.now(UTC)
+
+    def _log(self, **entry: Any) -> None:
+        """Record one response or file verbatim, counting it on the source's row."""
+        self._wire_log.append(entry)
+        tick(next((entry[key] for key in ("path", "endpoint", "rpc") if key in entry), None))
+
+    def _read_fresh[T](self, fresh: Sequence[T], since: datetime | None, read: Callable[[T], object]) -> None:
+        """Say how much is new since the cursor, and expect a response for each, then `read` each item."""
+        logger.info(f"{len(fresh)} new since {since or 'beginning'}")
+        expect(len(fresh))
+        for item in fresh:
+            read(item)
+
+    def _write_archive(self, destination: Path) -> Path:
+        """Write what was logged since the last archive into `destination`, stamped when the capture started."""
+        path = destination / archive_name(self.source.name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        archive = write_archive(path, self.source.name, self._wire_log, fetched_at=self._started)
+        self._wire_log = []
+        return archive
