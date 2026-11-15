@@ -95,6 +95,11 @@ history, only the new session gets a note. A capture holds
 whatever its tools printed, and git keeps every capture, so a secret that ever
 shows up in a session stays in your history.
 
+Claude Code deletes sessions older than `cleanupPeriodDays`, 30 by default, and
+a session deleted before a fetch reaches it is gone for good. Raise it in
+`~/.claude/settings.json` (say `"cleanupPeriodDays": 1000`) unless you fetch
+well within a month.
+
 ### Mirrors
 
 Four more sources mirror agent memory. `claude-memory` mirrors claude.ai's
