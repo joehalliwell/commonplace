@@ -1,9 +1,7 @@
 """Shared helpers for Fetcher implementations."""
 
-import os
 import time
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any, NoReturn
 
 import browser_cookie3  # type: ignore[import-untyped]
@@ -11,10 +9,6 @@ import httpx
 
 from commonplace._config import DEFAULT_UA
 from commonplace._logging import logger
-
-# Flatpak Chrome stashes its config outside XDG_CONFIG_HOME.
-FLATPAK_CHROME_CONFIG = Path.home() / ".var" / "app" / "com.google.Chrome" / "config"
-
 
 # Retry transient failures with exponential backoff.
 RETRY_STATUSES = {429, 500, 502, 503, 504}
@@ -28,8 +22,6 @@ def read_chrome_cookies(domain: str) -> httpx.Cookies:
 
     Subdomains reuse names (Google's OSID is per service), so flattening to a dict sends one service's copy to all.
     """
-    if FLATPAK_CHROME_CONFIG.exists():
-        os.environ["XDG_CONFIG_HOME"] = str(FLATPAK_CHROME_CONFIG)
     cookies = httpx.Cookies()
     for c in browser_cookie3.chrome(domain_name=domain):
         if c.value:
