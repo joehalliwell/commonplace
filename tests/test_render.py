@@ -7,6 +7,7 @@ import pytest
 
 from commonplace._doctor import doctor
 from commonplace._import._render import RENDER_MESSAGE
+from commonplace._repo import UncommittedChanges
 from commonplace._utils import load_frontmatter
 from tests.porcelain import git
 
@@ -151,28 +152,28 @@ def test_render_rewrites_a_note_its_last_fetch_wrote(test_repo, store):
     assert "hi back" in _note(test_repo)[1]
 
 
-def test_render_leaves_a_hand_edited_note_alone_and_names_it(test_repo, store):
+def test_render_rewrites_a_committed_hand_edit(test_repo, store):
+    """Chats are commonplace's, as on import: what a person says about one goes in its marginalia."""
     store("hi back", fetched_at="2026-08-01T00:00:00+00:00")
     _render(test_repo)
-    edited = (test_repo.root / NOTE).read_text() + "\nMy own thought.\n"
-    (test_repo.root / NOTE).write_text(edited)
+    (test_repo.root / NOTE).write_text((test_repo.root / NOTE).read_text() + "\nMy own thought.\n")
     git(test_repo.root, "commit", "-qam", "Auto-commit before sync at 2026-10-04T00:00:00+00:00")
     store("newer", fetched_at="2026-08-02T00:00:00+00:00")
 
-    report = _render(test_repo)
+    _render(test_repo)
 
-    assert (test_repo.root / NOTE).read_text() == edited
-    assert any(NOTE.as_posix() in warning for warning in report.warnings)
+    assert "My own thought." not in (test_repo.root / NOTE).read_text()
 
 
-def test_render_leaves_an_uncommitted_edit_alone(test_repo, store):
+def test_render_over_an_uncommitted_edit_raises_and_keeps_it(test_repo, store):
     store("hi back", fetched_at="2026-08-01T00:00:00+00:00")
     _render(test_repo)
     edited = (test_repo.root / NOTE).read_text() + "\nMy own thought.\n"
     (test_repo.root / NOTE).write_text(edited)
     store("newer", fetched_at="2026-08-02T00:00:00+00:00")
 
-    _render(test_repo)
+    with pytest.raises(UncommittedChanges, match=NOTE.as_posix()):
+        _render(test_repo)
 
     assert (test_repo.root / NOTE).read_text() == edited
 

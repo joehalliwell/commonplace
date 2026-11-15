@@ -191,10 +191,6 @@ class Commonplace:
         """The commit checked out, which moves with every commit."""
         return self._git("rev-parse", "HEAD").strip()
 
-    def last_subjects(self, pathspec: str) -> dict[str, str]:
-        """Each committed path under `pathspec`, with the subject of the last commit that changed it."""
-        return dict(_last_changed(self.root, self.head(), pathspec, "%s"))
-
     def uncommitted(self, pathspec: str) -> set[str]:
         """Paths under `pathspec` that differ from HEAD, untracked ones included."""
         tracked = _z(self.root, "diff", "--name-only", "--no-renames", "HEAD", "--", pathspec)
