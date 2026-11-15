@@ -51,6 +51,10 @@ capture was fetched, so subsequent runs only pull what was updated since the
 previous fetch. A source with no fetched capture yet, such as one only ever
 imported from an export, is fetched in full; `--all` does the same on demand.
 
+Sources are fetched side by side, each on a row of its own that stays on
+screen saying how it went, and each lands as one commit as soon as its capture
+is done.
+
 Neither `fetch` nor `import` writes over a change you haven't committed, since
 nothing could recover it. If a source's tree (`chats/claude/`, `notes/keep/`
 and so on) holds an uncommitted edit or an untracked file, the source is

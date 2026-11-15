@@ -3,16 +3,22 @@
 Its path through a real fetcher and importer is covered beside each provider's fake.
 """
 
+import threading
 from datetime import UTC, datetime
 
 import pytest
 
+from commonplace import _repo
+from commonplace._fetch._claude_code import ClaudeCodeFetcher
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._helpers import FetchBlocked, NoSession
 from commonplace._progress import tick
 from commonplace._repo import UncommittedChanges
 from commonplace._wire import archive_name, write_archive
-from tests.fetching import fetching
+from tests.fetching import fetching, owned
+from tests.porcelain import git
+from tests.test_fetch_claude_code import _claude_home
+from tests.test_keep import FakeKeep
 
 
 def test_a_blocked_source_does_not_stop_the_others(test_repo):
@@ -201,3 +207,50 @@ def test_a_sources_row_ends_with_what_its_capture_counted(test_repo, capsys):
     fetch(test_repo, sources=fetching(Pager()))
 
     assert any(line.lstrip().startswith("pager") and "3/3" in line for line in capsys.readouterr().out.splitlines())
+
+
+def test_fetch_captures_every_source_at_once(test_repo):
+    """A slow source shouldn't hold up the rest: each waits here for the other, which only works side by side."""
+    meet = threading.Barrier(2, timeout=5)
+
+    class Slow:
+        def __init__(self, source):
+            self.source = source
+
+        def fetch(self, destination, since, previous=()):
+            meet.wait()
+            return []
+
+    fetch(test_repo, sources=fetching(Slow("first"), Slow("second")))
+
+
+def test_fetch_touches_the_repository_only_from_the_thread_it_was_called_in(test_repo, tmp_path, monkeypatch):
+    """Commonplace caches git state that a commit invalidates, so captures in other threads must not read it."""
+    callers: set[str] = set()
+    real = _repo._run_git
+
+    def run_git(*args, **kwargs):
+        callers.add(threading.current_thread().name)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(_repo, "_run_git", run_git)
+
+    fetch(test_repo, sources=fetching(FakeKeep().fetcher(), owned(ClaudeCodeFetcher, root=_claude_home(tmp_path))))
+
+    assert callers == {threading.current_thread().name}
+
+
+def test_fetch_lands_each_source_in_a_commit_of_its_own(test_repo, tmp_path):
+    before = git(test_repo.root, "rev-parse", "HEAD").strip()
+
+    fetch(test_repo, sources=fetching(FakeKeep().fetcher(), owned(ClaudeCodeFetcher, root=_claude_home(tmp_path))))
+
+    commits = git(test_repo.root, "rev-list", f"{before}..HEAD").split()
+    trees = [
+        {"/".join(path.split("/")[:2]) for path in _changed(test_repo, c) if not path.startswith(".")} for c in commits
+    ]
+    assert sorted(map(sorted, trees)) == [["chats/claude-code"], ["notes/keep"]]
+
+
+def _changed(repo, commit: str) -> list[str]:
+    return git(repo.root, "diff-tree", "--no-commit-id", "--name-only", "-r", commit).split()
