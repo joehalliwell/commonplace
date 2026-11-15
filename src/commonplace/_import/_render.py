@@ -20,15 +20,13 @@ from commonplace._wire import GZ, XZ, read_header
 
 RENDER_MESSAGE = "Re-render chats from stored archives"
 
-#: Subjects of the commits that render chats. Anything else last to touch one, `sync`'s auto-commit
-#: included, carries a hand edit, which a re-render would overwrite.
-_RENDERING = ("Import from ", "Fetch ", RENDER_MESSAGE)
-
 _UNDATED = datetime.min.replace(tzinfo=UTC)
 
 
 def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
-    """Re-render chats from the stored archives, leaving hand edits alone; returns actions and warnings."""
+    """Re-render chats from the stored archives, refusing over uncommitted changes; returns actions and warnings."""
+    # Before the replay, which takes minutes, and before anything is written.
+    repo.ensure_unedited(ChatSource.ROOT)
     archives = _in_capture_order(repo)
     final: dict[Path, Note] = {}
     winner: dict[Path, Path] = {}
@@ -46,19 +44,7 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
         final.update(rendered)
         winner.update(dict.fromkeys(rendered, blob))
 
-    chats = ChatSource.ROOT.as_posix()
-    subjects, dirty = repo.last_subjects(chats), repo.uncommitted(chats)
-    writes: list[Note] = []
-    hand_edited: list[str] = []
-    for path, note in final.items():
-        if repo.holds(note):
-            continue
-        if (repo.root / path).exists() and (
-            path.as_posix() in dirty or not subjects.get(path.as_posix(), "").startswith(_RENDERING)
-        ):
-            hand_edited.append(path.as_posix())
-            continue
-        writes.append(note)
+    writes = [note for note in final.values() if not repo.holds(note)]
 
     superseded = len(archives) - len(set(winner.values()))
     if superseded:
@@ -74,10 +60,6 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
         repo.commit(RENDER_MESSAGE)
 
     warnings: list[str] = []
-    if hand_edited:
-        warnings.append(
-            f"{len(hand_edited)} hand-edited chats left alone:\n" + "\n".join(f"  {p}" for p in hand_edited)
-        )
     unrendered = [p for p in repo.paths(ChatSource.ROOT) if p.suffix == ".md" and p not in final]
     if unrendered:
         warnings.append(f"{len(unrendered)} chats no stored archive renders; left as they are")
