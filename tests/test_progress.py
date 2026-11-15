@@ -74,3 +74,13 @@ def test_task_field_column_shows_nothing_for_a_field_not_yet_set():
     task_id = progress.add_task("")
 
     assert TaskFieldColumn("item").render(progress.tasks[task_id]).plain == ""
+
+
+def test_a_row_that_outgrows_its_total_grows_it():
+    """Claude's scheduled tasks page each run's events, so a total expected per run is only a floor."""
+    with rows(["claude-tasks"]) as table:
+        table["claude-tasks"].expect(1)
+        table["claude-tasks"].advance()
+        table["claude-tasks"].advance()
+
+        assert table["claude-tasks"].done() == (2, 2)

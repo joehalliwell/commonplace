@@ -1,4 +1,3 @@
-import time
 from collections.abc import Iterable, Iterator, Sized
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -11,8 +10,8 @@ from rich.progress import (
     MofNCompleteColumn,
     Progress,
     ProgressColumn,
+    Task,
     TaskID,
-    TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
     TimeRemainingColumn,
@@ -71,24 +70,49 @@ class Row:
     def status(self, text: str) -> None:
         self.progress.update(self.task, status=text)
 
+    def expect(self, more: int | None) -> None:
+        """Start counting, with `more` items to come beyond those done, or an unknown number."""
+        self._start()
+        self.progress.update(self.task, total=None if more is None else self._task().completed + more)
+
+    def advance(self, item: object = None) -> None:
+        """Count one more item, showing it; a total it would outgrow grows with it."""
+        self._start()
+        task = self._task()
+        total = task.total if task.total is None or task.completed < task.total else task.completed + 1
+        self.progress.update(self.task, advance=1, total=total, item=item)
+
+    def end(self) -> None:
+        """Stop counting: what was counted is all there was."""
+        self.progress.update(self.task, total=self._task().completed)
+
     def done(self) -> tuple[float, float | None]:
-        """How many items `track` has passed through this row, of how many."""
-        task = self.progress._tasks[self.task]
+        """How many items this row has counted, of how many."""
+        task = self._task()
         return task.completed, task.total
 
+    def _start(self) -> None:
+        if self._task().start_time is None:
+            self.progress.start_task(self.task)
+            self.progress.update(self.task, status="")
 
-#: The row `track` drives instead of a bar of its own, while one is set by `on`.
+    def _task(self) -> Task:
+        return next(task for task in self.progress.tasks if task.id == self.task)
+
+
+#: The row that `track`, `tick` and `expect` count on, while `on` sets one.
 _row: ContextVar[Row | None] = ContextVar("row", default=None)
 
 
 @contextmanager
 def rows(names: Iterable[str]) -> Iterator[dict[str, Row]]:
-    """A row per name, each waiting until its work starts, left on screen as they ended."""
+    """A row per name, each waiting until its work starts; the last frame stays on screen when the block ends."""
     progress = Progress(
         TextColumn("{task.description}"),
         BarColumn(bar_width=20),
         MofNCompleteColumn(),
         TimeElapsedColumn(),
+        TimeRemainingColumn(),
         TextColumn("{task.fields[status]}"),
         TaskFieldColumn("item"),
     )
@@ -97,13 +121,12 @@ def rows(names: Iterable[str]) -> Iterator[dict[str, Row]]:
     try:
         yield table
     finally:
-        # The live display's last frame stays on screen, rows and all.
         stop_live(progress)
 
 
 @contextmanager
 def on(row: Row) -> Iterator[None]:
-    """Send every `track` in the block, in this thread, to `row`."""
+    """Count every `track`, `tick` and `expect` in the block, in this thread, on `row`."""
     token = _row.set(row)
     try:
         yield
@@ -111,44 +134,30 @@ def on(row: Row) -> Iterator[None]:
         _row.reset(token)
 
 
-def _track_on(row: Row, iterable, describe):
-    """`track`, driving `row` from nothing, and leaving it as it ends."""
-    progress, task = row.progress, row.task
-    progress.start_task(task)
-    progress.reset(task, total=len(iterable) if isinstance(iterable, Sized) else None, status="")
-    for item in iterable:
-        progress.update(task, advance=1, item=describe(item))
-        yield item
-    # A generator's length is known once it's done.
-    progress.update(task, total=progress._tasks[task].completed)
-
-
-def track(iterable, name="", fields=dict, every=0.5, describe=lambda item: item):
-    """Yield each item behind a progress bar showing `describe(item)`, reading a generator only as it's asked to."""
+def tick(item: object = None) -> None:
+    """Count one more item on the row `on` set, if any."""
     if (row := _row.get()) is not None:
-        yield from _track_on(row, iterable, describe)
+        row.advance(item)
+
+
+def expect(more: int | None) -> None:
+    """Tell the row `on` set, if any, how many more items to expect."""
+    if (row := _row.get()) is not None:
+        row.expect(more)
+
+
+def track(iterable, name=""):
+    """Yield each item, counting it on the row `on` set or else on a row of its own; a generator is read as asked."""
+    if (row := _row.get()) is not None:
+        yield from _counted(row, iterable)
         return
-    progress = Progress(
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        MofNCompleteColumn(),
-        TaskProgressColumn(show_speed=True),
-        TimeRemainingColumn(),  # SpinnerColumn(),
-        TimeElapsedColumn(),
-        TaskFieldColumn("item"),
-        *(TaskFieldColumn(k) for k in fields()),
-    )
-    task = progress.add_task(name, total=len(iterable) if isinstance(iterable, Sized) else None)
-    checkpoint_at = 0
-    start_live(progress)
-    # However the loop ends, a break, a raise or a stop, the bar comes down with it.
-    try:
-        for item in iterable:
-            progress.update(task, advance=1, item=describe(item))
-            if time.time() > checkpoint_at:
-                progress.update(task, **fields())
-                checkpoint_at = time.time() + every
-            yield item
-        progress.update(task, **fields())
-    finally:
-        stop_live(progress)
+    with rows([name]) as table:
+        yield from _counted(table[name], iterable)
+
+
+def _counted(row: Row, iterable):
+    row.expect(len(iterable) if isinstance(iterable, Sized) else None)
+    for item in iterable:
+        row.advance(item)
+        yield item
+    row.end()
