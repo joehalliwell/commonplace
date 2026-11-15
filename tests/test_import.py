@@ -18,6 +18,7 @@ from commonplace._import._gemini_takeout import GeminiTakeoutImporter
 from commonplace._import._serializer import MarkdownSerializer
 from commonplace._import._types import EventLog, Message, Role
 from commonplace._import._zip import zip_contains
+from commonplace._repo import UncommittedChanges
 from commonplace._sources import importers, source_named
 from commonplace._types import ChatSource, Source
 from commonplace._utils import dump_frontmatter, load_frontmatter
@@ -111,10 +112,22 @@ def _edit_metadata(path: Path, **changes) -> None:
     path.write_text(dump_frontmatter(metadata | changes, body))
 
 
+def test_import_over_an_uncommitted_chat_edit_raises_and_keeps_it(test_repo, claude_export):
+    import_(claude_export, test_repo, user="Human")
+    imported_file = min((test_repo.root / "chats").glob("**/*.md"))
+    imported_file.write_text(imported_file.read_text() + "\nMy own thought.\n")
+
+    with pytest.raises(UncommittedChanges):
+        import_(claude_export, test_repo, user="Human")
+
+    assert "My own thought." in imported_file.read_text()
+
+
 def test_import_existing_note_refreshes_importer_metadata(test_repo, claude_export):
     import_(claude_export, test_repo, user="Human")
     imported_file = min((test_repo.root / "chats").glob("**/*.md"))
     _edit_metadata(imported_file, source="stale")
+    git(test_repo.root, "commit", "-qam", "Hand edit")
 
     import_(claude_export, test_repo, user="Human")
 
@@ -130,6 +143,7 @@ def test_import_existing_note_is_rewritten_as_a_fresh_import(test_repo, claude_e
     metadata, body = load_frontmatter(fresh)
     legacy = {k: v for k, v in metadata.items() if k not in ("type", "title", "resource", "generated")}
     imported_file.write_text(dump_frontmatter(legacy | {"rating": 5}, body))
+    git(test_repo.root, "commit", "-qam", "Hand edit")
 
     import_(claude_export, test_repo, user="Human")
 

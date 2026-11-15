@@ -13,7 +13,7 @@ from platformdirs import user_data_dir
 from commonplace import _annotate as annotate
 from commonplace._fetch._helpers import FetchBlocked
 from commonplace._logging import logger
-from commonplace._repo import Commonplace
+from commonplace._repo import Commonplace, UncommittedChanges
 from commonplace._search._types import SearchMethod
 from commonplace._types import Note
 from commonplace._utils import dump_frontmatter, edit_in_editor, load_frontmatter
@@ -76,7 +76,7 @@ def _launch(
             extras["repo"] = _open_repo(root)
         return command(*bound.args, **bound.kwargs, **extras)
 
-    except FetchBlocked as e:
+    except (FetchBlocked, UncommittedChanges) as e:
         # Not a bug: the message tells the user what to do, and a traceback
         # would bury it.
         logger.error(str(e))
@@ -202,7 +202,7 @@ def journal(
 
     # Save the edited content (creates file if it doesn't exist)
     metadata, body = load_frontmatter(edited_content)
-    repo.put(Note(path, body, metadata))
+    repo.put(Note(path, body, metadata, text=note.text))
     logger.info(f"Saved journal entry to {journal_path.relative_to(repo.root)}")
 
     # Commit the journal entry

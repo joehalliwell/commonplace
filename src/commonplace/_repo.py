@@ -3,7 +3,8 @@
 Every git operation goes through the git CLI via `_run_git`, never a library: re-implementing the porcelain cost
 a silent revert (#102). Every operation that writes commits what it wrote: `put`, `remove` and `store_blob`
 record their paths, `commit` stages and commits exactly those, and nothing else touches the index. Commits run
-the user's hooks.
+the user's hooks. Neither `put` nor `remove` writes over a change nothing committed, which nothing could
+recover, unless the writer read it first: `UncommittedChanges` names it instead.
 """
 
 import os
@@ -38,6 +39,14 @@ _PATHSPEC_STDIN = ("--pathspec-from-file=-", "--pathspec-file-nul")
 
 class GitError(ValueError):
     """A git command that failed, with what it printed."""
+
+
+class UncommittedChanges(ValueError):
+    """Changes nothing has committed, which writing over them would lose for good."""
+
+    def __init__(self, paths: Iterable[Path]):
+        self.paths = sorted(paths)
+        super().__init__(f"Uncommitted changes to {', '.join(map(str, self.paths))}: commit or discard them first")
 
 
 def _run_git(root: Path, *args: str, input: str | None = None, as_user: bool = False) -> str:
@@ -231,16 +240,39 @@ class Commonplace:
         return Note(path, body, metadata, marginalia=marginalia, text=text, source=source)
 
     def put(self, note: Note) -> None:
-        """Write a note to the working tree for the next commit, over whatever is there."""
+        """Write a note to the working tree for the next commit, over nothing uncommitted it didn't read."""
+        self._check_unedited(note.path, note.text)
         abs_path = self.root / note.path
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         abs_path.write_text(dump_frontmatter(note.metadata, note.body))
         self._wrote(note.path)
 
     def remove(self, path: Path) -> None:
-        """Delete a file from the working directory, for the next commit."""
+        """Delete a file from the working directory, for the next commit, unless it holds uncommitted changes."""
+        self._check_unedited(path)
         (self.root / path).unlink()
         self._wrote(path)
+
+    def ensure_unedited(self, within: Path) -> None:
+        """Raise, naming them, if any paths under `within` have changes neither a commit nor this repo made."""
+        edited = [Path(p) for p in self._edited - self._pending if Path(p).is_relative_to(within)]
+        if edited:
+            raise UncommittedChanges(edited)
+
+    def _check_unedited(self, path: Path, seen: str = "") -> None:
+        """Raise unless `path` is as HEAD has it, as this repo wrote it, or as its writer read it (`seen`)."""
+        key = path.as_posix()
+        if key in self._pending or key not in self._edited:
+            return
+        file = self.root / path
+        if seen and file.exists() and file.read_text(errors="replace") == seen:
+            return
+        raise UncommittedChanges([path])
+
+    @cached_property
+    def _edited(self) -> set[str]:
+        """Paths that differed from HEAD when this repo first looked, until its next commit."""
+        return self.uncommitted(".")
 
     def _wrote(self, path: Path) -> None:
         """Hold `path` for the next commit, and drop the graph read before it changed."""
@@ -331,6 +363,7 @@ class Commonplace:
         """
         committed = _commit(self.root, self._pending | set(written), message, as_user=as_user)
         self._pending.clear()
+        self.__dict__.pop("_edited", None)
         logger.info(f"Committed changes with message: {message}" if committed else "No changes to commit")
 
     def sync(
@@ -348,6 +381,7 @@ class Commonplace:
         # The one commit of work commonplace didn't write: the user's own edits, whatever they are.
         if auto_commit and (changed := self.uncommitted(".")):
             _commit(self.root, changed, f"Auto-commit before sync at {datetime.now(UTC).isoformat()}")
+            self.__dict__.pop("_edited", None)
         try:
             self._git("pull", remote_name, branch, *(["--rebase"] if strategy == "rebase" else []))
         except GitError as e:

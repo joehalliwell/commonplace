@@ -49,6 +49,8 @@ def fetch(
 
 def _fetch_one(repo: Commonplace, source: Source, all_: bool) -> None:
     """Fetch what is new from one source and import it."""
+    # Before the fetch, which import would refuse to land, and which can take an hour.
+    repo.ensure_unedited(source.tree)
     fetcher = source.fetcher(repo.config)
     # What this source has landed, for a fetcher that asks only for what changed since; --all asks for it all.
     previous = (

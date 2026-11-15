@@ -43,13 +43,13 @@ def parse_marginalia(note: Path, text: str) -> Marginalia:
     tags = list(metadata.get("tags") or [])
     # v1's `ref` went with v2; the format's own keys aren't the node's.
     properties = {key: value for key, value in metadata.items() if key not in ("marginalia", "tags", "ref")}
-    return Marginalia(note, tags, body, properties, offset=text.count("\n") - body.count("\n"))
+    return Marginalia(note, tags, body, properties, offset=text.count("\n") - body.count("\n"), text=text)
 
 
 def write_marginalia(repo: "Commonplace", marginalia: Marginalia) -> None:
     """Save the marginalia for the repo's next commit."""
     metadata = {"marginalia": MARGINALIA_VERSION, "tags": marginalia.tags, **marginalia.properties}
-    repo.put(Note(marginalia_path(marginalia.note), marginalia.body, metadata))
+    repo.put(Note(marginalia_path(marginalia.note), marginalia.body, metadata, text=marginalia.text))
 
 
 def check_marginalia(repo: "Commonplace", check: bool) -> tuple[list[str], list[str]]:

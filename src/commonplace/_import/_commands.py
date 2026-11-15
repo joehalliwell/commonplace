@@ -65,6 +65,8 @@ def import_one(path: Path, repo: Commonplace, user: str, commit: bool = True) ->
     if not importer:
         logger.debug(f"Skipping {path}")
         return None
+    # Before anything is written, so a refusal leaves nothing half-imported.
+    repo.ensure_unedited(importer.source.tree)
     # Store only the member an archive's importer reads, or the whole file for non-archives —
     # which includes a member already extracted from one, re-imported from the blob store.
     if importer.member and is_zipfile(path):

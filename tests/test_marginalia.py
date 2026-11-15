@@ -98,6 +98,17 @@ def test_tag_records_only_the_tags_in_the_frontmatter(notes, as_joe):
     assert metadata == {"marginalia": MARGINALIA_VERSION, "tags": ["hidden", "tea"]}
 
 
+def test_tag_keeps_an_uncommitted_edit_to_the_marginalia(notes, as_joe):
+    tag(notes, "ideas", ["tea"])
+    file = notes.root / marginalia_path(NOTE)
+    file.write_text(file.read_text() + "\n- 2026-11-15 my own aside\n")
+
+    tag(notes, "ideas", ["hidden"])
+
+    metadata, body = load_frontmatter(file.read_text())
+    assert (metadata["tags"], "my own aside" in body) == (["tea", "hidden"], True)
+
+
 def test_tag_commits_as_the_person_not_the_bot(notes, as_joe):
     """Tools tell a person's tags from their own by the commit's author, so they never remove them."""
     tag(notes, "ideas", ["hidden"])
