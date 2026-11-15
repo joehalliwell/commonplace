@@ -5,6 +5,7 @@ from pathlib import Path
 
 from commonplace._fetch._claude_code import ClaudeCodeFetcher
 from commonplace._fetch._commands import fetch
+from commonplace._progress import on, rows
 from commonplace._wire import archive_names, entry_body, read_entries, read_header
 from tests.fetching import fetching, owned
 from tests.porcelain import git
@@ -66,19 +67,14 @@ def test_fetch_records_each_session_whole_byte_for_byte(tmp_path):
     assert all(entry_body(e) == (home / "projects" / e["path"]).read_bytes() for e in entries)
 
 
-def test_fetch_shows_progress_over_the_sessions_it_reads(tmp_path, monkeypatch):
-    """Compressing every session can take minutes; a bar says it hasn't stalled."""
-    tracked = []
+def test_fetch_counts_every_file_it_records_on_the_sources_row(tmp_path):
+    """Compressing every session can take minutes; a row counting each file says it hasn't stalled."""
+    fetcher = owned(ClaudeCodeFetcher, root=_claude_home(tmp_path))
 
-    def track(items, name):
-        tracked.extend(items)
-        return tracked
+    with rows(["claude-code"]) as table, on(table["claude-code"]):
+        captured = fetcher.fetch(tmp_path, since=NEW - (NEW - OLD) / 2)
 
-    monkeypatch.setattr("commonplace._fetch._claude_code.track", track)
-
-    owned(ClaudeCodeFetcher, root=_claude_home(tmp_path)).fetch(tmp_path, since=NEW - (NEW - OLD) / 2)
-
-    assert [t.name for t in tracked] == ["s-new.jsonl", "s-new.orphaned-1-a2.jsonl"]
+        assert table["claude-code"].done()[0] == len(_entries(captured))
 
 
 def test_fetch_writes_one_archive_per_session(tmp_path):

@@ -7,9 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
-from commonplace._logging import logger
-from commonplace._progress import track
-from commonplace._wire import archive_name, file_entry, write_archive
+from commonplace._fetch._base import Recorder
+from commonplace._wire import file_entry
 
 if TYPE_CHECKING:
     from commonplace._config import Config
@@ -32,7 +31,7 @@ def _claude_home(root: Path | None) -> Path:
     return root or Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
 
 
-class _ClaudeHome:
+class _ClaudeHome(Recorder):
     """A fetcher of a source that reads this machine's Claude Code home rather than browsing."""
 
     def __init__(self, source: "Source", root: Path | None = None):
@@ -46,24 +45,24 @@ class _ClaudeHome:
 
 
 class ClaudeCodeFetcher(_ClaudeHome):
-    """Records each main session transcript changed since the cursor, verbatim, one entry per session."""
+    """Records each session changed since the cursor, file by file and verbatim, in an archive of its own."""
 
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
-        # Stamped before anything is listed, so a session written while this runs is read by the next fetch.
-        started = datetime.now(UTC)
+        self._start()
         projects = self.root / "projects"
         # A session is its transcript and everything under `<session>/`, like its subagents and spilled tool results,
         # orphaned copies included. All of it is captured: what makes a note is the importer's call, and whatever a
         # fetch leaves out is gone once Claude Code cleans up.
         fresh = [t for t in sorted(projects.glob("*/*.jsonl")) if since is None or _last_changed(t) > since]
         # One archive per session, so no file outgrows its session and a newer capture of one supersedes it whole.
-        logger.info(f"{len(fresh)} sessions changed since {since or 'beginning'}")
-        archives = []
-        for transcript in track(fresh, f"Fetching {self.source.name}"):
-            entries = (file_entry(f, f.relative_to(projects).as_posix()) for f in (transcript, *_folder(transcript)))
-            archive = destination / transcript.relative_to(projects).with_suffix("") / archive_name(self.source.name)
-            archive.parent.mkdir(parents=True)
-            archives.append(write_archive(archive, self.source.name, entries, fetched_at=started))
+        archives: list[Path] = []
+
+        def read(transcript: Path) -> None:
+            for file in (transcript, *_folder(transcript)):
+                self._log(**file_entry(file, file.relative_to(projects).as_posix()))
+            archives.append(self._write_archive(destination / transcript.relative_to(projects).with_suffix("")))
+
+        self._read_fresh(fresh, since, read)
         return archives
 
 
@@ -73,14 +72,13 @@ class ClaudeCodeMemoryFetcher(_ClaudeHome):
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         if not self.root.is_dir():
             return []
+        self._start()
         projects = self.root / "projects"
+        self._log(endpoint="projects", response=json.dumps(self._project_paths()))
         # A mirror sees a deletion only by its absence from a complete listing, so every run records it all.
-        memory = sorted(p for p in projects.glob("*/memory/**/*") if p.is_file())
-        entries = [
-            {"endpoint": "projects", "response": json.dumps(self._project_paths())},
-            *(file_entry(p, p.relative_to(projects).as_posix()) for p in track(memory, f"Fetching {self.source.name}")),
-        ]
-        return [write_archive(destination / archive_name(self.source.name), self.source.name, entries)]
+        for file in sorted(p for p in projects.glob("*/memory/**/*") if p.is_file()):
+            self._log(**file_entry(file, file.relative_to(projects).as_posix()))
+        return [self._write_archive(destination)]
 
     def _project_paths(self) -> list[str]:
         """The real paths behind `projects/`' directory names, which encode them lossily (`/` and `.` both as `-`).

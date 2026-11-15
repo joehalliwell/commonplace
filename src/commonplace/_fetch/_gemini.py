@@ -73,12 +73,10 @@ class GeminiSessionFetcher(BaseFetcher):
 
     def _call_rpc(self, rpcid: str, payload: list, source_path: str = "/app") -> list | None:
         """Wrap payload in the batchexecute envelope, POST, parse, return the
-        RPC response body (parsed from the wrb.fr[2] string). Returns None if
-        the wrb.fr entry has a null body (Gemini's way of signalling a per-item
-        access glitch). A missing wrb.fr entry entirely still raises.
-
-        The raw response is appended to `self._wire_log` so it can be preserved
-        as provenance alongside the parsed output."""
+        RPC response body (parsed from the wrb.fr[2] string), recording the
+        raw response. Returns None if the wrb.fr entry has a null body (Gemini's
+        way of signalling a per-item access glitch). A missing wrb.fr entry
+        entirely still raises."""
         params = {
             "rpcids": rpcid,
             "_reqid": random.randint(10000, 99999),
@@ -90,8 +88,8 @@ class GeminiSessionFetcher(BaseFetcher):
         envelope = json.dumps([[[rpcid, json.dumps(payload), None, "generic"]]])
         data = {"at": self._access_token, "f.req": envelope}
         headers = {"Content-Type": "application/x-www-form-urlencoded;charset=utf-8"}
-        r = self._request("POST", BATCH_URL, params=params, data=data, headers=headers)
-        self._log(rpc=rpcid, payload=payload, response=r.text)
+        entry = {"rpc": rpcid, "payload": payload}
+        r = self._record("POST", BATCH_URL, entry=entry, params=params, data=data, headers=headers)
         return _extract_rpc_body(r.text, rpcid)
 
 
