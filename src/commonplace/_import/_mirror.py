@@ -19,6 +19,7 @@ from commonplace._wire import archive_names, last_fetched, read_header
 def mirror_one(path: Path, repo: Commonplace, importer: MirrorImporter) -> Blob | None:
     """Land the files the capture read and prune the paths its listing no longer names; returns the blob stored."""
     tree = importer.source.tree
+    repo.ensure_unedited(tree)
     # Captures of this source already landed, for an importer whose captures are changes on earlier ones.
     earlier = [repo.root / blob.path for blob in repo.blobs(*archive_names(importer.source.name), committed_only=True)]
     fetched_at, newest = read_header(path).fetched_at, last_fetched(earlier)

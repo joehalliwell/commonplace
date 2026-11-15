@@ -106,6 +106,7 @@ class Marginalia:
     body: str = ""
     properties: Metadata = field(default_factory=dict)  # Every other frontmatter key, kept through any rewrite
     offset: int = field(default=0, compare=False)  # The lines of their file before the body, as read
+    text: str = field(default="", compare=False)  # Their file as read, so a rewrite keeps an uncommitted edit
 
     def tagged(self, *tags: str) -> "Marginalia":
         """These marginalia with `tags` added, after those they have, each once."""

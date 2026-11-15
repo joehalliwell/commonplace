@@ -13,6 +13,7 @@ from commonplace._fetch._keep import CHECKPOINT_EVERY, KeepFetcher
 from commonplace._import._commands import import_
 from commonplace._import._keep import KeepImporter
 from commonplace._marginalia import Marginalia, write_marginalia
+from commonplace._repo import UncommittedChanges
 from commonplace._types import Note
 from commonplace._utils import load_frontmatter
 from commonplace._wire import archive_names, read_entries, write_archive
@@ -340,3 +341,27 @@ def test_a_note_trashed_in_keep_leaves_the_mirror(test_repo):
     fetch(test_repo, sources=fetching(FakeKeep(binned).fetcher()))
 
     assert not (test_repo.root / TEA).exists()
+
+
+def test_fetch_over_an_uncommitted_hand_edit_aborts_before_asking_keep(test_repo):
+    fetch(test_repo, sources=fetching(FakeKeep().fetcher()))
+    note = test_repo.root / TEA
+    note.write_text(note.read_text() + "\nMy own thought.\n")
+    keep = FakeKeep()
+
+    with pytest.raises(UncommittedChanges, match=str(TEA)):
+        fetch(test_repo, sources=fetching(keep.fetcher()))
+
+    assert "My own thought." in note.read_text()
+    assert not keep.requests
+
+
+def test_fetch_never_prunes_a_file_someone_left_untracked_in_the_mirror(test_repo):
+    fetch(test_repo, sources=fetching(FakeKeep().fetcher()))
+    mine = test_repo.root / "notes/keep/mine.md"
+    mine.write_text("# Mine\n")
+
+    with pytest.raises(UncommittedChanges):
+        fetch(test_repo, sources=fetching(FakeKeep().fetcher()))
+
+    assert mine.exists()

@@ -4,13 +4,14 @@ import re
 import subprocess
 import sys
 import threading
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 import yaml
 
 from commonplace._marginalia import marginalia_path
-from commonplace._repo import Commonplace, GitError
+from commonplace._repo import Commonplace, GitError, UncommittedChanges
 from commonplace._show import links
 from commonplace._types import Note
 from commonplace._utils import load_frontmatter
@@ -46,6 +47,68 @@ def test_remove_committed_note_is_gone_from_head(test_repo, make_note):
 
     assert not (test_repo.root / "memory/claude/gone.md").exists()
     assert "memory/claude" not in _git(test_repo, "ls-tree", "--name-only", "HEAD", "memory/").split()
+
+
+@pytest.fixture
+def edited(test_repo, make_note):
+    """A committed note with a hand edit nobody has committed."""
+    test_repo.put(make_note("notes/a.md", "# A\n"))
+    test_repo.commit("Add")
+    (test_repo.root / "notes/a.md").write_text("# A\n\nMy own thought.\n")
+    return test_repo
+
+
+def test_put_over_an_uncommitted_edit_raises_and_keeps_it(edited, make_note):
+    with pytest.raises(UncommittedChanges, match="notes/a.md"):
+        edited.put(make_note("notes/a.md", "# A, rewritten\n"))
+
+    assert "My own thought." in (edited.root / "notes/a.md").read_text()
+
+
+def test_put_over_an_uncommitted_edit_it_read_writes(edited):
+    """A writer that read the edit and builds on it, like `journal`, keeps it."""
+    note = edited.get("notes/a.md")
+
+    edited.put(replace(note, body=note.body + "\nAnd another.\n"))
+
+    assert "My own thought.\n\nAnd another." in (edited.root / "notes/a.md").read_text()
+
+
+def test_put_over_an_edit_once_it_is_committed_writes(edited, make_note):
+    _git(edited, "commit", "-qam", "Hand edit")
+
+    edited.put(make_note("notes/a.md", "# A, rewritten\n"))
+
+    assert "rewritten" in (edited.root / "notes/a.md").read_text()
+
+
+def test_put_twice_before_a_commit_writes(test_repo, make_note):
+    test_repo.put(make_note("notes/b.md", "# B\n"))
+
+    test_repo.put(make_note("notes/b.md", "# B, again\n"))
+
+    assert "again" in (test_repo.root / "notes/b.md").read_text()
+
+
+def test_remove_an_untracked_file_raises_and_keeps_it(test_repo):
+    (test_repo.root / "notes").mkdir(exist_ok=True)
+    (test_repo.root / "notes/mine.md").write_text("# Mine\n")
+
+    with pytest.raises(UncommittedChanges):
+        test_repo.remove(Path("notes/mine.md"))
+
+    assert (test_repo.root / "notes/mine.md").exists()
+
+
+def test_ensure_unedited_names_every_edit_under_a_tree_and_ignores_the_rest(edited, make_note):
+    (edited.root / "notes/mine.md").write_text("# Mine\n")
+    (edited.root / "elsewhere.md").write_text("# Elsewhere\n")
+    edited.put(make_note("notes/c.md", "# Written by this repo\n"))
+
+    with pytest.raises(UncommittedChanges) as raised:
+        edited.ensure_unedited(Path("notes"))
+
+    assert raised.value.paths == [Path("notes/a.md"), Path("notes/mine.md")]
 
 
 def test_commit_subsequent_changes(test_repo, make_note):
