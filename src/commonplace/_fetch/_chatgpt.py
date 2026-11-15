@@ -25,6 +25,7 @@ class ChatGptSessionFetcher(BaseFetcher):
     cookie_domain = "chatgpt.com"
     service_name = "ChatGPT"
     login_url = "https://chatgpt.com"
+    api_root = "https://chatgpt.com/backend-api"
     # NextAuth splits the session token into `.0`, `.1`, ... once it exceeds
     # ~4KB, so this is a prefix. httpx sends every chunk and the server
     # reassembles them; nothing here needs to join them.
@@ -55,14 +56,6 @@ class ChatGptSessionFetcher(BaseFetcher):
         if not token:
             raise upstream_changed(self.service_name, self.login_url, "no access token in the session response")
         client.headers["Authorization"] = f"Bearer {token}"
-
-    def _api(
-        self, method: str, path: str, *, endpoint: str, key: dict[str, Any] | None = None, **kwargs: Any
-    ) -> httpx.Response:
-        """Call `backend-api` and log the response verbatim under `endpoint` and `key`."""
-        r = self._request(method, f"https://chatgpt.com/backend-api/{path}", **kwargs)
-        self._log(endpoint=endpoint, **(key or {}), response=r.text)
-        return r
 
 
 class ChatGptFetcher(ChatGptSessionFetcher):

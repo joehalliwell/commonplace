@@ -61,12 +61,20 @@ CONNECT_TIMEOUT = 5.0
 
 
 class BaseFetcher:
-    """Cookie discovery, browser-shaped HTTP, and archive writing.
+    """Cookie discovery, browser-shaped HTTP, and the capture each fetch records.
 
     Subclasses declare the provider as class attributes and implement `fetch`.
     Cookies and HTTP transport are injectable — real use passes neither and the
     fetcher discovers cookies from Chrome and uses the real network. Tests
-    inject fakes for both."""
+    inject fakes for both. A fetcher that reads local files, like Claude
+    Code's, uses only the capture.
+
+    A capture is stamped when it starts, before anything is read, and the next
+    fetch resumes from the stamp, so anything that changes after it was read,
+    while this run goes on, is read again. Each archive holds what was logged
+    since the last, so a fetcher reused across runs, or writing an archive per
+    session, carries nothing from one into another. Fetchers interpret
+    nothing; see [[commonplace._wire]]."""
 
     #: The source it belongs to, which names its archives.
     source: "Source"
@@ -87,9 +95,12 @@ class BaseFetcher:
     #: objects, at which point [[Pacer]] widens it; only providers known to
     #: challenge bursts need a non-zero value.
     request_interval: float = 0.0
+    #: Where the paths `_api` calls start, for a provider that calls it.
+    api_root: str
 
     _client: httpx.Client
     _wire_log: list[dict[str, Any]]
+    _started: datetime
 
     @classmethod
     def configured(cls, source: "Source", config: "Config") -> Self:
@@ -159,14 +170,8 @@ class BaseFetcher:
 
     @contextmanager
     def _session(self, cookies: httpx.Cookies) -> Iterator[httpx.Client]:
-        """Open the client and start a fresh wire log, stamped now, before anything is read.
-
-        The log resets here rather than in `__init__` so that a fetcher reused
-        across runs cannot carry one run's responses into another's archive.
-        The next fetch resumes from the stamp, so anything that changes after
-        it was read, while this run goes on, is read again."""
-        self._wire_log = []
-        self._started = datetime.now(UTC)
+        """Open the client and start the capture, before anything is read."""
+        self._start()
         with httpx.Client(
             cookies=cookies,
             headers=self._headers(),
@@ -191,6 +196,30 @@ class BaseFetcher:
     def _get(self, url: str, **kwargs: Any) -> httpx.Response:
         return self._request("GET", url, **kwargs)
 
+    def _api(
+        self, method: str, path: str, *, endpoint: str, key: dict[str, Any] | None = None, **kwargs: Any
+    ) -> httpx.Response:
+        """Call the provider's API at `path`, recording the response under `endpoint` and `key`."""
+        return self._record(method, f"{self.api_root}/{path}", entry={"endpoint": endpoint, **(key or {})}, **kwargs)
+
+    def _record(self, method: str, url: str, *, entry: dict[str, Any], **kwargs: Any) -> httpx.Response:
+        """Request, then record the response verbatim under `entry`, which says what was asked."""
+        r = self._request(method, url, **kwargs)
+        self._log(**entry, **self._provenance(r), response=r.text)
+        return r
+
+    def _provenance(self, r: httpx.Response) -> dict[str, str]:
+        """What a provider says about a response that identifies it to them; nothing by default."""
+        return {}
+
+    def _start(self) -> None:
+        self._wire_log = []
+        self._started = datetime.now(UTC)
+
+    def _log(self, **entry: Any) -> None:
+        """Record one response or file verbatim."""
+        self._wire_log.append(entry)
+
     def _read_fresh[T](self, fresh: Sequence[T], since: datetime | None, read: Callable[[T], object]) -> None:
         """Say how much is new since the cursor, then `read` each item behind a progress bar."""
         logger.info(f"{len(fresh)} new since {since or 'beginning'}")
@@ -199,11 +228,10 @@ class BaseFetcher:
         for item in track(fresh, f"Fetching {self.source.name}"):
             read(item)
 
-    def _log(self, **entry: Any) -> None:
-        """Record one provider response verbatim. Fetchers interpret nothing;
-        see [[commonplace._wire]]."""
-        self._wire_log.append(entry)
-
     def _write_archive(self, destination: Path) -> Path:
+        """Write what was logged since the last archive into `destination`, stamped when the capture started."""
         path = destination / archive_name(self.source.name)
-        return write_archive(path, self.source.name, self._wire_log, fetched_at=self._started)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        archive = write_archive(path, self.source.name, self._wire_log, fetched_at=self._started)
+        self._wire_log = []
+        return archive

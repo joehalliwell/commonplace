@@ -28,7 +28,6 @@ from commonplace._fetch._helpers import upstream_changed
 from commonplace._import._keep import last_version, since_last_full
 
 ORIGIN = "https://keep.google.com"
-CHANGES_URL = "https://notes-pa.clients6.google.com/notes/v1/changes"
 #: The web app's own browser key, served in its JavaScript to every visitor: an identifier, not a secret.
 WEB_KEY = "AIzaSyDE7NHMUZfMoJVu-YNkK-7AXFSuL1Q9gKE"
 #: What the web app says it can render; Keep tailors what it sends to these.
@@ -43,6 +42,7 @@ class KeepFetcher(BaseFetcher):
     cookie_domain = ".google.com"
     service_name = "Google Keep"
     login_url = ORIGIN
+    api_root = "https://notes-pa.clients6.google.com/notes/v1"
     #: SAPISID signs the request; without it there's nothing to sign with.
     session_cookie = "SAPISID"
     extra_headers: ClassVar[dict[str, str]] = {"Origin": ORIGIN, "Referer": f"{ORIGIN}/"}
@@ -91,6 +91,7 @@ class KeepFetcher(BaseFetcher):
         }
         if target is not None:
             body["targetVersion"] = target
-        r = self._request("POST", CHANGES_URL, params={"alt": "json", "key": WEB_KEY}, json=body)
-        self._log(endpoint="changes", targetVersion=target, response=r.text)
-        return r.json()
+        params = {"alt": "json", "key": WEB_KEY}
+        return self._api(
+            "POST", "changes", endpoint="changes", key={"targetVersion": target}, params=params, json=body
+        ).json()
