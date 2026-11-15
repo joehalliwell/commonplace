@@ -1,4 +1,5 @@
 import time
+from collections.abc import Sized
 
 from rich.console import Group, RenderableType
 from rich.live import Live
@@ -54,7 +55,8 @@ class TaskFieldColumn(ProgressColumn):
         return t
 
 
-def track(iterable, name="", fields=dict, every=0.5):
+def track(iterable, name="", fields=dict, every=0.5, describe=lambda item: item):
+    """Yield each item behind a progress bar showing `describe(item)`, reading a generator only as it's asked to."""
     progress = Progress(
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
@@ -65,16 +67,17 @@ def track(iterable, name="", fields=dict, every=0.5):
         TaskFieldColumn("item"),
         *(TaskFieldColumn(k) for k in fields()),
     )
-    iterable = list(iterable)
-    task = progress.add_task(name, total=len(iterable))
+    task = progress.add_task(name, total=len(iterable) if isinstance(iterable, Sized) else None)
     checkpoint_at = 0
     start_live(progress)
-    for item in iterable:
-        progress.update(task, advance=1, item=item)
-        if time.time() > checkpoint_at:
-            progress.update(task, **fields())
-            checkpoint_at = time.time() + every
-        yield item
-
-    progress.update(task, **fields())
-    stop_live(progress)
+    # However the loop ends, a break, a raise or a stop, the bar comes down with it.
+    try:
+        for item in iterable:
+            progress.update(task, advance=1, item=describe(item))
+            if time.time() > checkpoint_at:
+                progress.update(task, **fields())
+                checkpoint_at = time.time() + every
+            yield item
+        progress.update(task, **fields())
+    finally:
+        stop_live(progress)
