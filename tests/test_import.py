@@ -123,6 +123,20 @@ def test_import_over_an_uncommitted_chat_edit_raises_and_keeps_it(test_repo, cla
     assert "My own thought." in imported_file.read_text()
 
 
+def test_import_that_fails_to_render_stores_no_blob(test_repo, claude_export, monkeypatch):
+    """Import is a transaction: an archive nothing renders from would sit in the store, untracked, for good."""
+
+    def broken(*args, **kwargs):
+        raise ValueError("importer bug")
+
+    monkeypatch.setattr("commonplace._import._commands.render_chats", broken)
+
+    with pytest.raises(ValueError, match="importer bug"):
+        import_(claude_export, test_repo, user="Human")
+
+    assert not (test_repo.root / ".commonplace/blobs").exists()
+
+
 def test_import_existing_note_refreshes_importer_metadata(test_repo, claude_export):
     import_(claude_export, test_repo, user="Human")
     imported_file = min((test_repo.root / "chats").glob("**/*.md"))

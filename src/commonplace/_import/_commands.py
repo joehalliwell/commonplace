@@ -67,22 +67,28 @@ def import_one(path: Path, repo: Commonplace, user: str, commit: bool = True) ->
         return None
     # Before anything is written, so a refusal leaves nothing half-imported.
     repo.ensure_unedited(importer.source.tree)
-    # Store only the member an archive's importer reads, or the whole file for non-archives —
-    # which includes a member already extracted from one, re-imported from the blob store.
-    if importer.member and is_zipfile(path):
-        with tempfile.TemporaryDirectory() as tmp, ZipFile(path) as zf:
-            blob = repo.store_blob(Path(zf.extract(importer.member, tmp)))
-    else:
-        blob = repo.store_blob(path)
-
     placement = Placement.of(repo, importer.source.tree, importer.id_key)
-    for note in render_chats(path, importer, user, blob.path.as_posix(), placement):
+    with tempfile.TemporaryDirectory() as tmp:
+        kept = _kept(path, importer, Path(tmp))
+        # Rendered before the blob is stored, so an archive that fails to render leaves no trace.
+        notes = render_chats(path, importer, user, Blob.of(kept).path.as_posix(), placement)
+        blob = repo.store_blob(kept)
+    for note in notes:
         repo.put(note)
         logger.info(f"Stored log '{note.metadata['title']}' at '{note.path}'")
 
     if commit:
         repo.commit(f"Import from '{path}' using '{importer.source.name}' importer")
     return blob
+
+
+def _kept(path: Path, importer: ChatImporter, tmp: Path) -> Path:
+    """The file to store: only the member an archive's importer reads, extracted into `tmp`, or else `path` whole,
+    which includes a member already extracted from one, re-imported from the blob store."""
+    if importer.member and is_zipfile(path):
+        with ZipFile(path) as zf:
+            return Path(zf.extract(importer.member, tmp))
+    return path
 
 
 def render_chats(
