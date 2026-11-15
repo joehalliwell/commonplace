@@ -5,28 +5,29 @@ dynamic = ["version"]
 readme = "README.md"
 authors = [{ name = "Joe Halliwell", email = "joe.halliwell@gmail.com" }]
 requires-python = ">=3.12"
+# ~= keeps each below its next breaking release: uv.lock never reaches a PyPI or `uv tool` install.
 dependencies = [
-    "beautifulsoup4>=4.13.4",
-    "lxml>=5.4.0",
-    "html-to-markdown>=3.22,<4",
-    "markdown-it-py>=3.0.0",
-    "mdit-py-plugins>=0.4.2",
-    "mdformat>=0.7.22",
-    "mdformat-gfm>=0.4.1",
-    "pydantic >=2.0.0",
-    "tqdm >=4.66.0",
-    "pydantic-settings>=2.10.0",
-    "llm>=0.13.0",
-    "llm-gemini>=0.23",
-    "llm-claude>=0.4.2",
-    "numpy>=1.24.0",
-    "humanize>=4.0.0",
-    "platformdirs>=4.0.0",
+    "beautifulsoup4~=4.13",
+    "lxml~=5.4",
+    "html-to-markdown~=3.22",
+    "markdown-it-py~=3.0",
+    "mdit-py-plugins~=0.4.2",
+    "mdformat~=0.7.22",
+    "mdformat-gfm~=0.4.1",
+    "pydantic~=2.0",
+    "tqdm~=4.66",
+    "pydantic-settings~=2.10",
+    "llm~=0.26.0",
+    "llm-gemini~=0.23.0",
+    "llm-claude~=0.4.2",
+    "numpy~=2.0",
+    "humanize~=4.0",
+    "platformdirs~=4.0",
     "cyclopts==4.1.0",              # There's a bug in 4.2.0
-    "fastembed>=0.7.4",
-    "browser-cookie3>=0.20.1",
-    "httpx>=0.28.1",
-    "tomli-w>=1.2.0",
+    "fastembed~=0.7.4",
+    "browser-cookie3~=0.20.1",
+    "httpx~=0.28.1",
+    "tomli-w~=1.2",
 ]
 
 [dependency-groups]
