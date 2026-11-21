@@ -49,6 +49,7 @@ class EventLog(BaseModel):
     title: str = Field(description="A short title for this conversation")
     events: Sequence[Event] = Field(description="A list of events in this log")
     created: datetime = Field(description="When this log was started")
+    folder: str = Field(default="", description="The folder in its source's tree it lands in, if not the tree's own")
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Dictionary for any other metadata associated with this log (e.g., model used, token count)",

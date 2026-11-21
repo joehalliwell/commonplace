@@ -74,8 +74,10 @@ def _run(thread: dict[str, Any]) -> EventLog | None:
     log = _to_log(thread | {"chat_messages": messages[2:]})
     task = task_of(thread["name"])
     title = run_title(task, log.created, [output])
+    # A run is what a task did, not something said, so it is kept apart from the chats.
+    events = [output, *log.events]
     return log.model_copy(
-        update={"title": title, "events": [output, *log.events], "metadata": {"task": task, **log.metadata}}
+        update={"title": title, "events": events, "folder": "tasks", "metadata": {"task": task, **log.metadata}}
     )
 
 

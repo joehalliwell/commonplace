@@ -220,8 +220,8 @@ def test_fetch_lists_scheduled_task_runs_with_chats(tmp_path):
     assert requests[0].url.params.get_list("platforms") == ["CLAUDE_AI", "ROUTINE_RUN"]
 
 
-def test_fetch_command_lands_a_run_with_the_runs_before_it(test_repo):
-    """Runs were Code sessions, fetched by claude-tasks, until 2026-11-13; their tree stays theirs."""
+def test_fetch_command_lands_a_run_in_its_own_folder(test_repo):
+    """A run is what a task did, not something said, so it is kept apart from the chats."""
 
     def handler(request: httpx.Request) -> httpx.Response:
         response = _handler(request)
@@ -235,8 +235,8 @@ def test_fetch_command_lands_a_run_with_the_runs_before_it(test_repo):
 
     landed = sorted(p.relative_to(test_repo.root).as_posix() for p in (Path(test_repo.root) / "chats").rglob("*.md"))
     assert landed == [
-        "chats/claude-tasks/2026/07/2026-07-15-digest-0000.md",
         "chats/claude/2026/07/2026-07-15-chat-c-old.md",
+        "chats/claude/tasks/2026/07/2026-07-15-digest-0000.md",
     ]
 
 
