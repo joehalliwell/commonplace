@@ -115,3 +115,71 @@ def test_claude_tasks_run_whose_follow_up_errored_is_not_flagged_failed(tmp_path
     """The run is the scheduled turn; a follow-up failing afterwards doesn't undo its output."""
     [log] = owned(ClaudeTasksImporter).import_(_errored(tmp_path, "11"))
     assert "failed" not in log.metadata
+
+
+CHAT_EXAMPLE = WIRE / "claude-tasks-v4.jsonl.xz"
+
+
+def _chat_run(path: Path = CHAT_EXAMPLE):
+    """The run that is a chat, from an archive also holding one that is a Code session."""
+    return next(
+        log for log in owned(ClaudeTasksImporter).import_(path) if log.metadata["session_id"] == "c-run-example"
+    )
+
+
+def _rewritten_chat(tmp_path, edit) -> Path:
+    """The v4 example archive with its chat run passed through `edit`."""
+    entries = list(read_entries(CHAT_EXAMPLE))
+    chat = json.loads(entries[-1]["response"])
+    return write_archive(
+        tmp_path / "claude-tasks-wire.jsonl.xz",
+        "claude-tasks",
+        [*entries[:-1], entries[-1] | {"response": json.dumps(edit(chat))}],
+    )
+
+
+def test_claude_tasks_archive_with_both_kinds_of_run_imports_each():
+    assert len(owned(ClaudeTasksImporter).import_(CHAT_EXAMPLE)) == 2
+
+
+def test_claude_tasks_chat_run_opens_with_its_output_then_reads_on():
+    """As for a Code session: the prompt and the scheduled turn's tool calls stay in the archive; a follow-up's show."""
+    assert [(e.sender, e.content) for e in _chat_run().events if isinstance(e, Message)] == [
+        (Role.AGENT, "Searched.\n[AI] Quiet in the lab"),
+        (Role.USER, "Why so quiet?"),
+        (Role.AGENT, "- web_fetch: `https://example.com`\n\nA holiday in the US."),
+    ]
+
+
+def test_claude_tasks_chat_run_is_titled_by_its_headline():
+    assert _chat_run().title == "[AI] Quiet in the lab"
+
+
+def test_claude_tasks_chat_run_without_a_headline_is_titled_by_task_and_time(tmp_path):
+    def unheadline(chat):
+        chat["chat_messages"][1]["content"][-1]["text"] = "Searched."
+        return chat
+
+    assert _chat_run(_rewritten_chat(tmp_path, unheadline)).title == "Evening digest 18:11"
+
+
+def test_claude_tasks_chat_run_metadata_ties_it_to_its_task_and_chat():
+    """A chat names no trigger, so the task is known only by name."""
+    assert _chat_run().metadata == {
+        "task": "Evening digest",
+        "session_id": "c-run-example",
+        "resource": "https://claude.ai/chat/c-run-example",
+        "models": ["claude-opus-5-5"],
+    }
+
+
+def test_claude_tasks_chat_run_still_replying_is_skipped(tmp_path):
+    """Its reply ends with a `stop_reason`; until then the next fetch brings it back."""
+
+    def unfinished(chat):
+        chat["chat_messages"] = chat["chat_messages"][:2]
+        del chat["chat_messages"][1]["stop_reason"]
+        return chat
+
+    archive = _rewritten_chat(tmp_path, unfinished)
+    assert [log.metadata["session_id"] for log in owned(ClaudeTasksImporter).import_(archive)] == ["cse_01Example"]
