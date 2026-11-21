@@ -39,8 +39,7 @@ SOURCES: tuple[Source, ...] = (
     MirrorSource("keep", Path("notes/keep"), (KeepImporter,), KeepFetcher),
     ChatSource("gemini-takeout", (GeminiTakeoutImporter,), None),
     ChatSource("gemini", (GeminiImporter,), GeminiFetcher),
-    # A scheduled task's run is a claude.ai chat, but it lands with the runs from before it was one.
-    ChatSource("claude", (ClaudeExportImporter, ClaudeImporter), ClaudeFetcher, elsewhere=(("task", "claude-tasks"),)),
+    ChatSource("claude", (ClaudeExportImporter, ClaudeImporter), ClaudeFetcher),
     ChatSource("claude-tasks", (ClaudeTasksImporter,), None),
     ChatSource("claude-code", (ClaudeCodeImporter,), ClaudeCodeFetcher),
     ChatSource("chatgpt", (ChatGptWireImporter, ChatGptImporter), ChatGptFetcher),

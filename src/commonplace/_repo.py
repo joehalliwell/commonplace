@@ -249,9 +249,9 @@ class Commonplace:
         (self.root / path).unlink()
         self._wrote(path)
 
-    def ensure_unedited(self, *within: Path) -> None:
+    def ensure_unedited(self, within: Path) -> None:
         """Raise, naming them, if any paths under `within` have changes neither a commit nor this repo made."""
-        edited = [Path(p) for p in self._edited - self._pending if any(Path(p).is_relative_to(w) for w in within)]
+        edited = [Path(p) for p in self._edited - self._pending if Path(p).is_relative_to(within)]
         if edited:
             raise UncommittedChanges(edited)
 

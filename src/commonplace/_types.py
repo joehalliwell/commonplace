@@ -6,7 +6,7 @@ names a kind of note (a chat, a topic), so never a `Node` subclass.
 
 import hashlib
 import os
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
 from datetime import date
 from functools import cached_property
@@ -56,15 +56,6 @@ class Source(Node):
         """Its importers, in the order a capture is offered to them."""
         return tuple(importer(self) for importer in self.importer_types)
 
-    @property
-    def trees(self) -> tuple[Path, ...]:
-        """Every tree its notes land in."""
-        return (self.tree,)
-
-    def tree_for(self, metadata: Mapping[str, Any]) -> Path:
-        """The tree a note with `metadata` lands in."""
-        return self.tree
-
     def provenance(self, archive: str) -> dict[str, str]:
         """What a note it lands records of where it came from: this source, and the archive it was read from."""
         return dict(zip(self.PROVENANCE, (self.name, archive), strict=True))
@@ -80,21 +71,12 @@ class ChatSource(Source):
     """A source of closed conversations, accumulated under `chats/`; a chat's text quotes links rather than making them."""
 
     tree: Path = field(init=False)
-    #: Chats that land in another chat source's tree: each by a frontmatter key it has, and that source's name.
-    elsewhere: tuple[tuple[str, str], ...] = ()
     quotes: ClassVar[bool] = True
     #: Where every chat source's tree is.
     ROOT: ClassVar[Path] = Path("chats")
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "tree", self.ROOT / self.name)
-
-    @property
-    def trees(self) -> tuple[Path, ...]:
-        return (self.tree, *(self.ROOT / name for _, name in self.elsewhere))
-
-    def tree_for(self, metadata: Mapping[str, Any]) -> Path:
-        return next((self.ROOT / name for key, name in self.elsewhere if key in metadata), self.tree)
 
 
 @dataclass(frozen=True)

@@ -65,5 +65,5 @@ def mirror_one(path: Path, repo: Commonplace, importer: MirrorImporter) -> Blob 
 
 def _placed(repo: Commonplace, tree: Path, id_key: str, notes: list[Note]) -> list[Note]:
     """Each note at the path it first landed at, found by its id; a new note, in order, clear of every path held."""
-    placement = Placement.of(repo, [tree], id_key)
+    placement = Placement.of(repo, tree, id_key)
     return [replace(note, path=placement.place(note.path, note.metadata[id_key])) for note in notes]
