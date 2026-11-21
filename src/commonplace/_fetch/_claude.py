@@ -82,5 +82,6 @@ class ClaudeFetcher(ClaudeSessionFetcher):
             f"chat_conversations/{item['uuid']}",
             endpoint="conversation",
             key={"cid": item["uuid"]},
-            params={"tree": "True", "rendering_mode": "raw"},
+            # `raw` rendering replaces each tool call with a placeholder.
+            params={"tree": "True", "rendering_mode": "messages", "render_all_tools": "true"},
         )

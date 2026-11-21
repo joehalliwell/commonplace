@@ -47,6 +47,21 @@ def test_wire_importer_wraps_flat_text(tmp_path):
     assert [e.content for e in logs[0].events] == ["hello", "hi back"]
 
 
+def test_wire_importer_renders_each_tool_call_as_a_line(tmp_path):
+    """As a Claude Code note does: what the tool returned, and the thinking, stay in the archive."""
+    reply = [
+        {"type": "thinking", "thinking": "Hmm."},
+        {"type": "tool_use", "name": "web_search", "input": {"query": "news"}},
+        {"type": "tool_result", "name": "web_search", "content": [{"type": "text", "text": "x"}]},
+        {"type": "text", "text": "Nothing new."},
+    ]
+    thread = _THREAD | {"chat_messages": [_THREAD["chat_messages"][1] | {"text": "", "content": reply}]}
+    path = write_archive(tmp_path / "claude-wire.jsonl.gz", "claude", _entries(json.dumps(thread)))
+
+    [log] = owned(ClaudeImporter).import_(path)
+    assert [e.content for e in log.events] == ["- web_search: `news`\n\nNothing new."]
+
+
 def test_wire_importer_reads_legacy_parsed_responses(tmp_path, write_jsonl_gz):
     """v1 archives have no header and hold `response` already parsed. They are
     committed in users' repos, so they must still import."""

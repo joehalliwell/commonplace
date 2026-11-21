@@ -113,26 +113,31 @@ class ClaudeCodeImporter(BaseWireImporter):
             return None
 
         if isinstance(content, list):
-            blocks = []
-            for block in content:
-                block_type = block["type"]
-                if block_type == "text":
-                    blocks.append(block["text"])
-                elif block_type == "tool_use":
-                    if tools:
-                        blocks.append(_tool_line(block["name"], block.get("input", {})))
-                elif block_type not in {"thinking", "redacted_thinking", "tool_result"}:
-                    logger.debug(f"Skipping {block_type} content block")
-                    blocks.append(f"<!-- Skipped content of type {block_type} -->")
-            if not blocks:
+            content = rendered_blocks(content, tools)
+            if content is None:
                 return None
-            content = _joined(blocks)
 
         if role == Role.USER:
             role, content = _attribute(data, content)
         if role == Role.SYSTEM:
             return None
         return Message(sender=role, content=content, created=data["timestamp"])
+
+
+def rendered_blocks(content: list[dict[str, Any]], tools: bool = True) -> str | None:
+    """A turn's content blocks as text, each tool call a line unless not `tools`; None if nothing shows."""
+    blocks = []
+    for block in content:
+        block_type = block["type"]
+        if block_type == "text":
+            blocks.append(block["text"])
+        elif block_type == "tool_use":
+            if tools:
+                blocks.append(_tool_line(block["name"], block.get("input", {})))
+        elif block_type not in {"thinking", "redacted_thinking", "tool_result"}:
+            logger.debug(f"Skipping {block_type} content block")
+            blocks.append(f"<!-- Skipped content of type {block_type} -->")
+    return _joined(blocks) if blocks else None
 
 
 def _tool_line(name: str, tool_input: dict[str, Any]) -> str:
