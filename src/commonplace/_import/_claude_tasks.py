@@ -1,7 +1,9 @@
 """Importer for the `claude-tasks-wire.jsonl.xz` archive produced by [[ClaudeTasksFetcher]].
 
-Entries are `{"endpoint": "sessions"|"events", "sid": ..., "cursor": ..., "response": ...}`, one per page.
-Each run is a Code session, so its event payloads are Claude Code transcript lines."""
+Entries are `{"endpoint": "sessions"|"events", "sid": ..., "cursor": ..., "response": ...}`, one per page, for runs
+that are Code sessions, whose event payloads are Claude Code transcript lines; then
+`{"endpoint": "conversations"|"conversation", "cid": ..., "response": ...}` for runs that are claude.ai chats, as
+runs have been since 2026-11-13, whose content blocks are shaped like those lines'."""
 
 import json
 import re
@@ -12,7 +14,7 @@ from typing import Any
 
 from commonplace._import._base import BaseWireImporter
 from commonplace._import._claude_code import ClaudeCodeImporter
-from commonplace._import._types import Event, EventLog, models_field
+from commonplace._import._types import Event, EventLog, Message, models_field
 from commonplace._logging import logger
 from commonplace._wire import read_entries
 
@@ -27,13 +29,16 @@ class ClaudeTasksImporter(BaseWireImporter):
     def import_(self, path: Path) -> list[EventLog]:
         runs: dict[str, dict[str, Any]] = {}
         events: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
+        chats: list[dict[str, Any]] = []
         for entry in read_entries(path):
-            page = json.loads(entry["response"])["data"]
+            body = json.loads(entry["response"])
             if entry["endpoint"] == "sessions":
-                runs.update((run["id"], run) for run in page)
+                runs.update((run["id"], run) for run in body["data"])
             elif entry["endpoint"] == "events":
-                events[entry["sid"]].extend(page)
-        logs = [_to_log(runs[sid], run_events) for sid, run_events in events.items()]
+                events[entry["sid"]].extend(body["data"])
+            elif entry["endpoint"] == "conversation":
+                chats.append(body)
+        logs = [*(_to_log(runs[sid], run_events) for sid, run_events in events.items()), *map(_chat_to_log, chats)]
         return [log for log in logs if log is not None]
 
 
@@ -59,13 +64,9 @@ def _to_log(run: dict[str, Any], run_events: list[dict[str, Any]]) -> EventLog |
     events.sort(key=lambda e: e.created)
 
     created = datetime.fromisoformat(run["created_at"])
-    # The app decorates titles (a leading "⚡") and may stop; the slug must not move when it does.
-    task = run["title"].lstrip("⚡ ")
-    # A prompt can ask the run to title its own chat with a line like `[AI] What happened`; narration can precede it.
-    # Without one, the time keeps twice-daily runs of a task from sharing a path.
-    headline = HEADLINE.search("\n".join(m.content for m in output))
+    task = _task(run["title"])
     return EventLog(
-        title=headline[0] if headline else f"{task} {created:%H:%M}",
+        title=_title(task, created, output),
         created=created,
         events=events,
         metadata={
@@ -79,3 +80,45 @@ def _to_log(run: dict[str, Any], run_events: list[dict[str, Any]]) -> EventLog |
             **({"failed": True} if lines[end].get("is_error") else {}),
         },
     )
+
+
+def _chat_to_log(chat: dict[str, Any]) -> EventLog | None:
+    """One run that is a chat, read as a Code session's is; None until the reply to its prompt ends."""
+    # The prompt opens the chat, and the scheduled turn is the one reply to it.
+    messages = chat["chat_messages"]
+    if len(messages) < 2 or not messages[1].get("stop_reason"):
+        logger.info(f"Skipping run {chat['uuid']}: no output yet")
+        return None
+    output = [m for m in [ClaudeCodeImporter._process_event(_as_line(messages[1]), tools=False)] if m]
+    replies = [m for message in messages[2:] if (m := ClaudeCodeImporter._process_event(_as_line(message)))]
+    created = datetime.fromisoformat(chat["created_at"])
+    task = _task(chat["name"])
+    return EventLog(
+        title=_title(task, created, output),
+        created=created,
+        events=[*output, *replies],
+        metadata={
+            "task": task,
+            "session_id": chat["uuid"],
+            "resource": f"https://claude.ai/chat/{chat['uuid']}",
+            **models_field([chat.get("model")]),
+        },
+    )
+
+
+def _as_line(message: dict[str, Any]) -> dict[str, Any]:
+    """A chat message as the transcript line it would be in a Code session, whose content blocks it shares."""
+    kind = "assistant" if message["sender"] == "assistant" else "user"
+    return {"type": kind, "timestamp": message["created_at"], "message": {"role": kind, "content": message["content"]}}
+
+
+def _task(title: str) -> str:
+    """The task a run's title names: the app decorates it (a leading "⚡") and may stop, and the slug must not move."""
+    return title.lstrip("⚡ ")
+
+
+def _title(task: str, created: datetime, output: list[Message]) -> str:
+    """The headline a prompt can ask a run to open with, like `[AI] What happened`, or else the task and the time."""
+    # Narration can precede the headline. The time keeps twice-daily runs of a task from sharing a path.
+    headline = HEADLINE.search("\n".join(m.content for m in output))
+    return headline[0] if headline else f"{task} {created:%H:%M}"

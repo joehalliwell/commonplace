@@ -67,7 +67,8 @@ doesn't have. Claude's gets slightly less than the manual export: the endpoint
 strips `<antThinking>` blocks server-side (issue #6).
 
 `claude-tasks` fetches the runs of your claude.ai scheduled tasks, which
-claude.ai keeps apart from your chats. Each run lands as a chat in
+claude.ai keeps apart from your chats: Code sessions until 13 November 2026,
+chats it leaves out of the chat list since. Each run lands as a chat in
 `chats/claude-tasks/`, titled by the first line of its output shaped like
 `[AI] What happened`, which a task's prompt can ask for, or otherwise by the
 task's name and the time it started; `task` in the frontmatter names the task,
@@ -366,6 +367,10 @@ Copy `navigator.userAgent` from your browser's console and set `COMMONPLACE_UA`
 
 What to do by hand when a release needs it. After any upgrade, run
 `commonplace doctor` to see what scaffolding an older repo is missing.
+
+**0.14.1**: `claude-tasks` fetches the runs claude.ai has kept as chats since 13
+November 2026. Run `commonplace fetch --full --source claude-tasks` once to land
+those that finished before your last fetch.
 
 **0.9.1**: a Claude Code session resumed in another no longer gets a note of its
 own. Any fetched before stay, each a short duplicate of a note with the same
