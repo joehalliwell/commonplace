@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from commonplace._import._base import BaseWireImporter
+from commonplace._import._claude_code import rendered_blocks
 from commonplace._import._types import EventLog, Message, Role, models_field
 from commonplace._logging import logger
 from commonplace._progress import track
@@ -86,13 +87,5 @@ def _to_message(message: dict[str, Any]) -> Message:
         # An explicit empty string is a message that really is empty.
         contents = [{"type": "text", "text": message["text"]}]
 
-    lines: list[str] = []
-    for content in contents:
-        type_ = content["type"]
-        if type_ == "text":
-            lines.append(content["text"])
-        else:
-            logger.debug(f"Skipping {type_} content block {truncate(str(content))}")
-            lines.extend(["> [!NOTE]", f"> Skipped content of type {type_}"])
-
-    return Message(sender=sender, content="\n".join(lines), created=created)
+    # Blocks are shaped as in a Claude Code transcript, so render as its notes do; a turn of only thinking shows empty.
+    return Message(sender=sender, content=rendered_blocks(contents) or "", created=created)

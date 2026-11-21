@@ -96,6 +96,20 @@ def test_fetch_writes_raw_wire_only(tmp_path):
     assert wire[2]["cid"] == "c-new"
 
 
+def test_fetch_reads_chats_with_their_tool_calls(tmp_path):
+    """`raw` rendering replaces each tool call with a placeholder."""
+    requests: list[httpx.Request] = []
+
+    def recording(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return _handler(request)
+
+    _make_fetcher(recording).fetch(tmp_path, since=None)
+
+    read = [r for r in requests if "/chat_conversations/" in r.url.path]
+    assert {(r.url.params["rendering_mode"], r.url.params["render_all_tools"]) for r in read} == {("messages", "true")}
+
+
 def test_fetch_stores_response_bodies_verbatim(tmp_path):
     """The archive is what the server sent, byte for byte. Parsing and
     re-serialising would rewrite `1e5` as `100000.0`, `\\/` as `/` and

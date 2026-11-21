@@ -368,9 +368,9 @@ Copy `navigator.userAgent` from your browser's console and set `COMMONPLACE_UA`
 What to do by hand when a release needs it. After any upgrade, run
 `commonplace doctor` to see what scaffolding an older repo is missing.
 
-**0.14.1**: `claude-tasks` fetches the runs claude.ai has kept as chats since 13
-November 2026. Run `commonplace fetch --full --source claude-tasks` once to land
-those that finished before your last fetch.
+**0.14.1**: a claude.ai chat shows each tool call as one line, as a Claude Code
+note does. Run `commonplace fetch --full --source claude` once to re-read the
+chats you have with them.
 
 **0.9.1**: a Claude Code session resumed in another no longer gets a note of its
 own. Any fetched before stay, each a short duplicate of a note with the same
