@@ -10,6 +10,7 @@ from typing import Any
 
 from commonplace._import._base import BaseWireImporter
 from commonplace._import._claude_code import rendered_blocks
+from commonplace._import._claude_tasks import run_title, task_of
 from commonplace._import._types import EventLog, Message, Role, models_field
 from commonplace._logging import logger
 from commonplace._progress import track
@@ -31,7 +32,8 @@ class ClaudeImporter(BaseWireImporter):
 
     def import_(self, path: Path) -> list[EventLog]:
         threads = list(_read_wire(path))
-        return [_to_log(thread) for thread in track(threads)]
+        logs = [_run(t) if t.get("platform") == "ROUTINE_RUN" else _to_log(t) for t in track(threads)]
+        return [log for log in logs if log is not None]
 
 
 def _read_wire(path: Path) -> Iterable[dict[str, Any]]:
@@ -61,6 +63,22 @@ def _to_log(thread: dict[str, Any]) -> EventLog:
     )
 
 
+def _run(thread: dict[str, Any]) -> EventLog | None:
+    """A scheduled task's run, read as [[ClaudeTasksImporter]] reads one; None until the reply to its prompt ends."""
+    # The prompt is a template, and the scheduled turn its one reply, whose tool calls are working: all stay archived.
+    messages = thread["chat_messages"]
+    if len(messages) < 2 or not messages[1].get("stop_reason"):
+        logger.info(f"Skipping run {thread['uuid']}: no output yet")
+        return None
+    output = _to_message(messages[1], tools=False)
+    log = _to_log(thread | {"chat_messages": messages[2:]})
+    task = task_of(thread["name"])
+    title = run_title(task, log.created, [output])
+    return log.model_copy(
+        update={"title": title, "events": [output, *log.events], "metadata": {"task": task, **log.metadata}}
+    )
+
+
 def _models(thread: dict[str, Any]) -> list[str | None]:
     """Messages name no model: `model` is the one in use now, and a safeguard fallback names those before it."""
     fallback = (thread.get("settings") or {}).get("safeguard_fallback") or {}
@@ -68,7 +86,7 @@ def _models(thread: dict[str, Any]) -> list[str | None]:
     return [*(model["model"] for model in hops), thread.get("model")]
 
 
-def _to_message(message: dict[str, Any]) -> Message:
+def _to_message(message: dict[str, Any], tools: bool = True) -> Message:
     sender = Role.USER if message["sender"] == "human" else Role.AGENT
     created = message["created_at"]
 
@@ -88,4 +106,4 @@ def _to_message(message: dict[str, Any]) -> Message:
         contents = [{"type": "text", "text": message["text"]}]
 
     # Blocks are shaped as in a Claude Code transcript, so render as its notes do; a turn of only thinking shows empty.
-    return Message(sender=sender, content=rendered_blocks(contents) or "", created=created)
+    return Message(sender=sender, content=rendered_blocks(contents, tools) or "", created=created)

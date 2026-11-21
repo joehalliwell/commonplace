@@ -316,54 +316,6 @@ TASK_EVENTS = [
     _task_event(11, "2026-10-11T07:00:06Z", {"type": "result", "subtype": "success", "result": "A quiet night."}),
 ]
 
-# Synthetic, shaped like a run read on 2026-11-21 with `rendering_mode=messages&render_all_tools=true`:
-# since 2026-11-13 a run is a claude.ai chat, whose prompt and reply carry blocks shaped like the API's.
-TASK_CHAT_LISTED = {
-    "uuid": "c-run-example",
-    "name": "⚡ Evening digest",
-    "model": "claude-opus-5-5",
-    "platform": "ROUTINE_RUN",
-    "created_at": "2026-11-21T18:11:05.485293Z",
-    "updated_at": "2026-11-21T19:02:11.118261Z",
-}
-
-
-def _chat_message(n: int, sender: str, at: str, *content: dict) -> dict:
-    reply = {"stop_reason": "end_turn"} if sender == "assistant" else {}
-    return {"uuid": f"m-{n}", "parent_message_uuid": f"m-{n - 1}", "sender": sender, "created_at": at, "text": "",
-            "content": list(content), **reply}  # fmt: skip
-
-
-def _tool_call(n: int, name: str, tool_input: dict, output: str) -> tuple[dict, dict]:
-    use = {"type": "tool_use", "id": f"toolu_{n}", "name": name, "input": tool_input, "message": f"{name}: working"}
-    result = {"type": "tool_result", "tool_use_id": f"toolu_{n}", "name": name, "is_error": False,
-              "content": [{"type": "text", "text": output}]}  # fmt: skip
-    return use, result
-
-
-TASK_CHAT = TASK_CHAT_LISTED | {
-    "current_leaf_message_uuid": "m-4",
-    "chat_messages": [
-        _chat_message(1, "human", "2026-11-21T18:11:05Z", {"type": "text", "text": "Find news."}),
-        _chat_message(
-            2,
-            "assistant",
-            "2026-11-21T18:11:07Z",
-            {"type": "thinking", "thinking": "", "summaries": []},
-            *_tool_call(1, "web_search", {"query": "news"}, "x"),
-            {"type": "text", "text": "Searched.\n[AI] Quiet in the lab"},
-        ),
-        _chat_message(3, "human", "2026-11-21T19:01:40Z", {"type": "text", "text": "Why so quiet?"}),
-        _chat_message(
-            4,
-            "assistant",
-            "2026-11-21T19:02:11Z",
-            *_tool_call(2, "web_fetch", {"url": "https://example.com"}, "y"),
-            {"type": "text", "text": "A holiday in the US."},
-        ),
-    ],
-}
-
 #: The scheduled-run wire first appeared at v3, so it has no earlier examples.
 TASK_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
     3: (
@@ -383,20 +335,6 @@ TASK_ARCHIVES: dict[int, tuple[dict | None, list[dict]]] = {
         ],
     ),
 }
-# The runs that are chats follow the runs that are Code sessions, as the fetcher reads them.
-TASK_ARCHIVES[4] = (
-    {
-        **TASK_ARCHIVES[3][0],
-        "version": 4,
-        "fetched_at": "2026-11-21T20:00:00+00:00",
-        "fetched_by": "commonplace/0.12.0",
-    },
-    [
-        *TASK_ARCHIVES[3][1],
-        {"endpoint": "conversations", "response": json.dumps([TASK_CHAT_LISTED])},
-        {"endpoint": "conversation", "cid": "c-run-example", "response": json.dumps(TASK_CHAT)},
-    ],
-)
 
 
 # Real bodies, redacted, so a fix for a new upstream shape is checked against what Google actually sent.

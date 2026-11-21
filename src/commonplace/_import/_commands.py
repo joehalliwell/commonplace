@@ -66,8 +66,8 @@ def import_one(path: Path, repo: Commonplace, user: str, commit: bool = True) ->
         logger.debug(f"Skipping {path}")
         return None
     # Before anything is written, so a refusal leaves nothing half-imported.
-    repo.ensure_unedited(importer.source.tree)
-    placement = Placement.of(repo, importer.source.tree, importer.id_key)
+    repo.ensure_unedited(*importer.source.trees)
+    placement = Placement.of(repo, importer.source.trees, importer.id_key)
     with tempfile.TemporaryDirectory() as tmp:
         kept = _kept(path, importer, Path(tmp))
         # Rendered before the blob is stored, so an archive that fails to render leaves no trace.
@@ -100,7 +100,7 @@ def render_chats(
     placement = placement or Placement()
 
     for log in importer.import_(path):
-        proposed = make_chat_path(importer.source.tree, date=log.created, title=log.title)
+        proposed = make_chat_path(importer.source.tree_for(log.metadata), date=log.created, title=log.title)
         rel_path = placement.place(proposed, log.metadata.get(importer.id_key) if importer.id_key else None)
 
         # `generated` is the importer's rendition, current as of the last event.
