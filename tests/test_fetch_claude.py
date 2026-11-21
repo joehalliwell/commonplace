@@ -207,6 +207,39 @@ def test_fetch_command_dispatches(test_repo):
     assert len(chats) == 2
 
 
+def test_fetch_lists_scheduled_task_runs_with_chats(tmp_path):
+    """The default listing leaves a run out; it is listed only when its platform is asked for."""
+    requests: list[httpx.Request] = []
+
+    def recording(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return _handler(request)
+
+    _make_fetcher(recording).fetch(tmp_path, since=None)
+
+    assert requests[0].url.params.get_list("platforms") == ["CLAUDE_AI", "ROUTINE_RUN"]
+
+
+def test_fetch_command_lands_a_run_with_the_runs_before_it(test_repo):
+    """Runs were Code sessions, fetched by claude-tasks, until 2026-11-13; their tree stays theirs."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        response = _handler(request)
+        if request.url.path.endswith("/c-new"):
+            run = json.loads(response.content) | {"platform": "ROUTINE_RUN", "name": "⚡ Digest"}
+            run["chat_messages"][1]["stop_reason"] = "end_turn"
+            return httpx.Response(200, json=run)
+        return response
+
+    fetch(test_repo, sources=fetching(_make_fetcher(handler)))
+
+    landed = sorted(p.relative_to(test_repo.root).as_posix() for p in (Path(test_repo.root) / "chats").rglob("*.md"))
+    assert landed == [
+        "chats/claude-tasks/2026/07/2026-07-15-digest-0000.md",
+        "chats/claude/2026/07/2026-07-15-chat-c-old.md",
+    ]
+
+
 def test_fetch_raises_on_401(tmp_path):
     with pytest.raises(FetchBlocked):
         _make_fetcher(handler=lambda r: httpx.Response(401)).fetch(tmp_path, since=None)

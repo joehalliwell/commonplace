@@ -34,8 +34,7 @@ def render(repo: Commonplace, check: bool) -> tuple[list[str], list[str]]:
     placements: dict[str, Placement] = {}
     for blob, importer in track(archives, "Replaying archives"):
         if importer.source.name not in placements:
-            tree = importer.source.tree
-            placements[importer.source.name] = Placement.of(repo, tree, importer.id_key)
+            placements[importer.source.name] = Placement.of(repo, importer.source.trees, importer.id_key)
         placement = placements[importer.source.name]
         rendered = {
             note.path: note

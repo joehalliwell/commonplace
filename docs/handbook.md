@@ -66,16 +66,13 @@ per-turn timestamps, Gem personas and thought traces, which the Takeout export
 doesn't have. Claude's gets slightly less than the manual export: the endpoint
 strips `<antThinking>` blocks server-side (issue #6).
 
-`claude-tasks` fetches the runs of your claude.ai scheduled tasks, which
-claude.ai keeps apart from your chats: Code sessions until 13 November 2026,
-chats it leaves out of the chat list since. Each run lands as a chat in
-`chats/claude-tasks/`, titled by the first line of its output shaped like
-`[AI] What happened`, which a task's prompt can ask for, or otherwise by the
-task's name and the time it started; `task` in the frontmatter names the task,
-and `failed: true` marks a run that ended in an error. It opens with what the
-run produced; reply to it in claude.ai and the conversation follows on the next
-fetch. The prompt and the steps behind the output stay in the wire archive, and
-the task definitions are not fetched.
+The runs of your claude.ai scheduled tasks come with your Claude chats, but each
+lands in `chats/claude-tasks/`, titled by the first line of its output shaped
+like `[AI] What happened`, which a task's prompt can ask for, or otherwise by the
+task's name and the time it started; `task` in the frontmatter names the task.
+It opens with what the run produced; reply to it in claude.ai and the
+conversation follows on the next fetch. The prompt and the steps behind the
+output stay in the wire archive, and the task definitions are not fetched.
 
 These are the vendors' internal endpoints — unofficial, and they change without
 notice. If a fetcher breaks, fall back to [manual exports](#importing); if a
@@ -369,8 +366,10 @@ What to do by hand when a release needs it. After any upgrade, run
 `commonplace doctor` to see what scaffolding an older repo is missing.
 
 **0.14.1**: a claude.ai chat shows each tool call as one line, as a Claude Code
-note does. Run `commonplace fetch --full --source claude` once to re-read the
-chats you have with them.
+note does, and scheduled-task runs come from the `claude` source, since
+claude.ai made them chats on 13 November 2026; `claude-tasks` no longer
+fetches. Run `commonplace fetch --full --source claude` once to re-read the
+chats you have with their tool calls, and to land the runs since then.
 
 **0.9.1**: a Claude Code session resumed in another no longer gets a note of its
 own. Any fetched before stay, each a short duplicate of a note with the same

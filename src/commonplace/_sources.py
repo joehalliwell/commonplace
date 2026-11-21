@@ -12,7 +12,6 @@ from commonplace._fetch._chatgpt_memory import ChatGptMemoryFetcher
 from commonplace._fetch._claude import ClaudeFetcher
 from commonplace._fetch._claude_code import ClaudeCodeFetcher, ClaudeCodeMemoryFetcher
 from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
-from commonplace._fetch._claude_tasks import ClaudeTasksFetcher
 from commonplace._fetch._gemini import GeminiFetcher
 from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
 from commonplace._fetch._keep import KeepFetcher
@@ -40,8 +39,9 @@ SOURCES: tuple[Source, ...] = (
     MirrorSource("keep", Path("notes/keep"), (KeepImporter,), KeepFetcher),
     ChatSource("gemini-takeout", (GeminiTakeoutImporter,), None),
     ChatSource("gemini", (GeminiImporter,), GeminiFetcher),
-    ChatSource("claude", (ClaudeExportImporter, ClaudeImporter), ClaudeFetcher),
-    ChatSource("claude-tasks", (ClaudeTasksImporter,), ClaudeTasksFetcher),
+    # A scheduled task's run is a claude.ai chat, but it lands with the runs from before it was one.
+    ChatSource("claude", (ClaudeExportImporter, ClaudeImporter), ClaudeFetcher, elsewhere=(("task", "claude-tasks"),)),
+    ChatSource("claude-tasks", (ClaudeTasksImporter,), None),
     ChatSource("claude-code", (ClaudeCodeImporter,), ClaudeCodeFetcher),
     ChatSource("chatgpt", (ChatGptWireImporter, ChatGptImporter), ChatGptFetcher),
 )

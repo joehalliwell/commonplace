@@ -6,6 +6,7 @@ from zipfile import ZipFile
 
 from commonplace._import._claude import ClaudeImporter
 from commonplace._import._claude_export import ClaudeExportImporter
+from commonplace._import._types import Role
 from commonplace._wire import write_archive
 from tests.fetching import owned
 
@@ -60,6 +61,76 @@ def test_wire_importer_renders_each_tool_call_as_a_line(tmp_path):
 
     [log] = owned(ClaudeImporter).import_(path)
     assert [e.content for e in log.events] == ["- web_search: `news`\n\nNothing new."]
+
+
+def _run(**changes) -> dict:
+    """A scheduled task's run, as claude.ai keeps it: a chat opened by the task's prompt."""
+    reply = [
+        {"type": "tool_use", "name": "web_search", "input": {"query": "news"}},
+        {"type": "text", "text": "Searched.\n[AI] Quiet in the lab"},
+    ]
+    follow_up = [
+        {"type": "tool_use", "name": "web_fetch", "input": {"url": "https://example.com"}},
+        {"type": "text", "text": "A holiday in the US."},
+    ]
+    messages = [
+        {"sender": "human", "text": "Find news.", "created_at": "2026-11-21T18:11:05Z"},
+        {"sender": "assistant", "text": "", "content": reply, "created_at": "2026-11-21T18:11:07Z", "stop_reason": "end_turn"},
+        {"sender": "human", "text": "Why so quiet?", "created_at": "2026-11-21T19:01:40Z"},
+        {"sender": "assistant", "text": "", "content": follow_up, "created_at": "2026-11-21T19:02:11Z", "stop_reason": "end_turn"},
+    ]  # fmt: skip
+    run = {
+        "uuid": "run",
+        "name": "⚡ Evening digest",
+        "model": "claude-opus-5-5",
+        "platform": "ROUTINE_RUN",
+        "created_at": "2026-11-21T18:11:05.485293Z",
+        "chat_messages": messages,
+    }
+    return run | changes
+
+
+def _imported(tmp_path, *threads: dict) -> list:
+    path = write_archive(
+        tmp_path / "claude-wire.jsonl.xz",
+        "claude",
+        [{"endpoint": "conversation", "cid": t["uuid"], "response": json.dumps(t)} for t in threads],
+    )
+    return owned(ClaudeImporter).import_(path)
+
+
+def test_wire_importer_run_opens_with_its_output_then_reads_on(tmp_path):
+    """As claude-tasks reads a run: the prompt and the scheduled turn's tool calls stay in the archive."""
+    [log] = _imported(tmp_path, _run())
+    assert [(e.sender, e.content) for e in log.events] == [
+        (Role.AGENT, "Searched.\n[AI] Quiet in the lab"),
+        (Role.USER, "Why so quiet?"),
+        (Role.AGENT, "- web_fetch: `https://example.com`\n\nA holiday in the US."),
+    ]
+
+
+def test_wire_importer_run_is_titled_by_its_headline(tmp_path):
+    [log] = _imported(tmp_path, _run())
+    assert log.title == "[AI] Quiet in the lab"
+
+
+def test_wire_importer_run_without_a_headline_is_titled_by_task_and_time(tmp_path):
+    run = _run()
+    run["chat_messages"][1]["content"][-1]["text"] = "Searched."
+    [log] = _imported(tmp_path, run)
+    assert log.title == "Evening digest 18:11"
+
+
+def test_wire_importer_run_names_its_task(tmp_path):
+    [log] = _imported(tmp_path, _run())
+    assert log.metadata["task"] == "Evening digest"
+
+
+def test_wire_importer_run_still_replying_is_skipped(tmp_path):
+    """Its reply ends with a `stop_reason`; until then the next fetch brings it back."""
+    run = _run()
+    del run["chat_messages"][1]["stop_reason"]
+    assert [log.metadata["uuid"] for log in _imported(tmp_path, run, _THREAD)] == ["abc"]
 
 
 def test_wire_importer_reads_legacy_parsed_responses(tmp_path, write_jsonl_gz):

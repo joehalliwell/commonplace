@@ -2,9 +2,11 @@
 
 A note's path is its id in the graph, chosen readable because people browse the tree. The id a vendor gives it
 only finds the path it first landed at, which it keeps, since marginalia and links hang off it; and a new note
-whose proposed path is held takes the next free `-2`, `-3`.
+whose proposed path is held takes the next free `-2`, `-3`. Which tree a note lands in is its source's call,
+which can send some of its notes to another source's tree; a note is found by its id in any of them.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -21,15 +23,18 @@ class Placement:
     held: set[Path] = field(default_factory=set)
 
     @classmethod
-    def of(cls, repo: "Commonplace", tree: Path, id_key: str | None) -> "Placement":
-        """What `tree` holds now: each note by the id under `id_key`, and each gone note's marginalia."""
+    def of(cls, repo: "Commonplace", trees: Iterable[Path], id_key: str | None) -> "Placement":
+        """What `trees` hold now: each note by the id under `id_key`, and each gone note's marginalia."""
         landed: dict[str, Path] = {}
-        if id_key is not None:
-            for note in repo.notes(tree):
-                if (note_id := note.metadata.get(id_key)) is not None:
-                    landed[str(note_id)] = note.path
-        # Marginalia outlive their note: a new note at a gone note's path would silently inherit them.
-        return cls(landed, set(landed.values()) | set(repo.gone(tree)))
+        gone: set[Path] = set()
+        for tree in trees:
+            if id_key is not None:
+                for note in repo.notes(tree):
+                    if (note_id := note.metadata.get(id_key)) is not None:
+                        landed[str(note_id)] = note.path
+            # Marginalia outlive their note: a new note at a gone note's path would silently inherit them.
+            gone.update(repo.gone(tree))
+        return cls(landed, set(landed.values()) | gone)
 
     def place(self, proposed: Path, note_id: str | None) -> Path:
         """The path the note holds already, else `proposed` or the next free `-N` beside it, held from now on."""

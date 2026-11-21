@@ -10,8 +10,8 @@ import httpx
 from commonplace._fetch._base import BaseFetcher
 from commonplace._fetch._helpers import session_rejected
 
-#: The Code sessions API rejects a request without it, cookie or not.
-ANTHROPIC_VERSION = "2023-06-01"
+#: Each kind of chat to list: a scheduled task's run is one, but only listed when asked for.
+PLATFORMS = [("platforms", "CLAUDE_AI"), ("platforms", "ROUTINE_RUN")]
 
 
 def updated_after(items: list[dict[str, Any]], since: datetime | None) -> list[dict[str, Any]]:
@@ -45,23 +45,6 @@ class ClaudeSessionFetcher(BaseFetcher):
         request_id = r.headers.get("request-id")
         return {"request_id": request_id} if request_id else {}
 
-    def _code_pages(self, path: str, *, endpoint: str, key: dict[str, str] | None = None, **params: str) -> list[Any]:
-        """Every item of a Code sessions listing, logging each page verbatim with the cursor that fetched it."""
-        items: list[Any] = []
-        cursor: dict[str, str] = {}
-        while True:
-            page = self._record(
-                "GET",
-                f"https://claude.ai/v1/code/{path}",
-                entry={"endpoint": endpoint, **(key or {}), **cursor},
-                params=params | cursor,
-                headers={"anthropic-version": ANTHROPIC_VERSION},
-            ).json()
-            items.extend(page["data"])
-            if not page.get("next_cursor"):
-                return items
-            cursor = {"cursor": page["next_cursor"]}
-
 
 class ClaudeFetcher(ClaudeSessionFetcher):
     """Records one list call plus N conversation details."""
@@ -74,7 +57,8 @@ class ClaudeFetcher(ClaudeSessionFetcher):
         return [self._write_archive(destination)] if fresh else []
 
     def _list_fresh(self, since: datetime | None) -> list[dict[str, Any]]:
-        return updated_after(self._api("GET", "chat_conversations", endpoint="conversations").json(), since)
+        listing = self._api("GET", "chat_conversations", endpoint="conversations", params=PLATFORMS)
+        return updated_after(listing.json(), since)
 
     def _read(self, item: dict[str, Any]) -> None:
         self._api(
