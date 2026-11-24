@@ -1,7 +1,5 @@
-import datetime as dt
 import logging
 import os
-import subprocess
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -15,8 +13,7 @@ from commonplace._fetch._types import FetchBlocked
 from commonplace._logging import logger
 from commonplace._repo import Commonplace, UncommittedChanges
 from commonplace._search._types import SearchMethod
-from commonplace._types import Note, TagFilter
-from commonplace._utils import dump_frontmatter, edit_in_editor, load_frontmatter
+from commonplace._types import TagFilter
 
 DEFAULT_ROOT = Path(user_data_dir("commonplace"))
 ENV_PREFIX = "COMMONPLACE"
@@ -161,53 +158,14 @@ def journal(
     repo: Repo,
 ) -> None:
     """Create or edit a daily journal entry."""
+    from commonplace._journal import journal as edit_journal
 
-    # Journals are keyed by the user's local calendar day, not by instant, so
-    # both of these are deliberately naive. Using UTC here would file an entry
-    # written just after midnight under the previous day.
-    if date is None:
-        day = dt.datetime.now()  # noqa: DTZ005
-    else:
-        try:
-            day = dt.datetime.strptime(date, "%Y-%m-%d")  # noqa: DTZ007
-        except ValueError as e:
-            logger.error(f"Invalid date format '{date}'. Use YYYY-MM-DD (e.g., 2025-10-11)")
-            raise SystemExit(1) from e
-
-    journal_path = repo.root / "journal" / day.strftime("%Y/%m/%Y-%m-%d.md")
-    default_content = f"# {day.strftime('%A, %B %d, %Y')}\n\n## Tasks\n\n## Notes\n\n"
-
-    # Ensure parent directory exists
-    journal_path.parent.mkdir(parents=True, exist_ok=True)
-
-    path = journal_path.relative_to(repo.root)
-
-    # Load existing content or use default (but don't create file yet)
-    note = repo.get(path) if journal_path.exists() else Note(path, default_content)
-    original_content = dump_frontmatter(note.metadata, note.body)
-
-    # Open in editor
     try:
-        edited_content = edit_in_editor(original_content, repo.config.editor)
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Editor exited with error code {e.returncode}")
+        with _indexing(repo, index):
+            edit_journal(repo, date)
+    except ValueError as e:
+        logger.error(str(e))
         raise SystemExit(1) from e
-    except FileNotFoundError as e:
-        logger.error(f"Editor '{repo.config.editor}' not found. Set COMMONPLACE_EDITOR environment variable or config.")
-        raise SystemExit(1) from e
-
-    # If no changes, we're done
-    if edited_content is None:
-        return
-
-    # Save the edited content (creates file if it doesn't exist)
-    metadata, body = load_frontmatter(edited_content)
-    repo.put(Note(path, body, metadata, text=note.text))
-    logger.info(f"Saved journal entry to {journal_path.relative_to(repo.root)}")
-
-    # Commit the journal entry
-    with _indexing(repo, index):
-        repo.commit(f"Update journal entry for {day.strftime('%Y-%m-%d')}")
 
 
 ################################################################################
