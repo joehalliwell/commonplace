@@ -4,6 +4,7 @@ import sqlite3
 from collections.abc import Callable, Iterable, Iterator
 from itertools import islice
 from pathlib import Path
+from typing import Self
 
 import numpy as np
 from numpy.typing import NDArray
@@ -522,6 +523,12 @@ class SQLiteSearchIndex(SearchIndex):
         """Close the database connection."""
         self._conn.close()
 
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
     @staticmethod
     def _cosine_similarity(query: NDArray[np.float32], embeddings: NDArray[np.float32]) -> NDArray[np.float32]:
         """
@@ -553,3 +560,12 @@ class SQLiteSearchIndex(SearchIndex):
             " GROUP BY n.id"
         ):
             yield IndexStat(row[0], Version(Path(row[1]), row[2]), num_chunks=row[3])
+
+    def chunks_for(self, path: Path) -> dict[str, int]:
+        """Chunk counts indexed under this store's model for `path`, keyed by `content_id`."""
+        rows = self._conn.execute(
+            "SELECT n.content_id, COUNT(c.id) FROM notes n LEFT JOIN chunks c ON c.note_id = n.id"
+            " WHERE n.model_id = ? AND n.path = ? GROUP BY n.id",
+            (self._embedder.model_id, str(path)),
+        )
+        return dict(rows.fetchall())

@@ -207,3 +207,7 @@ class SearchIndex(Protocol):
     def stats(self) -> Iterator[IndexStat]:
         """Get stats on this index"""
         ...
+
+    def chunks_for(self, path: Path) -> dict[str, int]:
+        """Chunk counts indexed under this store's model for `path`, keyed by `content_id`."""
+        ...
