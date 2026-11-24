@@ -21,15 +21,15 @@ def commit(root: Path, files: dict[str, str], date: str | None = None) -> None:
     subprocess.run(["git", "-C", str(root), "commit", "-qm", "files"], check=True, env=env)
 
 
-def run(root: Path, out: Path, seed: int = 0, exclude_tags: str | None = None) -> str:
+def run(root: Path, out: Path, seed: int = 0, exclude_tags: list[str] | None = None) -> str:
     """Run the script as the skill does, returning what it prints."""
     args = [sys.executable, "-I", str(SCRIPT), "--root", str(root), "--out", str(out), "--seed", str(seed)]
-    if exclude_tags is not None:
-        args.extend(["--exclude-tags", exclude_tags])
-    return subprocess.run(args, check=True, capture_output=True, text=True).stdout
+    # Pin COMMONPLACE_EXCLUDE_TAGS so a developer's global config doesn't leak into the subprocess.
+    env = os.environ | {"COMMONPLACE_EXCLUDE_TAGS": json.dumps(exclude_tags or [])}
+    return subprocess.run(args, check=True, capture_output=True, text=True, env=env).stdout
 
 
-def residue(root: Path, seed: int = 0, exclude_tags: str | None = None) -> list[dict]:
+def residue(root: Path, seed: int = 0, exclude_tags: list[str] | None = None) -> list[dict]:
     """The fragments a run writes, each with the text of its passage file."""
     out = Path(tempfile.mkdtemp())
     run(root, out, seed, exclude_tags=exclude_tags)
@@ -115,8 +115,8 @@ def test_residue_excludes_notes_matching_exclude_tags(repo: Path):
             ".commonplace/marginalia/notes/marginalia_tagged.md": "---\nmarginalia: 2\ntags:\n- private\n---\n",
         },
     )
-    assert [f["path"] for f in residue(repo, exclude_tags='["scheduled", "private"]')] == ["notes/kept.md"]
-    assert len(residue(repo, exclude_tags="[]")) == 4
+    assert [f["path"] for f in residue(repo, exclude_tags=["scheduled", "private"])] == ["notes/kept.md"]
+    assert len(residue(repo)) == 4
 
 
 def test_residue_same_seed_same_sample(repo: Path):

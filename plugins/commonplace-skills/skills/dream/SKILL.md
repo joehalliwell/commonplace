@@ -75,8 +75,7 @@ Make the scratch dir with `mktemp -d`, outside the worktree, and note its
 path as `{scratch}`; then draw:
 
 ```bash
-python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/residue.py" \
-  --root "$PWD" --out {scratch} --exclude-tags "$(commonplace config exclude_tags)"
+python3 -I "${CLAUDE_PLUGIN_ROOT}/skills/dream/scripts/residue.py" --root "$PWD" --out {scratch}
 ```
 
 It prints only how many passages it drew. Each is one random `## ` section
