@@ -36,8 +36,6 @@ import httpx
 
 from commonplace._config import DEFAULT_UA
 from commonplace._fetch._helpers import (
-    FetchBlocked,
-    NoSession,
     Pacer,
     raise_on_session_error,
     raise_unreachable,
@@ -45,6 +43,7 @@ from commonplace._fetch._helpers import (
     request_with_retry,
     session_rejected,
 )
+from commonplace._fetch._types import FetchBlocked, NoSession
 from commonplace._logging import logger
 from commonplace._progress import expect, tick
 from commonplace._wire import archive_name, write_archive

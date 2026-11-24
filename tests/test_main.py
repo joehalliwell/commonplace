@@ -11,6 +11,15 @@ from commonplace._repo import Commonplace
 from tests.porcelain import git
 
 
+def test_main_import_leaves_numpy_and_the_http_stack_to_the_commands_that_use_them():
+    """Every command pays for what the CLI imports as it starts, and skills call it many times a run."""
+    code = "import sys, commonplace.__main__; print(sorted({'numpy', 'httpx', 'browser_cookie3'} & set(sys.modules)))"
+
+    loaded = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout
+
+    assert loaded.strip() == "[]"
+
+
 def test_init(tmp_path):
     root = tmp_path / "new_repo"
     assert app.meta(["init", str(root)], result_action="return_int_as_exit_code_else_zero") == 0

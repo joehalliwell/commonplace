@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from commonplace._fetch._chatgpt import ChatGptFetcher
-from commonplace._fetch._helpers import FetchBlocked
+from commonplace._fetch._types import FetchBlocked
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._claude import ClaudeImporter
 from commonplace._wire import WIRE_VERSION, read_entries, read_header, write_archive

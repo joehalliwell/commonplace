@@ -11,7 +11,7 @@ import pytest
 from commonplace import _repo
 from commonplace._fetch._claude_code import ClaudeCodeFetcher
 from commonplace._fetch._commands import fetch
-from commonplace._fetch._helpers import FetchBlocked, NoSession
+from commonplace._fetch._types import FetchBlocked, NoSession
 from commonplace._progress import tick
 from commonplace._repo import UncommittedChanges
 from commonplace._wire import archive_name, write_archive

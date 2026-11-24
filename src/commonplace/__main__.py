@@ -11,7 +11,7 @@ from cyclopts import App, Parameter
 from platformdirs import user_data_dir
 
 from commonplace import _annotate as annotate
-from commonplace._fetch._helpers import FetchBlocked
+from commonplace._fetch._types import FetchBlocked
 from commonplace._logging import logger
 from commonplace._repo import Commonplace, UncommittedChanges
 from commonplace._search._types import SearchMethod

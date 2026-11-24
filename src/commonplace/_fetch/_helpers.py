@@ -8,6 +8,7 @@ import browser_cookie3  # type: ignore[import-untyped]
 import httpx
 
 from commonplace._config import DEFAULT_UA
+from commonplace._fetch._types import FetchBlocked
 from commonplace._logging import logger
 
 # Retry transient failures with exponential backoff.
@@ -92,17 +93,6 @@ class Pacer:
         if widened > self.interval:
             logger.info(f"Throttled; pacing requests {widened:.1f}s apart")
         self.interval = widened
-
-
-class FetchBlocked(RuntimeError):
-    """The provider turned us away for a reason only the user can clear.
-
-    Distinct from a bug: the message is the whole point, so the CLI prints it
-    without a traceback. Raise this only when the text says what to do."""
-
-
-class NoSession(FetchBlocked):
-    """The browser holds no session cookie at all, which most often means a service the user doesn't use."""
 
 
 def raise_on_session_error(response: httpx.Response, service_name: str, login_url: str) -> None:

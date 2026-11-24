@@ -9,12 +9,13 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import NamedTuple, Protocol
-
-import numpy as np
-from numpy.typing import NDArray
+from typing import TYPE_CHECKING, NamedTuple, Protocol
 
 from commonplace._types import Note, TagFilter
+
+if TYPE_CHECKING:
+    import numpy as np
+    from numpy.typing import NDArray
 
 
 class Version(NamedTuple):
@@ -88,7 +89,7 @@ class Embedder(Protocol):
         """
         ...
 
-    def embed_doc(self, text: str) -> NDArray[np.float32]:
+    def embed_doc(self, text: str) -> "NDArray[np.float32]":
         """
         Generate an embedding for a document chunk.
 
@@ -100,7 +101,7 @@ class Embedder(Protocol):
         """
         ...
 
-    def embed_docs(self, texts: list[str]) -> NDArray[np.float32]:
+    def embed_docs(self, texts: list[str]) -> "NDArray[np.float32]":
         """
         Generate embeddings for multiple document chunks.
 
@@ -112,7 +113,7 @@ class Embedder(Protocol):
         """
         ...
 
-    def embed_query(self, text: str) -> NDArray[np.float32]:
+    def embed_query(self, text: str) -> "NDArray[np.float32]":
         """
         Generate an embedding for a search query.
 

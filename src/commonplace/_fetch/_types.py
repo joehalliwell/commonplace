@@ -8,6 +8,17 @@ if TYPE_CHECKING:
     from commonplace._types import Source
 
 
+class FetchBlocked(RuntimeError):
+    """The provider turned us away for a reason only the user can clear.
+
+    Distinct from a bug: the message is the whole point, so the CLI prints it
+    without a traceback. Raise this only when the text says what to do."""
+
+
+class NoSession(FetchBlocked):
+    """The browser holds no session cookie at all, which most often means a service the user doesn't use."""
+
+
 @runtime_checkable
 class Fetcher(Protocol):
     """
