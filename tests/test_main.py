@@ -62,10 +62,10 @@ def test_no_index_flag_is_understood_by_every_note_creating_command(argv):
         (["journal", "--date", "2026-11-01"], "date", "2026-11-01"),
         (["link", "--note", "a", "--target", "b"], "note", "a"),
         (["unlink", "--note", "a", "--target", "b"], "note", "a"),
-        (["search", "tea", "--hidden"], "hidden", True),
         (["search", "tea", "--deleted"], "deleted", True),
-        (["ls", "--hidden"], "hidden", True),
-        (["show", "ideas", "--hidden"], "hidden", True),
+        (["search", "tea", "--tag", "a", "--tag", "b"], "tags", ["a", "b"]),
+        (["ls", "--not-tag", "scheduled"], "not_tags", ["scheduled"]),
+        (["show", "ideas", "--all"], "everything", True),
     ],
     ids=lambda value: value[0] if isinstance(value, list) else None,
 )
@@ -78,7 +78,7 @@ def test_cli_names_bind_as_documented(argv, name, value):
 @pytest.mark.parametrize(
     ("argv", "name"),
     [
-        (["search", "tea", "--no-hidden"], "hidden"),
+        (["search", "tea", "--no-all"], "everything"),
         (["search", "tea", "--no-deleted"], "deleted"),
         (["show", "ideas", "--no-json"], "as_json"),
         (["doctor", "--no-check"], "check"),
@@ -117,6 +117,9 @@ def test_stats_takes_folders_like_ls(test_app, capsys):
         ["search", "tea", "--include-hidden"],
         ["search", "tea", "--include-deleted"],
         ["ls", "--include-hidden"],
+        ["search", "tea", "--hidden"],
+        ["ls", "--hidden"],
+        ["show", "ideas", "--hidden"],
     ],
     ids=lambda argv: " ".join(argv),
 )

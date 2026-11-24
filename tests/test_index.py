@@ -7,6 +7,7 @@ import numpy as np
 from commonplace._marginalia import Marginalia, write_marginalia
 from commonplace._search import _commands
 from commonplace._search._types import Chunk, SearchMethod, Version
+from commonplace._types import TagFilter
 from tests.conftest import StubEmbedder
 from tests.porcelain import git
 
@@ -198,22 +199,24 @@ def test_index_rebuild_drops_another_models_notes(test_repo, other_model_index, 
     assert set(other_model_index.get_indexed_paths()) == set()
 
 
-def test_search_leaves_out_a_note_tagged_hidden(test_repo, make_note):
-    """What makes capturing everything safe: a hidden note stays captured but isn't offered."""
+def test_search_leaves_out_notes_the_tag_filter_excludes_by_every_method(test_repo, make_note):
+    """A note tagged after indexing is filtered by its labels now, so the tag needs no re-index."""
     test_repo.put(make_note(path="kept.md", content="# Kept\n\nOzymandias king of kings.\n"))
-    test_repo.put(make_note(path="mood.md", content="# Mood\n\nOzymandias, and a bad day.\n"))
+    test_repo.put(make_note(path="digest.md", content="# Digest\n\nOzymandias, again.\n"))
     test_repo.commit("Add notes")
     _commands.index(test_repo)
 
-    write_marginalia(test_repo, Marginalia(note=Path("mood.md")).tagged("hidden"))
+    write_marginalia(test_repo, Marginalia(note=Path("digest.md")).tagged("scheduled"))
 
+    def found(method: SearchMethod, tags: TagFilter) -> set[str]:
+        hits = _commands.open_index(test_repo).search("Ozymandias", method=method, tags=tags)
+        return {hit.chunk.version.path.name for hit in hits}
+
+    # Semantic search scores every note, so each case is judged by the tagged one and the untagged one.
     for method in SearchMethod:
-        found = {
-            hit.chunk.version.path.name for hit in _commands.open_index(test_repo).search("Ozymandias", method=method)
-        }
-        assert "mood.md" not in found, method
-    shown = _commands.open_index(test_repo).search_keyword("Ozymandias", include_hidden=True)
-    assert {hit.chunk.version.path.name for hit in shown} == {"kept.md", "mood.md"}
+        assert {"kept.md", "digest.md"} <= found(method, TagFilter()), method
+        assert "digest.md" not in found(method, TagFilter(without=frozenset({"scheduled"}))), method
+        assert found(method, TagFilter(only=frozenset({"scheduled"}))) == {"digest.md"}, method
 
 
 def test_search_hides_deleted_notes(test_repo, make_note):

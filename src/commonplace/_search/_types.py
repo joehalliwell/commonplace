@@ -14,7 +14,7 @@ from typing import NamedTuple, Protocol
 import numpy as np
 from numpy.typing import NDArray
 
-from commonplace._types import Note
+from commonplace._types import Note, TagFilter
 
 
 class Version(NamedTuple):
@@ -164,7 +164,7 @@ class SearchIndex(Protocol):
         limit: int = 10,
         method: SearchMethod = SearchMethod.HYBRID,
         include_deleted: bool = False,
-        include_hidden: bool = False,
+        tags: TagFilter = TagFilter(),
     ) -> list[SearchHit]:
         """
         Search for similar chunks.
@@ -180,7 +180,7 @@ class SearchIndex(Protocol):
                 and all — they are one click away from the reader, so a slightly
                 out-of-date quote beats dropping the note from results until the
                 index catches up.
-            include_hidden: Include hits whose note is tagged `hidden` in its marginalia.
+            tags: Which notes' hits to keep, by their labels; by default, every note's.
 
         Returns:
             List of search hits, ordered by descending similarity

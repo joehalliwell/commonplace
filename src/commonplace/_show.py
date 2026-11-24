@@ -17,13 +17,14 @@ from commonplace._links import Target
 from commonplace._repo import Commonplace
 from commonplace._search._commands import open_index
 from commonplace._search._types import Version
+from commonplace._types import TagFilter
 
 #: The sections after the header, in the order they render.
 SECTIONS = ("tags", "links", "commentary", "index")
 
 
-def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str, Any]:
-    """The record of the note `spec` names; a hidden note is shown when asked for by name, and says so."""
+def show(repo: Commonplace, spec: str, tags: TagFilter = TagFilter()) -> dict[str, Any]:
+    """The record of the note `spec` names, whatever its tags, with links to just the notes `tags` admits."""
     [note] = repo.files.resolve(spec)
     node = repo.get(note)
     metadata = node.metadata
@@ -32,12 +33,11 @@ def show(repo: Commonplace, spec: str, include_hidden: bool = False) -> dict[str
     return {
         "note": str(Target(note)),
         **header,
-        "hidden": node.hidden,
         "tags": {
             "own": list(metadata.get("tags") or []),
             "marginalia": node.marginalia.tags,
         },
-        "links": [asdict(neighbour) for neighbour in links(repo, note, include_hidden)],
+        "links": [asdict(neighbour) for neighbour in links(repo, note, tags)],
         "commentary": node.commentary,
         "index": _index_state(repo, note),
     }
@@ -76,11 +76,11 @@ class Neighbour:
     context: str
 
 
-def links(repo: Commonplace, note: Path, include_hidden: bool = False) -> list[Neighbour]:
-    """A note's edges, out then in; those whose other end is labelled `hidden` left out unless asked for."""
+def links(repo: Commonplace, note: Path, tags: TagFilter = TagFilter()) -> list[Neighbour]:
+    """A note's edges, out then in; those whose other end `tags` doesn't admit are left out."""
 
     def shown(other: Path) -> bool:
-        return include_hidden or not repo.get(other).hidden
+        return tags.admits(repo.get(other).labels)
 
     node, found = repo.get(note), []
     for edge in repo.edges(note):
@@ -91,5 +91,5 @@ def links(repo: Commonplace, note: Path, include_hidden: bool = False) -> list[N
                 found.append(Neighbour("out", str(Target(other, edge.link.target.partition("#")[2])), node.line(edge)))
             case _:
                 found.append(Neighbour("out", edge.link.target, node.line(edge)))
-    into = [(source, edge) for source, edge in repo.into(note) if include_hidden or not source.hidden]
+    into = [(source, edge) for source, edge in repo.into(note) if tags.admits(source.labels)]
     return found + [Neighbour("in", str(Target(edge.node)), source.line(edge)) for source, edge in into]

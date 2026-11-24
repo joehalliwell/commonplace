@@ -9,6 +9,7 @@ import pytest
 import yaml
 
 from commonplace._annotate import link, tag
+from commonplace._config import CONFIG
 from commonplace._marginalia import read_marginalia, write_marginalia
 from commonplace._search import _commands
 from commonplace._show import render, show
@@ -52,7 +53,6 @@ def test_show_gathers_what_frontmatter_and_marginalia_say(notes, as_joe):
     }
     # Lines that link are in links already; commentary is the rest of the log.
     assert shown["commentary"] == ["- 2026-11-02 half wrong"]
-    assert shown["hidden"] is False
 
 
 def test_show_index_says_whether_the_current_version_is_indexed(notes):
@@ -79,11 +79,27 @@ def test_show_index_is_current_while_an_uncommitted_edit_waits_for_its_commit(no
     assert show(notes, "ideas")["index"]["state"] == "current"
 
 
-def test_show_a_hidden_note_when_asked_by_name_and_says_so(notes, as_joe):
-    """Asking for it by name is asking for it; hidden only keeps it out of what's offered."""
-    tag(notes, "ideas", ["hidden"])
+def test_show_cli_shows_a_note_named_though_config_excludes_its_tag(notes, test_app, capsys, as_joe):
+    """Asking for it by name is asking for it; exclusions only keep a note out of what's offered."""
+    tag(notes, "ideas", ["scheduled"])
+    (notes.root / CONFIG).write_text('exclude_tags = ["scheduled"]\n')
 
-    assert show(notes, "ideas")["hidden"] is True
+    capsys.readouterr()  # What tagging logged, once an earlier CLI run has set up logging
+    assert test_app(["show", "ideas", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["tags"]["marginalia"] == ["scheduled"]
+
+
+def test_show_cli_leaves_out_links_to_notes_config_excludes_unless_all(notes, test_app, capsys, as_joe):
+    link(notes, "ideas", "2026-11-01", "where it started", on=date(2026, 11, 2))
+    tag(notes, "2026-11-01", ["scheduled"])
+    (notes.root / CONFIG).write_text('exclude_tags = ["scheduled"]\n')
+
+    def others(*args: str) -> set[str]:
+        capsys.readouterr()  # What tagging and linking logged, once an earlier CLI run has set up logging
+        assert test_app(["show", "ideas", "--json", *args]) == 0
+        return {neighbour["other"] for neighbour in json.loads(capsys.readouterr().out)["links"]}
+
+    assert ("/journal/2026-11-01" in others(), "/journal/2026-11-01" in others("--all")) == (False, True)
 
 
 def test_render_is_the_record_as_yaml_keeping_the_header_and_the_sections_asked_for(notes, as_joe):
@@ -144,4 +160,4 @@ def test_show_cli_json_is_the_whole_record_for_skills(notes, test_app, capsys):
     assert test_app(["show", "ideas", "--json"]) == 0
 
     shown = json.loads(capsys.readouterr().out)
-    assert set(shown) >= {"note", "title", "tags", "links", "commentary", "index", "hidden"}
+    assert set(shown) >= {"note", "title", "tags", "links", "commentary", "index"}

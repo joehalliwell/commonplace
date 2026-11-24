@@ -15,7 +15,7 @@ from commonplace._fetch._helpers import FetchBlocked
 from commonplace._logging import logger
 from commonplace._repo import Commonplace, UncommittedChanges
 from commonplace._search._types import SearchMethod
-from commonplace._types import Note
+from commonplace._types import Note, TagFilter
 from commonplace._utils import dump_frontmatter, edit_in_editor, load_frontmatter
 
 DEFAULT_ROOT = Path(user_data_dir("commonplace"))
@@ -215,6 +215,23 @@ def journal(
 ################################################################################
 ANALYZING_SECTION = "Analyzing"
 
+# cyclopts' idiom for a repeatable flag is a list default; never mutated.
+Tags: TypeAlias = Annotated[  # noqa: UP040
+    list[str], Parameter(name="--tag", help="Only notes tagged this; repeat to require several", negative="")
+]
+NotTags: TypeAlias = Annotated[  # noqa: UP040
+    list[str], Parameter(name="--not-tag", help="Also leave out notes tagged this", negative="")
+]
+Everything: TypeAlias = Annotated[  # noqa: UP040
+    bool, Parameter(name="--all", help="Keep notes with the tags config's exclude_tags leaves out")
+]
+
+
+def _tag_filter(repo: Commonplace, tags: list[str], not_tags: list[str], everything: bool) -> TagFilter:
+    """The flags' filter over the tags the repo leaves out by default, less any `--tag` asks for by name."""
+    excluded = set() if everything else set(repo.config.exclude_tags) - set(tags)
+    return TagFilter(only=frozenset(tags), without=frozenset(excluded | set(not_tags)))
+
 
 @app.command(name="search", alias="s", group=ANALYZING_SECTION)
 def search(
@@ -222,16 +239,17 @@ def search(
     limit: Annotated[int, Parameter(name=["--limit", "-n"], help="Maximum number of results")] = 10,
     method: Annotated[SearchMethod, Parameter(help="Search method")] = SearchMethod.HYBRID,
     deleted: Annotated[bool, Parameter(help="Include notes that have been deleted since indexing")] = False,
-    hidden: Annotated[bool, Parameter(help="Include notes tagged hidden")] = False,
+    tags: Tags = [],  # noqa: B006
+    not_tags: NotTags = [],  # noqa: B006
+    everything: Everything = False,
     repo: Repo,
 ) -> None:
     """Search for semantically similar content in your commonplace."""
 
     from commonplace._search._commands import open_index
 
-    results = open_index(repo).search(
-        " ".join(query), limit=limit, method=method, include_deleted=deleted, include_hidden=hidden
-    )
+    shown = _tag_filter(repo, tags, not_tags, everything)
+    results = open_index(repo).search(" ".join(query), limit=limit, method=method, include_deleted=deleted, tags=shown)
 
     if not results:
         logger.info("No results found")
@@ -253,14 +271,16 @@ def ls(
         list[str],
         Parameter(name=["--field", "-f"], help="Also show this frontmatter key", negative="", show_default=False),
     ] = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
-    hidden: Annotated[bool, Parameter(help="Include notes tagged hidden")] = False,
+    tags: Tags = [],  # noqa: B006
+    not_tags: NotTags = [],  # noqa: B006
+    everything: Everything = False,
     repo: Repo,
 ) -> None:
     """List a folder's notes with their titles and descriptions, as an OKF index."""
     from commonplace._listing import listing
 
     try:
-        print(listing(repo, folder, fields, hidden), end="")
+        print(listing(repo, folder, fields, _tag_filter(repo, tags, not_tags, everything)), end="")
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e
@@ -286,7 +306,9 @@ def show(
         Parameter(help="Show just this section: tags, links, commentary or index", negative=""),
     ] = [],  # noqa: B006 - cyclopts' idiom for a repeatable flag; never mutated
     as_json: Annotated[bool, Parameter(name="--json", help="The record as JSON rather than YAML")] = False,
-    hidden: Annotated[bool, Parameter(help="Include links to and from notes tagged hidden")] = False,
+    tags: Tags = [],  # noqa: B006
+    not_tags: NotTags = [],  # noqa: B006
+    everything: Everything = False,
     repo: Repo,
 ) -> None:
     """Everything known about a note, as YAML: tags, links both ways, commentary, index."""
@@ -299,7 +321,7 @@ def show(
     try:
         if unknown:
             raise ValueError(f"No section {', '.join(sorted(unknown))}; there are {', '.join(SECTIONS)}")
-        shown = gather(repo, spec, hidden)
+        shown = gather(repo, spec, _tag_filter(repo, tags, not_tags, everything))
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e

@@ -59,6 +59,10 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 120
 
+# Frozen, so safe as an argument default.
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["commonplace._types.TagFilter"]
+
 [tool.hatch.version]
 source = "versioningit"
 

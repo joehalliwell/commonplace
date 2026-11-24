@@ -6,7 +6,7 @@ names a kind of note (a chat, a topic), so never a `Node` subclass.
 
 import hashlib
 import os
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field, replace
 from datetime import date
 from functools import cached_property
@@ -123,6 +123,19 @@ class Marginalia:
         return replace(self, body=f"{body}{line}\n")
 
 
+@dataclass(frozen=True)
+class TagFilter:
+    """Which notes a command offers, by their labels; no tag means anything to the code until a filter names it."""
+
+    only: frozenset[str] = frozenset()  # A note must carry every one
+    without: frozenset[str] = frozenset()  # A note carrying any one is left out
+
+    def admits(self, labels: Iterable[str]) -> bool:
+        """Whether a note with these labels passes."""
+        carried = set(labels)
+        return self.only <= carried and not self.without & carried
+
+
 @dataclass
 class Note(Node):
     """A markdown file in the commonplace, of the kind its `type` names; it corresponds to an OKF concept document.
@@ -153,11 +166,6 @@ class Note(Node):
     def labels(self) -> list[str]:
         """Its own tags, then those its marginalia add."""
         return list(dict.fromkeys([*(self.metadata.get("tags") or []), *self.marginalia.tags]))
-
-    @property
-    def hidden(self) -> bool:
-        """Whether it's labelled `hidden`: kept, but left out of search, listings and links unless asked for."""
-        return "hidden" in self.labels
 
     @property
     def edges(self) -> list[Edge]:

@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from commonplace._config import CONFIG
 from commonplace._marginalia import Marginalia, write_marginalia
 
 
@@ -81,11 +82,37 @@ def test_ls_field_tags_adds_marginalia_tags_after_the_notes_own(test_app, test_r
     assert '  - tags: ["drink", "tea", "revisit"]\n' in listing(test_app, capsys, "topics", "--field", "tags")
 
 
-def test_ls_leaves_out_hidden_notes_unless_asked(test_app, test_repo, capsys):
-    """Skills gather through ls, and hidden is honoured wherever a note is offered."""
+@pytest.fixture
+def digest(test_repo):
+    """Two notes, one tagged `scheduled`, in a repo whose config leaves `scheduled` out by default."""
     write(test_repo.root, "notes/kept.md")
-    write(test_repo.root, "notes/mood.md")
-    write_marginalia(test_repo, Marginalia(note=Path("notes/mood.md")).tagged("hidden"))
+    write(test_repo.root, "notes/digest.md")
+    write_marginalia(test_repo, Marginalia(note=Path("notes/digest.md")).tagged("scheduled"))
+    (test_repo.root / CONFIG).write_text('exclude_tags = ["scheduled"]\n')
 
-    assert "mood.md" not in listing(test_app, capsys, "notes")
-    assert "mood.md" in listing(test_app, capsys, "notes", "--hidden")
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        ([], {"kept.md"}),
+        (["--all"], {"kept.md", "digest.md"}),
+        # Asking for an excluded tag by name is asking for it.
+        (["--tag", "scheduled"], {"digest.md"}),
+        (["--all", "--not-tag", "scheduled"], {"kept.md"}),
+    ],
+    ids=lambda value: " ".join(value) if isinstance(value, list) else None,
+)
+def test_ls_leaves_out_what_config_excludes_unless_overridden(test_app, capsys, digest, args, expected):
+    """Skills gather through ls, so a repo's exclusions reach them with no rule of their own."""
+    shown = listing(test_app, capsys, "notes", *args)
+
+    assert {name for name in ("kept.md", "digest.md") if f"({name})" in shown} == expected
+
+
+def test_ls_not_tag_adds_to_what_config_excludes(test_app, test_repo, capsys, digest):
+    write_marginalia(test_repo, Marginalia(note=Path("notes/kept.md")).tagged("noise"))
+    write(test_repo.root, "notes/other.md")
+
+    shown = listing(test_app, capsys, "notes", "--not-tag", "noise")
+
+    assert ("(other.md)" in shown, "(kept.md)" in shown, "(digest.md)" in shown) == (True, False, False)

@@ -13,7 +13,7 @@ import yaml
 from commonplace._marginalia import marginalia_path
 from commonplace._repo import Commonplace, GitError, UncommittedChanges
 from commonplace._show import links
-from commonplace._types import Note
+from commonplace._types import Note, TagFilter
 from commonplace._utils import load_frontmatter
 from tests.porcelain import git
 
@@ -465,11 +465,11 @@ def test_an_edge_in_marginalia_is_written_in_their_file_and_lands_from_the_note(
     assert test_repo.files.lands(edge) == [OTHER]
 
 
-def test_a_note_labelled_hidden_in_its_own_frontmatter_is_left_out_of_links(test_repo):
-    _write(test_repo, {IDEAS: "See [[other]].\n", OTHER: "---\ntags: [hidden]\n---\n# Other\n"})
+def test_a_tag_in_a_notes_own_frontmatter_counts_for_the_tag_filter_on_links(test_repo):
+    _write(test_repo, {IDEAS: "See [[other]].\n", OTHER: "---\ntags: [scheduled]\n---\n# Other\n"})
 
-    assert links(test_repo, IDEAS) == []
-    assert [neighbour.other for neighbour in links(test_repo, IDEAS, include_hidden=True)] == ["/notes/other"]
+    assert links(test_repo, IDEAS, TagFilter(without=frozenset({"scheduled"}))) == []
+    assert [neighbour.other for neighbour in links(test_repo, IDEAS)] == ["/notes/other"]
 
 
 def test_a_notes_provenance_is_an_edge_to_its_archive_and_a_missing_one_is_broken(test_repo, tmp_path):
