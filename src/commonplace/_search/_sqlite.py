@@ -349,38 +349,36 @@ class SQLiteSearchIndex(SearchIndex):
         Returns:
             List of search hits, ordered by descending similarity
         """
-        cursor = self._conn.execute(
-            "SELECT c.id, n.path, n.content_id, c.section, c.text, c.offset, c.embedding"
-            " FROM chunks c JOIN notes n ON n.id = c.note_id WHERE n.model_id = ?",
+        rows = self._conn.execute(
+            "SELECT c.id, c.embedding FROM chunks c JOIN notes n ON n.id = c.note_id WHERE n.model_id = ?",
             (self._embedder.model_id,),
-        )
-        rows = cursor.fetchall()
+        ).fetchall()
 
         if not rows:
             return []
 
-        # Load all embeddings
-        embeddings = []
-        chunks = []
-        chunk_ids = []
-        for row in rows:
-            chunk_id, path, content_id, section, text, offset, embedding_bytes = row
-            embedding = _from_blob(embedding_bytes)
-            embeddings.append(embedding)
-
-            version = Version(Path(path), content_id)
-            chunks.append(Chunk(version=version, section=section, text=text, offset=offset))
-            chunk_ids.append(chunk_id)
-
-        # Compute cosine similarities
-        embeddings_matrix = np.array(embeddings)
+        chunk_ids = [chunk_id for chunk_id, _ in rows]
+        # Concatenate into one buffer so float16 -> float32 runs once in C rather than per row in Python.
+        embeddings_matrix = (
+            np.frombuffer(b"".join(blob for _, blob in rows), dtype=_STORED).reshape(len(rows), -1).astype(np.float32)
+        )
         similarities = self._cosine_similarity(query_embedding, embeddings_matrix)
 
-        # Sort by similarity (descending), then walk the ranking until the limit is filled
+        # Hydrate each chunk only as `_take_shown` walks the ranking, so skipped or tail rows cost nothing.
         ranked = (
-            SearchHit(chunk=chunks[idx], score=float(similarities[idx])) for idx in np.argsort(similarities)[::-1]
+            SearchHit(chunk=self._fetch_chunk(chunk_ids[idx]), score=float(similarities[idx]))
+            for idx in np.argsort(similarities)[::-1]
         )
         return self._take_shown(ranked, limit, include_deleted, include_hidden)
+
+    def _fetch_chunk(self, chunk_id: int) -> Chunk:
+        """Load one chunk by primary key, once ranking has reached it."""
+        path, content_id, section, text, offset = self._conn.execute(
+            "SELECT n.path, n.content_id, c.section, c.text, c.offset"
+            " FROM chunks c JOIN notes n ON n.id = c.note_id WHERE c.id = ?",
+            (chunk_id,),
+        ).fetchone()
+        return Chunk(version=Version(Path(path), content_id), section=section, text=text, offset=offset)
 
     @staticmethod
     def _sanitize_fts5_query(query: str) -> str:
@@ -410,10 +408,10 @@ class SQLiteSearchIndex(SearchIndex):
             FROM chunks_fts
             JOIN chunks c ON chunks_fts.rowid = c.id
             JOIN notes n ON n.id = c.note_id
-            WHERE chunks_fts MATCH ?
+            WHERE chunks_fts MATCH ? AND n.model_id = ?
             ORDER BY rank
             """,
-            (self._sanitize_fts5_query(query),),
+            (self._sanitize_fts5_query(query), self._embedder.model_id),
         )
 
         def ranked() -> Iterator[SearchHit]:
@@ -446,11 +444,13 @@ class SQLiteSearchIndex(SearchIndex):
         Returns:
             List of search hits, ordered by fused score
         """
+        if limit <= 0:
+            return []
 
-        # Get results from both methods, each already filtered, so fusion sees
-        # the same ranks a caller of either method would.
-        keyword_results = self.search_keyword(query, limit, include_deleted, include_hidden)
-        semantic_results = self.search_semantic(query, limit, include_deleted, include_hidden)
+        # Oversample both legs before fusing so a consensus hit just past `limit` in either leg isn't cut prematurely.
+        pool = max(limit * 3, 50)
+        keyword_results = self.search_keyword(query, pool, include_deleted, include_hidden)
+        semantic_results = self.search_semantic(query, pool, include_deleted, include_hidden)
 
         # Build lookup by chunk identity (path + offset uniquely identifies a chunk)
         def chunk_key(chunk: Chunk) -> tuple:
