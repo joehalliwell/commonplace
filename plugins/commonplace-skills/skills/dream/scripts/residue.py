@@ -14,12 +14,11 @@ FRONTMATTER = re.compile(r"\A---\n.*?\n---(?:\n|\Z)", re.DOTALL)
 HEADING = re.compile(r"^## ", re.MULTILINE)
 
 
-def exclude_tags(root: Path) -> frozenset[str]:
-    """Tags excluded by the repo's `.commonplace/config.toml`, if any."""
-    config = root / ".commonplace/config.toml"
-    if not config.is_file():
+def parse_exclude_tags(raw: str | None) -> frozenset[str]:
+    """Parse the TOML array `commonplace config exclude_tags` prints."""
+    if not raw or not raw.strip():
         return frozenset()
-    return frozenset(tomllib.loads(config.read_text(errors="replace")).get("exclude_tags") or ())
+    return frozenset(tomllib.loads(f"v = {raw}")["v"])
 
 
 def frontmatter_tags(text: str) -> set[str]:
@@ -80,10 +79,11 @@ def main() -> None:
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--out", type=Path, required=True, help="scratch dir for passages/ and fragments.json")
     parser.add_argument("--seed", type=int, help="reproduce a draw")
+    parser.add_argument("--exclude-tags", help="TOML array of tags to exclude, from `commonplace config exclude_tags`")
     args = parser.parse_args()
     rng = random.Random(args.seed)
 
-    excluded = exclude_tags(args.root)
+    excluded = parse_exclude_tags(args.exclude_tags)
     recent: list[str] = []
     pool = git_paths(args.root, "log", "--since=7.days", "--name-only", "--format=", excluded=excluded)
     rng.shuffle(pool)

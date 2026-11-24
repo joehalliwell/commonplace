@@ -21,16 +21,18 @@ def commit(root: Path, files: dict[str, str], date: str | None = None) -> None:
     subprocess.run(["git", "-C", str(root), "commit", "-qm", "files"], check=True, env=env)
 
 
-def run(root: Path, out: Path, seed: int = 0) -> str:
+def run(root: Path, out: Path, seed: int = 0, exclude_tags: str | None = None) -> str:
     """Run the script as the skill does, returning what it prints."""
     args = [sys.executable, "-I", str(SCRIPT), "--root", str(root), "--out", str(out), "--seed", str(seed)]
+    if exclude_tags is not None:
+        args.extend(["--exclude-tags", exclude_tags])
     return subprocess.run(args, check=True, capture_output=True, text=True).stdout
 
 
-def residue(root: Path, seed: int = 0) -> list[dict]:
+def residue(root: Path, seed: int = 0, exclude_tags: str | None = None) -> list[dict]:
     """The fragments a run writes, each with the text of its passage file."""
     out = Path(tempfile.mkdtemp())
-    run(root, out, seed)
+    run(root, out, seed, exclude_tags=exclude_tags)
     fragments = json.loads((out / "fragments.json").read_text())
     return [f | {"text": (out / "passages" / f"{n}.txt").read_text()} for n, f in enumerate(fragments, 1)]
 
@@ -102,11 +104,10 @@ def test_residue_excludes_tasks_and_non_markdown(repo: Path):
     assert [f["path"] for f in residue(repo)] == ["notes/n.md"]
 
 
-def test_residue_excludes_notes_matching_config_exclude_tags(repo: Path):
+def test_residue_excludes_notes_matching_exclude_tags(repo: Path):
     commit(
         repo,
         {
-            ".commonplace/config.toml": 'exclude_tags = ["scheduled", "private"]\n',
             "notes/kept.md": "# Kept\n\nStill in.\n",
             "notes/own_flow.md": "---\ntags: [work, scheduled]\n---\n\nFlow-tagged.\n",
             "notes/own_block.md": "---\ntags:\n  - private\n---\n\nBlock-tagged.\n",
@@ -114,7 +115,8 @@ def test_residue_excludes_notes_matching_config_exclude_tags(repo: Path):
             ".commonplace/marginalia/notes/marginalia_tagged.md": "---\nmarginalia: 2\ntags:\n- private\n---\n",
         },
     )
-    assert [f["path"] for f in residue(repo)] == ["notes/kept.md"]
+    assert [f["path"] for f in residue(repo, exclude_tags='["scheduled", "private"]')] == ["notes/kept.md"]
+    assert len(residue(repo, exclude_tags="[]")) == 4
 
 
 def test_residue_same_seed_same_sample(repo: Path):
