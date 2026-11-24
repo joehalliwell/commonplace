@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from commonplace import _repo
+from commonplace import _git
 from commonplace._fetch._claude_code import ClaudeCodeFetcher
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._types import FetchBlocked, NoSession
@@ -227,13 +227,13 @@ def test_fetch_captures_every_source_at_once(test_repo):
 def test_fetch_touches_the_repository_only_from_the_thread_it_was_called_in(test_repo, tmp_path, monkeypatch):
     """Commonplace caches git state that a commit invalidates, so captures in other threads must not read it."""
     callers: set[str] = set()
-    real = _repo._run_git
+    real = _git.run_git
 
     def run_git(*args, **kwargs):
         callers.add(threading.current_thread().name)
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(_repo, "_run_git", run_git)
+    monkeypatch.setattr(_git, "run_git", run_git)
 
     fetch(test_repo, sources=fetching(FakeKeep().fetcher(), owned(ClaudeCodeFetcher, root=_claude_home(tmp_path))))
 
