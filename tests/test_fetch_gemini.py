@@ -108,7 +108,7 @@ def test_fetch_writes_raw_wire_only(tmp_path):
     assert len(read_calls) == LISTED * BUCKETS
     for entry in wire:
         assert entry["response"].startswith(")]}'\n"), "raw batchexecute preamble preserved"
-        assert set(entry.keys()) == {"rpc", "payload", "response"}
+        assert set(entry.keys()) == {"rpc", "payload", "url", "status", "response"}
 
 
 def test_fetch_incremental_skips_seen(tmp_path):

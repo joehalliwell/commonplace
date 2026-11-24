@@ -46,6 +46,11 @@ Version 4 lets a body be base64, marked `"encoding": "base64"`, so a file that
 isn't UTF-8 can be captured. Its archives are xz. A reader refuses an archive
 newer than the version it knows (`NewerWireVersion`) rather than misread it.
 
+Version 5 records, for each HTTP exchange, the `url` as served, query and all,
+and its `status`, so a blob detached from its repository still says what was
+called: our `endpoint` names are our own. A file entry has neither. Readers
+take both as absent before v5.
+
 A vendor changing what it sends is not a version bump: bodies are verbatim, so
 the format holds and only the content moves. Bump when a fetcher changes what
 it records around the body. The importer then reads both shapes, telling them
@@ -69,7 +74,7 @@ from typing import IO, Any, NamedTuple, cast
 
 from commonplace import __version__
 
-WIRE_VERSION = 4
+WIRE_VERSION = 5
 
 GZ, XZ = ".jsonl.gz", ".jsonl.xz"
 _XZ_MAGIC = b"\xfd7zXZ\x00"

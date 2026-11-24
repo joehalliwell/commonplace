@@ -203,9 +203,9 @@ class BaseFetcher:
         return self._record(method, f"{self.api_root}/{path}", entry={"endpoint": endpoint, **(key or {})}, **kwargs)
 
     def _record(self, method: str, url: str, *, entry: dict[str, Any], **kwargs: Any) -> httpx.Response:
-        """Request, then record the response verbatim under `entry`, which says what was asked."""
+        """Request, then record the response verbatim under `entry`, which says what was asked, and where it answered."""
         r = self._request(method, url, **kwargs)
-        self._log(**entry, **self._provenance(r), response=r.text)
+        self._log(**entry, **self._provenance(r), url=str(r.url), status=r.status_code, response=r.text)
         return r
 
     def _provenance(self, r: httpx.Response) -> dict[str, str]:
