@@ -1,7 +1,11 @@
+import re
+import tomllib
+
 import pytest
 from pydantic import ValidationError
 
-from commonplace._config import Config
+from commonplace import _scaffold
+from commonplace._config import CONFIG, Config
 
 
 @pytest.fixture
@@ -53,3 +57,12 @@ def test_config_unknown_key_rejected(layers):
 
     with pytest.raises(ValidationError):
         Config.load(root, global_file=global_file)
+
+
+def test_config_seeded_by_init_offers_every_setting_with_a_valid_example():
+    """Uncommented, the seeded file is a config that sets every setting, so a new one can't be left out of it."""
+    seeded = (_scaffold._ROOT / CONFIG).read_text()
+    settings = tomllib.loads(re.sub(r"^# (\w+ =)", r"\1", seeded, flags=re.MULTILINE))
+
+    assert settings.keys() == Config.model_fields.keys()
+    Config(**settings)
