@@ -58,6 +58,27 @@ def test_ls_lists_subfolders_after_files_and_skips_dot_directories(test_app, tes
     assert out == "# topics\n\n- [B](b.md)\n- [resonances](resonances/)\n"
 
 
+def test_ls_recursive_lists_notes_at_any_depth_by_their_path_within_the_folder(test_app, test_repo, capsys):
+    write(test_repo.root, "topics/b.md", "---\ntitle: B\n---\n")
+    write(test_repo.root, "topics/resonances/x-y.md", "---\ntitle: X and Y\n---\n")
+    write(test_repo.root, "topics/.hidden/z.md", "---\ntitle: Z\n---\n")
+
+    out = listing(test_app, capsys, "topics", "--recursive")
+
+    assert out == "# topics\n\n- [B](b.md)\n- [X and Y](resonances/x-y.md)\n"
+
+
+def test_ls_recursive_filters_by_tag_across_folders(test_app, test_repo, capsys):
+    write(test_repo.root, "notes/keep/2014/01/a.md", "---\ntags: [word]\n---\n")
+    write(test_repo.root, "notes/keep/2015/02/b.md")
+    write(test_repo.root, "notes/keep/2015/03/c.md")
+    write_marginalia(test_repo, Marginalia(note=Path("notes/keep/2015/03/c.md")).tagged("word"))
+
+    out = listing(test_app, capsys, "notes/keep", "-r", "--tag", "word")
+
+    assert out == "# notes/keep\n\n- [a](2014/01/a.md)\n- [c](2015/03/c.md)\n"
+
+
 def test_ls_without_a_folder_lists_the_root(test_app, test_repo, capsys):
     write(test_repo.root, "topics/b.md", "---\ntitle: B\n---\n")
 
