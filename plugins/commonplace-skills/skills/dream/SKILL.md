@@ -63,8 +63,10 @@ memory touched in the last week; six are **deep**, from anywhere, topping up
 if recent has fewer. Twelve is more than a dream holds: condensation keeps
 what its plot turns on.
 
-Scheduled task output (`chats/claude-tasks/`) is excluded: it is the agent
-reporting the news, not the user's life. Agent memory (`memory/`) is in: the
+Scheduled task output (`chats/claude/tasks/`, and older `chats/claude-tasks/`)
+is excluded: it is the agent reporting the news, not the user's life. Notes
+carrying any tag in `.commonplace/config.toml`'s `exclude_tags` (in their own
+frontmatter or marginalia) are excluded too. Agent memory (`memory/`) is in: the
 agent's paraphrase of the user is no source, but a dream's residue needn't
 be one. It takes at most two of the recent six, since tasks rewrite it daily.
 
