@@ -249,7 +249,10 @@ whether its current version is in the search index. The record is about the
 note, not the note itself.
 
 `ls` builds a folder's listing from frontmatter each time it runs, so nothing in
-the repository needs regenerating when a note changes.
+the repository needs regenerating when a note changes. `--recursive` lists the
+notes at every depth instead of the subfolders, each by its path within the
+folder, so `ls notes/keep --recursive --tag word` finds tagged notes across
+month folders.
 
 ## Sync and git
 
