@@ -413,7 +413,7 @@ def test_commit_index_briefly_locked_waits_and_succeeds(test_repo, make_note):
 
 
 def test_commit_index_locked_too_long_raises_and_leaves_index(test_repo, make_note, monkeypatch):
-    monkeypatch.setattr("commonplace._repo._LOCK_RETRY_DELAYS", (0.01, 0.01))
+    monkeypatch.setattr("commonplace._git._LOCK_RETRY_DELAYS", (0.01, 0.01))
     index = test_repo.root / ".git" / "index"
     before = index.read_bytes()
     (test_repo.root / ".git" / "index.lock").touch()

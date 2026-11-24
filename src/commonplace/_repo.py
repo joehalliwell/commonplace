@@ -1,44 +1,30 @@
 """The commonplace's git repository, and the one way anything reaches it.
 
-Every git operation goes through the git CLI via `_run_git`, never a library: re-implementing the porcelain cost
-a silent revert (#102). Every operation that writes commits what it wrote: `put`, `remove` and `store_blob`
-record their paths, `commit` stages and commits exactly those, and nothing else touches the index. Commits run
-the user's hooks. Neither `put` nor `remove` writes over a change nothing committed, which nothing could
-recover, unless the writer read it first: `UncommittedChanges` names it instead.
+Every git operation goes through `commonplace._git`, never a library. Every operation that writes commits what
+it wrote: `put`, `remove` and `store_blob` record their paths, `commit` stages and commits exactly those, and
+nothing else touches the index. Commits run the user's hooks. Neither `put` nor `remove` writes over a change
+nothing committed, which nothing could recover, unless the writer read it first: `UncommittedChanges` names it
+instead.
 """
 
-import os
 import shutil
-import subprocess
-import time
 from collections.abc import Collection, Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
-from functools import cached_property, lru_cache
+from functools import cached_property
 from itertools import batched
 from pathlib import Path
 from typing import Literal
 
+from commonplace import _git as git
 from commonplace import _scaffold as scaffold
 from commonplace._config import BLOBS, MARGINALIA, Config
+from commonplace._git import GitError
 from commonplace._links import BrokenLink, Edge, Files
 from commonplace._logging import logger
 from commonplace._marginalia import read_marginalia, write_marginalia
 from commonplace._types import Blob, Note, Pathlike, node_id
 from commonplace._utils import dump_frontmatter, load_frontmatter
-
-_BOT_USERNAME = "Commonplace Bot"
-_BOT_EMAIL = "commonplace@joehalliwell.com"
-
-# Seconds to wait between attempts while another git process holds a lock.
-_LOCK_RETRY_DELAYS = (0.05, 0.1, 0.2, 0.4, 0.8, 1.6)
-
-# Imports touch thousands of paths, more than argv holds.
-_PATHSPEC_STDIN = ("--pathspec-from-file=-", "--pathspec-file-nul")
-
-
-class GitError(ValueError):
-    """A git command that failed, with what it printed."""
 
 
 class UncommittedChanges(ValueError):
@@ -47,96 +33,6 @@ class UncommittedChanges(ValueError):
     def __init__(self, paths: Iterable[Path]):
         self.paths = sorted(paths)
         super().__init__(f"Uncommitted changes to {', '.join(map(str, self.paths))}: commit or discard them first")
-
-
-def _run_git(root: Path, *args: str, input: str | None = None, as_user: bool = False) -> str:
-    """Run git in `root` as the bot, or as the user's own git identity, waiting out another process's lock."""
-    env = os.environ | {"LC_ALL": "C", "GIT_LITERAL_PATHSPECS": "1"}
-    if not as_user:
-        env |= {
-            "GIT_AUTHOR_NAME": _BOT_USERNAME,
-            "GIT_AUTHOR_EMAIL": _BOT_EMAIL,
-            "GIT_COMMITTER_NAME": _BOT_USERNAME,
-            "GIT_COMMITTER_EMAIL": _BOT_EMAIL,
-        }
-    cmd = ["git", "-C", str(root), "-c", "commit.gpgsign=false", *args]
-    delays = iter(_LOCK_RETRY_DELAYS)
-    while True:
-        done = subprocess.run(cmd, input=input, capture_output=True, text=True, encoding="utf-8", env=env, check=False)
-        if done.returncode == 0:
-            return done.stdout
-        delay = next(delays, None)
-        if delay is None or ".lock': File exists" not in done.stderr:
-            raise GitError(f"git {args[0]} failed:\n{done.stdout}{done.stderr}".strip())
-        logger.debug(f"Waiting {delay}s for a git lock: {done.stderr.strip()}")
-        time.sleep(delay)
-
-
-def _z(root: Path, command: str, *args: str) -> list[str]:
-    """The fields `git <command> -z <args>` prints, separated by NULs."""
-    return [field for field in _run_git(root, command, "-z", *args).split("\0") if field]
-
-
-def _changed(root: Path, paths: set[str], *diff_args: str) -> set[str]:
-    """Those of `paths` that `git diff <diff_args>` reports."""
-    return set(_z(root, "diff", "--name-only", "--no-renames", *diff_args)) & paths
-
-
-def _stage(root: Path, paths: set[str]) -> None:
-    """Stage exactly `paths`, deletions included."""
-    present = {p for p in paths if (root / p).exists()}
-    if present:
-        _run_git(root, "add", *_PATHSPEC_STDIN, input="\0".join(present))
-    if paths - present:
-        _run_git(root, "rm", "--cached", "-q", "--ignore-unmatch", *_PATHSPEC_STDIN, input="\0".join(paths - present))
-
-
-def _commit(root: Path, paths: set[str], message: str, as_user: bool = False) -> bool:
-    """Commit exactly `paths`, re-staging once if a hook reformats them; False if there was nothing to commit."""
-    _stage(root, paths)
-    try:
-        return _commit_staged(root, paths, message, as_user)
-    except GitError:
-        if not (reformatted := _changed(root, paths)):
-            raise
-        logger.info(f"A hook rewrote {len(reformatted)} file(s); committing its version")
-        _stage(root, reformatted)
-        # The hook's version may be exactly what HEAD already has, as on a re-import.
-        return _commit_staged(root, paths, message, as_user)
-
-
-def _commit_staged(root: Path, paths: set[str], message: str, as_user: bool) -> bool:
-    """Commit those of `paths` staged unlike HEAD; False if none are."""
-    if not (changed := _changed(root, paths, "--cached")):
-        return False
-    _run_git(root, "commit", "-q", "-m", message, *_PATHSPEC_STDIN, input="\0".join(changed), as_user=as_user)
-    return True
-
-
-@lru_cache(maxsize=4)
-def _last_changed(root: Path, head: str, pathspec: str, field: str) -> dict[str, str]:
-    """Each path under `pathspec` in `head`'s history, newest first, with `field` of the last commit to change it.
-
-    Keyed by `head`, since a commit moves it and a map built before would go on reporting the superseded commit.
-    """
-    out = _run_git(root, "log", f"--format=%x00>{field}", "--name-only", "-z", "--no-renames", head, "--", pathspec)
-    # Each commit is an empty token, its field after a `>` so it is never empty, then the paths it changed.
-    last: dict[str, str] = {}
-    tokens = iter(out.split("\0"))
-    value = ""
-    for token in tokens:
-        if not token:
-            value = next(tokens, "")[1:]
-        else:
-            last.setdefault(token.lstrip("\n"), value)
-    return last
-
-
-@lru_cache(maxsize=2)
-def _content_ids(root: Path, head: str) -> dict[str, str]:
-    """Each file in `head`'s tree, with git's id for its content; keyed by `head`, as `_last_changed` is."""
-    # -z gives `<mode> <type> <id>\t<path>` for each file.
-    return {path: meta.split()[2] for meta, path in (e.split("\t", 1) for e in _z(root, "ls-tree", "-r", head))}
 
 
 @dataclass
@@ -151,13 +47,13 @@ class Commonplace:
     def open(root: Path) -> "Commonplace":
         logger.debug(f"Opening commonplace repository at {root}")
         try:
-            toplevel = Path(_run_git(root, "rev-parse", "--show-toplevel").strip())
+            toplevel = Path(git.run_git(root, "rev-parse", "--show-toplevel").strip())
         except GitError as e:
             raise ValueError(f"{root} is not in a git repository") from e
         if toplevel != root.resolve():
             raise ValueError(f"{root} is not the root of its git repository, {toplevel}")
         try:
-            _run_git(toplevel, "rev-parse", "--verify", "-q", "HEAD")
+            git.run_git(toplevel, "rev-parse", "--verify", "-q", "HEAD")
         except GitError as e:
             raise ValueError("Repository has no commits yet") from e
         return Commonplace(root=toplevel)
@@ -178,14 +74,14 @@ class Commonplace:
     @staticmethod
     def init(root: Path) -> "Commonplace":
         root.mkdir(parents=True, exist_ok=True)
-        _run_git(root, "init", "-q", "--initial-branch=main")
+        git.run_git(root, "init", "-q", "--initial-branch=main")
         scaffold.install(root)
-        _commit(root, set(scaffold.TEMPLATES), "Initial commit")
+        git.commit(root, set(scaffold.TEMPLATES), "Initial commit")
         return Commonplace.open(root)
 
     def content_ids(self) -> dict[Path, str]:
         """Each committed file, with git's id for its content at HEAD, uncommitted changes aside."""
-        return {Path(path): content_id for path, content_id in _content_ids(self.root, self.head()).items()}
+        return {Path(path): content_id for path, content_id in git.content_ids(self.root, self.head()).items()}
 
     def head(self) -> str:
         """The commit checked out, which moves with every commit."""
@@ -193,7 +89,7 @@ class Commonplace:
 
     def uncommitted(self, pathspec: str) -> set[str]:
         """Paths under `pathspec` that differ from HEAD, untracked ones included."""
-        tracked = _z(self.root, "diff", "--name-only", "--no-renames", "HEAD", "--", pathspec)
+        tracked = git.z(self.root, "diff", "--name-only", "--no-renames", "HEAD", "--", pathspec)
         return {*tracked, *self._ls(pathspec, "--others")}
 
     def paths(self, within: Path = Path()) -> Iterator[Path]:
@@ -204,7 +100,9 @@ class Commonplace:
 
     def _ls(self, pathspec: str, *which: str) -> set[str]:
         """The files under `pathspec` in the working tree that git would share, of `which` kinds, or tracked or not."""
-        listed = _z(self.root, "ls-files", *(which or ("--cached", "--others")), "--exclude-standard", "--", pathspec)
+        listed = git.z(
+            self.root, "ls-files", *(which or ("--cached", "--others")), "--exclude-standard", "--", pathspec
+        )
         return {path for path in listed if (self.root / path).exists()}
 
     def moved(self) -> dict[Path, Path]:
@@ -212,7 +110,7 @@ class Commonplace:
         # Newest first, so where a file moved to next is already known: `then` holds where what was at a path then is now.
         moved: dict[Path, Path] = {}
         then: dict[str, str] = {}
-        for _, old, new in batched(_z(self.root, "log", "-M", "--diff-filter=R", "--name-status", "--format="), 3):
+        for _, old, new in batched(git.z(self.root, "log", "-M", "--diff-filter=R", "--name-status", "--format="), 3):
             then[old] = then.get(new, new)
             moved.setdefault(Path(old), Path(then[old]))
         return moved
@@ -345,7 +243,7 @@ class Commonplace:
         """Every archive stored, or those called any of `names`, in the order stored: committed, then not yet."""
         present = self._ls(BLOBS.as_posix())
         # A blob is never rewritten, so the commit that last changed it is the one that stored it.
-        committed = [p for p in reversed(_last_changed(self.root, self.head(), ".", "%H")) if p in present]
+        committed = [p for p in reversed(git.last_changed(self.root, self.head(), ".", "%H")) if p in present]
         stored = committed if committed_only else [*committed, *sorted(present - set(committed))]
         return [Blob(Path(p)) for p in stored if not names or Path(p).name in names]
 
@@ -357,7 +255,7 @@ class Commonplace:
             as_user: Commit as the user's own git identity rather than the bot, for something they did themselves
             written: Paths written by other means, to commit with them
         """
-        committed = _commit(self.root, self._pending | set(written), message, as_user=as_user)
+        committed = git.commit(self.root, self._pending | set(written), message, as_user=as_user)
         self._pending.clear()
         self.__dict__.pop("_edited", None)
         logger.info(f"Committed changes with message: {message}" if committed else "No changes to commit")
@@ -376,7 +274,7 @@ class Commonplace:
         logger.info(f"Syncing branch '{branch}' with '{remote_name}'")
         # The one commit of work commonplace didn't write: the user's own edits, whatever they are.
         if auto_commit and (changed := self.uncommitted(".")):
-            _commit(self.root, changed, f"Auto-commit before sync at {datetime.now(UTC).isoformat()}")
+            git.commit(self.root, changed, f"Auto-commit before sync at {datetime.now(UTC).isoformat()}")
             self.__dict__.pop("_edited", None)
         try:
             self._git("pull", remote_name, branch, *(["--rebase"] if strategy == "rebase" else []))
@@ -388,4 +286,4 @@ class Commonplace:
         logger.info(f"Synced with {remote_name}/{branch}")
 
     def _git(self, *args: str) -> str:
-        return _run_git(self.root, *args)
+        return git.run_git(self.root, *args)
