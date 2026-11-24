@@ -273,3 +273,126 @@ def test_add_chunks_refused_midway_leaves_none_of_the_batch(test_index, make_chu
         test_index.add_chunks([good, bad])
 
     assert list(test_index.get_indexed_paths()) == []
+
+
+def test_search_keyword_ignores_another_models_chunks(test_index, other_model_index, make_chunk):
+    """Keyword search is scoped to this store's model, just like semantic search (#318)."""
+    chunk = make_chunk(path="note.md", section="S", text="Ozymandias king of kings", offset=0)
+    emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    other_model_index._add_with_embeddings([(chunk, emb)])
+
+    assert test_index.search_keyword("Ozymandias", limit=10) == []
+
+    test_index._add_with_embeddings([(chunk, emb)])
+    assert [hit.chunk for hit in test_index.search_keyword("Ozymandias", limit=10)] == [chunk]
+
+
+def test_search_hybrid_surfaces_consensus_past_limit(tmp_path, make_chunk):
+    """Oversampling each leg before RRF lets a hit ranked #3 in both legs beat #1-in-one-leg hits (#321)."""
+
+    class FixedEmbedder:
+        model_id = "test:fixed"
+
+        def embed_doc(self, text: str):
+            raise NotImplementedError
+
+        def embed_docs(self, texts: list[str]):
+            raise NotImplementedError
+
+        def embed_query(self, text: str):
+            return np.array([1.0, 0.0, 0.0], dtype=np.float32)
+
+    index = SQLiteSearchIndex(tmp_path / "index.db", embedder=FixedEmbedder())
+    try:
+        # Filler chunks push orthogonal keyword-only docs down in semantic ranking, as in a real corpus.
+        fillers = [
+            (
+                make_chunk(f"filler{i}.md", "S", f"unrelated filler {i}", 0),
+                np.array([0.5, 0.86, 0.0], dtype=np.float32),
+            )
+            for i in range(20)
+        ]
+        index._add_with_embeddings(
+            [
+                # Strong keyword matches, orthogonal semantically -> keyword #1, #2; semantic #24, #25
+                (
+                    make_chunk("kw1.md", "S", "amber amber amber amber", 0),
+                    np.array([0.0, 1.0, 0.0], dtype=np.float32),
+                ),
+                (
+                    make_chunk("kw2.md", "S", "amber amber amber", 0),
+                    np.array([0.0, 1.0, 0.0], dtype=np.float32),
+                ),
+                # Strong semantic matches, no keyword match -> semantic #1, #2
+                (
+                    make_chunk("sem1.md", "S", "unrelated prose one", 0),
+                    np.array([1.0, 0.0, 0.0], dtype=np.float32),
+                ),
+                (
+                    make_chunk("sem2.md", "S", "unrelated prose two", 0),
+                    np.array([0.99, 0.14, 0.0], dtype=np.float32),
+                ),
+                # #3 in BOTH legs -> RRF consensus winner (2/(k+3) > 1/(k+1) + 1/(k+24))
+                (
+                    make_chunk("both.md", "S", "a single mention of amber", 0),
+                    np.array([0.95, 0.31, 0.0], dtype=np.float32),
+                ),
+                *fillers,
+            ]
+        )
+
+        hits = index.search_hybrid("amber", limit=2)
+
+        assert hits[0].chunk.version.path.name == "both.md"
+    finally:
+        index.close()
+
+
+def test_semantic_search_builds_chunks_only_for_walked_hits(tmp_path, make_chunk, monkeypatch):
+    """Semantic search ranks by id + embedding and only hydrates chunks as `_take_shown` walks them (#257)."""
+    import commonplace._search._sqlite as sqlite_mod
+
+    class FixedEmbedder:
+        model_id = "test:fixed"
+
+        def embed_doc(self, text: str):
+            raise NotImplementedError
+
+        def embed_docs(self, texts: list[str]):
+            raise NotImplementedError
+
+        def embed_query(self, text: str):
+            return np.array([1.0, 0.0], dtype=np.float32)
+
+    # note0 ranks #1 but is deleted; note1 (#2) and note2 (#3) should fill limit=2 -> only 3 chunks hydrated.
+    index = SQLiteSearchIndex(
+        tmp_path / "index.db",
+        embedder=FixedEmbedder(),
+        note_exists=lambda path: path.name != "note0.md",
+    )
+    try:
+        rows = [
+            (
+                make_chunk(f"note{i}.md", "S", f"Text {i}", 0),
+                np.array([np.cos(i * 0.15), np.sin(i * 0.15)], dtype=np.float32),
+            )
+            for i in range(10)
+        ]
+        index._add_with_embeddings(rows)
+
+        built = 0
+        real_chunk = sqlite_mod.Chunk
+
+        def spy_chunk(*args, **kwargs):
+            nonlocal built
+            built += 1
+            return real_chunk(*args, **kwargs)
+
+        monkeypatch.setattr(sqlite_mod, "Chunk", spy_chunk)
+
+        hits = index._search_by_embedding(np.array([1.0, 0.0], dtype=np.float32), limit=2)
+
+        assert [hit.chunk.version.path.name for hit in hits] == ["note1.md", "note2.md"]
+        assert built == 3
+    finally:
+        index.close()
