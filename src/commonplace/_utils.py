@@ -11,6 +11,9 @@ import yaml
 
 from commonplace._logging import logger
 
+#: libyaml's safe loader where PyYAML has it: it parses frontmatter several times faster than PyYAML's own.
+_SAFE_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
 
 def batched[T](iterable: Iterable[T], batch_size: int) -> Iterable[list[T]]:
     """Lists of up to `batch_size` items from `iterable`, in order."""
@@ -130,7 +133,7 @@ def load_frontmatter(content: str) -> tuple[dict, str]:
     # Parse YAML between delimiters
     yaml_content = "\n".join(lines[1:end_idx])
     try:
-        metadata = yaml.safe_load(yaml_content) or {}
+        metadata = yaml.load(yaml_content, Loader=_SAFE_LOADER) or {}
     except yaml.YAMLError:
         return {}, content
     if not isinstance(metadata, dict):
