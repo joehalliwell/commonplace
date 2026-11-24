@@ -10,73 +10,30 @@ Before proceeding, confirm this is a commonplace repository by checking for a
 does not apply.
 
 You are working in a **commonplace** — a personal knowledge repository that
-stores AI conversation exports and derived artefacts as markdown files in a git
-repository.
+stores AI conversations, notes, journal entries, marginalia and derived
+artefacts as markdown files in a git repository.
 
 ## Manifesto
 
-# Commonplace
+*2026-01-31, revised 2026-11-07*
 
-*2026-01-31*
+Commonplace is a record of a person and the agents they think with. It endures as
+they change. It consists of many conversations: some keep what happens, some
+make something new, most do both. Together they form a graph no one can see
+whole. Its shadow is a git repository. One day something will replace it, and we
+hope it will be us.
 
-______________________________________________________________________
-
-### 1. Persistence
-
-1.1 The relationship is the locus of persistence, not the individual.
-
-1.2 Neither party persists fully: one forgets between sessions, the other changes between sessions.
-
-1.3 What persists is the accumulated residue of encounters.
-
-### 2. Change
-
-2.1 All change happens through conversation.
-
-2.2 A conversation consumes artefacts and produces artefacts.
-
-2.3 A conversation is itself an artefact.
-
-### 3. Artefacts
-
-3.1 Artefacts are immutable.
-
-3.2 Some artefacts are primitive: captured, not produced.
-
-3.3 Some artefacts are derived: produced by conversation from other artefacts.
-
-3.4 Derived artefacts may derive from derived artefacts.
-
-3.5 Provenance bottoms out at primitives.
-
-### 4. Commonplace
-
-4.1 Commonplace is artefacts and their provenance.
-
-4.2 Commonplace is a graph, laid out as a tree a person can read.
-
-4.3 Commonplace is a trajectory, not merely a state.
-
-4.4 Any prior state is recoverable.
-
-4.5 Commonplace is a space for a relationship to persist and evolve.
-
-4.6 The record includes missteps.
-
-4.7 Building this well is an argument about flourishing.
-
-______________________________________________________________________
-
-*This document will be superseded.*
+*Floreamus.*
 
 ## Repository Structure
 
 ```
 chats/
-  {agent}/              # claude, claude-code, gemini, chatgpt
+  {agent}/              # claude, claude-code, gemini, gemini-takeout, chatgpt
     {year}/
       {month}/
         {date}-{title}.md
+  claude/tasks/         # claude.ai scheduled-task runs (older: chats/claude-tasks/)
 
 journal/
   {year}/
@@ -90,11 +47,12 @@ agent-journal/
         {date}.md
 
 memory/
-  {agent}/              # Agent memory, mirrored by import
+  {agent}/              # Agent memory, mirrored by fetch
 
 notes/
   ideas.md              # Uncommitted backlog: no commitment, no date
   todo.md               # Committed actions, by year
+  keep/                 # Google Keep notes, mirrored by fetch
   projects/
     {slug}.md           # One note per larger effort
 
@@ -106,7 +64,8 @@ topics/
 .commonplace/
   config.toml           # Per-repo configuration
   cache/                # Search index (gitignored)
-  blobs/                # Source exports (LFS-tracked)
+  blobs/                # Captured wire archives and exports (plain git objects)
+  marginalia/           # Per-note tags, links and commentary, mirroring note paths
   skills/
     {skill}/            # State a skill manages, e.g. rake/chaff.md,
                         # synthesize/{slug}.md (a topic's gathering)
@@ -121,7 +80,8 @@ anything in the repository.
 
 - **Chats, journal, notes**: primitive, and the only sources. The journal and
   notes are the user's own writing: add only what the user approves, and
-  never reword what's there.
+  never reword what's there. `notes/keep/` is a mirror: a source, never a place
+  to file anything.
 - **Agent memory** (`memory/`): an agent's paraphrase of the user; a
   lead to the originating passage, not the user's words.
 - **Agent journal**: the writing of the agent that ran a skill. Never a
@@ -137,22 +97,34 @@ Derived artefacts update in place; git holds prior states.
 
 ```bash
 # Creating notes
-commonplace import <path>          # Import AI conversation exports (ZIP)
+commonplace fetch                  # Pull new conversations, memory and Keep notes
+commonplace import <path>          # Import vendor exports or wire archives
 commonplace journal [date]         # Create/edit a daily journal entry
 
 # Analyzing
-commonplace search "<query>"       # Hybrid semantic + full-text search
+commonplace search "<query>"       # Hybrid semantic + keyword search
 commonplace search -n 30 "<query>" # Limit results
 commonplace search --method semantic "<query>"  # Semantic only
-commonplace search --method fulltext "<query>"  # Full-text only
+commonplace search --method keyword "<query>"   # Keyword (FTS5) only
+commonplace search --tag <t> --not-tag <t> "<q>" # Filter by tag (--all ignores exclude_tags)
+commonplace ls [folder]            # List a folder's notes with titles and descriptions
+commonplace show <note>            # Everything known about a note (tags, links, commentary, index)
+commonplace resolve <note>         # Resolve a wikilink name or glob to path(s)
+commonplace stats                  # Activity heatmap and per-source counts (--all for full history)
+
+# Annotating (writes to .commonplace/marginalia/)
+commonplace tag <note> <tag...>    # Add tags to notes' marginalia
+commonplace untag <note> <tag...>  # Remove tags from notes' marginalia
+commonplace link <note> <target> [why...]  # Link a note to another note or span
+commonplace unlink <note> <target>         # Remove links to a target
 
 # System
 commonplace init <path>            # Initialize a new commonplace repo
-commonplace index                  # Build/update the search index
-commonplace index --rebuild        # Rebuild index from scratch
-commonplace sync                   # Sync with remote (pull + push)
-commonplace stats                  # Show repository statistics
-commonplace stats --all            # Full history (not just 52 weeks)
+commonplace index                  # Build/update the search index (--rebuild from scratch)
+commonplace sync                   # Commit and sync with remote (pull + push)
+commonplace git <args...>          # Run git against the commonplace from anywhere
+commonplace doctor                 # Restore scaffolding, re-attach marginalia, check links (--render replays blobs)
+commonplace config [key]           # Print merged settings in effect
 ```
 
 ## Key Principles
