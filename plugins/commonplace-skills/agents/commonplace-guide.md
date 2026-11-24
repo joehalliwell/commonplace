@@ -29,11 +29,12 @@ hope it will be us.
 
 ```
 chats/
-  {agent}/              # claude, claude-code, gemini, gemini-takeout, chatgpt
+  {agent}/              # claude, claude-code, gemini, chatgpt
     {year}/
       {month}/
         {date}-{title}.md
   claude/tasks/         # claude.ai scheduled-task runs (older: chats/claude-tasks/)
+  gemini-takeout/       # Gemini history imported from Google Takeout
 
 journal/
   {year}/
