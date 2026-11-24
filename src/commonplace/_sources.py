@@ -60,4 +60,6 @@ def importers(kind: type[Source]) -> list[Any]:
 
 def source_holding(path: Path) -> Source | None:
     """The source whose tree holds `path`, if any."""
-    return next((source for source in SOURCES if path.is_relative_to(source.tree)), None)
+    # Comparing parts, since `is_relative_to` walks every parent of `path`, which dominates a listing's lookups.
+    parts = path.parts
+    return next((source for source in SOURCES if parts[: len(source.tree.parts)] == source.tree.parts), None)
