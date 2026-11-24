@@ -64,12 +64,11 @@ if recent has fewer. Twelve is more than a dream holds: condensation keeps
 what its plot turns on.
 
 Scheduled task output (`chats/claude/tasks/`, and older `chats/claude-tasks/`)
-is excluded: it is the agent reporting the news, not the user's life. Notes
-carrying any tag in `exclude_tags` (from `commonplace config exclude_tags`, in
-their own frontmatter or marginalia) are excluded too. Agent memory (`memory/`)
-is in: the agent's paraphrase of the user is no source, but a dream's residue
-needn't be one. It takes at most two of the recent six, since tasks rewrite it
-daily.
+is excluded: it is the agent reporting the news, not the user's life. Whatever
+`commonplace ls` leaves out (such as notes carrying a tag in `exclude_tags`)
+stays out of the dream too. Agent memory (`memory/`) is in: the agent's
+paraphrase of the user is no source, but a dream's residue needn't be one. It
+takes at most two of the recent six, since tasks rewrite it daily.
 
 Make the scratch dir with `mktemp -d`, outside the worktree, and note its
 path as `{scratch}`; then draw:

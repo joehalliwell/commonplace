@@ -24,8 +24,11 @@ def commit(root: Path, files: dict[str, str], date: str | None = None) -> None:
 def run(root: Path, out: Path, seed: int = 0, exclude_tags: list[str] | None = None) -> str:
     """Run the script as the skill does, returning what it prints."""
     args = [sys.executable, "-I", str(SCRIPT), "--root", str(root), "--out", str(out), "--seed", str(seed)]
-    # Pin COMMONPLACE_EXCLUDE_TAGS so a developer's global config doesn't leak into the subprocess.
-    env = os.environ | {"COMMONPLACE_EXCLUDE_TAGS": json.dumps(exclude_tags or [])}
+    # Isolate the subprocess from the developer's ~/.config/commonplace/config.toml and ambient env.
+    env = {k: v for k, v in os.environ.items() if k != "COMMONPLACE_EXCLUDE_TAGS"}
+    env["XDG_CONFIG_HOME"] = tempfile.mkdtemp()
+    if exclude_tags is not None:
+        env["COMMONPLACE_EXCLUDE_TAGS"] = json.dumps(exclude_tags)
     return subprocess.run(args, check=True, capture_output=True, text=True, env=env).stdout
 
 

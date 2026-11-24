@@ -5,66 +5,31 @@ import json
 import random
 import re
 import subprocess
-import tomllib
 from pathlib import Path
 
 PATHSPEC = ["chats", "journal", "notes", "memory", ":!chats/claude-tasks", ":!chats/claude/tasks"]
 RECENT, TOTAL, MEMORY_CAP, LIMIT = 6, 12, 2, 2000
-FRONTMATTER = re.compile(r"\A---\n.*?\n---(?:\n|\Z)", re.DOTALL)
+FRONTMATTER = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
 HEADING = re.compile(r"^## ", re.MULTILINE)
+ENTRY = re.compile(r"^- \[.*?\]\(([^)]+)\)", re.MULTILINE)
 
 
-def exclude_tags(root: Path) -> frozenset[str]:
-    """Tags excluded by `commonplace config exclude_tags` for `root` (repo, global and env merged)."""
+def listed(root: Path) -> set[str]:
+    """Notes `commonplace ls` admits under `root`, with merged `exclude_tags` already applied."""
     out = subprocess.run(
-        ["commonplace", "--root", str(root), "config", "exclude_tags"],
+        ["commonplace", "--root", str(root), "ls", ".", "--recursive"],
         check=True,
         capture_output=True,
         text=True,
     ).stdout
-    return frozenset(tomllib.loads(f"v = {out}")["v"])
+    return set(ENTRY.findall(out))
 
 
-def frontmatter_tags(text: str) -> set[str]:
-    """The `tags` list from a file's YAML frontmatter, parsed with stdlib only (`python3 -I`)."""
-    match = FRONTMATTER.match(text)
-    if not match:
-        return set()
-    lines = match.group(0).splitlines()[1:-1]
-    for i, line in enumerate(lines):
-        if not line.startswith("tags:"):
-            continue
-        rest = line.partition(":")[2].strip()
-        if rest.startswith("[") and rest.endswith("]"):
-            return {tag.strip().strip("'\"") for tag in rest[1:-1].split(",") if tag.strip()}
-        if rest:
-            return {rest.strip("'\"")}
-        tags: set[str] = set()
-        for item in lines[i + 1 :]:
-            stripped = item.lstrip()
-            if stripped.startswith("- "):
-                tags.add(stripped[2:].strip().strip("'\""))
-            elif item and not item[0].isspace():
-                break
-        return tags
-    return set()
-
-
-def is_excluded(root: Path, path: str, excluded: frozenset[str]) -> bool:
-    """Whether `path` carries any tag in `excluded`, in its own frontmatter or its marginalia."""
-    if not excluded:
-        return False
-    for candidate in (root / path, root / ".commonplace/marginalia" / path):
-        if candidate.is_file() and excluded & frontmatter_tags(candidate.read_text(errors="replace")):
-            return True
-    return False
-
-
-def git_paths(root: Path, *args: str, excluded: frozenset[str] = frozenset()) -> list[str]:
-    """Existing markdown paths a git command names, deduplicated, sorted, and clear of `excluded` tags."""
+def git_paths(root: Path, *args: str, admitted: set[str]) -> list[str]:
+    """Admitted markdown paths a git command names, deduplicated and sorted."""
     out = subprocess.run(["git", "-C", str(root), *args, "-z", "--", *PATHSPEC], check=True, capture_output=True)
     paths = {p.strip("\n") for p in out.stdout.decode().split("\0")}
-    return sorted(p for p in paths if p.endswith(".md") and (root / p).is_file() and not is_excluded(root, p, excluded))
+    return sorted(p for p in paths if p in admitted)
 
 
 def section(text: str, rng: random.Random) -> tuple[str | None, str]:
@@ -86,15 +51,15 @@ def main() -> None:
     args = parser.parse_args()
     rng = random.Random(args.seed)
 
-    excluded = exclude_tags(args.root)
+    admitted = listed(args.root)
     recent: list[str] = []
-    pool = git_paths(args.root, "log", "--since=7.days", "--name-only", "--format=", excluded=excluded)
+    pool = git_paths(args.root, "log", "--since=7.days", "--name-only", "--format=", admitted=admitted)
     rng.shuffle(pool)
     for path in pool:
         memory = sum(p.startswith("memory/") for p in recent)
         if len(recent) < RECENT and not (path.startswith("memory/") and memory == MEMORY_CAP):
             recent.append(path)
-    deep_pool = [p for p in git_paths(args.root, "ls-files", excluded=excluded) if p not in recent]
+    deep_pool = [p for p in git_paths(args.root, "ls-files", admitted=admitted) if p not in recent]
     deep = rng.sample(deep_pool, min(len(deep_pool), TOTAL - len(recent)))
 
     (args.out / "passages").mkdir(parents=True, exist_ok=True)
