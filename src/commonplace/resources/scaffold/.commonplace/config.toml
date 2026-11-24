@@ -5,4 +5,5 @@
 # editor = "vim"        # default: $EDITOR, else vim
 # wrap = 80
 # auto_index = true
+# exclude_tags = ["hidden"]  # default: none; notes tagged these stay out of search, ls and show until --all
 # ua = "Mozilla/5.0 ..."
