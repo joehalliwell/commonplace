@@ -8,10 +8,13 @@ from commonplace._repo import Commonplace
 from commonplace._types import Note, TagFilter
 
 
-def listing(repo: Commonplace, folder: Path, fields: list[str], tags: TagFilter = TagFilter()) -> str:
+def listing(
+    repo: Commonplace, folder: Path, fields: list[str], tags: TagFilter = TagFilter(), recursive: bool = False
+) -> str:
     """Render a folder's notes, then its subfolders, as an OKF index, with each note's title, description and fields.
 
     Notes `tags` doesn't admit are left out, and a folder holding nothing else; `tags` as a field is a note's labels.
+    `recursive` lists the notes at every depth instead of the subfolders, each by its path within the folder.
     """
 
     def shown(note: Note) -> bool:
@@ -21,7 +24,7 @@ def listing(repo: Commonplace, folder: Path, fields: list[str], tags: TagFilter 
     subfolders: set[str] = set()
     for path in repo.paths(folder):
         rest = path.relative_to(folder)
-        if len(rest.parts) > 1:
+        if len(rest.parts) > 1 and not recursive:
             if rest.parts[0] not in subfolders and shown(repo.get(path)):
                 subfolders.add(rest.parts[0])
         elif path.suffix == ".md" and shown(note := repo.get(path)):
@@ -34,7 +37,7 @@ def listing(repo: Commonplace, folder: Path, fields: list[str], tags: TagFilter 
         metadata = dict(note.metadata)
         if "tags" in fields and note.labels:
             metadata["tags"] = note.labels
-        entry = f"- [{_one_line(metadata.get('title')) or note.path.stem}]({note.path.name})"
+        entry = f"- [{_one_line(metadata.get('title')) or note.path.stem}]({note.path.relative_to(folder).as_posix()})"
         if description := _one_line(metadata.get("description")):
             entry += f" - {description}"
         lines.append(entry)

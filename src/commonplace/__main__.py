@@ -274,13 +274,16 @@ def ls(
     tags: Tags = [],  # noqa: B006
     not_tags: NotTags = [],  # noqa: B006
     everything: Everything = False,
+    recursive: Annotated[
+        bool, Parameter(name=["--recursive", "-r"], help="List notes at every depth, by their path within the folder")
+    ] = False,
     repo: Repo,
 ) -> None:
     """List a folder's notes with their titles and descriptions, as an OKF index."""
     from commonplace._listing import listing
 
     try:
-        print(listing(repo, folder, fields, _tag_filter(repo, tags, not_tags, everything)), end="")
+        print(listing(repo, folder, fields, _tag_filter(repo, tags, not_tags, everything), recursive), end="")
     except ValueError as e:
         logger.error(str(e))
         raise SystemExit(1) from e

@@ -466,6 +466,38 @@ for _archives in (ARCHIVES, GEMINI_ARCHIVES, MEMORY_ARCHIVES):
     _header, _entries = _archives[3]
     _archives[4] = ({**_header, "version": 4, "fetched_by": "commonplace/0.8.0"}, _entries)
 
+# v5 records each exchange's URL, as served with its query, and its status, between what was asked and the body.
+# Synthetic ids, shaped as each fetcher's requests are.
+_CLAUDE_API = "https://claude.ai/api/organizations/org-example"
+_GEMINI_BATCH = (
+    "https://gemini.google.com/_/BardChatUi/data/batchexecute"
+    "?rpcids={}&_reqid=12345&rt=c&source-path=%2Fapp&bl=boq_example&f.sid=-1234567890"
+)
+for _archives, _urls in (
+    (
+        ARCHIVES,
+        [
+            f"{_CLAUDE_API}/chat_conversations?platforms=CLAUDE_AI&platforms=ROUTINE_RUN",
+            f"{_CLAUDE_API}/chat_conversations/c-example?tree=True&rendering_mode=messages&render_all_tools=true",
+        ],
+    ),
+    (GEMINI_ARCHIVES, [_GEMINI_BATCH.format("MaZiqc"), _GEMINI_BATCH.format("hNvQHb")]),
+    (MEMORY_ARCHIVES, [f"{_CLAUDE_API}/melange/list", f"{_CLAUDE_API}/melange/read"]),
+):
+    _header, _entries = _archives[4]
+    _archives[5] = (
+        {**_header, "version": 5, "fetched_by": "commonplace/0.16.0"},  # type: ignore[dict-item]
+        [
+            {
+                **{k: v for k, v in entry.items() if k != "response"},
+                "url": url,
+                "status": 200,
+                "response": entry["response"],
+            }
+            for entry, url in zip(_entries, _urls, strict=True)
+        ],
+    )
+
 
 def main() -> None:
     for source, archives in (
