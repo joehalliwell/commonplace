@@ -90,9 +90,31 @@ def test_residue_few_recent_tops_up_from_deep(repo: Path):
 
 def test_residue_excludes_tasks_and_non_markdown(repo: Path):
     commit(
-        repo, {"chats/claude-tasks/t.md": "task\n", "notes/pic.jpg": "jpg", "src/x.md": "code\n", "notes/n.md": "n\n"}
+        repo,
+        {
+            "chats/claude-tasks/t.md": "task\n",
+            "chats/claude/tasks/2026/11/t.md": "task\n",
+            "notes/pic.jpg": "jpg",
+            "src/x.md": "code\n",
+            "notes/n.md": "n\n",
+        },
     )
     assert [f["path"] for f in residue(repo)] == ["notes/n.md"]
+
+
+def test_residue_excludes_notes_matching_config_exclude_tags(repo: Path):
+    commit(
+        repo,
+        {
+            ".commonplace/config.toml": 'exclude_tags = ["scheduled", "private"]\n',
+            "notes/kept.md": "# Kept\n\nStill in.\n",
+            "notes/own_flow.md": "---\ntags: [work, scheduled]\n---\n\nFlow-tagged.\n",
+            "notes/own_block.md": "---\ntags:\n  - private\n---\n\nBlock-tagged.\n",
+            "notes/marginalia_tagged.md": "# Tagged later\n\nIn marginalia.\n",
+            ".commonplace/marginalia/notes/marginalia_tagged.md": "---\nmarginalia: 2\ntags:\n- private\n---\n",
+        },
+    )
+    assert [f["path"] for f in residue(repo)] == ["notes/kept.md"]
 
 
 def test_residue_same_seed_same_sample(repo: Path):
