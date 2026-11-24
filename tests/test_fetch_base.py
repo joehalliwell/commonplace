@@ -253,6 +253,18 @@ def test_a_429_widens_pacing_for_every_fetcher(no_retry_sleep):
     assert fetcher._pacer.interval > 0.0
 
 
+def test_a_recorded_response_says_what_was_called_and_how_it_answered():
+    """A blob handed on without its repository still says where it came from, query and all (#28)."""
+    fetcher = _stub(lambda r: httpx.Response(200, text='{"a": 1}'))
+
+    with fetcher._session({"session": "x"}):
+        fetcher._record("GET", "https://example.com/api/thread", entry={"endpoint": "thread"}, params={"tree": "True"})
+
+    assert fetcher._wire_log == [
+        {"endpoint": "thread", "url": "https://example.com/api/thread?tree=True", "status": 200, "response": '{"a": 1}'}
+    ]
+
+
 def test_every_response_recorded_counts_on_the_sources_row():
     """A row counts responses, so every source reports progress without code of its own."""
     fetcher = _stub(lambda r: httpx.Response(200, text="{}"))
