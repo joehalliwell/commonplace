@@ -16,7 +16,6 @@ import yaml
 from commonplace._links import Target
 from commonplace._repo import Commonplace
 from commonplace._search._commands import open_index
-from commonplace._search._types import Version
 from commonplace._types import TagFilter
 
 #: The sections after the header, in the order they render.
@@ -45,13 +44,12 @@ def show(repo: Commonplace, spec: str, tags: TagFilter = TagFilter()) -> dict[st
 
 def _index_state(repo: Commonplace, note: Path) -> dict[str, Any]:
     """How many chunks the current version has in the index, and whether it's current, stale or not indexed."""
-    current = Version(note, repo.content_ids().get(note, ""))
-    index = open_index(repo)
-    versions = [version for version in index.get_indexed_paths() if version.path == note]
-    if current in versions:
-        chunks = sum(stat.num_chunks for stat in index.stats() if stat.version == current)
-        return {"state": "current", "chunks": chunks}
-    return {"state": "stale" if versions else "not indexed", "chunks": 0}
+    current = repo.content_ids().get(note, "")
+    with open_index(repo) as index:
+        indexed = index.chunks_for(note)
+    if current in indexed:
+        return {"state": "current", "chunks": indexed[current]}
+    return {"state": "stale" if indexed else "not indexed", "chunks": 0}
 
 
 def select(shown: dict[str, Any], only: list[str] | None = None) -> dict[str, Any]:

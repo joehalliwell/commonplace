@@ -41,46 +41,46 @@ def index(
         prune: If True, drop chunks for notes that have been deleted or edited
             since they were indexed (default: True)
     """
-    chunker, store = MarkdownChunker(), open_index(repo)
+    chunker = MarkdownChunker()
+    with open_index(repo) as store:
+        if rebuild:
+            logger.info("Clearing existing index")
+            store.clear()
 
-    if rebuild:
-        logger.info("Clearing existing index")
-        store.clear()
+        # What the repo holds now, against what the index already has. The two
+        # differences say what to add, and what has been deleted or edited since.
+        # A rebuild needs no special case: clear() just emptied `indexed`.
+        ids = repo.content_ids()
+        live = {Version(path, ids[path]) for path in repo.note_paths() if path in ids}
+        indexed = set(store.get_indexed_paths())
 
-    # What the repo holds now, against what the index already has. The two
-    # differences say what to add, and what has been deleted or edited since.
-    # A rebuild needs no special case: clear() just emptied `indexed`.
-    ids = repo.content_ids()
-    live = {Version(path, ids[path]) for path in repo.note_paths() if path in ids}
-    indexed = set(store.get_indexed_paths())
+        # The index holds committed versions only, but `get` reads the file on disk, so a note with
+        # uncommitted changes waits for them to be committed. Its committed version, already indexed, stays live.
+        uncommitted = repo.uncommitted(".")
+        to_index = {version for version in live - indexed if version.path.as_posix() not in uncommitted}
 
-    # The index holds committed versions only, but `get` reads the file on disk, so a note with
-    # uncommitted changes waits for them to be committed. Its committed version, already indexed, stays live.
-    uncommitted = repo.uncommitted(".")
-    to_index = {version for version in live - indexed if version.path.as_posix() not in uncommitted}
+        logger.info(f"Indexing {len(to_index)} notes")
 
-    logger.info(f"Indexing {len(to_index)} notes")
+        # Stream chunks from all notes and batch them for efficient embedding
+        def chunk_stream():
+            for version in track(to_index, "Indexing notes"):
+                yield from chunker.chunk(repo.get(version.path), version.content_id)
 
-    # Stream chunks from all notes and batch them for efficient embedding
-    def chunk_stream():
-        for version in track(to_index, "Indexing notes"):
-            yield from chunker.chunk(repo.get(version.path), version.content_id)
+        # Process chunks in batches
+        for chunk_batch in batched(chunk_stream(), batch_size):
+            store.add_chunks(chunk_batch)
+        # Notes with chunks are recorded already; this catches those with none.
+        store.record_indexed(to_index)
 
-    # Process chunks in batches
-    for chunk_batch in batched(chunk_stream(), batch_size):
-        store.add_chunks(chunk_batch)
-    # Notes with chunks are recorded already; this catches those with none.
-    store.record_indexed(to_index)
+        # After adding, so the versions being replaced can lend their unchanged chunks' embeddings.
+        if prune:
+            store.remove(indexed - live)
 
-    # After adding, so the versions being replaced can lend their unchanged chunks' embeddings.
-    if prune:
-        store.remove(indexed - live)
-
-    # Dropping them would cost a full re-embed to undo, so this only says they're there.
-    for model_id, count in store.other_models().items():
-        logger.warning(
-            f"{count} notes are indexed under {model_id}, which search no longer uses;"
-            " `commonplace index --rebuild` drops them and reclaims the space"
-        )
+        # Dropping them would cost a full re-embed to undo, so this only says they're there.
+        for model_id, count in store.other_models().items():
+            logger.warning(
+                f"{count} notes are indexed under {model_id}, which search no longer uses;"
+                " `commonplace index --rebuild` drops them and reclaims the space"
+            )
 
     logger.info("Indexing complete")

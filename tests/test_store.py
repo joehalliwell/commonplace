@@ -2,11 +2,13 @@
 
 import sqlite3
 from contextlib import closing
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from commonplace._search._sqlite import SQLiteSearchIndex
+from commonplace._search._types import Version
 from tests.conftest import FixedEmbedder
 
 
@@ -369,3 +371,34 @@ def test_semantic_search_builds_chunks_only_for_walked_hits(tmp_path, make_chunk
 
         assert [hit.chunk.version.path.name for hit in hits] == ["note1.md", "note2.md"]
         assert built == 3
+
+
+def test_chunks_for_returns_counts_per_version_for_this_model_only(test_index, other_model_index, make_chunk):
+    """Point lookup for one note's indexed versions: empty note, multi-chunk note, stale version, model-scoped (#322)."""
+    emb = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+    old_id, cur_id = "1" * 40, "2" * 40
+
+    assert test_index.chunks_for(Path("note.md")) == {}
+
+    test_index.record_indexed([Version(Path("empty.md"), cur_id)])
+    assert test_index.chunks_for(Path("empty.md")) == {cur_id: 0}
+
+    test_index._add_with_embeddings(
+        [
+            (make_chunk("note.md", "S", "old", 0, content_id=old_id), emb),
+            (make_chunk("note.md", "S", "first", 0, content_id=cur_id), emb),
+            (make_chunk("note.md", "S", "second", 10, content_id=cur_id), emb),
+        ]
+    )
+    other_model_index._add_with_embeddings([(make_chunk("note.md", "S", "other model", 0, content_id=cur_id), emb)])
+
+    assert test_index.chunks_for(Path("note.md")) == {old_id: 1, cur_id: 2}
+
+
+def test_sqlite_index_context_manager_closes_connection(tmp_path):
+    """Exiting `with SQLiteSearchIndex(...)` closes its SQLite connection (#322)."""
+    with SQLiteSearchIndex(tmp_path / "index.db", embedder=FixedEmbedder()) as index:
+        assert index.chunks_for(Path("missing.md")) == {}
+
+    with pytest.raises(sqlite3.ProgrammingError):
+        index._conn.execute("SELECT 1")

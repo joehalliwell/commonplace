@@ -249,7 +249,8 @@ def search(
     from commonplace._search._commands import open_index
 
     shown = _tag_filter(repo, tags, not_tags, everything)
-    results = open_index(repo).search(" ".join(query), limit=limit, method=method, include_deleted=deleted, tags=shown)
+    with open_index(repo) as idx:
+        results = idx.search(" ".join(query), limit=limit, method=method, include_deleted=deleted, tags=shown)
 
     if not results:
         logger.info("No results found")

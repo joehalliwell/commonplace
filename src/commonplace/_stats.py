@@ -86,7 +86,8 @@ def generate_stats(
     repo_counts.update(source(path) for path in note_paths)
 
     index_chunks_by_source: Counter[str] = Counter()
-    all_stats = list(open_index(repo).stats())
+    with open_index(repo) as index:
+        all_stats = list(index.stats())
 
     # Filter index stats by sources if specified
     if sources:

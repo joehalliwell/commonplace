@@ -1,10 +1,12 @@
 """Tests for `show`: everything known about one note, gathered from what already records it."""
 
 import json
+import sqlite3
 from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
+import numpy as np
 import pytest
 import yaml
 
@@ -77,6 +79,37 @@ def test_show_index_is_current_while_an_uncommitted_edit_waits_for_its_commit(no
     (notes.root / "notes/ideas.md").write_text(IDEAS + "\nMore.\n")
 
     assert show(notes, "ideas")["index"]["state"] == "current"
+
+
+def test_show_index_ignores_other_model_chunks_and_closes_connection(notes, other_model_index, make_chunk, monkeypatch):
+    """`show` counts only the active model's chunks and closes the SQLite connection it opens (#322)."""
+    _commands.index(notes)
+    expected = show(notes, "ideas")["index"]
+
+    content_id = notes.content_ids()[Path("notes/ideas.md")]
+    other_model_index._add_with_embeddings(
+        [
+            (
+                make_chunk("notes/ideas.md", "S", "Other model chunk", 0, content_id=content_id),
+                np.array([1.0, 0.0, 0.0], dtype=np.float32),
+            )
+        ]
+    )
+
+    opened = []
+    real_open = _commands.open_index
+
+    def spy_open(repo):
+        idx = real_open(repo)
+        opened.append(idx)
+        return idx
+
+    monkeypatch.setattr("commonplace._show.open_index", spy_open)
+
+    assert show(notes, "ideas")["index"] == expected
+    assert len(opened) == 1
+    with pytest.raises(sqlite3.ProgrammingError):
+        opened[0]._conn.execute("SELECT 1")
 
 
 def test_show_cli_shows_a_note_named_though_config_excludes_its_tag(notes, test_app, capsys, as_joe):
