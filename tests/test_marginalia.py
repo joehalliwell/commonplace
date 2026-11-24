@@ -17,7 +17,7 @@ from commonplace._marginalia import (
     write_marginalia,
 )
 from commonplace._show import links
-from commonplace._types import Note
+from commonplace._types import Note, TagFilter
 from commonplace._utils import load_frontmatter
 from tests.porcelain import git
 
@@ -302,13 +302,13 @@ def test_a_path_link_in_marginalia_lands_as_if_written_in_the_note(notes, as_joe
     assert _found(links(notes, NOTE), "out") == {("out", "/chats/claude-tasks/2026/10/log", line)}
 
 
-def test_links_leave_out_hidden_notes_at_the_other_end_unless_asked(notes, as_joe):
+def test_links_leave_out_notes_at_the_other_end_the_tag_filter_excludes(notes, as_joe):
     link(notes, "2026/10/log", "ideas", "", on=date(2026, 11, 2))
     link(notes, "ideas", "2026/11/log", "", on=date(2026, 11, 2))
-    tag(notes, "/chats/claude-tasks/**", ["hidden"])
+    tag(notes, "/chats/claude-tasks/**", ["scheduled"])
 
-    assert links(notes, NOTE) == []
-    assert len(links(notes, NOTE, include_hidden=True)) == 2
+    assert links(notes, NOTE, TagFilter(without=frozenset({"scheduled"}))) == []
+    assert len(links(notes, NOTE)) == 2
 
 
 def test_label_and_unlabel_change_only_the_marginalias_tags(notes):

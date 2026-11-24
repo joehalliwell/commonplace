@@ -56,6 +56,10 @@ class Config(BaseSettings):
     wrap: int = Field(default=80, description="Target characters per line for text wrapping")
     editor: str = Field(default=DEFAULT_EDITOR, description="Default editor for opening notes")
     auto_index: bool = Field(default=True, description="Automatically index notes when they are added")
+    exclude_tags: list[str] = Field(
+        default_factory=list,
+        description="Tags whose notes search, ls and show's links leave out unless --all or --tag asks for them",
+    )
     ua: str = Field(
         default=DEFAULT_UA,
         description="User-Agent sent by fetchers. Override if a provider's bot check starts rejecting the default",

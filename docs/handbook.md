@@ -204,7 +204,7 @@ refused with the candidates listed.
 
 ```bash
 commonplace tag ideas revisit
-commonplace tag /chats/gemini/2026/05/2026-05-03-tea hidden
+commonplace tag /chats/gemini/2026/05/2026-05-03-tea drink
 commonplace tag '/chats/claude/tasks/**' scheduled
 ```
 
@@ -219,9 +219,14 @@ including chats and memory that the next fetch rewrites. Tagging commits as you,
 not as the bot.
 
 A note's tags are its own frontmatter `tags` and its marginalia tags together.
-`hidden` is the one tag commonplace acts on, wherever it's set: a hidden note
-stays in the repository but is left out of `search`, `ls` and `show`'s links
-(and so out of what skills gather), unless you pass `--hidden`. `ls --field tags` shows marginalia tags after a note's own.
+`ls --field tags` shows marginalia tags after a note's own. No tag means
+anything to commonplace by itself. `search`, `ls` and `show`'s links filter by
+tag: `--tag` keeps only notes carrying it (repeat it to require several), and
+`--not-tag` leaves out notes carrying it. To leave a tag's notes out by default,
+name it in [`exclude_tags`](#configuration), e.g. `exclude_tags = ["scheduled"]`
+for scheduled-task runs: they stay in the repository, out of what those commands
+offer (and so out of what skills gather), until `--all` or a `--tag` naming them
+asks for them. `show` always shows the note you name.
 
 A link's target can be a note, a heading, or a phrase quoted from the note, and
 the rest of the line says why:
@@ -350,14 +355,15 @@ can't silently do nothing.
 as TOML you can paste into a config file; `commonplace config user` prints just
 that one value.
 
-| Setting      | Default                     | Purpose                                           |
-| ------------ | --------------------------- | ------------------------------------------------- |
-| `root`       | platform data dir           | where your commonplace lives                      |
-| `user`       | your login name, titlecased | how you're named in imported conversations        |
-| `editor`     | `$EDITOR`, else `vim`       | editor used by `commonplace journal`              |
-| `wrap`       | `80`                        | target line length for written markdown           |
-| `auto_index` | `true`                      | index what `import`, `fetch` and `journal` commit |
-| `ua`         | a current Chrome UA         | User-Agent sent by fetchers                       |
+| Setting        | Default                     | Purpose                                              |
+| -------------- | --------------------------- | ---------------------------------------------------- |
+| `root`         | platform data dir           | where your commonplace lives                         |
+| `user`         | your login name, titlecased | how you're named in imported conversations           |
+| `editor`       | `$EDITOR`, else `vim`       | editor used by `commonplace journal`                 |
+| `wrap`         | `80`                        | target line length for written markdown              |
+| `auto_index`   | `true`                      | index what `import`, `fetch` and `journal` commit    |
+| `ua`           | a current Chrome UA         | User-Agent sent by fetchers                          |
+| `exclude_tags` | `[]`                        | tags whose notes `search`, `ls` and `show` leave out |
 
 If fetches start getting blocked, the built-in User-Agent may have gone stale:
 every vendor fronts its internal API with a bot check that an old one fails.
@@ -368,6 +374,12 @@ Copy `navigator.userAgent` from your browser's console and set `COMMONPLACE_UA`
 
 What to do by hand when a release needs it. After any upgrade, run
 `commonplace doctor` to see what scaffolding an older repo is missing.
+
+**0.16.0**: `hidden` is no longer special, and `--hidden` is gone from `search`,
+`ls` and `show`. If you tagged notes `hidden`, add `exclude_tags = ["hidden"]`
+to `.commonplace/config.toml` to keep them out by default, and use `--all` where
+you passed `--hidden`. `show`'s record no longer has a `hidden` key; its `tags`
+section says the same.
 
 **0.14.1**: a claude.ai chat shows each tool call as one line, as a Claude Code
 note does, and scheduled-task runs come from the `claude` source into

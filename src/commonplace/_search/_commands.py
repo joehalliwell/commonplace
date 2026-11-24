@@ -20,7 +20,7 @@ def open_index(repo: Commonplace) -> SQLiteSearchIndex:
         # Blind to which version: an edited note is still there to open, so a chunk of its previous text is
         # worth returning until indexing catches up. A deleted one is not, and quoting it back would be a lie.
         note_exists=lambda path: (repo.root / path).exists(),
-        is_hidden=lambda path: repo.get(path).hidden,
+        labels=lambda path: repo.get(path).labels,
     )
 
 

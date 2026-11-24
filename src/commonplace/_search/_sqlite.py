@@ -10,6 +10,7 @@ from numpy.typing import NDArray
 
 from commonplace._logging import logger
 from commonplace._search._types import Chunk, Embedder, IndexStat, SearchHit, SearchIndex, SearchMethod, Version
+from commonplace._types import TagFilter
 
 #: The schema this store writes, stamped as `user_version`. Version 1 predates the stamp: a database
 #: whose every chunk named its own model, path and ref. Version 2 names a note once, in `notes`, which
@@ -141,7 +142,7 @@ class SQLiteSearchIndex(SearchIndex):
         db_path: Path,
         embedder: Embedder | None = None,
         note_exists: Callable[[Path], bool] | None = None,
-        is_hidden: Callable[[Path], bool] | None = None,
+        labels: Callable[[Path], Iterable[str]] | None = None,
     ):
         """
         Initialize the vector store.
@@ -153,11 +154,11 @@ class SQLiteSearchIndex(SearchIndex):
                 repository. Hits that fail it are hidden from results unless the
                 caller asks for deleted ones. None (the default) means this store
                 has no repository to ask, and every hit stands.
-            is_hidden: Whether a note is labelled `hidden`, asked of each hit; their hits are left out
-                unless the caller asks for hidden ones. None means nothing is hidden.
+            labels: A note's labels as they stand, asked of each hit a search's tag filter
+                must judge; never indexed, so tagging needs no re-index. None means no note has any.
         """
         self._note_exists = note_exists
-        self._is_hidden = is_hidden
+        self._labels = labels or (lambda path: ())
 
         try:
             db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -265,7 +266,7 @@ class SQLiteSearchIndex(SearchIndex):
         limit: int = 10,
         method: SearchMethod = SearchMethod.HYBRID,
         include_deleted: bool = False,
-        include_hidden: bool = False,
+        tags: TagFilter = TagFilter(),
     ) -> list[SearchHit]:
         """
         Search for matching chunks using the specified method.
@@ -275,45 +276,42 @@ class SQLiteSearchIndex(SearchIndex):
             limit: Maximum number of results to return
             method: Search method - semantic, keyword, or hybrid (default)
             include_deleted: Include hits whose note has since left the repository
-            include_hidden: Include hits whose note is tagged `hidden`
+            tags: Which notes' hits to keep, by their labels
 
         Returns:
             List of search hits, ordered by relevance
         """
         logger.debug(f"Searching for {query} ({limit} hits using {method})")
-        shown = {"include_deleted": include_deleted, "include_hidden": include_hidden}
 
         if method == SearchMethod.SEMANTIC:
-            return self.search_semantic(query, limit=limit, **shown)
+            return self.search_semantic(query, limit=limit, include_deleted=include_deleted, tags=tags)
         elif method == SearchMethod.KEYWORD:
-            return self.search_keyword(query, limit=limit, **shown)
+            return self.search_keyword(query, limit=limit, include_deleted=include_deleted, tags=tags)
         elif method == SearchMethod.HYBRID:
-            return self.search_hybrid(query, limit=limit, **shown)
+            return self.search_hybrid(query, limit=limit, include_deleted=include_deleted, tags=tags)
         else:
             raise ValueError(f"Unknown search method: {method}")
 
     def _take_shown(
-        self, ranked: Iterator[SearchHit], limit: int, include_deleted: bool, include_hidden: bool
+        self, ranked: Iterator[SearchHit], limit: int, include_deleted: bool, tags: TagFilter
     ) -> list[SearchHit]:
         """
-        Take the best `limit` hits, dropping any whose note has left the repo or is tagged `hidden`.
+        Take the best `limit` hits, dropping any whose note has left the repo or that `tags` doesn't admit.
 
         Filtering as the ranking is walked, rather than after truncating it, so
         dropped hits cost the caller nothing: a query still fills its limit with
         whatever is left.
         """
         note_exists = None if include_deleted else self._note_exists
-        is_hidden = None if include_hidden else self._is_hidden
 
         def shown(hit: SearchHit) -> bool:
             path = hit.chunk.version.path
-            hidden = is_hidden is not None and is_hidden(path)
-            return not hidden and (note_exists is None or note_exists(path))
+            return tags.admits(self._labels(path)) and (note_exists is None or note_exists(path))
 
         return list(islice(filter(shown, ranked), limit))
 
     def search_semantic(
-        self, query: str, limit: int = 10, include_deleted: bool = False, include_hidden: bool = False
+        self, query: str, limit: int = 10, include_deleted: bool = False, tags: TagFilter = TagFilter()
     ) -> list[SearchHit]:
         """
         Search for similar chunks using semantic similarity.
@@ -322,20 +320,20 @@ class SQLiteSearchIndex(SearchIndex):
             query: The search query text
             limit: Maximum number of results to return
             include_deleted: Include hits whose note has since left the repository
-            include_hidden: Include hits whose note is tagged `hidden`
+            tags: Which notes' hits to keep, by their labels
 
         Returns:
             List of search hits, ordered by descending similarity
         """
         query_embedding = self._embedder.embed_query(query)
-        return self._search_by_embedding(query_embedding, limit, include_deleted, include_hidden)
+        return self._search_by_embedding(query_embedding, limit, include_deleted, tags)
 
     def _search_by_embedding(
         self,
         query_embedding: NDArray[np.float32],
         limit: int = 10,
         include_deleted: bool = False,
-        include_hidden: bool = False,
+        tags: TagFilter = TagFilter(),
     ) -> list[SearchHit]:
         """
         Internal method to search by embedding vector.
@@ -344,7 +342,7 @@ class SQLiteSearchIndex(SearchIndex):
             query_embedding: The query embedding vector
             limit: Maximum number of results to return
             include_deleted: Include hits whose note has since left the repository
-            include_hidden: Include hits whose note is tagged `hidden`
+            tags: Which notes' hits to keep, by their labels
 
         Returns:
             List of search hits, ordered by descending similarity
@@ -366,7 +364,7 @@ class SQLiteSearchIndex(SearchIndex):
             SearchHit(chunk=self._fetch_chunk(chunk_ids[idx]), score=float(similarities[idx]))
             for idx in np.argsort(similarities)[::-1]
         )
-        return self._take_shown(ranked, limit, include_deleted, include_hidden)
+        return self._take_shown(ranked, limit, include_deleted, tags)
 
     def _fetch_chunk(self, chunk_id: int) -> Chunk:
         """Load one chunk by primary key, once ranking has reached it."""
@@ -383,7 +381,7 @@ class SQLiteSearchIndex(SearchIndex):
         return " ".join('"' + token.replace('"', '""') + '"' for token in query.split())
 
     def search_keyword(
-        self, query: str, limit: int = 10, include_deleted: bool = False, include_hidden: bool = False
+        self, query: str, limit: int = 10, include_deleted: bool = False, tags: TagFilter = TagFilter()
     ) -> list[SearchHit]:
         """
         Search for chunks using keyword (full-text) search.
@@ -392,7 +390,7 @@ class SQLiteSearchIndex(SearchIndex):
             query: The search query string
             limit: Maximum number of results to return
             include_deleted: Include hits whose note has since left the repository
-            include_hidden: Include hits whose note is tagged `hidden`
+            tags: Which notes' hits to keep, by their labels
 
         Returns:
             List of search hits, ordered by BM25 rank
@@ -418,7 +416,7 @@ class SQLiteSearchIndex(SearchIndex):
                 # Convert BM25 rank (negative, lower is better) to positive score
                 yield SearchHit(chunk=chunk, score=-float(rank))
 
-        return self._take_shown(ranked(), limit, include_deleted, include_hidden)
+        return self._take_shown(ranked(), limit, include_deleted, tags)
 
     def search_hybrid(
         self,
@@ -426,7 +424,7 @@ class SQLiteSearchIndex(SearchIndex):
         limit: int = 10,
         k: int = 60,
         include_deleted: bool = False,
-        include_hidden: bool = False,
+        tags: TagFilter = TagFilter(),
     ) -> list[SearchHit]:
         """
         Search using a modified reciprocal rank fusion of keyword and semantic search.
@@ -439,7 +437,7 @@ class SQLiteSearchIndex(SearchIndex):
             limit: Maximum number of results to return
             k: RRF constant (default 60, as recommended in literature)
             include_deleted: Include hits whose note has since left the repository
-            include_hidden: Include hits whose note is tagged `hidden`
+            tags: Which notes' hits to keep, by their labels
 
         Returns:
             List of search hits, ordered by fused score
@@ -449,8 +447,8 @@ class SQLiteSearchIndex(SearchIndex):
 
         # Oversample both legs before fusing so a consensus hit just past `limit` in either leg isn't cut prematurely.
         pool = max(limit * 3, 50)
-        keyword_results = self.search_keyword(query, pool, include_deleted, include_hidden)
-        semantic_results = self.search_semantic(query, pool, include_deleted, include_hidden)
+        keyword_results = self.search_keyword(query, pool, include_deleted, tags)
+        semantic_results = self.search_semantic(query, pool, include_deleted, tags)
 
         # Build lookup by chunk identity (path + offset uniquely identifies a chunk)
         def chunk_key(chunk: Chunk) -> tuple:

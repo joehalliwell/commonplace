@@ -5,17 +5,17 @@ from pathlib import Path
 from typing import Any
 
 from commonplace._repo import Commonplace
-from commonplace._types import Note
+from commonplace._types import Note, TagFilter
 
 
-def listing(repo: Commonplace, folder: Path, fields: list[str], include_hidden: bool = False) -> str:
+def listing(repo: Commonplace, folder: Path, fields: list[str], tags: TagFilter = TagFilter()) -> str:
     """Render a folder's notes, then its subfolders, as an OKF index, with each note's title, description and fields.
 
-    Notes labelled `hidden` are left out unless asked for, and a folder holding nothing else; `tags` are its labels.
+    Notes `tags` doesn't admit are left out, and a folder holding nothing else; `tags` as a field is a note's labels.
     """
 
     def shown(note: Note) -> bool:
-        return include_hidden or not note.hidden
+        return tags.admits(note.labels)
 
     notes: list[Note] = []
     subfolders: set[str] = set()
