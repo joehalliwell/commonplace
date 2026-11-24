@@ -297,3 +297,20 @@ def test_dump_frontmatter_long_path_stays_on_one_line():
 
 def test_dump_frontmatter_no_metadata_is_the_body_alone():
     assert dump_frontmatter({}, "Body\n") == "Body\n"
+
+
+def test_load_frontmatter_scalars_keep_their_yaml_types():
+    text = "---\nday: 2026-11-24\nat: 2026-11-24T21:00:00+00:00\nn: 3\nok: true\nnone: null\n---\n\nBody\n"
+
+    metadata, body = load_frontmatter(text)
+
+    at = datetime(2026, 11, 24, 21, tzinfo=UTC)
+    assert metadata == {"day": date(2026, 11, 24), "at": at, "n": 3, "ok": True, "none": None}
+    assert body == "Body\n"
+
+
+@pytest.mark.parametrize("yaml", ["key: [unclosed", "just a sentence", "\tkey: tab-indented"])
+def test_load_frontmatter_not_a_yaml_mapping_is_all_body(yaml):
+    text = f"---\n{yaml}\n---\n\nBody\n"
+
+    assert load_frontmatter(text) == ({}, text)
