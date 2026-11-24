@@ -1,11 +1,13 @@
 """Tests for vector storage."""
 
 import sqlite3
+from contextlib import closing
 
 import numpy as np
 import pytest
 
 from commonplace._search._sqlite import SQLiteSearchIndex
+from tests.conftest import FixedEmbedder
 
 
 def test_add_and_search(test_index, make_chunk):
@@ -289,21 +291,7 @@ def test_search_keyword_ignores_another_models_chunks(test_index, other_model_in
 
 def test_search_hybrid_surfaces_consensus_past_limit(tmp_path, make_chunk):
     """Oversampling each leg before RRF lets a hit ranked #3 in both legs beat #1-in-one-leg hits (#321)."""
-
-    class FixedEmbedder:
-        model_id = "test:fixed"
-
-        def embed_doc(self, text: str):
-            raise NotImplementedError
-
-        def embed_docs(self, texts: list[str]):
-            raise NotImplementedError
-
-        def embed_query(self, text: str):
-            return np.array([1.0, 0.0, 0.0], dtype=np.float32)
-
-    index = SQLiteSearchIndex(tmp_path / "index.db", embedder=FixedEmbedder())
-    try:
+    with closing(SQLiteSearchIndex(tmp_path / "index.db", embedder=FixedEmbedder((1.0, 0.0, 0.0)))) as index:
         # Filler chunks push orthogonal keyword-only docs down in semantic ranking, as in a real corpus.
         fillers = [
             (
@@ -344,33 +332,20 @@ def test_search_hybrid_surfaces_consensus_past_limit(tmp_path, make_chunk):
         hits = index.search_hybrid("amber", limit=2)
 
         assert hits[0].chunk.version.path.name == "both.md"
-    finally:
-        index.close()
 
 
 def test_semantic_search_builds_chunks_only_for_walked_hits(tmp_path, make_chunk, monkeypatch):
     """Semantic search ranks by id + embedding and only hydrates chunks as `_take_shown` walks them (#257)."""
     import commonplace._search._sqlite as sqlite_mod
 
-    class FixedEmbedder:
-        model_id = "test:fixed"
-
-        def embed_doc(self, text: str):
-            raise NotImplementedError
-
-        def embed_docs(self, texts: list[str]):
-            raise NotImplementedError
-
-        def embed_query(self, text: str):
-            return np.array([1.0, 0.0], dtype=np.float32)
-
     # note0 ranks #1 but is deleted; note1 (#2) and note2 (#3) should fill limit=2 -> only 3 chunks hydrated.
-    index = SQLiteSearchIndex(
-        tmp_path / "index.db",
-        embedder=FixedEmbedder(),
-        note_exists=lambda path: path.name != "note0.md",
-    )
-    try:
+    with closing(
+        SQLiteSearchIndex(
+            tmp_path / "index.db",
+            embedder=FixedEmbedder((1.0, 0.0)),
+            note_exists=lambda path: path.name != "note0.md",
+        )
+    ) as index:
         rows = [
             (
                 make_chunk(f"note{i}.md", "S", f"Text {i}", 0),
@@ -394,5 +369,3 @@ def test_semantic_search_builds_chunks_only_for_walked_hits(tmp_path, make_chunk
 
         assert [hit.chunk.version.path.name for hit in hits] == ["note1.md", "note2.md"]
         assert built == 3
-    finally:
-        index.close()

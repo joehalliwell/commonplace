@@ -358,10 +358,7 @@ class SQLiteSearchIndex(SearchIndex):
             return []
 
         chunk_ids = [chunk_id for chunk_id, _ in rows]
-        # Concatenate into one buffer so float16 -> float32 runs once in C rather than per row in Python.
-        embeddings_matrix = (
-            np.frombuffer(b"".join(blob for _, blob in rows), dtype=_STORED).reshape(len(rows), -1).astype(np.float32)
-        )
+        embeddings_matrix = _from_blob(b"".join(blob for _, blob in rows)).reshape(len(rows), -1)
         similarities = self._cosine_similarity(query_embedding, embeddings_matrix)
 
         # Hydrate each chunk only as `_take_shown` walks the ranking, so skipped or tail rows cost nothing.
@@ -433,6 +430,9 @@ class SQLiteSearchIndex(SearchIndex):
     ) -> list[SearchHit]:
         """
         Search using a modified reciprocal rank fusion of keyword and semantic search.
+
+        Each leg is oversampled to `max(limit * 3, 50)` before fusion so consensus
+        hits ranked past `limit` in either leg are not dropped prematurely.
 
         Args:
             query: The search query string

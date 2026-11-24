@@ -9,7 +9,9 @@ from datetime import date
 from pathlib import Path
 from typing import NamedTuple
 
+import numpy as np
 import pytest
+from numpy.typing import NDArray
 from rich.console import Console
 
 from commonplace import _progress
@@ -124,6 +126,24 @@ class StubEmbedder:
     """
 
     model_id = "stub:another-model"
+
+
+class FixedEmbedder:
+    """An embedder returning one fixed query vector, for deterministic ranking tests."""
+
+    model_id = "stub:fixed"
+
+    def __init__(self, query: tuple[float, ...] = (1.0, 0.0, 0.0)):
+        self._query = np.array(query, dtype=np.float32)
+
+    def embed_doc(self, text: str) -> NDArray[np.float32]:
+        raise NotImplementedError
+
+    def embed_docs(self, texts: list[str]) -> NDArray[np.float32]:
+        raise NotImplementedError
+
+    def embed_query(self, text: str) -> NDArray[np.float32]:
+        return self._query
 
 
 INDEX_EXAMPLES = Path(__file__).parent / "resources" / "index"
