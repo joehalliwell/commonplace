@@ -8,7 +8,7 @@ import pytest
 
 from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
 from commonplace._fetch._commands import fetch
-from commonplace._fetch._helpers import FetchBlocked
+from commonplace._fetch._types import FetchBlocked
 from commonplace._wire import read_entries, read_header
 from tests.fetching import fetching, owned
 from tests.porcelain import git

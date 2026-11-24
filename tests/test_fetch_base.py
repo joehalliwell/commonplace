@@ -13,8 +13,7 @@ import httpx
 import pytest
 
 from commonplace._fetch._base import BaseFetcher
-from commonplace._fetch._helpers import FetchBlocked, NoSession
-from commonplace._fetch._types import Fetcher
+from commonplace._fetch._types import FetchBlocked, Fetcher, NoSession
 from commonplace._progress import on, rows
 from commonplace._sources import SOURCES
 from commonplace._types import ChatSource

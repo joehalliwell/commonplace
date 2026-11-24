@@ -8,8 +8,8 @@ import httpx
 import pytest
 
 from commonplace._fetch._commands import fetch
-from commonplace._fetch._helpers import FetchBlocked, NoSession
 from commonplace._fetch._keep import CHECKPOINT_EVERY, KeepFetcher
+from commonplace._fetch._types import FetchBlocked, NoSession
 from commonplace._import._commands import import_
 from commonplace._import._keep import KeepImporter
 from commonplace._marginalia import Marginalia, write_marginalia

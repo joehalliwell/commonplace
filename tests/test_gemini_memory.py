@@ -9,7 +9,7 @@ import pytest
 
 from commonplace._fetch._commands import fetch
 from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
-from commonplace._fetch._helpers import FetchBlocked
+from commonplace._fetch._types import FetchBlocked
 from commonplace._import._gemini_memory import GeminiMemoryImporter
 from commonplace._types import Note
 from commonplace._utils import load_frontmatter

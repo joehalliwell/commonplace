@@ -7,8 +7,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
-from commonplace._fetch._helpers import FetchBlocked, NoSession
-from commonplace._fetch._types import Fetcher
+from commonplace._fetch._types import FetchBlocked, Fetcher, NoSession
 from commonplace._import._commands import import_one
 from commonplace._logging import logger
 from commonplace._progress import Row, on, rows

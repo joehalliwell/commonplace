@@ -9,7 +9,7 @@ import pytest
 
 from commonplace._fetch._claude import ClaudeFetcher
 from commonplace._fetch._commands import fetch
-from commonplace._fetch._helpers import FetchBlocked, NoSession
+from commonplace._fetch._types import FetchBlocked, NoSession
 from commonplace._import._claude import ClaudeImporter
 from commonplace._wire import read_entries
 from tests.fetching import fetching, owned

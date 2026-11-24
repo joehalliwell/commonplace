@@ -10,7 +10,7 @@ import httpx
 import pytest
 
 from commonplace._fetch._gemini import GeminiFetcher
-from commonplace._fetch._helpers import FetchBlocked
+from commonplace._fetch._types import FetchBlocked
 from commonplace._import._gemini import GeminiImporter, _extract_rpc_body, _ts_to_iso
 from commonplace._wire import read_entries
 from tests.fetching import owned

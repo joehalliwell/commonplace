@@ -9,7 +9,7 @@ import pytest
 from commonplace._fetch._chatgpt import ChatGptFetcher
 from commonplace._fetch._chatgpt_memory import ChatGptMemoryFetcher
 from commonplace._fetch._commands import fetch
-from commonplace._fetch._helpers import FetchBlocked
+from commonplace._fetch._types import FetchBlocked
 from commonplace._wire import archive_names, read_entries, read_header
 from tests.fetching import fetching, owned
 from tests.porcelain import git
