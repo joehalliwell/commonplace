@@ -36,7 +36,7 @@ def show(repo: Commonplace, spec: str, tags: TagFilter = TagFilter()) -> dict[st
             "own": list(metadata.get("tags") or []),
             "marginalia": node.marginalia.tags,
         },
-        "links": [asdict(neighbour) for neighbour in links(repo, note, tags)],
+        "links": [{key: value for key, value in asdict(n).items() if value} for n in links(repo, note, tags)],
         "commentary": node.commentary,
         "index": _index_state(repo, note),
     }
@@ -67,11 +67,11 @@ def render(shown: dict[str, Any], only: list[str] | None = None) -> str:
 
 @dataclass(frozen=True)
 class Neighbour:
-    """An edge to or from a note: the node at the other end, rooted, and the line it's written on."""
+    """An edge to or from a note: the node at the other end, rooted, and what the link says."""
 
     direction: str  # "out" from the note, or "in" to it
     other: str
-    context: str
+    text: str
 
 
 def links(repo: Commonplace, note: Path, tags: TagFilter = TagFilter()) -> list[Neighbour]:
@@ -80,14 +80,14 @@ def links(repo: Commonplace, note: Path, tags: TagFilter = TagFilter()) -> list[
     def shown(other: Path) -> bool:
         return tags.admits(repo.get(other).labels)
 
-    node, found = repo.get(note), []
+    found = []
     for edge in repo.edges(note):
         match edge.to:
             case Path() as other if not shown(other):
                 continue
             case Path() as other:
-                found.append(Neighbour("out", str(Target(other, edge.link.target.partition("#")[2])), node.line(edge)))
+                found.append(Neighbour("out", str(Target(other, edge.link.target.partition("#")[2])), edge.link.text))
             case _:
-                found.append(Neighbour("out", edge.link.target, node.line(edge)))
+                found.append(Neighbour("out", edge.link.target, edge.link.text))
     into = [(source, edge) for source, edge in repo.into(note) if tags.admits(source.labels)]
-    return found + [Neighbour("in", str(Target(edge.node)), source.line(edge)) for source, edge in into]
+    return found + [Neighbour("in", str(Target(edge.node)), edge.link.text) for _, edge in into]

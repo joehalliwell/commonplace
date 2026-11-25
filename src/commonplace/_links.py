@@ -15,7 +15,7 @@ from markdown_it.token import Token
 from mdit_py_plugins.front_matter import front_matter_plugin
 
 from commonplace._config import BLOBS
-from commonplace._utils import load_frontmatter
+from commonplace._utils import load_frontmatter, slugify
 
 
 class LinkKind(StrEnum):
@@ -34,6 +34,7 @@ class Link:
     line: int  # 1-based
     target: str  # Raw, as written: still percent-encoded, may carry a fragment
     kind: LinkKind
+    text: str = ""  # What it says: its label, an image's alt text, a wikilink's alias, or the key citing it
 
 
 # --- Extraction -------------------------------------------------------------
@@ -112,44 +113,61 @@ def _strings(value: object) -> Iterator[str]:
             yield from _strings(item)
 
 
-def _frontmatter_citations(metadata: dict, lines: list[str]) -> Iterator[tuple[int, str, LinkKind]]:
+#: A reference as extraction finds it: its line, its target as written, its kind, and what it says.
+type Found = tuple[int, str, LinkKind, str]
+
+
+def _frontmatter_citations(metadata: dict, lines: list[str]) -> Iterator[Found]:
     """The notes and archives an artefact's frontmatter cites under any `source*` key."""
     for key, value in metadata.items():
         if str(key).startswith("source"):
             for target in _strings(value):
                 if target.endswith(".md") or target.startswith(f"{BLOBS.as_posix()}/"):
                     # Frontmatter comes first, so the first line to mention a path is the one that cites it.
-                    yield _locate(lines, target), target, LinkKind.CITATION
+                    yield _locate(lines, target), target, LinkKind.CITATION, str(key)
 
 
-def _inline_references(child: Token, block: Token) -> Iterator[tuple[int, str, LinkKind]]:
+def _link_text(children: list[Token], opening: int) -> str:
+    """What the link opened at `children[opening]` says: its text, up to where it closes."""
+    words = []
+    for child in children[opening + 1 :]:
+        if child.type == "link_close":
+            break
+        words.append(" " if child.type in ("softbreak", "hardbreak") else child.content)
+    return "".join(words)
+
+
+def _inline_references(children: list[Token], at: int, block: Token) -> Iterator[Found]:
     """The references in one inline token, whichever syntax carried it."""
+    child = children[at]
     start = child.meta.get("pos", 0)
     if child.type == "wikilink":
         # `page#section` names a span in `page`; `#section` alone is this note's own.
-        target = child.content.strip("[]").strip()
-        if target.split("#")[0].strip():
-            yield _line(block, start), target, LinkKind.WIKILINK
+        target, _, text = child.content.strip("[]").partition("|")
+        if (target := target.strip()).split("#")[0].strip():
+            yield _line(block, start), target, LinkKind.WIKILINK, text.strip()
     elif child.type == "html_inline":
         for offset, target in _html_targets(child.content):
-            yield _line(block, start + offset), target, LinkKind.PATH
+            yield _line(block, start + offset), target, LinkKind.PATH, ""
     # Reference, collapsed and shortcut links arrive already resolved to their
     # definition, so every one of them looks inline by here.
     elif (attribute := {"link_open": "href", "image": "src"}.get(child.type)) and (
         target := str(child.attrGet(attribute) or "")
     ):
-        yield _line(block, start), target, LinkKind.PATH
+        label = _link_text(children, at) if child.type == "link_open" else child.content
+        yield _line(block, start), target, LinkKind.PATH, label
 
 
-def _references(tokens: list[Token]) -> Iterator[tuple[int, str, LinkKind]]:
+def _references(tokens: list[Token]) -> Iterator[Found]:
     """Every reference in the token stream, now that the parser knows every syntax we use."""
     for token in tokens:
         if token.type == "html_block":
             for offset, target in _html_targets(token.content):
-                yield _line(token, offset), target, LinkKind.PATH
+                yield _line(token, offset), target, LinkKind.PATH, ""
         elif token.type == "inline":
-            for child in token.children or []:
-                yield from _inline_references(child, token)
+            children = token.children or []
+            for at in range(len(children)):
+                yield from _inline_references(children, at, token)
 
 
 def _is_repo_reference(target: str) -> bool:
@@ -166,9 +184,9 @@ def extract_links(text: str, *, source: Path, body: bool = True, metadata: dict 
     lines, metadata = text.split("\n"), load_frontmatter(text)[0] if metadata is None else metadata
     found = [*_frontmatter_citations(metadata, lines), *(_references(_MARKDOWN.parse(text)) if body else [])]
     links = []
-    for line, target, kind in sorted(found, key=lambda item: item[0]):
+    for line, target, kind, says in sorted(found, key=lambda item: item[0]):
         if _is_repo_reference(target := target.strip()):
-            links.append(Link(source=source, line=line, target=target, kind=kind))
+            links.append(Link(source=source, line=line, target=target, kind=kind, text=says))
     return links
 
 
@@ -182,6 +200,12 @@ class Target:
     def __str__(self) -> str:
         """Rooted and without `.md`, so a later note of the same name can't make it ambiguous."""
         rooted = "/" + (self.note.with_suffix("") if self.note.suffix == ".md" else self.note).as_posix()
+        return f"{rooted}#{self.fragment}" if self.fragment else rooted
+
+    @property
+    def href(self) -> str:
+        """Where it is, resolved: its file from the root, and its span; what a written link points at."""
+        rooted = f"/{self.note.as_posix()}"
         return f"{rooted}#{self.fragment}" if self.fragment else rooted
 
 
@@ -246,7 +270,10 @@ class Files:
         if len(landed := self.lands(edge)) > 1:
             return BrokenLink(edge.link, f"names {len(landed)} notes: {', '.join(str(Target(p)) for p in landed)}")
         if landed:
-            if edge.link.kind is not LinkKind.WIKILINK or not span or _has_span(self.root / landed[0], span):
+            # A span is in a note, whichever syntax names it; a fragment on any other file is that file's business.
+            # Wikilinks aren't percent-encoded, so only a path's span is decoded.
+            span = span if edge.link.kind is LinkKind.WIKILINK else unquote(span)
+            if not span or landed[0].suffix != ".md" or _has_span(self.root / landed[0], span):
                 return None
             return BrokenLink(edge.link, "no such heading or phrase")
         called = self._by_name.get(Path(unquote(page)).name, [])
@@ -324,8 +351,9 @@ def _why_broken(edge: Edge, root: Path) -> str:
 
 
 def _has_span(path: Path, fragment: str) -> bool:
-    """Whether the note has a heading reading `fragment` exactly, or for `"phrase"`, contains the phrase."""
+    """Whether the note has a heading reading `fragment`, as written or as its slug, or for `"phrase"`, the phrase."""
     text = path.read_text(errors="replace")
     if len(fragment) > 1 and fragment.startswith('"') and fragment.endswith('"'):
         return fragment[1:-1] in text
-    return any(line.lstrip("#").strip() == fragment for line in text.splitlines() if line.startswith("#"))
+    headings = [line.lstrip("#").strip() for line in text.splitlines() if line.startswith("#")]
+    return fragment in headings or fragment in map(slugify, headings)

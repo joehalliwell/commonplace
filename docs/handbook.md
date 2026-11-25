@@ -236,8 +236,10 @@ commonplace link /chats/gemini/2026/05/2026-05-03-tea "ideas#Tea house" filed as
 commonplace link ideas '2026-11-02#"by the river"'
 ```
 
-A link is a dated line in the first note's marginalia, with the target written
-from the root (`- 2026-11-02 [[/notes/ideas#Tea house]] filed as …`), so a later
+A link is a dated line in the first note's marginalia: a markdown link to the
+file and span it resolves to, saying why
+(`- 2026-11-02 [filed as …](</notes/ideas.md#Tea house>)`). Any kind of link is
+read, wikilinks included, but commonplace writes only resolved ones, so a later
 note of the same name can't make it ambiguous. Any link you write in marginalia
 by hand counts as the note's too, unless it is quoted as code; a relative path
 in it is measured from the note.
@@ -246,7 +248,9 @@ in it is measured from the note.
 own tags and its marginalia tags, its links both ways (from marginalia and from
 notes' own text), the commentary in its marginalia, its git history, and
 whether its current version is in the search index. The record is about the
-note, not the note itself.
+note, not the note itself. Each link shows the note at its other end and what
+the link says: its label, an image's alt text, or a wikilink's name. When a
+link was made is in the git history.
 
 `ls` builds a folder's listing from frontmatter each time it runs, so nothing in
 the repository needs regenerating when a note changes. `--recursive` lists the
@@ -377,6 +381,13 @@ Copy `navigator.userAgent` from your browser's console and set `COMMONPLACE_UA`
 
 What to do by hand when a release needs it. After any upgrade, run
 `commonplace doctor` to see what scaffolding an older repo is missing.
+
+**0.19.0**: `show`'s links give each link's `text`, what it says, where they
+gave `context`, the line it was written on; read `text` if you parse `show`'s
+output. `link` writes a markdown link to the resolved file, its reason as what
+the link says, where it wrote a wikilink. `doctor` now checks a fragment on any
+link that lands on a note, not just a wikilink's, so a markdown link whose
+`#anchor` matches no heading, as written or by its slug, is newly reported.
 
 **0.16.0**: `hidden` is no longer special, and `--hidden` is gone from `search`,
 `ls` and `show`. If you tagged notes `hidden`, add `exclude_tags = ["hidden"]`

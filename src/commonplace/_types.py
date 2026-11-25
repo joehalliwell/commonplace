@@ -6,7 +6,7 @@ names a kind of note (a chat, a topic), so never a `Node` subclass.
 
 import hashlib
 import os
-from collections.abc import Iterable, Iterator
+from collections.abc import Collection, Iterable, Iterator
 from dataclasses import dataclass, field, replace
 from datetime import date
 from functools import cached_property
@@ -108,6 +108,21 @@ class Marginalia:
     offset: int = field(default=0, compare=False)  # The lines of their file before the body, as read
     text: str = field(default="", compare=False)  # Their file as read, so a rewrite keeps an uncommitted edit
 
+    @property
+    def edges(self) -> list[Edge]:
+        """The edges these marginalia make from their note, read as a note's text is: what their frontmatter cites,
+        then what their body links to, at their lines in the file."""
+        frontmatter = "\n".join(self.text.split("\n")[: self.offset])
+        cited = extract_links(frontmatter, source=MARGINALIA / self.note, body=False, metadata=self.properties)
+        return [Edge(self.note, link) for link in cited] + self.written
+
+    @property
+    def written(self) -> list[Edge]:
+        """The edges their body's lines make: what `unlink` removes and `commentary` leaves out."""
+        # The body is held apart from the frontmatter it followed, so it is read from its first line, then put back.
+        found = extract_links(self.body, source=MARGINALIA / self.note, metadata={})
+        return [Edge(self.note, replace(link, line=link.line + self.offset)) for link in found]
+
     def tagged(self, *tags: str) -> "Marginalia":
         """These marginalia with `tags` added, after those they have, each once."""
         return replace(self, tags=list(dict.fromkeys([*self.tags, *tags])))
@@ -116,9 +131,14 @@ class Marginalia:
         """These marginalia without `tags`."""
         return replace(self, tags=[tag for tag in self.tags if tag not in tags])
 
-    def linked(self, target: Target | str, why: str, on: date) -> "Marginalia":
-        """These marginalia with a link to `target` appended as a dated line."""
-        line = f"- {on.isoformat()} [[{target}]]" + (f" {why}" if why else "")
+    def linked(self, target: Target, why: str, on: date) -> "Marginalia":
+        """These marginalia with a link to `target` appended as a dated line: a markdown link to where it resolves, which
+        says why, or else what it names."""
+        if any(c in why for c in "\n\r") or any(c in target.href for c in "<>\n\r"):
+            raise ValueError(f"A link is one line: {why!r} can't say why it links to {target.href!r}")
+        text = "".join(f"\\{c}" if c in "\\[]" else c for c in why or str(target))
+        href = f"<{target.href}>" if any(c in target.href for c in " \t\"'()") else target.href
+        line = f"- {on.isoformat()} [{text}]({href})"
         body = self.body if not self.body or self.body.endswith("\n") else self.body + "\n"
         return replace(self, body=f"{body}{line}\n")
 
@@ -170,40 +190,35 @@ class Note(Node):
     @property
     def edges(self) -> list[Edge]:
         """Every link it makes: its own body's, then its marginalia's."""
-        return self._own + self.said
+        return self.own + self.said
 
     @cached_property
     def said(self) -> list[Edge]:
-        """The edges its marginalia add, at their lines in the marginalia's file."""
-        path, offset = self.path, self.marginalia.offset
-        said = extract_links(self.marginalia.body, source=MARGINALIA / path, metadata={})
-        return [Edge(path, replace(link, line=link.line + offset)) for link in said]
-
-    def line(self, edge: Edge) -> str:
-        """The line `edge` is written on."""
-        if edge.link.source == self.path:
-            return self.text.split("\n")[edge.link.line - 1]
-        return self.marginalia.body.split("\n")[edge.link.line - self.marginalia.offset - 1]
+        """The edges its marginalia add."""
+        return self.marginalia.edges
 
     @property
     def commentary(self) -> list[str]:
         """The marginalia's lines that link nowhere: what's been said about the note, rather than what it links to."""
-        linked = {edge.link.line for edge in self.said}
+        linked = {edge.link.line for edge in self.marginalia.written}
         return [line for n, line in self._said_lines() if line.strip() and n not in linked]
 
-    def unlinked(self, target: str) -> tuple[Marginalia, int]:
-        """Its marginalia without the lines that link to exactly `target`, and how many went."""
-        dropped = {edge.link.line for edge in self.said if edge.link.target == target}
+    def unlinked(self, targets: Collection[str]) -> tuple[Marginalia, int]:
+        """Its marginalia without the lines that link to exactly one of `targets`, as written, and how many went."""
+        dropped = {edge.link.line for edge in self.marginalia.written if edge.link.target in targets}
         kept = "\n".join(line for n, line in self._said_lines() if n not in dropped)
         return replace(self.marginalia, body=kept), len(dropped)
 
+    @property
+    def quotes(self) -> bool:
+        """Whether its body only quotes links, as a chat's does, and so makes none."""
+        return self.source is not None and self.source.quotes
+
     @cached_property
-    def _own(self) -> list[Edge]:
-        path = self.path
-        # Text that only quotes links makes none, but what the frontmatter cites, its provenance, is still the note's.
-        quotes = self.source is not None and self.source.quotes
-        found = extract_links(self.text, source=path, body=not quotes, metadata=self.metadata)
-        return [Edge(path, link) for link in found]
+    def own(self) -> list[Edge]:
+        """The edges its own text makes: its frontmatter's citations, its provenance, and its body's unless it quotes."""
+        found = extract_links(self.text, source=self.path, body=not self.quotes, metadata=self.metadata)
+        return [Edge(self.path, link) for link in found]
 
     def _said_lines(self) -> Iterator[tuple[int, str]]:
         return enumerate(self.marginalia.body.split("\n"), self.marginalia.offset + 1)

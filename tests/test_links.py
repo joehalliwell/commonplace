@@ -18,6 +18,28 @@ def targets(text: str, source: Path = SOURCE) -> list[str]:
 # --- Inline links and images ------------------------------------------------
 
 
+def link_texts(text: str) -> list[tuple[str, str]]:
+    """Each link extracted from `text`, as its target and its label."""
+    return [(link.target, link.text) for link in extract_links(text, source=SOURCE)]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("See [the *other* note](other.md).", [("other.md", "the other note")]),
+        ("See [the note][ref].\n\n[ref]: other.md\n", [("other.md", "the note")]),
+        ("![a map](map.png)", [("map.png", "a map")]),
+        ("See [[ideas#Tea]].", [("ideas#Tea", "")]),
+        ("See [[ideas#Tea|the tea]].", [("ideas#Tea", "the tea")]),
+        ('<a href="other.md">other</a>', [("other.md", "")]),
+        ("---\nsource_export: notes/a.md\n---\n", [("notes/a.md", "source_export")]),
+    ],
+    ids=["inline", "reference", "image", "wikilink", "alias", "html", "citation"],
+)
+def test_extract_link_label_is_what_the_link_says(text, expected):
+    assert link_texts(text) == expected
+
+
 def test_extract_inline_link_yields_destination():
     assert targets("See [the note](other.md) for more.") == ["other.md"]
 
@@ -95,9 +117,9 @@ def test_extract_wikilink_yields_page_name():
     assert links[0].kind is LinkKind.WIKILINK
 
 
-def test_extract_wikilink_with_pipe_is_taken_literally():
-    """Aliases are unused, so a pipe is part of the name and the link shows up as broken rather than vanishing."""
-    assert targets("See [[other note|that thing]].") == ["other note|that thing"]
+def test_extract_wikilink_with_pipe_ends_the_name_at_the_alias():
+    """`link` writes its reason as the alias, so a pipe ends the name; what follows is what the link says."""
+    assert targets("See [[other note|that thing]].") == ["other note"]
 
 
 def test_extract_wikilink_with_heading_keeps_the_span_beside_the_page_name():
@@ -333,10 +355,31 @@ def test_check_links_percent_encoded_target_resolves(tmp_path):
     assert check(tmp_path) == []
 
 
-def test_check_links_fragment_is_stripped_before_resolving(tmp_path):
-    write(tmp_path, "notes/other.md")
-    write(tmp_path, "notes/note.md", "[text](other.md#a-section)")
+@pytest.mark.parametrize(
+    "fragment",
+    ["a-section", "A%20section", '"a line of it"'],
+    ids=["slug", "heading as written", "quoted phrase"],
+)
+def test_check_links_path_link_fragment_names_a_span_in_its_note(tmp_path, fragment):
+    """A span is a heading, by its text or its slug, or a quoted phrase, whichever syntax the link is written in."""
+    write(tmp_path, "notes/other.md", "# Other\n\n## A section\n\nHere is a line of it.\n")
+    write(tmp_path, "notes/note.md", f"[text](<other.md#{fragment}>)")
     assert check(tmp_path) == []
+
+
+def test_check_links_wikilink_span_is_taken_as_written(tmp_path):
+    """Wikilinks aren't percent-encoded, so a `%` in one is the heading's own."""
+    write(tmp_path, "notes/other.md", "# Other\n\n## 100%20\n")
+    write(tmp_path, "notes/note.md", "See [[other#100%20]].")
+    assert check(tmp_path) == []
+
+
+def test_check_links_path_link_to_a_missing_heading_is_broken(tmp_path):
+    write(tmp_path, "notes/other.md", "# Other\n")
+    write(tmp_path, "notes/note.md", "[text](other.md#a-section)")
+    assert [(item.link.target, item.reason) for item in check(tmp_path)] == [
+        ("other.md#a-section", "no such heading or phrase")
+    ]
 
 
 def test_check_links_directory_target_resolves(tmp_path):
