@@ -14,6 +14,7 @@ What a change must keep true, whatever the code is called.
 1. **Git is the trajectory.** Every write is a commit of exactly what it wrote, so any prior state can be recovered: no dated filenames, no version suffixes.
 1. **Provenance bottoms out at primitives.** A rendered note names the archive it came from; a derived artefact is never cited as a source.
 1. **Every persisted format carries a version.** Readers refuse a newer one, keep reading older ones, and the repo keeps an example of each.
+1. **Read liberally, write standard and unambiguous** (Postel's law). Accept whatever a person writes (wikilinks, relative paths, free prose), but emit only standard, unambiguous markdown (rooted `.md` paths, `[text](dest)` links, YAML frontmatter) whose structure the general parser already extracts with no private microformats or special-case regexes.
 1. **LLM work goes in skills.** The tooling stays deterministic, for now: anything that needs judgement (synthesis, triage, titling) is a skill run in an agent session over the CLI, and the CLI does what gives the same answer every time.
 1. **Data preservation first**: see Workflow.
 
