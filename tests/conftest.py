@@ -15,9 +15,9 @@ from numpy.typing import NDArray
 from rich.console import Console
 
 from commonplace import _progress
+from commonplace._cache import INDEX_VERSION
 from commonplace._config import CACHE
 from commonplace._repo import Commonplace
-from commonplace._search._sqlite import INDEX_VERSION
 from commonplace._search._types import Chunk, Version
 from commonplace._types import Note
 from commonplace._wire import LEGACY_VERSION, WIRE_VERSION
