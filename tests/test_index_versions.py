@@ -11,7 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from commonplace._search._sqlite import INDEX_VERSION, SQLiteSearchIndex
+from commonplace._cache import INDEX_VERSION
+from commonplace._search._sqlite import SQLiteSearchIndex
 from commonplace._search._types import Version
 from tests.resources.index.make_examples import REF_A, REF_B, ExampleEmbedder
 
