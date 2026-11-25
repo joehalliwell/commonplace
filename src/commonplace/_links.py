@@ -1,4 +1,8 @@
-"""Find the links in markdown as written, and the rules by which they land on the repository's files."""
+"""Find the links in markdown as written, and the rules by which they land on the repository's files.
+
+The graph keeps what extraction found in each file version, and where each edge landed, so a release that changes
+what it finds needs an Upgrading entry in the handbook asking for `commonplace index --rebuild-graph`.
+"""
 
 import fnmatch
 import os
@@ -6,6 +10,7 @@ import re
 from collections.abc import Callable, Collection, Iterable, Iterator
 from dataclasses import dataclass, replace
 from enum import StrEnum
+from functools import cached_property
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -240,7 +245,6 @@ class Files:
     def __init__(self, root: Path, files: Iterable[Path]) -> None:
         self.root = root
         self.files = set(files)
-        self._present = self.files | {parent for path in self.files for parent in path.parents}
         self._by_name: dict[str, list[Path]] = {}
         for path in sorted(self.files):
             for key in {path.name, path.stem}:
@@ -249,6 +253,11 @@ class Files:
     def named(self, name: str) -> list[Path]:
         """The files `name` writes as a wikilink would, in order."""
         return [path for path in self._by_name.get(Path(name).name, []) if is_named(path, name)]
+
+    @cached_property
+    def _present(self) -> set[Path]:
+        """Every file, and every directory holding one."""
+        return self.files | {parent for path in self.files for parent in path.parents}
 
     def landing(self, edge: Edge) -> Edge:
         """`edge` with where it lands: the one node it names, or the name it writes when it names none or several."""

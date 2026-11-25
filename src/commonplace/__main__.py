@@ -398,13 +398,16 @@ def index(
     *,
     rebuild: Annotated[bool, Parameter(help="Rebuild the index from scratch")] = False,
     prune: Annotated[bool, Parameter(help="Drop chunks for deleted or edited notes")] = True,
+    rebuild_graph: Annotated[
+        bool, Parameter(help="Re-read every note's tags and links, as a release that reads them differently asks")
+    ] = False,
     repo: Repo,
 ) -> None:
-    """Build or rebuild the search index for semantic search."""
+    """Build or rebuild the search index, and the graph of notes and links it keeps."""
 
     from commonplace._search._commands import index
 
-    index(repo, rebuild=rebuild, prune=prune)
+    index(repo, rebuild=rebuild, prune=prune, rebuild_graph=rebuild_graph)
 
 
 @app.command(group=SYSTEM_SECTION)

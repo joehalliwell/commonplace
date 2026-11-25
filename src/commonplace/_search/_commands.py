@@ -1,6 +1,7 @@
 """Semantic search components for commonplace."""
 
-from commonplace._config import CACHE
+from commonplace._cache import INDEX_DB
+from commonplace._graph import GraphStore, Half, own
 from commonplace._logging import logger
 from commonplace._progress import track
 from commonplace._repo import Commonplace
@@ -16,7 +17,7 @@ __all__ = ["SearchHit", "SearchMethod", "index", "open_index"]
 def open_index(repo: Commonplace) -> SQLiteSearchIndex:
     """The repository's search index, a cache of what it has committed, under `.commonplace/cache/`."""
     return SQLiteSearchIndex(
-        repo.root / CACHE / "index.db",
+        repo.root / INDEX_DB,
         # Blind to which version: an edited note is still there to open, so a chunk of its previous text is
         # worth returning until indexing catches up. A deleted one is not, and quoting it back would be a lie.
         note_exists=lambda path: (repo.root / path).exists(),
@@ -29,9 +30,10 @@ def index(
     rebuild: bool = False,
     batch_size: int = 64,
     prune: bool = True,
+    rebuild_graph: bool = False,
 ) -> None:
     """
-    Build or rebuild the search index for semantic search.
+    Build or rebuild the search index, and the graph it keeps.
 
     Args:
         repo: The commonplace repository
@@ -40,8 +42,12 @@ def index(
         batch_size: Number of chunks to embed in each batch (default: 64)
         prune: If True, drop chunks for notes that have been deleted or edited
             since they were indexed (default: True)
+        rebuild_graph: If True, re-read every file's labels and links, as after a release changes how they are read;
+            `rebuild` does too
     """
     chunker = MarkdownChunker()
+    # Each new version's contribution to the graph is kept as it is read, so the next pass needn't read it.
+    halves: dict[tuple[str, str], Half] = {}
     with open_index(repo) as store:
         if rebuild:
             logger.info("Clearing existing index")
@@ -64,7 +70,9 @@ def index(
         # Stream chunks from all notes and batch them for efficient embedding
         def chunk_stream():
             for version in track(to_index, "Indexing notes"):
-                yield from chunker.chunk(repo.get(version.path), version.content_id)
+                note = repo.get(version.path)
+                halves[(version.path.as_posix(), version.content_id)] = own(note)
+                yield from chunker.chunk(note, version.content_id)
 
         # Process chunks in batches
         for chunk_batch in batched(chunk_stream(), batch_size):
@@ -82,5 +90,15 @@ def index(
                 f"{count} notes are indexed under {model_id}, which search no longer uses;"
                 " `commonplace index --rebuild` drops them and reclaims the space"
             )
+
+    # Once the store has closed, since both write to the one database. These wait to land until a pass over the
+    # graph, which has every file; a rebuild makes that pass now, reading every file again, marginalia too.
+    with GraphStore(repo.root / INDEX_DB) as graph:
+        if rebuild or rebuild_graph:
+            graph.clear()
+        graph.sync(halves, halves.__getitem__, False, None)
+    if rebuild or rebuild_graph:
+        with repo.graph():
+            pass
 
     logger.info("Indexing complete")

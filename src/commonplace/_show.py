@@ -14,6 +14,7 @@ from typing import Any
 import yaml
 
 from commonplace._links import Target
+from commonplace._marginalia import marginalia_path
 from commonplace._repo import Commonplace
 from commonplace._search._commands import open_index
 from commonplace._types import TagFilter
@@ -76,18 +77,21 @@ class Neighbour:
 
 def links(repo: Commonplace, note: Path, tags: TagFilter = TagFilter()) -> list[Neighbour]:
     """A note's edges, out then in; those whose other end `tags` doesn't admit are left out."""
+    with repo.graph() as graph:
 
-    def shown(other: Path) -> bool:
-        return tags.admits(repo.get(other).labels)
+        def shown(other: Path) -> bool:
+            return tags == TagFilter() or tags.admits(graph.labels(other, marginalia_path(other)))
 
-    found = []
-    for edge in repo.edges(note):
-        match edge.to:
-            case Path() as other if not shown(other):
-                continue
-            case Path() as other:
-                found.append(Neighbour("out", str(Target(other, edge.link.target.partition("#")[2])), edge.link.text))
-            case _:
-                found.append(Neighbour("out", edge.link.target, edge.link.text))
-    into = [(source, edge) for source, edge in repo.into(note) if tags.admits(source.labels)]
-    return found + [Neighbour("in", str(Target(edge.node)), edge.link.text) for _, edge in into]
+        found = []
+        for edge in graph.out_edges(note):
+            match edge.to:
+                case Path() as other if not shown(other):
+                    continue
+                case Path() as other:
+                    found.append(
+                        Neighbour("out", str(Target(other, edge.link.target.partition("#")[2])), edge.link.text)
+                    )
+                case _:
+                    found.append(Neighbour("out", edge.link.target, edge.link.text))
+        into = [edge for edge in graph.in_edges(note) if shown(edge.node)]
+    return found + [Neighbour("in", str(Target(edge.node)), edge.link.text) for edge in into]

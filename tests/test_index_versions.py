@@ -5,6 +5,7 @@ rather than going untested. Every example holds the same chunks, which is what l
 guarantee: an index any earlier release wrote still opens to the same thing.
 """
 
+import shutil
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -12,9 +13,11 @@ from pathlib import Path
 import pytest
 
 from commonplace._cache import INDEX_VERSION
+from commonplace._graph import FileSet, GraphStore, Half
+from commonplace._links import Edge, Files, Link, LinkKind
 from commonplace._search._sqlite import SQLiteSearchIndex
 from commonplace._search._types import Version
-from tests.resources.index.make_examples import REF_A, REF_B, ExampleEmbedder
+from tests.resources.index.make_examples import LABELS, LINKS, REF_A, REF_B, ExampleEmbedder
 
 TEA = Version(Path("notes/tea.md"), REF_A)
 WALKS = Version(Path("notes/walks.md"), REF_B)
@@ -92,6 +95,39 @@ def test_a_chunk_added_now_is_stored_at_half_precision(any_index_version, make_c
         index.add_chunks([make_chunk(path="notes/new.md", section="New", text="Rain all day.", offset=0)])
 
     assert _embedding_bytes(any_index_version.path) == {ExampleEmbedder.dims * 2}
+
+
+def test_every_index_version_keeps_what_a_file_contributes_to_the_graph(any_index_version, tmp_path):
+    """v5's example holds tea.md's already; an older index gains the tables, and keeps what is put in them."""
+    key, walks = (TEA.path.as_posix(), REF_A), Path("notes/walks.md")
+    written = [
+        Edge(TEA.path, Link(TEA.path, line, target, LinkKind(kind), text)) for line, target, kind, text, _ in LINKS
+    ]
+    files = FileSet("files", lambda: Files(tmp_path, [TEA.path, walks]))
+    with GraphStore(any_index_version.path) as graph:
+        graph.sync([key], lambda _: Half(LABELS, written), False, files)
+
+    with GraphStore(any_index_version.path) as graph:
+        graph.sync([key], lambda _: pytest.fail("read a stored version"), False, files)
+        labels = graph.labels(TEA.path, Path(".commonplace/marginalia/notes/tea.md"))
+        into = [edge.link for edge in graph.in_edges(walks)]
+
+    assert (labels, into) == (LABELS, [written[1].link])
+
+
+def test_index_v5_example_holds_its_graph_as_stored(tmp_path):
+    """Read straight from the committed example: nothing is read again, and nothing lands again."""
+    db = tmp_path / "index-v5.db"
+    shutil.copyfile(Path(__file__).parent / "resources" / "index" / "index-v5.db", db)
+    key = (TEA.path.as_posix(), REF_A)
+    with GraphStore(db) as graph:
+        unlanded = FileSet("example", lambda: pytest.fail("landed again"))
+        graph.sync([key], lambda _: pytest.fail("read a stored version"), False, unlanded)
+        edges, doubtful = graph.out_edges(TEA.path), graph.doubtful()
+
+    landed = [(target, text, Path(to) if to else target) for _, target, _, text, to in LINKS]
+    assert [(edge.link.target, edge.link.text, edge.to) for edge in edges] == landed
+    assert [edge.link.target for edge in doubtful] == ["ideas"]
 
 
 def test_an_index_newer_than_this_release_is_refused(tmp_path):

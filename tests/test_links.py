@@ -475,7 +475,8 @@ def test_edges_land_on_the_one_node_they_name_or_stay_the_name_they_write(tmp_pa
     write(tmp_path, "notes/note.md", "See [[ideas#Tea]], [[alice]] and [[dup]].")
     Commonplace.init(tmp_path)
 
-    edges = Commonplace.open(tmp_path).edges(Path("notes/note.md"))
+    with Commonplace.open(tmp_path).graph() as graph:
+        edges = graph.out_edges(Path("notes/note.md"))
 
     assert [edge.to for edge in edges] == [Path("notes/ideas.md"), "alice", "dup"]
 
@@ -487,8 +488,9 @@ def test_into_leaves_out_an_ambiguous_link_since_it_lands_on_neither_note(tmp_pa
     Commonplace.init(tmp_path)
     repo = Commonplace.open(tmp_path)
 
-    assert [edge.link.target for _, edge in repo.into(Path("notes/a/dup.md"))] == ["a/dup"]
-    assert repo.into(Path("notes/b/dup.md")) == []
+    with repo.graph() as graph:
+        assert [edge.link.target for edge in graph.in_edges(Path("notes/a/dup.md"))] == ["a/dup"]
+        assert graph.in_edges(Path("notes/b/dup.md")) == []
 
 
 def test_check_links_path_qualified_wikilink_resolves(tmp_path):

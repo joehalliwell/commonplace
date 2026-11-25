@@ -8,8 +8,9 @@ instead.
 """
 
 import shutil
-from collections.abc import Collection, Iterable, Iterator
-from dataclasses import dataclass, field
+from collections.abc import Callable, Collection, Iterable, Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from functools import cached_property
 from itertools import batched
@@ -18,13 +19,30 @@ from typing import Literal
 
 from commonplace import _git as git
 from commonplace import _scaffold as scaffold
+from commonplace._cache import INDEX_DB
 from commonplace._config import BLOBS, MARGINALIA, Config
 from commonplace._git import GitError
-from commonplace._links import BrokenLink, Edge, Files, Target
+from commonplace._graph import FileSet, GraphStore, Half, fingerprint, own, said
+from commonplace._links import BrokenLink, Files, Target
 from commonplace._logging import logger
-from commonplace._marginalia import read_marginalia, write_marginalia
+from commonplace._marginalia import marginalia_path, read_marginalia, write_marginalia
 from commonplace._types import Blob, Note, Pathlike, node_id
 from commonplace._utils import dump_frontmatter, load_frontmatter
+
+
+def _own_half(read: Callable[[Path], Note], node: Path) -> Callable[[], Half]:
+    """What `node`'s own file contributes, read when asked for."""
+    return lambda: own(read(node))
+
+
+def _said_half(root: Path, node: Path) -> Callable[[], Half]:
+    """What `node`'s marginalia contribute, read when asked for, without reading the note itself."""
+    return lambda: said(read_marginalia(root, node))
+
+
+def _under(path: Path, folder: Path) -> bool:
+    """Whether `path` is in `folder`, by its parts, which is cheaper than `is_relative_to` over a whole repository."""
+    return path.parts[: len(folder.parts)] == folder.parts
 
 
 class UncommittedChanges(ValueError):
@@ -121,17 +139,20 @@ class Commonplace:
 
     def get(self, path: Pathlike) -> Note:
         """The note at `path`, as the working tree has it, with its marginalia; one that's gone reads as empty."""
-        logger.debug(f"Fetching note at {path}")
         path = node_id(path)
+        return replace(self._read_note(path), marginalia=read_marginalia(self.root, path))
+
+    def _read_note(self, path: Path) -> Note:
+        """The note at `path` alone, without its marginalia."""
+        logger.debug(f"Fetching note at {path}")
         file = self.root / path
         text = file.read_text(errors="replace") if path.suffix == ".md" and file.exists() else ""
         metadata, body = load_frontmatter(text)
-        marginalia = read_marginalia(self.root, path)
         from commonplace._sources import source_holding, source_named
 
         # The source the note names, or failing that the one whose tree holds it.
         source = source_named(metadata.get("source")) or source_holding(path)
-        return Note(path, body, metadata, marginalia=marginalia, text=text, source=source)
+        return Note(path, body, metadata, text=text, source=source)
 
     def put(self, note: Note) -> None:
         """Write a note to the working tree for the next commit, over nothing uncommitted it didn't read."""
@@ -196,23 +217,42 @@ class Commonplace:
         """The path of every note that has marginalia, in order, whether or not the note is still there."""
         return sorted(Path(path).relative_to(MARGINALIA) for path in self._ls(MARGINALIA.as_posix()))
 
-    def edges(self, note: Pathlike) -> list[Edge]:
-        """Every edge `note` makes, in its own text then its marginalia, each with where it lands."""
-        return [self.files.landing(edge) for edge in self.get(note).edges]
-
-    def into(self, path: Path) -> list[tuple[Note, Edge]]:
-        """Every edge from another note that lands on `path`, with that note."""
-        return [
-            (note, edge)
-            for note in self.notes()
-            if note.path != path
-            for edge in map(self.files.landing, note.edges)
-            if edge.to == path
-        ]
-
     def check(self) -> list[BrokenLink]:
         """Every edge that lands on no one node, or on no span it names."""
-        return [found for note in self.notes() for edge in note.edges if (found := self.files.broken(edge))]
+        with self.graph() as graph:
+            doubtful = graph.doubtful()
+        return [found for edge in doubtful if (found := self.files.broken(edge))]
+
+    @contextmanager
+    def graph(self) -> Iterator[GraphStore]:
+        """The graph, up to date with every file of every node, each read only if the store lacks its version."""
+        # Every file git would share is in `ids`, so notes, blobs and marginalia need no listing of their own.
+        ids = self.current_content_ids()
+        paths = [path for path in ids if not any(part.startswith(".") for part in path.parts[:-1])]
+        blobs = [path for path in ids if _under(path, BLOBS)]
+        present = set(paths)
+        nodes = [path for path in paths if path.suffix == ".md"]
+        nodes += [
+            note for path in ids if _under(path, MARGINALIA) and (note := path.relative_to(MARGINALIA)) not in present
+        ]
+        readers: dict[tuple[str, str], Callable[[], Half]] = {}
+        for node in nodes:
+            if (content_id := ids.get(node)) is not None:
+                readers[(node.as_posix(), content_id)] = _own_half(self._read_note, node)
+            if (content_id := ids.get(marginalia := marginalia_path(node))) is not None:
+                readers[(marginalia.as_posix(), content_id)] = _said_half(self.root, node)
+        with GraphStore(self.root / INDEX_DB) as graph:
+            files = [*paths, *blobs]
+            stamp = FileSet(fingerprint(files), lambda: Files(self.root, files))
+            graph.sync(readers, lambda key: readers[key](), True, stamp)
+            yield graph
+
+    def current_content_ids(self) -> dict[Path, str]:
+        """Each file in the working tree that git would share, with git's id for its content as it stands there."""
+        changed = self.uncommitted(".")
+        ids = {path: content_id for path, content_id in self.content_ids().items() if path.as_posix() not in changed}
+        present = sorted(path for path in changed if (self.root / path).is_file())
+        return ids | dict(zip(map(Path, present), git.hash_objects(self.root, present), strict=True))
 
     def add_link(self, note: Pathlike, target: Target, why: str = "", on: date | None = None) -> None:
         """Add an edge from `note` to `target`, resolved, a dated line in its marginalia, for the next commit."""
@@ -239,7 +279,7 @@ class Commonplace:
     @cached_property
     def files(self) -> Files:
         """The files `paths` gives, indexed for landing edges and resolving specs; dropped on any write."""
-        return Files(self.root, [*self.paths(), *(blob.path for blob in self.blobs())])
+        return Files(self.root, [*self.paths(), *map(Path, self._ls(BLOBS.as_posix()))])
 
     def blobs(self, *names: str, committed_only: bool = False) -> list[Blob]:
         """Every archive stored, or those called any of `names`, in the order stored: committed, then not yet."""

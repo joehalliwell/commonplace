@@ -159,8 +159,60 @@ def _write_v4(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA user_version = 4")
 
 
+#: What tea.md's version contributes to the graph in v5's example: its labels, and its edges as written, each with
+#: where it landed: (line, target, kind, text, to_node).
+LABELS = ["drink"]
+LINKS = [(1, "ideas", "wikilink", "", None), (3, "../notes/walks.md", "path", "walks", "notes/walks.md")]
+
+
+def _write_v5(conn: sqlite3.Connection) -> None:
+    """v4's schema, with the graph: each file version's labels, and its edges, landed against the files recorded."""
+    _write_v4(conn)
+    conn.executescript(
+        """
+        CREATE TABLE graph_files (
+            id INTEGER PRIMARY KEY,
+            path TEXT NOT NULL,
+            content_id TEXT NOT NULL,
+            landed INTEGER NOT NULL DEFAULT 0,
+            UNIQUE(path, content_id)
+        );
+        CREATE TABLE graph_labels (
+            file_id INTEGER NOT NULL REFERENCES graph_files(id) ON DELETE CASCADE,
+            label TEXT NOT NULL
+        );
+        CREATE INDEX graph_labels_by_file ON graph_labels(file_id);
+        CREATE TABLE graph_edges (
+            id INTEGER PRIMARY KEY,
+            file_id INTEGER NOT NULL REFERENCES graph_files(id) ON DELETE CASCADE,
+            from_node TEXT NOT NULL,
+            to_node TEXT,
+            line INTEGER NOT NULL,
+            target TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            text TEXT NOT NULL
+        );
+        CREATE INDEX graph_edges_by_file ON graph_edges(file_id);
+        CREATE INDEX graph_edges_by_to_node ON graph_edges(to_node);
+        CREATE TABLE graph_state (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+        """
+    )
+    conn.execute("INSERT INTO graph_files VALUES (1, 'notes/tea.md', ?, 1)", (REF_A,))
+    conn.executemany("INSERT INTO graph_labels VALUES (1, ?)", [(label,) for label in LABELS])
+    conn.executemany(
+        "INSERT INTO graph_edges (file_id, from_node, to_node, line, target, kind, text)"
+        " VALUES (1, 'notes/tea.md', ?, ?, ?, ?, ?)",
+        [(to_node, line, target, kind, text) for line, target, kind, text, to_node in LINKS],
+    )
+    conn.execute("INSERT INTO graph_state VALUES ('files', 'example')")
+    conn.execute("PRAGMA user_version = 5")
+
+
 #: version -> writer
-EXAMPLES = {1: _write_v1, 2: _write_v2, 3: _write_v3, 4: _write_v4}
+EXAMPLES = {1: _write_v1, 2: _write_v2, 3: _write_v3, 4: _write_v4, 5: _write_v5}
 
 
 def main() -> None:
