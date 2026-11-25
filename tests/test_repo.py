@@ -488,7 +488,8 @@ def test_a_notes_provenance_is_an_edge_to_its_archive_and_a_missing_one_is_broke
     )
 
     assert [(found.link.source, found.link.target) for found in test_repo.check()] == [(lost, gone)]
-    assert [note.path for note, _ in test_repo.into(archive)] == [kept]
+    with test_repo.graph() as graph:
+        assert [edge.node for edge in graph.in_edges(archive)] == [kept]
 
 
 def test_blobs_committed_in_storage_order_then_uncommitted_by_path(test_repo, tmp_path):

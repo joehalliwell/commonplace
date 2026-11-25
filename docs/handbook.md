@@ -252,6 +252,15 @@ note, not the note itself. Each link shows the note at its other end and what
 the link says: its label, an image's alt text, or a wikilink's name. When a
 link was made is in the git history.
 
+The index keeps the graph: each file's tags and its links, a note's and its
+marginalia's alike, with the note each link lands on. A file is read once per
+version, committed or not, and links are landed again whenever files are
+added, removed or renamed, so links into a note are a lookup. `index` stores
+the notes it indexes; `show` and `doctor --check` store what they read and drop
+what no file has any more, so they write to the cache though they change no
+note. When a release changes how tags or links are read, its Upgrading entry
+asks for `commonplace index --rebuild-graph`, which reads every file again.
+
 `ls` builds a folder's listing from frontmatter each time it runs, so nothing in
 the repository needs regenerating when a note changes. `--recursive` lists the
 notes at every depth instead of the subfolders, each by its path within the
@@ -387,7 +396,9 @@ gave `context`, the line it was written on; read `text` if you parse `show`'s
 output. `link` writes a markdown link to the resolved file, its reason as what
 the link says, where it wrote a wikilink. `doctor` now checks a fragment on any
 link that lands on a note, not just a wikilink's, so a markdown link whose
-`#anchor` matches no heading, as written or by its slug, is newly reported.
+`#anchor` matches no heading, as written or by its slug, is newly reported. The
+index moves to schema v5 the first time any command opens it, which earlier
+releases refuse to read: upgrade every install that uses the same repository.
 
 **0.16.0**: `hidden` is no longer special, and `--hidden` is gone from `search`,
 `ls` and `show`. If you tagged notes `hidden`, add `exclude_tags = ["hidden"]`

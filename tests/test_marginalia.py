@@ -334,7 +334,8 @@ def test_into_finds_every_kind_of_link_to_the_note_in_text_and_marginalia(test_r
         (test_repo.root / path).parent.mkdir(parents=True, exist_ok=True)
         (test_repo.root / path).write_text(text)
 
-    found = [edge for _, edge in test_repo.into(Path("notes/ideas.md"))]
+    with test_repo.graph() as graph:
+        found = graph.in_edges(Path("notes/ideas.md"))
 
     # Chats quote links rather than make them, as for the link check.
     assert [(str(Target(edge.node)), edge.link.text) for edge in found] == [

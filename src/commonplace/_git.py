@@ -9,6 +9,7 @@ import os
 import subprocess
 import time
 from functools import lru_cache
+from itertools import batched
 from pathlib import Path
 
 from commonplace._logging import logger
@@ -108,6 +109,12 @@ def last_changed(root: Path, head: str, pathspec: str, field: str) -> dict[str, 
         else:
             last.setdefault(token.lstrip("\n"), value)
     return last
+
+
+def hash_objects(root: Path, paths: list[str]) -> list[str]:
+    """Git's id for the content of each file at `paths` as the working tree has it, in order."""
+    # As arguments, not --stdin-paths, which splits on newlines and C-unquotes a path starting with a quote.
+    return [id_ for batch in batched(paths, 256) for id_ in run_git(root, "hash-object", "--", *batch).split()]
 
 
 @lru_cache(maxsize=2)
