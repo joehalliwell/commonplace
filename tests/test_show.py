@@ -154,12 +154,9 @@ def test_show_cli_lists_each_link_with_its_direction(notes, as_joe, test_app, ca
     assert test_app(["show", "ideas", "--only", "links"]) == 0
 
     found = yaml.safe_load(capsys.readouterr().out)["links"]
-    assert {
-        "direction": "out",
-        "other": "/journal/2026-11-01",
-        "context": "- 2026-11-02 [[/journal/2026-11-01]] and on",
-    } in found
-    assert {"direction": "in", "other": "/journal/2026-11-02", "context": "Thought about [[ideas]]."} in found
+    # What a link says: the reason `link` was given; a bare wikilink says nothing the other end doesn't.
+    assert {"direction": "out", "other": "/journal/2026-11-01", "text": "and on"} in found
+    assert {"direction": "in", "other": "/journal/2026-11-02"} in found
 
 
 def test_resolve_cli_prints_the_notes_absolute_path(notes, test_app, capsys):

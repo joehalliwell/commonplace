@@ -20,7 +20,7 @@ from commonplace import _git as git
 from commonplace import _scaffold as scaffold
 from commonplace._config import BLOBS, MARGINALIA, Config
 from commonplace._git import GitError
-from commonplace._links import BrokenLink, Edge, Files
+from commonplace._links import BrokenLink, Edge, Files, Target
 from commonplace._logging import logger
 from commonplace._marginalia import read_marginalia, write_marginalia
 from commonplace._types import Blob, Note, Pathlike, node_id
@@ -214,14 +214,16 @@ class Commonplace:
         """Every edge that lands on no one node, or on no span it names."""
         return [found for note in self.notes() for edge in note.edges if (found := self.files.broken(edge))]
 
-    def add_link(self, note: Pathlike, target: str, why: str = "", on: date | None = None) -> None:
-        """Add an edge from `note` to `target` as written, a dated line in its marginalia, for the next commit."""
+    def add_link(self, note: Pathlike, target: Target, why: str = "", on: date | None = None) -> None:
+        """Add an edge from `note` to `target`, resolved, a dated line in its marginalia, for the next commit."""
         on = on or date.today()  # noqa: DTZ011 - the user's local day, as the journal's
         write_marginalia(self, read_marginalia(self.root, node_id(note)).linked(target, why, on))
 
-    def remove_link(self, note: Pathlike, target: str) -> int:
-        """Remove `note`'s edges to exactly `target` from its marginalia, for the next commit; how many went."""
-        marginalia, removed = self.get(node_id(note)).unlinked(target)
+    def remove_link(self, note: Pathlike, target: Target | str) -> int:
+        """Remove `note`'s edges to exactly `target` from its marginalia, for the next commit; how many went. A `Target`
+        matches a link written by name or by path; a string, a link whose note is gone, as written."""
+        written = {str(target), target.href} if isinstance(target, Target) else {target}
+        marginalia, removed = self.get(node_id(note)).unlinked(written)
         if removed:
             write_marginalia(self, marginalia)
         return removed

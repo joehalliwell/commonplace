@@ -33,7 +33,7 @@ def untag(repo: Commonplace, spec: str, tags: list[str]) -> list[Path]:
 def link(repo: Commonplace, from_spec: str, to_spec: str, why: str, on: date | None = None) -> Target:
     """Link a whole note to a note or a span in one, written as the target resolves so it means the same later."""
     source, target = repo.files.resolve_target(_whole(from_spec)).note, repo.files.resolve_target(to_spec)
-    repo.add_link(source, str(target), why, on)
+    repo.add_link(source, target, why, on)
     repo.commit(f"Link {from_spec} to {target}", as_user=True)
     return target
 
@@ -48,12 +48,12 @@ def unlink(repo: Commonplace, from_spec: str, to_spec: str) -> int:
     return removed
 
 
-def _as_written(repo: Commonplace, source: Path, spec: str) -> str:
+def _as_written(repo: Commonplace, source: Path, spec: str) -> Target | str:
     """The target `spec` names, or for a link whose note is gone and can't be named any more, `spec` as written."""
     try:
-        return str(repo.files.resolve_target(spec))
+        return repo.files.resolve_target(spec)
     except UnresolvedNote as e:
-        target, said = spec.removeprefix("[[").removesuffix("]]"), repo.get(source).said
+        target, said = spec.removeprefix("[[").removesuffix("]]"), repo.get(source).marginalia.written
         if target not in [edge.link.target for edge in said]:
             dead = [edge.link.target for edge in map(repo.files.landing, said) if not isinstance(edge.to, Path)]
             hint = f"; a link whose note is gone is removed as written: {', '.join(dead)}" if dead else ""

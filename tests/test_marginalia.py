@@ -23,6 +23,7 @@ from tests.porcelain import git
 
 EXAMPLES = Path(__file__).parent / "resources" / "marginalia"
 NOTE = Path("notes/ideas.md")
+LOG = Target(Path("chats/claude-tasks/2026/10/log.md"))
 
 
 @pytest.fixture
@@ -142,6 +143,17 @@ def test_every_wikilink_in_marginalia_is_a_link_from_its_note(any_marginalia_ver
     assert _targets(any_marginalia_version) == ["/notes/todo"]
 
 
+@pytest.mark.parametrize(("source", "target"), [("ideas", "nobody"), ("nobody", "ideas")], ids=["to", "from"])
+def test_link_cli_between_a_note_and_a_name_with_no_note_fails_and_writes_nothing(
+    notes, as_joe, test_app, source, target
+):
+    """The CLI joins notes that exist; an edge to a name with no note is for writers that mean one."""
+    with pytest.raises(SystemExit):
+        test_app(["link", source, target, "why"])
+
+    assert read_marginalia(notes.root, NOTE) == Marginalia(note=NOTE)
+
+
 def test_link_to_an_ambiguous_name_fails_and_writes_nothing(notes, as_joe):
     with pytest.raises(UnresolvedNote):  # Two notes are called log
         link(notes, "ideas", "log", "")
@@ -154,9 +166,9 @@ def test_link_records_the_edge_and_commits_as_the_person(notes, as_joe):
 
     marginalia = read_marginalia(notes.root, NOTE)
     assert marginalia.body.splitlines() == [
-        '- 2026-11-02 [[/chats/claude-tasks/2026/10/log#"Some text."]] the same thought, scheduled'
+        '- 2026-11-02 [the same thought, scheduled](</chats/claude-tasks/2026/10/log.md#"Some text.">)'
     ]
-    assert _targets(notes.root) == ['/chats/claude-tasks/2026/10/log#"Some text."']
+    assert _targets(notes.root) == ['/chats/claude-tasks/2026/10/log.md#"Some text."']
     assert git(notes.root, "log", "-1", "--format=%an") == "Joe\n"
 
 
@@ -167,7 +179,7 @@ def test_link_keeps_the_tags_and_appends_after_whats_there(notes, as_joe):
 
     marginalia = read_marginalia(notes.root, NOTE)
     assert marginalia.tags == ["tea"]
-    assert _targets(notes.root) == ["/chats/claude-tasks/2026/10/log", "/chats/claude-tasks/2026/11/log"]
+    assert _targets(notes.root) == ["/chats/claude-tasks/2026/10/log.md", "/chats/claude-tasks/2026/11/log.md"]
 
 
 def test_link_from_a_span_is_refused(notes, as_joe):
@@ -182,7 +194,15 @@ def test_unlink_removes_only_the_edges_to_that_target(notes, as_joe):
 
     assert unlink(notes, "ideas", "2026/10/log") == 1
 
-    assert _targets(notes.root) == ["/chats/claude-tasks/2026/11/log"]
+    assert _targets(notes.root) == ["/chats/claude-tasks/2026/11/log.md"]
+
+
+def test_unlink_removes_a_wikilink_written_before_links_were_written_as_paths(notes, as_joe):
+    write_marginalia(notes, Marginalia(note=NOTE, body="- 2026-11-01 [[/chats/claude-tasks/2026/10/log]] by hand\n"))
+
+    assert unlink(notes, "ideas", "2026/10/log") == 1
+
+    assert _targets(notes.root) == []
 
 
 def test_unlink_an_edge_that_isnt_there_fails(notes, as_joe):
@@ -198,7 +218,7 @@ def test_unlink_a_link_whose_target_is_gone_by_writing_it_as_the_marginalia_do(n
 
     with pytest.raises(UnresolvedNote, match="/chats/claude-tasks/2026/10/log"):  # The hint shows how
         unlink(notes, "ideas", "2026/10/log")
-    assert unlink(notes, "ideas", "[[/chats/claude-tasks/2026/10/log]]") == 1
+    assert unlink(notes, "ideas", "/chats/claude-tasks/2026/10/log.md") == 1
 
     assert _targets(notes.root) == []
 
@@ -207,7 +227,7 @@ def test_link_cli_takes_the_rest_of_the_line_as_why(notes, as_joe, test_app):
     assert test_app(["link", "ideas", "2026/10/log", "filed", "as", "an", "idea"]) == 0
 
     [line] = read_marginalia(notes.root, NOTE).body.splitlines()
-    assert line.endswith("[[/chats/claude-tasks/2026/10/log]] filed as an idea")
+    assert line.endswith("[filed as an idea](/chats/claude-tasks/2026/10/log.md)")
 
 
 def _targets(root: Path) -> list[str]:
@@ -218,8 +238,8 @@ def _note(root: Path) -> Note:
     return Note(NOTE, "", marginalia=read_marginalia(root, NOTE))
 
 
-def _found(neighbours, direction: str) -> set[tuple[str, str, str]]:
-    return {(n.direction, n.other, n.context) for n in neighbours if n.direction == direction}
+def _found(neighbours, direction: str) -> set[tuple]:
+    return {(n.direction, n.other, n.text) for n in neighbours if n.direction == direction}
 
 
 def test_links_incoming_gathers_marginalia_edges_and_links_in_notes(notes, as_joe, make_note):
@@ -228,8 +248,8 @@ def test_links_incoming_gathers_marginalia_edges_and_links_in_notes(notes, as_jo
     link(notes, "2026/10/log", 'ideas#"Some text."', "the same thought", on=date(2026, 11, 2))
 
     assert _found(links(notes, NOTE), "in") == {
-        ("in", "/chats/claude-tasks/2026/10/log", '- 2026-11-02 [[/notes/ideas#"Some text."]] the same thought'),
-        ("in", "/journal/2026-11-02", "Added to [[ideas]]."),
+        ("in", "/chats/claude-tasks/2026/10/log", "the same thought"),
+        ("in", "/journal/2026-11-02", ""),
     }
 
 
@@ -240,9 +260,62 @@ def test_links_outgoing_gathers_marginalia_edges_and_links_in_the_notes_own_text
     link(notes, "ideas", "2026/10/log", "scheduled", on=date(2026, 11, 2))
 
     assert _found(links(notes, NOTE), "out") == {
-        ("out", "/chats/claude-tasks/2026/10/log", "- 2026-11-02 [[/chats/claude-tasks/2026/10/log]] scheduled"),
-        ("out", "/chats/claude-tasks/2026/11/log", "See [[2026/11/log]]."),
+        ("out", "/chats/claude-tasks/2026/10/log", "scheduled"),
+        ("out", "/chats/claude-tasks/2026/11/log", ""),
     }
+
+
+@pytest.mark.parametrize(
+    ("target", "why", "line"),
+    [
+        (Target(NOTE), "filed as tea", "- 2026-11-02 [filed as tea](/notes/ideas.md)"),
+        (Target(NOTE), "", "- 2026-11-02 [/notes/ideas](/notes/ideas.md)"),
+        (
+            Target(NOTE, "Tea house"),
+            "see [this] | that",
+            "- 2026-11-02 [see \\[this\\] | that](</notes/ideas.md#Tea house>)",
+        ),
+    ],
+    ids=["why", "no why", "span and a why with brackets"],
+)
+def test_linked_writes_a_markdown_link_to_the_resolved_path(target, why, line):
+    """What the link says is the reason, or else the target's name; any reason, escaped, reads back as written."""
+    linked = Marginalia(NOTE).linked(target, why, date(2026, 11, 2))
+
+    assert linked.body == f"{line}\n"
+    assert [(edge.link.target, edge.link.text) for edge in linked.written] == [(target.href, why or str(target))]
+
+
+def test_marginalia_frontmatter_cites_as_a_notes_does(tmp_path):
+    """No special case: a `source` key in marginalia is provenance, an edge from the note, as in the note itself."""
+    text = "---\nmarginalia: 2\nsource: notes/ideas.md\n---\n\n- 2026-11-02 [[/notes/tea]]\n"
+    (tmp_path / marginalia_path(NOTE)).parent.mkdir(parents=True)
+    (tmp_path / marginalia_path(NOTE)).write_text(text)
+
+    said = _note(tmp_path).said
+
+    assert [(edge.link.target, edge.link.kind.value, edge.link.line) for edge in said] == [
+        ("notes/ideas.md", "citation", 3),
+        ("/notes/tea", "wikilink", 6),
+    ]
+
+
+def test_unlinking_a_frontmatter_citation_removes_nothing_and_says_so(tmp_path):
+    """A citation is in the frontmatter, not on a line of the body, so there is no line of it to drop."""
+    text = "---\nmarginalia: 2\nsource: notes/ideas.md\n---\n\n- 2026-11-02 [[/notes/tea]]\n"
+    (tmp_path / marginalia_path(NOTE)).parent.mkdir(parents=True)
+    (tmp_path / marginalia_path(NOTE)).write_text(text)
+    note = _note(tmp_path)
+
+    marginalia, removed = note.unlinked("notes/ideas.md")
+
+    assert (removed, marginalia.body) == (0, note.marginalia.body)
+
+
+def test_commentary_is_every_line_of_the_body_that_links_nowhere_whatever_the_frontmatter_cites():
+    marginalia = Marginalia(NOTE, body="Plain words.\n- [[/notes/tea]]\n", properties={"source": "notes/ideas.md"})
+
+    assert Note(NOTE, "", marginalia=marginalia).commentary == ["Plain words."]
 
 
 def test_into_finds_every_kind_of_link_to_the_note_in_text_and_marginalia(test_repo):
@@ -261,15 +334,15 @@ def test_into_finds_every_kind_of_link_to_the_note_in_text_and_marginalia(test_r
         (test_repo.root / path).parent.mkdir(parents=True, exist_ok=True)
         (test_repo.root / path).write_text(text)
 
-    found = test_repo.into(Path("notes/ideas.md"))
+    found = [edge for _, edge in test_repo.into(Path("notes/ideas.md"))]
 
     # Chats quote links rather than make them, as for the link check.
-    assert [(str(Target(edge.node)), source.line(edge)) for source, edge in found] == [
-        ("/journal/a", "See [[ideas]]."),
-        ("/journal/b", "See [[/notes/ideas#Tea house]]."),
-        ("/journal/c", "See [the list](../notes/ideas.md)."),
-        ("/journal/e", "See [the list](../notes/ide%61s.md)."),
-        ("/notes/other", "- 2026-11-02 [[/notes/ideas]] why"),
+    assert [(str(Target(edge.node)), edge.link.text) for edge in found] == [
+        ("/journal/a", ""),
+        ("/journal/b", ""),
+        ("/journal/c", "the list"),
+        ("/journal/e", "the list"),
+        ("/notes/other", ""),
     ]
 
 
@@ -299,7 +372,7 @@ def test_a_path_link_in_marginalia_lands_as_if_written_in_the_note(notes, as_joe
     line = "- see [the log](../chats/claude-tasks/2026/10/log.md)"
     write_marginalia(notes, Marginalia(note=NOTE, body=f"{line}\n"))
 
-    assert _found(links(notes, NOTE), "out") == {("out", "/chats/claude-tasks/2026/10/log", line)}
+    assert _found(links(notes, NOTE), "out") == {("out", "/chats/claude-tasks/2026/10/log", "the log")}
 
 
 def test_links_leave_out_notes_at_the_other_end_the_tag_filter_excludes(notes, as_joe):
@@ -318,21 +391,16 @@ def test_label_and_unlabel_change_only_the_marginalias_tags(notes):
     assert read_marginalia(notes.root, NOTE) == Marginalia(note=NOTE, tags=["tea"])
 
 
-def test_add_link_to_a_name_with_no_note_is_an_edge_all_the_same(notes):
-    """An edge needs no file at its other end: 'alice' is a node whether or not she has a note."""
-    notes.add_link(NOTE, "alice", "met at the conference", on=date(2026, 11, 2))
+def test_add_link_writes_the_path_its_target_resolves_to(notes):
+    """Ambiguous links are read; only resolved ones are written, so a later note of the same name changes nothing."""
+    notes.add_link(NOTE, LOG, on=date(2026, 11, 2))
 
-    assert _targets(notes.root) == ["alice"]
-
-
-def test_add_link_takes_every_target_as_a_link_even_one_that_looks_like_a_tag(notes):
-    notes.add_link(NOTE, "tag:tea", on=date(2026, 11, 2))
-
-    assert read_marginalia(notes.root, NOTE) == Marginalia(note=NOTE, body="- 2026-11-02 [[tag:tea]]\n")
+    body = "- 2026-11-02 [/chats/claude-tasks/2026/10/log](/chats/claude-tasks/2026/10/log.md)\n"
+    assert read_marginalia(notes.root, NOTE) == Marginalia(note=NOTE, body=body)
 
 
 @pytest.mark.parametrize(
-    "write", [lambda repo, note: repo.add_link(note, "alice"), lambda repo, note: repo.label(note, "tea")]
+    "write", [lambda repo, note: repo.add_link(note, LOG), lambda repo, note: repo.label(note, "tea")]
 )
 def test_marginalia_writes_hold_for_the_next_commit_without_committing(notes, write):
     head = git(notes.root, "rev-parse", "HEAD")
@@ -345,7 +413,7 @@ def test_marginalia_writes_hold_for_the_next_commit_without_committing(notes, wr
 
 
 @pytest.mark.parametrize(
-    "write", [lambda repo, note: repo.add_link(note, "alice"), lambda repo, note: repo.label(note, "tea")]
+    "write", [lambda repo, note: repo.add_link(note, LOG), lambda repo, note: repo.label(note, "tea")]
 )
 @pytest.mark.parametrize("note", [Path("../config.toml"), Path("/etc/passwd")])
 def test_marginalia_writes_for_a_note_outside_the_repository_are_refused(notes, note, write):
@@ -359,11 +427,11 @@ def test_marginalia_writes_for_a_note_outside_the_repository_are_refused(notes, 
 
 
 def test_remove_link_says_how_many_edges_went(notes):
-    notes.add_link(NOTE, "alice", on=date(2026, 11, 2))
-    notes.add_link(NOTE, "alice", "again", on=date(2026, 11, 3))
+    notes.add_link(NOTE, LOG, on=date(2026, 11, 2))
+    notes.add_link(NOTE, LOG, "again", on=date(2026, 11, 3))
 
-    assert notes.remove_link(NOTE, "alice") == 2
-    assert notes.remove_link(NOTE, "alice") == 0
+    assert notes.remove_link(NOTE, LOG) == 2
+    assert notes.remove_link(NOTE, LOG) == 0
     assert read_marginalia(notes.root, NOTE) == Marginalia(note=NOTE)
 
 
