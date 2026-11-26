@@ -1,18 +1,19 @@
-<!-- Contents of chats/antigravity/2026/11/2026-11-25-review-the-caching-module-for-concurrency-issues.md -->
+<!-- Contents of chats/antigravity/2026/11/2026-11-25-caching-concurrency-review.md -->
 ---
 type: Chat
-title: Review the caching module for concurrency issues.
+title: Caching Concurrency Review
 conversation_id: 11111111-2222-3333-4444-555555555555
+project_id: example-project
 models:
 - gemini-4-neon-high
 generated:
   by: commonplace/1.2.3
   at: '2026-11-25T09:01:02+00:00'
 source: antigravity
-source_export: .commonplace/blobs/b7abcd0736d1308458b9c424e0383d95893b24b0edf912f584af5816f295b96c/antigravity.jsonl.xz
+source_export: .commonplace/blobs/a59ce6b4fd4b8f5e689f03894358f8b2302cb95728d081df79db19511fc2785b/antigravity.jsonl.xz
 ---
 
-# Review the caching module for concurrency issues. [created:: 2026-11-25T09:00:00+00:00]
+# Caching Concurrency Review [created:: 2026-11-25T09:00:00+00:00]
 
 ## Human [created:: 2026-11-25T09:00:00+00:00]
 

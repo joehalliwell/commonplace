@@ -1,4 +1,7 @@
+import base64
 import json
+import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -67,10 +70,40 @@ def _planner(
     return record
 
 
+def _summaries_entry(
+    rows_data: list[tuple[str, str, str, str]],
+    *,
+    parents: list[tuple[str, str]] = (),
+    app: str = "antigravity-cli",
+) -> dict:
+    with closing(sqlite3.connect(":memory:")) as conn:
+        conn.execute(
+            "CREATE TABLE conversation_summaries ("
+            "conversation_id TEXT PRIMARY KEY, title TEXT, parent_conversation_id TEXT, project_id TEXT)"
+        )
+        conn.executemany("INSERT INTO conversation_summaries VALUES (?, ?, ?, ?)", rows_data)
+        if parents:
+            conn.execute(
+                "CREATE TABLE conversation_parents (conversation_id TEXT PRIMARY KEY, parent_id TEXT NOT NULL)"
+            )
+            conn.executemany("INSERT INTO conversation_parents VALUES (?, ?)", parents)
+        raw = conn.serialize()
+    return {
+        "endpoint": "file",
+        "path": f"{app}/conversation_summaries.db",
+        "response": base64.b64encode(raw).decode(),
+        "encoding": "base64",
+    }
+
+
 def _archive(tmp_path: Path, *lines: dict, cid: str = "conv-1", extra: list[dict] | None = None) -> Path:
     tmp_path.mkdir(parents=True, exist_ok=True)
     entries = [
-        {"endpoint": "file", "path": f"{cid}/.system_generated/logs/transcript_full.jsonl", "response": _jsonl(*lines)},
+        {
+            "endpoint": "file",
+            "path": f"antigravity-cli/brain/{cid}/.system_generated/logs/transcript_full.jsonl",
+            "response": _jsonl(*lines),
+        },
         *(extra or []),
     ]
     return write_archive(tmp_path / "antigravity-wire.jsonl.xz", "antigravity", entries)
@@ -123,6 +156,20 @@ def test_antigravity_import_renders_user_requests_agent_prose_and_tool_calls(tmp
     assert log.metadata == {"conversation_id": "conv-1", "models": ["gemini-4-neon-high"]}
 
 
+def test_antigravity_import_sorts_by_step_index_and_handles_naive_timestamps(tmp_path):
+    """`step_index` is the authoritative order; naive timestamps normalize to UTC rather than crashing."""
+    archive = _archive(
+        tmp_path,
+        _planner("2026-11-25T08:10:00", step_index=1, content="Second"),
+        _user("First", "2026-11-25T08:10:01Z", step_index=0),
+    )
+
+    [log] = owned(AntigravityImporter).import_(archive)
+
+    assert [(e.sender, e.content) for e in log.events] == [(Role.USER, "First"), (Role.AGENT, "Second")]
+    assert all(e.created.tzinfo is not None for e in log.events)
+
+
 def test_antigravity_import_unwraps_plain_user_input_and_drops_settings_metadata(tmp_path):
     plain = _user(
         "Hello there\n<USER_SETTINGS_CHANGE>\nSwitched model.\n</USER_SETTINGS_CHANGE>",
@@ -154,20 +201,26 @@ def test_antigravity_import_prefers_full_transcript_and_ignores_chunks_and_artef
     entries = [
         {
             "endpoint": "file",
-            "path": "conv-1/.system_generated/logs/transcript.jsonl",
+            "path": "antigravity-cli/brain/conv-1/.system_generated/logs/transcript.jsonl",
             "response": _jsonl(_user("compact", "2026-11-25T08:10:00Z")),
         },
         {
             "endpoint": "file",
-            "path": "conv-1/.system_generated/logs/transcript_full.jsonl",
+            "path": "antigravity-cli/brain/conv-1/.system_generated/logs/transcript_full.jsonl",
             "response": _jsonl(_user("full", "2026-11-25T08:10:00Z")),
         },
         {
             "endpoint": "file",
-            "path": "conv-1/.system_generated/logs/chunks/transcript_full/00000000.jsonl",
+            "path": "antigravity-cli/brain/conv-1/.system_generated/logs/chunks/transcript_full/00000000.jsonl",
             "response": _jsonl(_user("chunk", "2026-11-25T08:10:00Z")),
         },
-        {"endpoint": "file", "path": "conv-1/plan.md", "response": "# Plan\n"},
+        {"endpoint": "file", "path": "antigravity-cli/brain/conv-1/plan.md", "response": "# Plan\n"},
+        {
+            "endpoint": "file",
+            "path": "antigravity/conversations/ide-1.pb",
+            "response": "CAESBQ==",
+            "encoding": "base64",
+        },
     ]
     archive = write_archive(tmp_path / "antigravity-wire.jsonl.xz", "antigravity", entries)
 
@@ -180,7 +233,7 @@ def test_antigravity_import_falls_back_to_compact_transcript_when_full_is_absent
     entries = [
         {
             "endpoint": "file",
-            "path": "conv-1/.system_generated/logs/transcript.jsonl",
+            "path": "antigravity-cli/brain/conv-1/.system_generated/logs/transcript.jsonl",
             "response": _jsonl(_user("compact only", "2026-11-25T08:10:00Z")),
         }
     ]
@@ -194,7 +247,11 @@ def test_antigravity_import_falls_back_to_compact_transcript_when_full_is_absent
 def test_antigravity_import_drops_a_half_written_trailing_line(tmp_path):
     """An active session can end mid-line when captured; the next fetch captures the rest."""
     text = _jsonl(_user("hi", "2026-11-25T08:10:00Z")) + '{"step_index": 1, "type": "PLANNER'
-    entry = {"endpoint": "file", "path": "conv-1/.system_generated/logs/transcript_full.jsonl", "response": text}
+    entry = {
+        "endpoint": "file",
+        "path": "antigravity-cli/brain/conv-1/.system_generated/logs/transcript_full.jsonl",
+        "response": text,
+    }
     archive = write_archive(tmp_path / "antigravity-wire.jsonl.xz", "antigravity", [entry])
 
     [log] = owned(AntigravityImporter).import_(archive)
@@ -225,42 +282,52 @@ def test_antigravity_import_shortens_a_long_first_prompt_for_the_title(tmp_path)
     assert log.title == "Why is the build red after the dependency bump that landed…"
 
 
-def test_antigravity_import_uses_conversation_metadata_for_title_and_skips_subagents(tmp_path):
-    titled = _archive(
-        tmp_path / "titled",
-        _user("some prompt", "2026-11-25T08:10:00Z"),
-        cid="conv-top",
-        extra=[
-            {
-                "endpoint": "conversation",
-                "cid": "conv-top",
-                "response": json.dumps(
-                    {
-                        "id": "conv-top",
-                        "metadata": {"projectId": "proj-1"},
-                        "annotations": {"title": "PR review"},
-                        "state": {"summary": "Fallback summary"},
-                    }
-                ),
-            }
-        ],
-    )
-    subagent = _archive(
-        tmp_path / "sub",
-        _user("research task", "2026-11-25T08:10:00Z"),
-        cid="conv-child",
-        extra=[
-            {
-                "endpoint": "conversation",
-                "cid": "conv-child",
-                "response": json.dumps({"id": "conv-child", "metadata": {"parentConversationId": "conv-top"}}),
-            }
-        ],
-    )
+def test_antigravity_import_reads_titles_projects_and_subagents_from_captured_files(tmp_path):
+    """Annotations pbtxt beats summary title; subagent children in either table are skipped."""
+    entries = [
+        {
+            "endpoint": "file",
+            "path": "antigravity-cli/brain/conv-ann/.system_generated/logs/transcript_full.jsonl",
+            "response": _jsonl(_user("prompt one", "2026-11-25T08:10:00Z")),
+        },
+        {
+            "endpoint": "file",
+            "path": "antigravity-cli/annotations/conv-ann.pbtxt",
+            "response": 'title:"PR \\"351\\" \\342\\200\\224 Review"\n',
+        },
+        {
+            "endpoint": "file",
+            "path": "antigravity-cli/brain/conv-sum/.system_generated/logs/transcript_full.jsonl",
+            "response": _jsonl(_user("prompt two", "2026-11-25T08:11:00Z")),
+        },
+        {
+            "endpoint": "file",
+            "path": "antigravity-cli/brain/conv-sub1/.system_generated/logs/transcript_full.jsonl",
+            "response": _jsonl(_user("sub one", "2026-11-25T08:12:00Z")),
+        },
+        {
+            "endpoint": "file",
+            "path": "antigravity-cli/brain/conv-sub2/.system_generated/logs/transcript_full.jsonl",
+            "response": _jsonl(_user("sub two", "2026-11-25T08:13:00Z")),
+        },
+        _summaries_entry(
+            [
+                ("conv-ann", "Summary Fallback", "", "proj-1"),
+                ("conv-sum", "Summary Title", "", "proj-2"),
+                ("conv-sub1", "Sub 1", "conv-ann", "proj-1"),
+                ("conv-sub2", "Sub 2", "", "proj-1"),
+            ],
+            parents=[("conv-sub2", "conv-ann")],
+        ),
+    ]
+    archive = write_archive(tmp_path / "antigravity-wire.jsonl.xz", "antigravity", entries)
 
-    [log] = owned(AntigravityImporter).import_(titled)
-    assert (log.title, log.metadata["project_id"]) == ("PR review", "proj-1")
-    assert owned(AntigravityImporter).import_(subagent) == []
+    logs = owned(AntigravityImporter).import_(archive)
+
+    assert [(log.metadata["conversation_id"], log.title, log.metadata["project_id"]) for log in logs] == [
+        ("conv-ann", 'PR "351" — Review', "proj-1"),
+        ("conv-sum", "Summary Title", "proj-2"),
+    ]
 
 
 def test_antigravity_import_keeps_a_conversations_first_path_when_retitled(test_repo, tmp_path):
@@ -271,9 +338,9 @@ def test_antigravity_import_keeps_a_conversations_first_path_when_retitled(test_
         cid="conv-keep",
         extra=[
             {
-                "endpoint": "conversation",
-                "cid": "conv-keep",
-                "response": json.dumps({"id": "conv-keep", "annotations": {"title": "Renamed title"}}),
+                "endpoint": "file",
+                "path": "antigravity-cli/annotations/conv-keep.pbtxt",
+                "response": 'title:"Renamed Title"\n',
             }
         ],
     )
@@ -292,9 +359,38 @@ def test_antigravity_raw_transcript_is_left_to_fetch(tmp_path):
     assert autodetect_importer(raw, importers(ChatSource)) is None
 
 
+def test_antigravity_import_reads_wal_mode_summaries_db_bytes(tmp_path):
+    """Even a raw WAL-mode `conversation_summaries.db` snapshot in an archive reads cleanly."""
+    wal_db = tmp_path / "conversation_summaries.db"
+    with closing(sqlite3.connect(wal_db)) as conn:
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute(
+            "CREATE TABLE conversation_summaries ("
+            "conversation_id TEXT PRIMARY KEY, title TEXT, parent_conversation_id TEXT, project_id TEXT)"
+        )
+        conn.execute("INSERT INTO conversation_summaries VALUES ('conv-1', 'From WAL', '', 'proj-wal')")
+        conn.commit()
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    entry = {
+        "endpoint": "file",
+        "path": "antigravity-cli/conversation_summaries.db",
+        "response": base64.b64encode(wal_db.read_bytes()).decode(),
+        "encoding": "base64",
+    }
+    archive = _archive(tmp_path / "a", _user("hello", "2026-11-25T08:10:00Z"), cid="conv-1", extra=[entry])
+
+    [log] = owned(AntigravityImporter).import_(archive)
+
+    assert (log.title, log.metadata["project_id"]) == ("From WAL", "proj-wal")
+
+
 @pytest.mark.parametrize("text", ["", '{"step_index": 0, "type": "GENERIC", "created_at": "2026-11-25T08:10:00Z"}\n'])
 def test_antigravity_import_empty_conversation_returns_no_logs(tmp_path, text):
-    entry = {"endpoint": "file", "path": "conv-empty/.system_generated/logs/transcript_full.jsonl", "response": text}
+    entry = {
+        "endpoint": "file",
+        "path": "antigravity-cli/brain/conv-empty/.system_generated/logs/transcript_full.jsonl",
+        "response": text,
+    }
     archive = write_archive(tmp_path / "antigravity-wire.jsonl.xz", "antigravity", [entry])
 
     assert owned(AntigravityImporter).import_(archive) == []

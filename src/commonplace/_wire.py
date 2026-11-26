@@ -200,13 +200,13 @@ def read_entries(path: Path) -> Iterator[dict[str, Any]]:
             yield entry
 
 
-def file_entry(path: Path, name: str) -> dict[str, Any]:
-    """The file at `path`, recorded as `name`: its exact bytes as text, or base64 when they aren't UTF-8."""
-    content = path.read_bytes()
+def file_entry(path: Path, name: str, content: bytes | None = None) -> dict[str, Any]:
+    """The file at `path` (or `content` when snapshotted), recorded as `name`: UTF-8 text, or base64 when it isn't."""
+    raw = path.read_bytes() if content is None else content
     try:
-        return {"endpoint": "file", "path": name, "response": content.decode("utf-8")}
+        return {"endpoint": "file", "path": name, "response": raw.decode("utf-8")}
     except UnicodeDecodeError:
-        return {"endpoint": "file", "path": name, "response": base64.b64encode(content).decode(), "encoding": "base64"}
+        return {"endpoint": "file", "path": name, "response": base64.b64encode(raw).decode(), "encoding": "base64"}
 
 
 def entry_body(entry: dict[str, Any]) -> bytes:
