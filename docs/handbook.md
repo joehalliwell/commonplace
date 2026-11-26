@@ -106,17 +106,17 @@ well within a month.
 `antigravity` reads local Antigravity conversations from
 `~/.gemini/antigravity-cli/` and `~/.gemini/antigravity/` (or
 `$ANTIGRAVITY_HOME`), so it needs no browser session. Each conversation changed
-since the last fetch is captured whole in its own archive — its `brain/` tree
-(transcripts, artefacts, scratch files, uploads and step outputs), its
-conversation database or protobuf (`conversations/<id>.{db,pb}`), its
-annotations (`annotations/<id>.pbtxt`), and `conversation_summaries.db`, with
-WAL-mode SQLite databases snapshotted safely as bytes. Notes land in
-`chats/antigravity/`, titled from the conversation's annotations or summary
-database, else by your first prompt; subagent child conversations stay in the
-capture without separate top-level notes. As with `claude-code`, the note holds
-what was said and one line per tool call, while thinking, tool output, harness
-messages, databases and artefacts stay in the capture; any secret printed by a
-tool stays in git history.
+since the last fetch is captured whole, in an archive of its own: everything
+Antigravity keeps under that conversation's id (its transcript, artefacts,
+scratch files, uploads, full tool output, conversation database and
+annotations), together with the summaries index that holds its title. Nothing
+else is read: Antigravity's caches, logs and other app state stay where they
+are. Notes land in `chats/antigravity/`, titled by the title Antigravity gave
+the conversation, else by your first prompt; a subagent's conversation stays in
+the capture without a note of its own. As with `claude-code`, the note holds
+what was said and one line per tool call, while thinking, tool output and
+harness messages stay in the capture; any secret printed by a tool stays in
+git history.
 
 ### Mirrors
 
