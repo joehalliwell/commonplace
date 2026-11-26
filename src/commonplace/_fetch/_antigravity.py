@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from commonplace._fetch._base import BaseFetcher
+from commonplace._logging import logger
 from commonplace._wire import file_entry
 
 if TYPE_CHECKING:
@@ -27,6 +28,17 @@ def _antigravity_roots(roots: Sequence[Path] | None) -> list[Path]:
         return [Path(part) for part in env.split(os.pathsep) if part]
     gemini = Path.home() / ".gemini"
     return [gemini / "antigravity-cli", gemini / "antigravity"]
+
+
+def _root_labels(roots: Sequence[Path]) -> list[tuple[str, Path]]:
+    """Distinct archive path prefixes for `roots`, disambiguating colliding basenames with `-2`, `-3`."""
+    seen: dict[str, int] = {}
+    labeled: list[tuple[str, Path]] = []
+    for root in roots:
+        count = seen.get(root.name, 0) + 1
+        seen[root.name] = count
+        labeled.append((root.name if count == 1 else f"{root.name}-{count}", root))
+    return labeled
 
 
 def _conversation_ids(root: Path) -> list[str]:
@@ -64,63 +76,80 @@ def _last_changed(files: Sequence[Path]) -> datetime:
     return datetime.fromtimestamp(max(stamps), UTC)
 
 
-def _sqlite_bytes(path: Path) -> bytes:
-    """Snapshot a SQLite database (including committed WAL frames) as standalone bytes, without modifying the source."""
+def _sqlite_snapshot(path: Path) -> bytes:
+    """Snapshot a SQLite database (including committed WAL frames) as standalone rollback-journal bytes.
+
+    Opening a WAL-mode database read-only leaves `.db` and `-wal` untouched, though SQLite may update its `-shm`
+    shared-memory index file.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        snap = Path(tmp) / "snapshot.db"
+        with (
+            closing(sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)) as src,
+            closing(sqlite3.connect(snap)) as dst,
+        ):
+            src.backup(dst)
+            # Leave the snapshot in rollback-journal mode so any reader (including `deserialize`) opens it without WAL.
+            dst.execute("PRAGMA journal_mode = DELETE")
+        return snap.read_bytes()
+
+
+def _record_file(label: str, root: Path, path: Path) -> list[dict[str, Any]]:
+    """Record `path` under `<label>/<rel>`; snapshot SQLite `.db` files, falling back to raw bytes plus `-wal`."""
+    name = f"{label}/{path.relative_to(root).as_posix()}"
+    if path.suffix != ".db":
+        return [file_entry(path, name)]
     try:
-        with tempfile.TemporaryDirectory() as tmp:
-            snap = Path(tmp) / "snapshot.db"
-            with (
-                closing(sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)) as src,
-                closing(sqlite3.connect(snap)) as dst,
-            ):
-                src.backup(dst)
-                # Leave the snapshot in rollback-journal mode so any reader (including `deserialize`) opens it without WAL.
-                dst.execute("PRAGMA journal_mode = DELETE")
-            return snap.read_bytes()
-    except sqlite3.Error:
-        return path.read_bytes()
-
-
-def _record_file(root: Path, path: Path) -> dict[str, Any]:
-    """Record `path` under `<root.name>/<rel>`, snapshotting SQLite `.db` files cleanly from WAL."""
-    name = f"{root.name}/{path.relative_to(root).as_posix()}"
-    return file_entry(path, name, content=_sqlite_bytes(path) if path.suffix == ".db" else None)
+        return [file_entry(path, name, content=_sqlite_snapshot(path))]
+    except sqlite3.Error as exc:
+        logger.warning(f"Could not snapshot SQLite database '{path}' ({exc}); capturing raw file and WAL sidecar")
+        entries = [file_entry(path, name)]
+        if (wal := path.with_name(f"{path.name}-wal")).is_file():
+            entries.append(file_entry(wal, f"{name}-wal"))
+        return entries
 
 
 class AntigravityFetcher(BaseFetcher):
-    """Records each local Antigravity conversation changed since the cursor, verbatim, with summaries once per fetch."""
+    """Records each local Antigravity conversation changed since the cursor in an archive of its own."""
 
-    def __init__(
-        self, source: "Source", root: Path | None = None, roots: Sequence[Path] | None = None, **browsing: Any
-    ):
+    def __init__(self, source: "Source", roots: Sequence[Path] | None = None, **browsing: Any):
         super().__init__(source, **browsing)
-        self.roots = _antigravity_roots([root] if root is not None else roots)
+        self.roots = _antigravity_roots(roots)
 
     def fetch(self, destination: Path, since: datetime | None, previous: Sequence[Path] = ()) -> list[Path]:
         self._start()
-        present = [root for root in self.roots if root.is_dir()]
+        present = _root_labels([root for root in self.roots if root.is_dir()])
         if not present:
             return []
         # Capture every conversation's full brain tree, database/protobuf and annotations verbatim across both app-data
         # dirs; what makes a note is the importer's call.
         fresh = [
-            (root, cid, files)
-            for root in present
+            (label, root, cid, files)
+            for label, root in present
             for cid in _conversation_ids(root)
             if (files := _conversation_files(root, cid)) and (since is None or _last_changed(files) > since)
         ]
         if not fresh:
             return []
 
-        def read(item: tuple[Path, str, list[Path]]) -> None:
-            root, _, files = item
+        # Snapshot `conversation_summaries.db` once per fetch and include it in each per-conversation archive so every
+        # archive is self-contained and a newer capture of a conversation supersedes its older one whole.
+        summary_entries = [
+            entry
+            for label, root in present
+            if (summaries := root / _SUMMARIES_DB).is_file()
+            for entry in _record_file(label, root, summaries)
+        ]
+        archives: list[Path] = []
+
+        def read(item: tuple[str, Path, str, list[Path]]) -> None:
+            label, root, cid, files = item
             for file in files:
-                self._log(**_record_file(root, file))
+                for entry in _record_file(label, root, file):
+                    self._log(**entry)
+            for entry in summary_entries:
+                self._log(**entry)
+            archives.append(self._write_archive(destination / label / cid))
 
         self._read_fresh(fresh, since, read)
-        # Capture `conversation_summaries.db` once per fetch (per app dir that has it), alongside the fresh conversations
-        # so the archive is self-contained for both `fetch` and `doctor --render`.
-        for root in present:
-            if (summaries := root / _SUMMARIES_DB).is_file():
-                self._log(**_record_file(root, summaries))
-        return [self._write_archive(destination)]
+        return archives

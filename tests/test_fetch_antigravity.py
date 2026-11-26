@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import sqlite3
 from contextlib import closing
@@ -72,7 +73,7 @@ def _write_summaries_db(path: Path, rows_data: list[tuple[str, str, str, str]], 
     return path
 
 
-#: Every file captured from `_antigravity_roots` since the epoch, across both CLI and IDE app-data dirs.
+#: Files captured per conversation across both CLI and IDE app-data dirs.
 CLI_NEW = [
     "antigravity-cli/annotations/conv-new.pbtxt",
     "antigravity-cli/brain/conv-new/.system_generated/logs/transcript.jsonl",
@@ -94,8 +95,8 @@ IDE_CONV = [
     "antigravity/brain/ide-1/task.md",
     "antigravity/conversations/ide-1.pb",
 ]
-SUMMARIES = ["antigravity-cli/conversation_summaries.db"]
-EVERYTHING = sorted([*CLI_NEW, *CLI_OLD, *CLI_SUB, *IDE_CONV, *SUMMARIES])
+SUMMARIES = "antigravity-cli/conversation_summaries.db"
+EVERYTHING = sorted([*CLI_NEW, *CLI_OLD, *CLI_SUB, *IDE_CONV, SUMMARIES])
 
 
 def _antigravity_roots(tmp_path: Path) -> list[Path]:
@@ -152,14 +153,12 @@ def test_fetch_antigravity_records_every_file_across_both_roots_verbatim(tmp_pat
     """Capture is total and dumb: brain trees, databases, protobufs, annotations and summaries are all kept."""
     roots = _antigravity_roots(tmp_path)
 
-    [archive] = owned(AntigravityFetcher, roots=roots).fetch(tmp_path, since=None)
+    captured = owned(AntigravityFetcher, roots=roots).fetch(tmp_path, since=None)
 
-    assert read_header(archive).source == "antigravity"
-    entries = list(read_entries(archive))
-    assert sorted((e["endpoint"], e["path"]) for e in entries) == [("file", path) for path in EVERYTHING]
-    assert [e["path"] for e in entries].count("antigravity-cli/conversation_summaries.db") == 1
+    assert _unique_paths(captured) == EVERYTHING
     by_root = {r.name: r for r in roots}
-    for entry in entries:
+    for entry in _entries(captured):
+        assert entry["endpoint"] == "file"
         app, rel = entry["path"].split("/", 1)
         disk = by_root[app] / rel
         if disk.suffix == ".db":
@@ -168,6 +167,24 @@ def test_fetch_antigravity_records_every_file_across_both_roots_verbatim(tmp_pat
                 assert conn.execute("PRAGMA integrity_check").fetchone() == ("ok",)
         else:
             assert entry_body(entry) == disk.read_bytes()
+
+
+def test_fetch_antigravity_writes_one_self_contained_archive_per_conversation(tmp_path):
+    """One archive per conversation so a newer capture of one supersedes its older capture whole."""
+    captured = owned(AntigravityFetcher, roots=_antigravity_roots(tmp_path)).fetch(tmp_path, since=None)
+
+    archives = {a.parent.relative_to(tmp_path).as_posix(): a for a in captured}
+    assert sorted(archives) == [
+        "antigravity-cli/conv-new",
+        "antigravity-cli/conv-old",
+        "antigravity-cli/conv-sub",
+        "antigravity/ide-1",
+    ]
+    assert all(read_header(a).source == "antigravity" for a in archives.values())
+    assert sorted(e["path"] for e in read_entries(archives["antigravity-cli/conv-new"])) == sorted(
+        [*CLI_NEW, SUMMARIES]
+    )
+    assert sorted(e["path"] for e in read_entries(archives["antigravity/ide-1"])) == sorted([*IDE_CONV, SUMMARIES])
 
 
 def test_fetch_antigravity_snapshots_uncheckpointed_wal_frames_and_tracks_wal_mtime(tmp_path):
@@ -190,13 +207,40 @@ def test_fetch_antigravity_snapshots_uncheckpointed_wal_frames_and_tracks_wal_mt
         os.utime(db_path, (OLD.timestamp(), OLD.timestamp()))
         os.utime(wal, (NEW.timestamp(), NEW.timestamp()))
 
-        [archive] = owned(AntigravityFetcher, root=cli).fetch(tmp_path, since=datetime(2026, 9, 15, tzinfo=UTC))
+        [archive] = owned(AntigravityFetcher, roots=[cli]).fetch(tmp_path, since=datetime(2026, 9, 15, tzinfo=UTC))
 
     [db_entry] = [e for e in read_entries(archive) if e["path"] == "antigravity-cli/conversations/c1.db"]
     with closing(sqlite3.connect(":memory:")) as conn:
         conn.deserialize(entry_body(db_entry))
         rows_found = conn.execute("SELECT cascade_id FROM trajectory_meta ORDER BY trajectory_id").fetchall()
     assert rows_found == [("c1",), ("from-wal",)]
+
+
+def test_fetch_antigravity_backup_failure_warns_and_captures_raw_db_and_wal(tmp_path, caplog):
+    """If SQLite backup fails, warn loudly and preserve both the raw `.db` and its `-wal` sidecar."""
+    cli = tmp_path / "antigravity-cli"
+    _write(cli / "conversations" / "c1.db", b"not-a-sqlite-db", NEW)
+    _write(cli / "conversations" / "c1.db-wal", b"raw-wal-bytes", NEW)
+
+    with caplog.at_level(logging.WARNING):
+        [archive] = owned(AntigravityFetcher, roots=[cli]).fetch(tmp_path, since=None)
+
+    entries = {e["path"]: entry_body(e) for e in read_entries(archive)}
+    assert entries == {
+        "antigravity-cli/conversations/c1.db": b"not-a-sqlite-db",
+        "antigravity-cli/conversations/c1.db-wal": b"raw-wal-bytes",
+    }
+    assert "Could not snapshot SQLite database" in caplog.text
+
+
+def test_fetch_antigravity_disambiguates_roots_with_the_same_basename(tmp_path):
+    first, second = tmp_path / "a" / "ag", tmp_path / "b" / "ag"
+    _write(first / "conversations" / "c1.pb", b"one", NEW)
+    _write(second / "conversations" / "c1.pb", b"two", NEW)
+
+    captured = owned(AntigravityFetcher, roots=[first, second]).fetch(tmp_path, since=None)
+
+    assert _unique_paths(captured) == ["ag-2/conversations/c1.pb", "ag/conversations/c1.pb"]
 
 
 def test_fetch_antigravity_counts_every_file_it_records_on_the_sources_row(tmp_path):
@@ -213,7 +257,7 @@ def test_fetch_antigravity_incremental_reads_conversations_changed_after_the_cur
         tmp_path, since=datetime(2026, 9, 15, tzinfo=UTC)
     )
 
-    assert _paths(captured) == sorted([*CLI_NEW, *CLI_SUB, *IDE_CONV, *SUMMARIES])
+    assert _unique_paths(captured) == sorted([*CLI_NEW, *CLI_SUB, *IDE_CONV, SUMMARIES])
 
 
 def test_fetch_antigravity_conversation_whose_annotation_changed_is_read_again(tmp_path):
@@ -226,7 +270,7 @@ def test_fetch_antigravity_conversation_whose_annotation_changed_is_read_again(t
         "antigravity-cli/brain/conv-old/.system_generated/logs/transcript_full.jsonl",
         "antigravity-cli/conversations/conv-old.db",
         "antigravity-cli/annotations/conv-old.pbtxt",
-    } <= set(_paths(captured))
+    } <= set(_unique_paths(captured))
 
 
 def test_fetch_antigravity_stamps_the_archive_before_listing_conversations(tmp_path, monkeypatch):
@@ -255,7 +299,7 @@ def test_fetch_antigravity_with_nothing_fresh_returns_empty(tmp_path):
 
 
 def test_fetch_antigravity_without_antigravity_installed_returns_empty(tmp_path):
-    assert owned(AntigravityFetcher, root=tmp_path / "absent").fetch(tmp_path, since=None) == []
+    assert owned(AntigravityFetcher, roots=[tmp_path / "absent"]).fetch(tmp_path, since=None) == []
 
 
 def test_fetch_antigravity_root_follows_antigravity_home_env(tmp_path, monkeypatch):
@@ -264,7 +308,7 @@ def test_fetch_antigravity_root_follows_antigravity_home_env(tmp_path, monkeypat
 
     captured = owned(AntigravityFetcher).fetch(tmp_path, since=None)
 
-    assert _paths(captured) == EVERYTHING
+    assert _unique_paths(captured) == EVERYTHING
 
 
 def test_fetch_antigravity_command_lands_conversations_in_one_commit_with_real_titles_and_no_subagents(
@@ -282,13 +326,15 @@ def test_fetch_antigravity_command_lands_conversations_in_one_commit_with_real_t
     ]
     assert len(git(test_repo.root, "log", "--oneline").splitlines()) == before + 1
     message = git(test_repo.root, "log", "-1", "--format=%B")
-    [blob] = test_repo.blobs(*archive_names("antigravity"))
-    assert message.startswith(f"Fetch antigravity: {blob.path.as_posix()}")
+    stored = [blob.path for blob in test_repo.blobs(*archive_names("antigravity"))]
+    assert len(stored) == 4
+    assert message.startswith("Fetch antigravity: 4 archives")
+    assert all(path.as_posix() in message for path in stored)
 
 
 def _entries(captured: list[Path]) -> list[dict]:
     return [e for a in captured for e in read_entries(a)]
 
 
-def _paths(captured: list[Path]) -> list[str]:
-    return sorted(e["path"] for e in _entries(captured))
+def _unique_paths(captured: list[Path]) -> list[str]:
+    return sorted({e["path"] for e in _entries(captured)})

@@ -106,11 +106,11 @@ well within a month.
 `antigravity` reads local Antigravity conversations from
 `~/.gemini/antigravity-cli/` and `~/.gemini/antigravity/` (or
 `$ANTIGRAVITY_HOME`), so it needs no browser session. Each conversation changed
-since the last fetch is captured whole — its `brain/` tree (transcripts,
-artefacts, scratch files, uploads and step outputs), its conversation database
-or protobuf (`conversations/<id>.{db,pb}`), and its annotations
-(`annotations/<id>.pbtxt`) — alongside `conversation_summaries.db` once per
-fetch, with WAL-mode SQLite databases snapshotted safely as bytes. Notes land in
+since the last fetch is captured whole in its own archive — its `brain/` tree
+(transcripts, artefacts, scratch files, uploads and step outputs), its
+conversation database or protobuf (`conversations/<id>.{db,pb}`), its
+annotations (`annotations/<id>.pbtxt`), and `conversation_summaries.db`, with
+WAL-mode SQLite databases snapshotted safely as bytes. Notes land in
 `chats/antigravity/`, titled from the conversation's annotations or summary
 database, else by your first prompt; subagent child conversations stay in the
 capture without separate top-level notes. As with `claude-code`, the note holds
