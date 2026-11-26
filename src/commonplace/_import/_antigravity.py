@@ -162,11 +162,6 @@ def _read_summaries(raw: bytes) -> dict[str, _Summary]:
                     )
                     for cid, title, parent, project in conn.execute(query):
                         found[str(cid)] = _Summary(str(title or ""), str(parent or ""), str(project or ""))
-            if "conversation_parents" in tables:
-                for cid, parent in conn.execute("SELECT conversation_id, parent_id FROM conversation_parents"):
-                    if parent:
-                        entry = found.setdefault(str(cid), _Summary())
-                        entry.parent_conversation_id = entry.parent_conversation_id or str(parent)
     except sqlite3.Error as exc:
         logger.warning(f"Could not read conversation_summaries.db: {exc}")
     return found

@@ -70,23 +70,13 @@ def _planner(
     return record
 
 
-def _summaries_entry(
-    rows_data: list[tuple[str, str, str, str]],
-    *,
-    parents: list[tuple[str, str]] = (),
-    app: str = "antigravity-cli",
-) -> dict:
+def _summaries_entry(rows_data: list[tuple[str, str, str, str]], *, app: str = "antigravity-cli") -> dict:
     with closing(sqlite3.connect(":memory:")) as conn:
         conn.execute(
             "CREATE TABLE conversation_summaries ("
             "conversation_id TEXT PRIMARY KEY, title TEXT, parent_conversation_id TEXT, project_id TEXT)"
         )
         conn.executemany("INSERT INTO conversation_summaries VALUES (?, ?, ?, ?)", rows_data)
-        if parents:
-            conn.execute(
-                "CREATE TABLE conversation_parents (conversation_id TEXT PRIMARY KEY, parent_id TEXT NOT NULL)"
-            )
-            conn.executemany("INSERT INTO conversation_parents VALUES (?, ?)", parents)
         raw = conn.serialize()
     return {
         "endpoint": "file",
@@ -283,7 +273,7 @@ def test_antigravity_import_shortens_a_long_first_prompt_for_the_title(tmp_path)
 
 
 def test_antigravity_import_reads_titles_projects_and_subagents_from_captured_files(tmp_path):
-    """Annotations pbtxt beats summary title; subagent children in either table are skipped."""
+    """Annotations pbtxt beats summary title; subagent children are skipped."""
     entries = [
         {
             "endpoint": "file",
@@ -302,22 +292,15 @@ def test_antigravity_import_reads_titles_projects_and_subagents_from_captured_fi
         },
         {
             "endpoint": "file",
-            "path": "antigravity-cli/brain/conv-sub1/.system_generated/logs/transcript_full.jsonl",
+            "path": "antigravity-cli/brain/conv-sub/.system_generated/logs/transcript_full.jsonl",
             "response": _jsonl(_user("sub one", "2026-11-25T08:12:00Z")),
-        },
-        {
-            "endpoint": "file",
-            "path": "antigravity-cli/brain/conv-sub2/.system_generated/logs/transcript_full.jsonl",
-            "response": _jsonl(_user("sub two", "2026-11-25T08:13:00Z")),
         },
         _summaries_entry(
             [
                 ("conv-ann", "Summary Fallback", "", "proj-1"),
                 ("conv-sum", "Summary Title", "", "proj-2"),
-                ("conv-sub1", "Sub 1", "conv-ann", "proj-1"),
-                ("conv-sub2", "Sub 2", "", "proj-1"),
+                ("conv-sub", "Sub 1", "conv-ann", "proj-1"),
             ],
-            parents=[("conv-sub2", "conv-ann")],
         ),
     ]
     archive = write_archive(tmp_path / "antigravity-wire.jsonl.xz", "antigravity", entries)
