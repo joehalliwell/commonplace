@@ -103,15 +103,20 @@ a session deleted before a fetch reaches it is gone for good. Raise it in
 `~/.claude/settings.json` (say `"cleanupPeriodDays": 1000`) unless you fetch
 well within a month.
 
-`antigravity` reads local Antigravity CLI conversations from
-`~/.gemini/antigravity-cli/brain/` (or `$ANTIGRAVITY_HOME/brain/`), so it needs
-no browser session. Each conversation changed since the last fetch is captured
-whole — its transcript, artefacts, scratch files, uploads and step outputs —
-and lands in `chats/antigravity/`, titled by its first prompt (or by its
-metadata title when present). As with `claude-code`, the note holds what was
-said and one line per tool call, while thinking, tool output, harness messages
-and artefacts stay in the capture; any secret printed by a tool stays in git
-history.
+`antigravity` reads local Antigravity conversations from
+`~/.gemini/antigravity-cli/` and `~/.gemini/antigravity/` (or
+`$ANTIGRAVITY_HOME`), so it needs no browser session. Each conversation changed
+since the last fetch is captured whole — its `brain/` tree (transcripts,
+artefacts, scratch files, uploads and step outputs), its conversation database
+or protobuf (`conversations/<id>.{db,pb}`), and its annotations
+(`annotations/<id>.pbtxt`) — alongside `conversation_summaries.db` once per
+fetch, with WAL-mode SQLite databases snapshotted safely as bytes. Notes land in
+`chats/antigravity/`, titled from the conversation's annotations or summary
+database, else by your first prompt; subagent child conversations stay in the
+capture without separate top-level notes. As with `claude-code`, the note holds
+what was said and one line per tool call, while thinking, tool output, harness
+messages, databases and artefacts stay in the capture; any secret printed by a
+tool stays in git history.
 
 ### Mirrors
 
