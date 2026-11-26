@@ -39,7 +39,7 @@ class ClaudeCodeImporter(BaseWireImporter):
         models: list[str | None] = []
         ai_title: str | None = None
 
-        for data in _records(transcript, where):
+        for data in records(transcript, where):
             # An interrupted response resumes in a new session, which copies this one's history.
             if data.get("type") == "continued-in":
                 logger.info(f"Skipping {where}: continued in {data['continuedInSessionId']}")
@@ -63,7 +63,7 @@ class ClaudeCodeImporter(BaseWireImporter):
             if message := self._process_event(data):
                 events.append(message)
 
-        events = _merged(sorted(events, key=lambda evt: evt.created))
+        events = merged(sorted(events, key=lambda evt: evt.created))
 
         if not events:
             logger.warning(f"No messages found in {where}")
@@ -133,14 +133,14 @@ def rendered_blocks(content: list[dict[str, Any]], tools: bool = True) -> str | 
             blocks.append(block["text"])
         elif block_type == "tool_use":
             if tools:
-                blocks.append(_tool_line(block["name"], block.get("input", {})))
+                blocks.append(tool_line(block["name"], block.get("input", {})))
         elif block_type not in {"thinking", "redacted_thinking", "tool_result"}:
             logger.debug(f"Skipping {block_type} content block")
             blocks.append(f"<!-- Skipped content of type {block_type} -->")
-    return _joined(blocks) if blocks else None
+    return joined(blocks) if blocks else None
 
 
-def _tool_line(name: str, tool_input: dict[str, Any]) -> str:
+def tool_line(name: str, tool_input: dict[str, Any]) -> str:
     """A tool call as a list item: its name and first text argument, on one shortened line."""
     target = next((" ".join(v.split()) for v in tool_input.values() if isinstance(v, str) and v.strip()), None)
     if target is None:
@@ -155,24 +155,24 @@ def _tool_line(name: str, tool_input: dict[str, Any]) -> str:
 _TOOL_LINE = 80
 
 
-def _joined(parts: list[str]) -> str:
+def joined(parts: list[str]) -> str:
     """Parts as paragraphs, but adjacent list items as one list."""
-    joined = parts[0]
+    out = parts[0]
     for part in parts[1:]:
-        tight = joined.rsplit("\n", 1)[-1].startswith("- ") and part.startswith("- ")
-        joined += ("\n" if tight else "\n\n") + part
-    return joined
+        tight = out.rsplit("\n", 1)[-1].startswith("- ") and part.startswith("- ")
+        out += ("\n" if tight else "\n\n") + part
+    return out
 
 
-def _merged(events: list[Message]) -> list[Message]:
-    """Consecutive agent records as one turn, as it was had: Claude Code writes each content block as a record."""
-    merged: list[Message] = []
+def merged(events: list[Message]) -> list[Message]:
+    """Consecutive agent records as one turn, as it was had: coding agents write each step as a record."""
+    out: list[Message] = []
     for event in events:
-        if merged and event.sender == merged[-1].sender == Role.AGENT:
-            merged[-1] = merged[-1].model_copy(update={"content": _joined([merged[-1].content, event.content])})
+        if out and event.sender == out[-1].sender == Role.AGENT:
+            out[-1] = out[-1].model_copy(update={"content": joined([out[-1].content, event.content])})
         else:
-            merged.append(event)
-    return merged
+            out.append(event)
+    return out
 
 
 def _answers(data: dict[str, Any]) -> str | None:
@@ -197,7 +197,7 @@ def _is_transcript(path: str) -> bool:
     return len(parts) == 2 and parts[1].endswith(".jsonl") and ".orphaned-" not in parts[1]
 
 
-def _records(transcript: str, where: str) -> Iterator[dict[str, Any]]:
+def records(transcript: str, where: str) -> Iterator[dict[str, Any]]:
     """The transcript's lines, parsed; a session fetched while running can end mid-line, and the next fetch has it."""
     lines = [line for line in transcript.splitlines() if line.strip()]
     for i, line in enumerate(lines):

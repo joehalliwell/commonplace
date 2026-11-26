@@ -7,6 +7,7 @@ sources whose formats one importer could read, the narrower sorts first; and fet
 from pathlib import Path
 from typing import Any
 
+from commonplace._fetch._antigravity import AntigravityFetcher
 from commonplace._fetch._chatgpt import ChatGptFetcher
 from commonplace._fetch._chatgpt_memory import ChatGptMemoryFetcher
 from commonplace._fetch._claude import ClaudeFetcher
@@ -15,6 +16,7 @@ from commonplace._fetch._claude_memory import ClaudeMemoryFetcher
 from commonplace._fetch._gemini import GeminiFetcher
 from commonplace._fetch._gemini_memory import GeminiMemoryFetcher
 from commonplace._fetch._keep import KeepFetcher
+from commonplace._import._antigravity import AntigravityImporter
 from commonplace._import._chatgpt import ChatGptImporter, ChatGptWireImporter
 from commonplace._import._chatgpt_memory import ChatGptMemoryImporter
 from commonplace._import._claude import ClaudeImporter
@@ -42,6 +44,7 @@ SOURCES: tuple[Source, ...] = (
     ChatSource("claude", (ClaudeExportImporter, ClaudeImporter), ClaudeFetcher),
     ChatSource("claude-tasks", (ClaudeTasksImporter,), None),
     ChatSource("claude-code", (ClaudeCodeImporter,), ClaudeCodeFetcher),
+    ChatSource("antigravity", (AntigravityImporter,), AntigravityFetcher),
     ChatSource("chatgpt", (ChatGptWireImporter, ChatGptImporter), ChatGptFetcher),
 )
 
