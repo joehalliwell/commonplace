@@ -184,6 +184,7 @@ RESOURCES = {
     "chatgpt.zip": lambda m: f"https://chatgpt.com/c/{m['id']}",
     "gemini.jsonl.gz": lambda m: f"https://gemini.google.com/app/{m['uuid'].removeprefix('c_')}",
     "claude-code.jsonl.gz": lambda m: None,
+    "antigravity.jsonl.xz": lambda m: None,
     "gemini-takeout.zip": lambda m: None,
 }
 
@@ -202,6 +203,7 @@ AGENTS = {
     "chatgpt.zip": "ChatGPT",
     "gemini.jsonl.gz": "Gemini",
     "claude-code.jsonl.gz": "Claude Code",
+    "antigravity.jsonl.xz": "Antigravity",
     "gemini-takeout.zip": "Gemini",
 }
 

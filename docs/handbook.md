@@ -12,6 +12,7 @@ it is.
 │   ├── claude/2026/06/2026-06-28-conversation-title.md
 │   ├── chatgpt/2026/06/2026-06-28-conversation-title.md
 │   ├── claude-code/2026/06/2026-06-28-session-title.md
+│   ├── antigravity/2026/06/2026-06-28-session-title.md
 │   ├── claude/tasks/2026/06/2026-06-28-run-title.md
 │   ├── gemini/                       # fetched from gemini.google.com
 │   └── gemini-takeout/               # imported from Google Takeout
@@ -101,6 +102,16 @@ Claude Code deletes sessions older than `cleanupPeriodDays`, 30 by default, and
 a session deleted before a fetch reaches it is gone for good. Raise it in
 `~/.claude/settings.json` (say `"cleanupPeriodDays": 1000`) unless you fetch
 well within a month.
+
+`antigravity` reads local Antigravity CLI conversations from
+`~/.gemini/antigravity-cli/brain/` (or `$ANTIGRAVITY_HOME/brain/`), so it needs
+no browser session. Each conversation changed since the last fetch is captured
+whole — its transcript, artefacts, scratch files, uploads and step outputs —
+and lands in `chats/antigravity/`, titled by its first prompt (or by its
+metadata title when present). As with `claude-code`, the note holds what was
+said and one line per tool call, while thinking, tool output, harness messages
+and artefacts stay in the capture; any secret printed by a tool stays in git
+history.
 
 ### Mirrors
 

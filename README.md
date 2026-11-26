@@ -11,8 +11,8 @@ antiquity. [MANIFESTO.md](https://github.com/joehalliwell/commonplace/blob/main/
 ## What it does
 
 - 🛰️ **Fetches conversations** straight from Claude, Gemini and ChatGPT, using
-  your browser session, along with your local Claude Code sessions, and mirrors
-  their memory and Google Keep
+  your browser session, along with your local Claude Code and Antigravity
+  sessions, and mirrors their memory and Google Keep
 - 💬 **Imports** vendor exports
 - 📁 **Stores everything as markdown** in a git repository, under readable
   paths: `chats/claude/2026/06/2026-06-28-conversation-title.md`
