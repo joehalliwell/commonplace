@@ -53,6 +53,7 @@ class AntigravityImporter(BaseWireImporter):
         transcripts: dict[str, tuple[str, str]] = {}
         annotation_titles: dict[str, str] = {}
         summaries: dict[str, _Summary] = {}
+        captured: dict[str, None] = {}
 
         for entry in read_entries(path):
             if entry.get("endpoint") != "file" or "path" not in entry:
@@ -63,6 +64,8 @@ class AntigravityImporter(BaseWireImporter):
             if parts[-1] == "conversation_summaries.db":
                 summaries.update(_read_summaries(entry_body(entry)))
                 continue
+            if cid := _conversation_id(parts):
+                captured[cid] = None
             if len(parts) >= 2 and parts[-2] == "annotations" and parts[-1].endswith(".pbtxt"):
                 if title := _parse_pbtxt_title(entry_body(entry).decode("utf-8", errors="replace")):
                     annotation_titles[parts[-1].removesuffix(".pbtxt")] = title
@@ -71,6 +74,14 @@ class AntigravityImporter(BaseWireImporter):
                 cid, inner = found
                 if inner == _FULL_TRANSCRIPT or (inner == _COMPACT_TRANSCRIPT and cid not in transcripts):
                     transcripts[cid] = (entry["path"], entry_body(entry).decode("utf-8"))
+
+        for cid in captured:
+            if cid in transcripts:
+                continue
+            summary = summaries.get(cid)
+            if summary and summary.parent_conversation_id:
+                continue
+            logger.warning(f"Skipping Antigravity conversation {cid}: no JSONL transcript in archive")
 
         return [
             log
@@ -112,6 +123,19 @@ class AntigravityImporter(BaseWireImporter):
         metadata |= models_field(models)
 
         return EventLog(created=events[0].created, events=events, title=title, metadata=metadata)
+
+
+def _conversation_id(parts: tuple[str, ...]) -> str | None:
+    """The conversation id named by an archive entry under `brain/`, `conversations/` or `annotations/`, else None."""
+    if (found := _transcript_ref(parts)) is not None:
+        return found[0]
+    if len(parts) >= 2 and parts[-2] == "annotations" and parts[-1].endswith(".pbtxt"):
+        return parts[-1].removesuffix(".pbtxt")
+    if len(parts) >= 2 and parts[-2] == "conversations":
+        for suffix in (".db", ".pb", ".db-wal"):
+            if parts[-1].endswith(suffix):
+                return parts[-1].removesuffix(suffix)
+    return None
 
 
 def _transcript_ref(parts: tuple[str, ...]) -> tuple[str, str] | None:

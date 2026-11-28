@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import sqlite3
 from contextlib import closing
 from datetime import UTC, datetime
@@ -365,6 +366,36 @@ def test_antigravity_import_reads_wal_mode_summaries_db_bytes(tmp_path):
     [log] = owned(AntigravityImporter).import_(archive)
 
     assert (log.title, log.metadata["project_id"]) == ("From WAL", "proj-wal")
+
+
+def test_antigravity_import_warns_once_for_each_captured_conversation_without_a_transcript(tmp_path, caplog):
+    """IDE `.pb`-only captures render no note; log the gap once per conversation rather than dropping it silently."""
+    entries = [
+        {"endpoint": "file", "path": "antigravity/brain/ide-1/task.md", "response": "# Task\n"},
+        {
+            "endpoint": "file",
+            "path": "antigravity/conversations/ide-1.pb",
+            "response": "CAESBQ==",
+            "encoding": "base64",
+        },
+        {"endpoint": "file", "path": "antigravity-cli/brain/sub-1/plan.md", "response": "# Sub\n"},
+        {
+            "endpoint": "file",
+            "path": "antigravity-cli/brain/cli-1/.system_generated/logs/transcript_full.jsonl",
+            "response": _jsonl(_user("hello", "2026-11-25T08:10:00Z")),
+        },
+        _summaries_entry([("ide-1", "IDE Chat", "", ""), ("sub-1", "Sub", "cli-1", ""), ("cli-1", "CLI Chat", "", "")]),
+    ]
+    archive = write_archive(tmp_path / "antigravity-wire.jsonl.xz", "antigravity", entries)
+
+    with caplog.at_level(logging.WARNING):
+        logs = owned(AntigravityImporter).import_(archive)
+
+    assert [log.metadata["conversation_id"] for log in logs] == ["cli-1"]
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "ide-1" in warnings[0]
+    assert "sub-1" not in warnings[0]
 
 
 @pytest.mark.parametrize("text", ["", '{"step_index": 0, "type": "GENERIC", "created_at": "2026-11-25T08:10:00Z"}\n'])
